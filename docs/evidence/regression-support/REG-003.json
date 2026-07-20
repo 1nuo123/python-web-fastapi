@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-003",
+  "source_path": "src\\infrastructure\\testing\\sqlite_test_engine_factory.py",
+  "source_line": 6,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\testing\\sqlite_test_engine_factory.py",
+  "baseline_sha256": null,
+  "current_sha256": "5ab1a52ee9b84160dbf730b0b2b96f1f86576d0b4f2f32f08b5ed52769c292d1",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "并发请求使用测试应用持久化后端。",
+  "affected_scope": "测试数据库隔离和资源释放。",
+  "reproduction_command": "pytest -q test/unit_test -k test_app_factory",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_fastapi_app_assembler_unit.py",
+  "directed_testcase": "test_test_app_factory_should_inject_demo_binding_explicitly",
+  "key_assertions": [
+    "测试应用持久化资源按工厂隔离并可释放。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_fastapi_app_assembler_unit.py -k test_test_app_factory_should_inject_demo_binding_explicitly",
+  "impact_rerun_command": "nox -s regression"
+}

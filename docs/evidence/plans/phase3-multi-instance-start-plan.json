@@ -1,0 +1,16 @@
+{
+  "output_directory": "docs/evidence/load/current-final",
+  "stop_on_failure": false,
+  "steps": [
+    {
+      "name": "multi-instance-a-start",
+      "argv": ["docker", "compose", "-p", "fastapi-load-current-a", "-f", "compose.yml", "-f", "compose.production.yml", "-f", "docs/evidence/plans/production-load-a.override.yml", "up", "-d", "--wait", "app"],
+      "timeout_seconds": 300
+    },
+    {
+      "name": "multi-instance-b-start",
+      "argv": ["docker", "compose", "-p", "fastapi-load-current-b", "-f", "compose.yml", "-f", "compose.production.yml", "-f", "docs/evidence/plans/production-load-b.override.yml", "up", "-d", "--wait", "app"],
+      "timeout_seconds": 300
+    }
+  ]
+}

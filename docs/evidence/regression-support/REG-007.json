@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-007",
+  "source_path": "src\\infrastructure\\resource_mount\\shared_resource_lifecycle.py",
+  "source_line": 608,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\resource_mount\\shared_resource_lifecycle.py",
+  "baseline_sha256": null,
+  "current_sha256": "faafbee9bfa7a0c839de81bfb406c5bf906763451c3e9a92e07a8afdefa359ac",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "关闭包含 Outbox 的任务运行时。",
+  "affected_scope": "publisher、dispatcher、后台线程和测试资源。",
+  "reproduction_command": "pytest -q test/unit_test -k outbox",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_task_execution_outbox_publisher_unit.py",
+  "directed_testcase": "test_background_worker_should_start_and_shutdown_cleanly",
+  "key_assertions": [
+    "Outbox worker 可确定停止并释放线程。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_task_execution_outbox_publisher_unit.py -k test_background_worker_should_start_and_shutdown_cleanly",
+  "impact_rerun_command": "nox -s regression"
+}

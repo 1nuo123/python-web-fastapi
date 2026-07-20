@@ -1,0 +1,68 @@
+[
+  {
+    "kind": "log",
+    "path": "docs\\evidence\\image\\current\\docker-version.log",
+    "sha256": "a0db02a3d40315df4c9173da2ca40324a30c9199efc059d2300f2fffb7a67c87",
+    "command_index": 0
+  },
+  {
+    "kind": "log",
+    "path": "docs\\evidence\\image\\current\\production-build.log",
+    "sha256": "04fe8a010b94febe0aa82fe112634f9f61c6ba959029426a056896f1cb5faad1",
+    "command_index": 1
+  },
+  {
+    "kind": "log",
+    "path": "docs\\evidence\\image\\current\\production-up.log",
+    "sha256": "452c59d1ca038a4de1c0305a5047b83f0a847fa9e01587ddf479890172e58469",
+    "command_index": 2
+  },
+  {
+    "kind": "log",
+    "path": "docs\\evidence\\image\\current\\production-status.log",
+    "sha256": "93b8c3fef54591d23a6a4ebf8f4925ba7f247d0964d94a153476e8f022c98934",
+    "command_index": 3
+  },
+  {
+    "kind": "image",
+    "path": "docs\\evidence\\image\\current\\application-inspect.log",
+    "sha256": "5bf45a1f78e7dfbcf313e130d6ce47ff04da42c64826eb12e2284221a9c111dc",
+    "command_index": 4
+  },
+  {
+    "kind": "log",
+    "path": "docs\\evidence\\image\\current\\application-permissions.log",
+    "sha256": "ff67a894826d52cfd937599017e2c8ff7aec83d0be380696f13112afe1d7d682",
+    "command_index": 5
+  },
+  {
+    "kind": "log",
+    "path": "docs\\evidence\\image\\current\\application-sigterm.log",
+    "sha256": "6ba7a653b252d77a73c9bb638905d9dd58c3a0e720ddf1b956139df6a4158fe1",
+    "command_index": 6
+  },
+  {
+    "kind": "log",
+    "path": "docs\\evidence\\image\\current\\application-shutdown-logs.log",
+    "sha256": "951687beda1810e6bd6a7bf78ef28808cd1ba60fc2bb0d676e1c3a1e0107148c",
+    "command_index": 7
+  },
+  {
+    "kind": "log",
+    "path": "docs\\evidence\\image\\current\\application-restart.log",
+    "sha256": "6ba7a653b252d77a73c9bb638905d9dd58c3a0e720ddf1b956139df6a4158fe1",
+    "command_index": 8
+  },
+  {
+    "kind": "log",
+    "path": "docs\\evidence\\image\\current\\application-recovery.log",
+    "sha256": "6a84ae4ebc4317f0317f1f82b12d3e5b6906ad36b5cd69eb8e52574f824d68c6",
+    "command_index": 9
+  },
+  {
+    "kind": "log",
+    "path": "docs\\evidence\\image\\current\\production-cleanup.log",
+    "sha256": "ad3d59159b92b2154dd874b8e8a78f756c465deed5d932eba4c3dd393cc36cb9",
+    "command_index": 10
+  }
+]

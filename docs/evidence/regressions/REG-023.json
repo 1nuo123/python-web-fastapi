@@ -1,0 +1,57 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-023",
+    "affected_module": ".github/workflows/quality.yml",
+    "severity": "P3",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "environment_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "CI regression 缺少真实依赖和远端执行留痕。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-023.json",
+    "kind": "environment_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": ".github\\workflows\\quality.yml",
+    "source_line": 10,
+    "trigger_condition": "首次推送后执行 GitHub Actions quality。",
+    "affected_scope": "远端质量门禁与 artifact。",
+    "reproduction_command": "gh run list --workflow quality",
+    "test_layer": "integration",
+    "test_file": "test\\integration_test\\test_migration_job_integration.py",
+    "directed_testcase": "test_compose_should_gate_app_by_migration_job",
+    "key_assertions": [
+      "CI 同入口具备真实依赖和迁移门禁。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-023.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\ci\\github-actions-quality-run.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:03.369599Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-023.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:03.369599Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-023.json"
+    }
+  ],
+  "deferred_disposition": {
+    "owner": "仓库维护者与发布负责人",
+    "risk": "缺少远端 CI 留痕时，无法证明托管运行器与本地门禁结果一致。",
+    "prerequisites": [
+      "工作区接入 Git 元数据和 GitHub 远端。"
+    ],
+    "promotion_criteria": [
+      "GitHub Actions quality 运行返回成功。",
+      "保存运行 URL、测试计数、覆盖率与 artifact。"
+    ]
+  }
+}

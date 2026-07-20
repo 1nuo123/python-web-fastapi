@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-011",
+  "source_path": "noxfile.py",
+  "source_line": 47,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\noxfile.py",
+  "baseline_sha256": null,
+  "current_sha256": "967be0cd80b3c4e670e887ed0708329bd82ac95c4b21aa4d237615c08b638d68",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "执行总体及关键域覆盖率门禁。",
+  "affected_scope": "auth、security、task、persistence。",
+  "reproduction_command": "nox -s regression",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_phase_evidence_store_unit.py",
+  "directed_testcase": "test_store_when_test_run_saved_should_build_valid_index",
+  "key_assertions": [
+    "覆盖率和测试运行通过强类型证据持久化。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_phase_evidence_store_unit.py -k test_store_when_test_run_saved_should_build_valid_index",
+  "impact_rerun_command": "nox -s regression"
+}

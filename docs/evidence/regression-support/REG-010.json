@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-010",
+  "source_path": "test\\integration_test\\test_funboost_rabbitmq_integration.py",
+  "source_line": 86,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\test\\integration_test\\test_funboost_rabbitmq_integration.py",
+  "baseline_sha256": "cac4a2beff1bf3f8a6087e660633dd4e88dcefb9f24e4500d6367a7a40acd241",
+  "current_sha256": "8e55baa593538f9712056c2d856ff562cca746d558e6408ec53cd92b0c0939a7",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "执行真实缓存、锁和消息集成测试。",
+  "affected_scope": "缓存、限流、分布式锁、Funboost 和 Outbox。",
+  "reproduction_command": "pytest -q -m \"redis or rabbitmq\"",
+  "test_layer": "integration",
+  "test_file": "test\\integration_test\\test_funboost_rabbitmq_integration.py",
+  "directed_testcase": "test_rabbitmq_message_bus_should_publish_to_real_broker",
+  "key_assertions": [
+    "真实 RabbitMQ 发布成功且资源可回收。"
+  ],
+  "directed_rerun_command": "pytest -q test/integration_test/test_funboost_rabbitmq_integration.py -k test_rabbitmq_message_bus_should_publish_to_real_broker",
+  "impact_rerun_command": "nox -s regression"
+}

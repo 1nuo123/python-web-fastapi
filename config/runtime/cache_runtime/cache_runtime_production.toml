@@ -1,0 +1,53 @@
+[runtime]
+backend = "redis"
+default_ttl_seconds = 30
+key_prefix = "fastapi_web_skeleton"
+
+[runtime.backend_detail]
+kind = "redis_cache_backend"
+schema_version = "1.0"
+redis_url = "redis://:required@redis:6379/0"
+socket_connect_timeout_seconds = 5
+max_connections = 64
+
+[[runtime.namespace_policies]]
+[runtime.namespace_policies.header]
+kind = "cache_policy"
+schema_version = "1.0"
+detail_kind = "auth_throttle_cache_policy"
+namespace = "auth_throttle"
+
+[runtime.namespace_policies.detail]
+kind = "auth_throttle_cache_policy"
+schema_version = "1.0"
+namespace = "auth_throttle"
+default_ttl_seconds = 300
+failure_mode = "fail_closed"
+
+[[runtime.namespace_policies]]
+[runtime.namespace_policies.header]
+kind = "cache_policy"
+schema_version = "1.0"
+detail_kind = "rate_limit_cache_policy"
+namespace = "rate_limit"
+
+[runtime.namespace_policies.detail]
+kind = "rate_limit_cache_policy"
+schema_version = "1.0"
+namespace = "rate_limit"
+default_ttl_seconds = 60
+failure_mode = "fail_closed"
+
+[[runtime.namespace_policies]]
+[runtime.namespace_policies.header]
+kind = "cache_policy"
+schema_version = "1.0"
+detail_kind = "query_result_cache_policy"
+namespace = "query_result"
+
+[runtime.namespace_policies.detail]
+kind = "query_result_cache_policy"
+schema_version = "1.0"
+namespace = "query_result"
+default_ttl_seconds = 120
+failure_mode = "fail_open"

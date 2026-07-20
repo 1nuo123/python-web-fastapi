@@ -1,0 +1,25 @@
+{
+  "output_directory": "docs/evidence/load/current-final/resource-samples",
+  "steps": [
+    {"name": "stats-01", "argv": ["docker", "stats", "--no-stream", "--format", "{{json .}}", "fastapi-load-current-b-app-1"], "timeout_seconds": 15},
+    {"name": "connections-01", "argv": ["docker", "exec", "fastapi-load-current-b-app-1", "sh", "-c", "printf 'threads='; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf 'connections='; grep -hE '^[[:space:]]*[0-9]+:' /proc/net/tcp /proc/net/tcp6 | wc -l"], "timeout_seconds": 15},
+    {"name": "stats-02", "argv": ["docker", "stats", "--no-stream", "--format", "{{json .}}", "fastapi-load-current-b-app-1"], "timeout_seconds": 15},
+    {"name": "connections-02", "argv": ["docker", "exec", "fastapi-load-current-b-app-1", "sh", "-c", "printf 'threads='; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf 'connections='; grep -hE '^[[:space:]]*[0-9]+:' /proc/net/tcp /proc/net/tcp6 | wc -l"], "timeout_seconds": 15},
+    {"name": "stats-03", "argv": ["docker", "stats", "--no-stream", "--format", "{{json .}}", "fastapi-load-current-b-app-1"], "timeout_seconds": 15},
+    {"name": "connections-03", "argv": ["docker", "exec", "fastapi-load-current-b-app-1", "sh", "-c", "printf 'threads='; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf 'connections='; grep -hE '^[[:space:]]*[0-9]+:' /proc/net/tcp /proc/net/tcp6 | wc -l"], "timeout_seconds": 15},
+    {"name": "stats-04", "argv": ["docker", "stats", "--no-stream", "--format", "{{json .}}", "fastapi-load-current-b-app-1"], "timeout_seconds": 15},
+    {"name": "connections-04", "argv": ["docker", "exec", "fastapi-load-current-b-app-1", "sh", "-c", "printf 'threads='; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf 'connections='; grep -hE '^[[:space:]]*[0-9]+:' /proc/net/tcp /proc/net/tcp6 | wc -l"], "timeout_seconds": 15},
+    {"name": "stats-05", "argv": ["docker", "stats", "--no-stream", "--format", "{{json .}}", "fastapi-load-current-b-app-1"], "timeout_seconds": 15},
+    {"name": "connections-05", "argv": ["docker", "exec", "fastapi-load-current-b-app-1", "sh", "-c", "printf 'threads='; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf 'connections='; grep -hE '^[[:space:]]*[0-9]+:' /proc/net/tcp /proc/net/tcp6 | wc -l"], "timeout_seconds": 15},
+    {"name": "stats-06", "argv": ["docker", "stats", "--no-stream", "--format", "{{json .}}", "fastapi-load-current-b-app-1"], "timeout_seconds": 15},
+    {"name": "connections-06", "argv": ["docker", "exec", "fastapi-load-current-b-app-1", "sh", "-c", "printf 'threads='; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf 'connections='; grep -hE '^[[:space:]]*[0-9]+:' /proc/net/tcp /proc/net/tcp6 | wc -l"], "timeout_seconds": 15},
+    {"name": "stats-07", "argv": ["docker", "stats", "--no-stream", "--format", "{{json .}}", "fastapi-load-current-b-app-1"], "timeout_seconds": 15},
+    {"name": "connections-07", "argv": ["docker", "exec", "fastapi-load-current-b-app-1", "sh", "-c", "printf 'threads='; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf 'connections='; grep -hE '^[[:space:]]*[0-9]+:' /proc/net/tcp /proc/net/tcp6 | wc -l"], "timeout_seconds": 15},
+    {"name": "stats-08", "argv": ["docker", "stats", "--no-stream", "--format", "{{json .}}", "fastapi-load-current-b-app-1"], "timeout_seconds": 15},
+    {"name": "connections-08", "argv": ["docker", "exec", "fastapi-load-current-b-app-1", "sh", "-c", "printf 'threads='; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf 'connections='; grep -hE '^[[:space:]]*[0-9]+:' /proc/net/tcp /proc/net/tcp6 | wc -l"], "timeout_seconds": 15},
+    {"name": "stats-09", "argv": ["docker", "stats", "--no-stream", "--format", "{{json .}}", "fastapi-load-current-b-app-1"], "timeout_seconds": 15},
+    {"name": "connections-09", "argv": ["docker", "exec", "fastapi-load-current-b-app-1", "sh", "-c", "printf 'threads='; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf 'connections='; grep -hE '^[[:space:]]*[0-9]+:' /proc/net/tcp /proc/net/tcp6 | wc -l"], "timeout_seconds": 15},
+    {"name": "stats-10", "argv": ["docker", "stats", "--no-stream", "--format", "{{json .}}", "fastapi-load-current-b-app-1"], "timeout_seconds": 15},
+    {"name": "connections-10", "argv": ["docker", "exec", "fastapi-load-current-b-app-1", "sh", "-c", "printf 'threads='; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf 'connections='; grep -hE '^[[:space:]]*[0-9]+:' /proc/net/tcp /proc/net/tcp6 | wc -l"], "timeout_seconds": 15}
+  ]
+}

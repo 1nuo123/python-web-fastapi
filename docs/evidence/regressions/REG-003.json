@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-003",
+    "affected_module": "src/infrastructure/testing/sqlite_test_engine_factory.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "test_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "单连接内存 SQLite 让并发资源与业务事务共享连接。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-003.json",
+    "kind": "test_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\testing\\sqlite_test_engine_factory.py",
+    "source_line": 6,
+    "trigger_condition": "并发请求使用测试应用持久化后端。",
+    "affected_scope": "测试数据库隔离和资源释放。",
+    "reproduction_command": "pytest -q test/unit_test -k test_app_factory",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_fastapi_app_assembler_unit.py",
+    "directed_testcase": "test_test_app_factory_should_inject_demo_binding_explicitly",
+    "key_assertions": [
+      "测试应用持久化资源按工厂隔离并可释放。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-003.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:00.334418Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-003.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:00.334418Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-003.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

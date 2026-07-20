@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-010",
+    "affected_module": "test/integration_test/test_funboost_rabbitmq_integration.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "environment_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "Redis 与 RabbitMQ 初始不可用。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-010.json",
+    "kind": "environment_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "test\\integration_test\\test_funboost_rabbitmq_integration.py",
+    "source_line": 86,
+    "trigger_condition": "执行真实缓存、锁和消息集成测试。",
+    "affected_scope": "缓存、限流、分布式锁、Funboost 和 Outbox。",
+    "reproduction_command": "pytest -q -m \"redis or rabbitmq\"",
+    "test_layer": "integration",
+    "test_file": "test\\integration_test\\test_funboost_rabbitmq_integration.py",
+    "directed_testcase": "test_rabbitmq_message_bus_should_publish_to_real_broker",
+    "key_assertions": [
+      "真实 RabbitMQ 发布成功且资源可回收。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-010.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:01.505056Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-010.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:01.505056Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-010.json"
+    }
+  ],
+  "deferred_disposition": null
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-008",
+  "source_path": "compose.yml",
+  "source_line": 3,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\compose.yml",
+  "baseline_sha256": "040849d539774fffaa3622357668d2bf91b0b7a84bcc771e17cca1be13273c2a",
+  "current_sha256": "b6710174f2242b4af3969e4cf380761927818a26e6bf0aa25df16754a0ad44b1",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "执行生产容器验证。",
+  "affected_scope": "镜像、Compose 和容器生命周期。",
+  "reproduction_command": "docker info",
+  "test_layer": "integration",
+  "test_file": "test\\integration_test\\test_security_production_integration.py",
+  "directed_testcase": "test_production_app_should_keep_bounded_read_only_runtime",
+  "key_assertions": [
+    "生产容器配置保持只读和有界资源。"
+  ],
+  "directed_rerun_command": "pytest -q test/integration_test/test_security_production_integration.py -k test_production_app_should_keep_bounded_read_only_runtime",
+  "impact_rerun_command": "nox -s regression"
+}

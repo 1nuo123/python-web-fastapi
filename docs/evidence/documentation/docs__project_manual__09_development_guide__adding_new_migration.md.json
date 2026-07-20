@@ -1,0 +1,24 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "topic": "docs/project_manual/09_development_guide/adding_new_migration.md",
+    "applicable_version": "2026.07.15",
+    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+    "verified_at": "2026-07-19T02:31:56.758477Z"
+  },
+  "kind": "architecture",
+  "detail": {
+    "schema_version": "1.0",
+    "truth_source": "source",
+    "evidence_path": "docs\\project_manual\\09_development_guide\\adding_new_migration.md",
+    "status": "current",
+    "replacement_path": null,
+    "content_sha256": "80930705582f3c5b06a8489f6d54922e7d00dc57e8ef821eeebe6849134c754d",
+    "validation_status": "verified",
+    "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
+    "fact_evidence_paths": [
+      "src"
+    ],
+    "kind": "architecture"
+  }
+}

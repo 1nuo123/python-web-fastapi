@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-014",
+    "affected_module": "compose.yml",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "RabbitMQ ping 健康早于 AMQP 监听就绪。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-014.json",
+    "kind": "source_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "critical-path",
+  "evidence": {
+    "source_path": "compose.yml",
+    "source_line": 61,
+    "trigger_condition": "依赖健康后立即启动消费者。",
+    "affected_scope": "RabbitMQ 健康门禁和生产启动。",
+    "reproduction_command": "docker compose up -d --wait rabbitmq",
+    "test_layer": "integration",
+    "test_file": "test\\integration_test\\test_security_production_integration.py",
+    "directed_testcase": "test_rabbitmq_healthcheck_should_wait_for_listener_connectivity",
+    "key_assertions": [
+      "RabbitMQ 健康检查等待监听端口。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-014.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:02.219512Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-014.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:02.219512Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-014.json"
+    }
+  ],
+  "deferred_disposition": null
+}

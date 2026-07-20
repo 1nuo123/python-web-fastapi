@@ -1,0 +1,32 @@
+[
+  {
+    "command": ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 8 -r 2 -t 10s --host http://127.0.0.1:8000 --csv docs/evidence/load/current-final/steady-baseline --html docs/evidence/load/current-final/steady-baseline.html",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\steady-baseline.log",
+    "started_at": "2026-07-16T10:45:46.592268Z",
+    "finished_at": "2026-07-16T10:45:59.667023Z",
+    "duration_seconds": 13.069722699990962
+  },
+  {
+    "command": ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 32 -r 16 -t 10s --host http://127.0.0.1:8000 --csv docs/evidence/load/current-final/burst --html docs/evidence/load/current-final/burst.html",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\burst.log",
+    "started_at": "2026-07-16T10:45:59.667023Z",
+    "finished_at": "2026-07-16T10:46:12.867710Z",
+    "duration_seconds": 13.199883799999952
+  },
+  {
+    "command": ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 64 -r 32 -t 10s --host http://127.0.0.1:8000 --csv docs/evidence/load/current-final/overload --html docs/evidence/load/current-final/overload.html",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\overload.log",
+    "started_at": "2026-07-16T10:46:12.867710Z",
+    "finished_at": "2026-07-16T10:46:26.488014Z",
+    "duration_seconds": 13.618357300001662
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "topic": "docs/project_manual/08_testing/boundary_exception_path_tests.md",
+    "applicable_version": "2026.07.15",
+    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+    "verified_at": "2026-07-19T02:31:56.758477Z"
+  },
+  "kind": "testing",
+  "detail": {
+    "schema_version": "1.0",
+    "truth_source": "test_report",
+    "evidence_path": "docs\\project_manual\\08_testing\\boundary_exception_path_tests.md",
+    "status": "current",
+    "replacement_path": null,
+    "content_sha256": "ea001547604a9ae09dcaacf18e1c6fa17678337c5738c6db6f5f794e351426b8",
+    "validation_status": "verified",
+    "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
+    "fact_evidence_paths": [
+      "noxfile.py",
+      "pyproject.toml",
+      "docs\\evidence\\phase_evidence_index.json"
+    ],
+    "kind": "testing"
+  }
+}

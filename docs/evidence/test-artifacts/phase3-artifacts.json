@@ -1,0 +1,14 @@
+[
+  {
+    "kind": "junit",
+    "path": "docs/evidence/test-artifacts/phase3-final-regression.xml",
+    "sha256": "794c1c6b2bae4a3ec662e8b3ce95a79a249ec9cc14b6ff595092eb0d4adfb9d9",
+    "command_index": 0
+  },
+  {
+    "kind": "coverage",
+    "path": "docs/evidence/test-artifacts/phase3-final-coverage.json",
+    "sha256": "81001803e11daed6ae8c4eb7c06eae02686835c3d73824e12834e738b6669c2d",
+    "command_index": 0
+  }
+]

@@ -1,0 +1,23 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "static-5a65374c16054ba29ef5085aa8cc4be7",
+    "code_baseline": "58d1fdeade06e8fb569455c28e1c74cbd7b81ccb691bc43cd85384a80ca95d05",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-15T11:15:19.244635Z",
+    "command_entry": "nox -s static"
+  },
+  "kind": "static",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": "nox -s static",
+    "exit_code": 0,
+    "test_count": null,
+    "duration_seconds": 61.283666299976176,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\static-5a65374c16054ba29ef5085aa8cc4be7.json",
+    "kind": "static"
+  }
+}

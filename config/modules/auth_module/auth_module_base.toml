@@ -1,0 +1,5 @@
+[module.bootstrap_admin]
+enabled = false
+username = ""
+subject_id = ""
+role_bindings = []

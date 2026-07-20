@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-013",
+    "affected_module": "Dockerfile",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "只读生产镜像缺少第三方任务和日志入口配置。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-013.json",
+    "kind": "source_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "critical-path",
+  "evidence": {
+    "source_path": "Dockerfile",
+    "source_line": 34,
+    "trigger_condition": "在只读根文件系统启动生产镜像。",
+    "affected_scope": "应用、迁移和任务 worker 镜像。",
+    "reproduction_command": "docker compose build",
+    "test_layer": "integration",
+    "test_file": "test\\integration_test\\test_migration_job_integration.py",
+    "directed_testcase": "test_dockerfile_should_include_third_party_entry_configs",
+    "key_assertions": [
+      "只读镜像包含任务和日志运行入口配置。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-013.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:02.212477Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-013.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:02.212477Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-013.json"
+    }
+  ],
+  "deferred_disposition": null
+}

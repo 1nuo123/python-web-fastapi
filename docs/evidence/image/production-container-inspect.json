@@ -1,0 +1,56 @@
+﻿[
+    {
+        "name":  "production-validation-app-1",
+        "image":  "sha256:c810d6d598f2b2a19fec3631e0efcab39b0f4f4feaf0a27df10b6b19111096ff",
+        "user":  "app",
+        "readonly_rootfs":  true,
+        "pids_limit":  256,
+        "cap_drop":  [
+                         "ALL"
+                     ],
+        "security_opt":  [
+                             "no-new-privileges:true"
+                         ],
+        "memory":  1073741824,
+        "nano_cpus":  2000000000,
+        "status":  "running",
+        "health":  "healthy",
+        "exit_code":  0
+    },
+    {
+        "name":  "production-validation-migration-1",
+        "image":  "sha256:c0cb1c52d348343c82cfc03c30b8f07a250cfb9bd6eee1556948cb5baa6be5f8",
+        "user":  "app",
+        "readonly_rootfs":  true,
+        "pids_limit":  128,
+        "cap_drop":  [
+                         "ALL"
+                     ],
+        "security_opt":  [
+                             "no-new-privileges:true"
+                         ],
+        "memory":  0,
+        "nano_cpus":  0,
+        "status":  "exited",
+        "health":  "unhealthy",
+        "exit_code":  0
+    },
+    {
+        "name":  "production-validation-task-worker-1",
+        "image":  "sha256:56254380b2be6eea1e9d051d6a660be52f561bc1cdf44ba9658c49b21c359449",
+        "user":  "app",
+        "readonly_rootfs":  true,
+        "pids_limit":  256,
+        "cap_drop":  [
+                         "ALL"
+                     ],
+        "security_opt":  [
+                             "no-new-privileges:true"
+                         ],
+        "memory":  1073741824,
+        "nano_cpus":  2000000000,
+        "status":  "running",
+        "health":  "healthy",
+        "exit_code":  0
+    }
+]

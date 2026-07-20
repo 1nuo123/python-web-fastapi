@@ -1,0 +1,24 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "topic": "docs/project_manual/03_application_domain/application_usecases.md",
+    "applicable_version": "2026.07.15",
+    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+    "verified_at": "2026-07-19T02:31:56.758477Z"
+  },
+  "kind": "architecture",
+  "detail": {
+    "schema_version": "1.0",
+    "truth_source": "source",
+    "evidence_path": "docs\\project_manual\\03_application_domain\\application_usecases.md",
+    "status": "current",
+    "replacement_path": null,
+    "content_sha256": "e8d718d308853cda3606a151f712ffeeb3dd8c451b2f6f21b2107c5534175779",
+    "validation_status": "verified",
+    "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
+    "fact_evidence_paths": [
+      "src"
+    ],
+    "kind": "architecture"
+  }
+}

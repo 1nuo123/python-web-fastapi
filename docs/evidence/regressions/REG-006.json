@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-006",
+    "affected_module": "src/infrastructure/resource_mount/runtime_resource_releaser.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "关闭顺序先释放数据库再刷日志。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-006.json",
+    "kind": "source_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\resource_mount\\runtime_resource_releaser.py",
+    "source_line": 13,
+    "trigger_condition": "应用执行正常或异常关闭。",
+    "affected_scope": "资源生命周期、日志完整性与数据库释放。",
+    "reproduction_command": "pytest -q test/unit_test test/path_test -k shutdown",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_resource_mount_lifecycle_unit.py",
+    "directed_testcase": "test_runtime_resource_releaser_should_continue_when_one_resource_failed",
+    "key_assertions": [
+      "资源释放按冻结顺序执行且聚合失败。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-006.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:00.789288Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-006.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:00.789288Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-006.json"
+    }
+  ],
+  "deferred_disposition": null
+}

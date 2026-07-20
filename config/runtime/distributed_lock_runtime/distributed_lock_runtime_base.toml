@@ -1,0 +1,16 @@
+[runtime]
+envelope_kind = "distributed_lock_runtime"
+schema_version = "1.0"
+
+[runtime.header]
+kind = "distributed_lock_header"
+schema_version = "1.0"
+enabled = true
+policy_name = "distributed_lock_default"
+
+[runtime.detail]
+kind = "distributed_lock_runtime"
+schema_version = "1.0"
+backend = "cache"
+lease_seconds = 10
+wait_seconds = 0

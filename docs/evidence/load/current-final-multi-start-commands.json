@@ -1,0 +1,22 @@
+[
+  {
+    "command": "docker compose -p fastapi-load-current-a -f compose.yml -f compose.production.yml -f docs/evidence/plans/production-load-a.override.yml up -d --wait app",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\multi-instance-a-start.log",
+    "started_at": "2026-07-16T10:50:12.807061Z",
+    "finished_at": "2026-07-16T10:51:04.937131Z",
+    "duration_seconds": 52.131555400032084
+  },
+  {
+    "command": "docker compose -p fastapi-load-current-b -f compose.yml -f compose.production.yml -f docs/evidence/plans/production-load-b.override.yml up -d --wait app",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\multi-instance-b-start.log",
+    "started_at": "2026-07-16T10:51:04.939951Z",
+    "finished_at": "2026-07-16T10:52:08.991644Z",
+    "duration_seconds": 64.05211119999876
+  }
+]

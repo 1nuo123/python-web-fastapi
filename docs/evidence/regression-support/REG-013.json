@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-013",
+  "source_path": "Dockerfile",
+  "source_line": 34,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\Dockerfile",
+  "baseline_sha256": "8546354b04ae9acaea7c1004e38b825f473da9fbae02300b4db7168a9ceed6bf",
+  "current_sha256": "83ffc6315e54e49eaa48d91c11a9c9dbdf05be502da4cc492509cd0abf1172a0",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "在只读根文件系统启动生产镜像。",
+  "affected_scope": "应用、迁移和任务 worker 镜像。",
+  "reproduction_command": "docker compose build",
+  "test_layer": "integration",
+  "test_file": "test\\integration_test\\test_migration_job_integration.py",
+  "directed_testcase": "test_dockerfile_should_include_third_party_entry_configs",
+  "key_assertions": [
+    "只读镜像包含任务和日志运行入口配置。"
+  ],
+  "directed_rerun_command": "pytest -q test/integration_test/test_migration_job_integration.py -k test_dockerfile_should_include_third_party_entry_configs",
+  "impact_rerun_command": "nox -s regression"
+}

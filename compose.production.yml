@@ -1,0 +1,102 @@
+services:
+  postgres:
+    ports: !reset []
+
+  redis:
+    command:
+      [
+        "redis-server",
+        "--requirepass",
+        "${REDIS_PASSWORD:?REDIS_PASSWORD is required}",
+      ]
+    ports: !reset []
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "-a",
+          "${REDIS_PASSWORD:?REDIS_PASSWORD is required}",
+          "ping",
+        ]
+
+  rabbitmq:
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
+    ports: !reset []
+
+  migration:
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${AUTH_BOOTSTRAP_ADMIN_PASSWORD:-}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}@rabbitmq:5672/${RABBITMQ_VHOST_ENCODED:-%2F}
+
+  app:
+    ports: !reset []
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    stop_grace_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1g
+          pids: 256
+        reservations:
+          cpus: "0.25"
+          memory: 256m
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      LOGGING_ENTRY_LOG_PATH: /tmp/logs
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${AUTH_BOOTSTRAP_ADMIN_PASSWORD:-}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}@rabbitmq:5672/${RABBITMQ_VHOST_ENCODED:-%2F}
+
+  task-worker:
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    stop_grace_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1g
+          pids: 256
+        reservations:
+          cpus: "0.25"
+          memory: 256m
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      LOGGING_ENTRY_LOG_PATH: /tmp/logs
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${AUTH_BOOTSTRAP_ADMIN_PASSWORD:-}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}@rabbitmq:5672/${RABBITMQ_VHOST_ENCODED:-%2F}

@@ -1,0 +1,4254 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-07-19T02:31:41.516369Z",
+  "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+  "openapi_sha256": "eaf9b77bfb25e6d142f11fb3659741fe97eba5eba308b3361ccd73e504572cbd",
+  "openapi_document": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "fastapi-web-skeleton",
+      "description": "FastAPI Web 基础设施骨架。",
+      "version": "2026.05.15"
+    },
+    "paths": {
+      "/health/live": {
+        "get": {
+          "tags": [
+            "health"
+          ],
+          "summary": "Get Live",
+          "description": "获取存活探针结果。\n\n:param request: 当前 HTTP 请求对象，用于读取状态、请求头和依赖。约束：需符合 ``Request`` 注解。\n:type request: Request\n:returns: 返回读取到的对象或状态快照。\n:rtype: ResponseEnvelope[HealthProbePayload]",
+          "operationId": "get_live_health_live_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_HealthProbePayload_"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/health/ready": {
+        "get": {
+          "tags": [
+            "health"
+          ],
+          "summary": "Get Ready",
+          "description": "获取就绪。\n\n:param request: 当前 HTTP 请求对象，用于读取状态、请求头和依赖。约束：需符合 ``Request`` 注解。\n:type request: Request\n:returns: 返回读取到的对象或状态快照。\n:rtype: ResponseEnvelope[HealthProbePayload]\n:raises HttpFaultException: 当业务校验失败、资源未就绪、配置错误或令牌状态异常时抛出。",
+          "operationId": "get_ready_health_ready_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_HealthProbePayload_"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/token": {
+        "post": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Post Token",
+          "description": "提交用户名密码并签发访问令牌。\n\n:param request: 当前 HTTP 请求对象，用于读取状态、请求头和依赖。约束：需符合 ``Request`` 注解。\n:type request: Request\n:param command: 接口层命令对象，承载当前操作所需输入。约束：需符合 ``TokenIssueRequest`` 注解。\n:type command: TokenIssueRequest\n:returns: 返回当前操作结果。\n:rtype: ResponseEnvelope[TokenIssuePayload]",
+          "operationId": "post_token_auth_token_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenIssueRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_TokenIssuePayload_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/refresh": {
+        "post": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Post Refresh",
+          "description": "提交刷新令牌并换发访问令牌。\n\n:param request: 当前 HTTP 请求对象，用于读取状态、请求头和依赖。约束：需符合 ``Request`` 注解。\n:type request: Request\n:param command: 接口层命令对象，承载当前操作所需输入。约束：需符合 ``TokenRefreshRequest`` 注解。\n:type command: TokenRefreshRequest\n:returns: 返回当前操作结果。\n:rtype: ResponseEnvelope[TokenIssuePayload]",
+          "operationId": "post_refresh_auth_refresh_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenRefreshRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_TokenIssuePayload_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/revoke": {
+        "post": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Post Revoke",
+          "description": "提交刷新令牌并吊销令牌会话。\n\n:param request: 当前 HTTP 请求对象，用于读取状态、请求头和依赖。约束：需符合 ``Request`` 注解。\n:type request: Request\n:param command: 接口层命令对象，承载当前操作所需输入。约束：需符合 ``TokenRevokeRequest`` 注解。\n:type command: TokenRevokeRequest\n:returns: 返回当前操作结果。\n:rtype: ResponseEnvelope[TokenRevokePayload]",
+          "operationId": "post_revoke_auth_revoke_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenRevokeRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_TokenRevokePayload_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/me": {
+        "get": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Get Me",
+          "description": "获取当前主体。\n\n:param request: 当前 HTTP 请求对象，用于读取状态、请求头和依赖。约束：需符合 ``Request`` 注解。\n:type request: Request\n:returns: 返回读取到的对象或状态快照。\n:rtype: ResponseEnvelope[AuthenticatedPrincipal]",
+          "operationId": "get_me_auth_me_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AuthenticatedPrincipal_"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/admin/scopes": {
+        "get": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "List Scopes",
+          "description": "查询管理员 scope 列表。",
+          "operationId": "list_scopes_admin_scopes_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "keyword",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "关键字过滤。",
+                "title": "Keyword"
+              },
+              "description": "关键字过滤。"
+            },
+            {
+              "name": "enabled",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "启用状态过滤。",
+                "title": "Enabled"
+              },
+              "description": "启用状态过滤。"
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "maximum": 200,
+                "minimum": 1,
+                "description": "返回记录数量上限。",
+                "default": 50,
+                "title": "Limit"
+              },
+              "description": "返回记录数量上限。"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Create Scope",
+          "description": "创建管理员 scope。",
+          "operationId": "create_scope_admin_scopes_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/scopes/{scope_code}": {
+        "get": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Get Scope",
+          "description": "读取管理员 scope 详情。",
+          "operationId": "get_scope_admin_scopes__scope_code__get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "scope_code",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "scope 编码。",
+                "title": "Scope Code"
+              },
+              "description": "scope 编码。"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "patch": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Update Scope",
+          "description": "更新管理员 scope。",
+          "operationId": "update_scope_admin_scopes__scope_code__patch",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "scope_code",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "scope 编码。",
+                "title": "Scope Code"
+              },
+              "description": "scope 编码。"
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Delete Scope",
+          "description": "删除管理员 scope。",
+          "operationId": "delete_scope_admin_scopes__scope_code__delete",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "scope_code",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "scope 编码。",
+                "title": "Scope Code"
+              },
+              "description": "scope 编码。"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/roles": {
+        "get": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "List Roles",
+          "description": "查询管理员角色列表。",
+          "operationId": "list_roles_admin_roles_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "keyword",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "关键字过滤。",
+                "title": "Keyword"
+              },
+              "description": "关键字过滤。"
+            },
+            {
+              "name": "page_size",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "maximum": 200,
+                "minimum": 1,
+                "description": "分页大小。",
+                "default": 50,
+                "title": "Page Size"
+              },
+              "description": "分页大小。"
+            },
+            {
+              "name": "offset",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "分页偏移。",
+                "default": 0,
+                "title": "Offset"
+              },
+              "description": "分页偏移。"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Create Role",
+          "description": "创建管理员角色。",
+          "operationId": "create_role_admin_roles_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/business-roles": {
+        "get": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "List Business Roles",
+          "description": "查询业务后台可分配角色列表。",
+          "operationId": "list_business_roles_admin_business_roles_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "keyword",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "关键字过滤。",
+                "title": "Keyword"
+              },
+              "description": "关键字过滤。"
+            },
+            {
+              "name": "page_size",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "maximum": 200,
+                "minimum": 1,
+                "description": "分页大小。",
+                "default": 50,
+                "title": "Page Size"
+              },
+              "description": "分页大小。"
+            },
+            {
+              "name": "offset",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "分页偏移。",
+                "default": 0,
+                "title": "Offset"
+              },
+              "description": "分页偏移。"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/roles/{role_key}": {
+        "get": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Get Role",
+          "description": "读取管理员角色详情。",
+          "operationId": "get_role_admin_roles__role_key__get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "role_key",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "角色键。",
+                "title": "Role Key"
+              },
+              "description": "角色键。"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "patch": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Update Role",
+          "description": "更新管理员角色。",
+          "operationId": "update_role_admin_roles__role_key__patch",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "role_key",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "角色键。",
+                "title": "Role Key"
+              },
+              "description": "角色键。"
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Delete Role",
+          "description": "删除管理员角色。",
+          "operationId": "delete_role_admin_roles__role_key__delete",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "role_key",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "角色键。",
+                "title": "Role Key"
+              },
+              "description": "角色键。"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/roles/{role_key}/scopes": {
+        "put": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Replace Role Scopes",
+          "description": "替换管理员角色 scope。",
+          "operationId": "replace_role_scopes_admin_roles__role_key__scopes_put",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "role_key",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "角色键。",
+                "title": "Role Key"
+              },
+              "description": "角色键。"
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/users": {
+        "get": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "List Users",
+          "description": "查询管理员用户列表。",
+          "operationId": "list_users_admin_users_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "keyword",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "关键字过滤。",
+                "title": "Keyword"
+              },
+              "description": "关键字过滤。"
+            },
+            {
+              "name": "role_key",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "角色键。",
+                "title": "Role Key"
+              },
+              "description": "角色键。"
+            },
+            {
+              "name": "is_active",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "用户启用状态过滤。",
+                "title": "Is Active"
+              },
+              "description": "用户启用状态过滤。"
+            },
+            {
+              "name": "page_size",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "maximum": 200,
+                "minimum": 1,
+                "description": "分页大小。",
+                "default": 50,
+                "title": "Page Size"
+              },
+              "description": "分页大小。"
+            },
+            {
+              "name": "offset",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "分页偏移。",
+                "default": 0,
+                "title": "Offset"
+              },
+              "description": "分页偏移。"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Create User",
+          "description": "创建管理员用户。",
+          "operationId": "create_user_admin_users_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/users/{subject_id}": {
+        "get": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Get User",
+          "description": "读取管理员用户详情。",
+          "operationId": "get_user_admin_users__subject_id__get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "subject_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "用户主体标识。",
+                "title": "Subject Id"
+              },
+              "description": "用户主体标识。"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "patch": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Update User",
+          "description": "更新管理员用户。",
+          "operationId": "update_user_admin_users__subject_id__patch",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "subject_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "用户主体标识。",
+                "title": "Subject Id"
+              },
+              "description": "用户主体标识。"
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/users/{subject_id}/password": {
+        "post": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Reset User Password",
+          "description": "重置管理员用户密码。",
+          "operationId": "reset_user_password_admin_users__subject_id__password_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "subject_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "用户主体标识。",
+                "title": "Subject Id"
+              },
+              "description": "用户主体标识。"
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/users/{subject_id}/disable": {
+        "post": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Disable User",
+          "description": "停用管理员用户。",
+          "operationId": "disable_user_admin_users__subject_id__disable_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "subject_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "用户主体标识。",
+                "title": "Subject Id"
+              },
+              "description": "用户主体标识。"
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/users/{subject_id}/enable": {
+        "post": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Enable User",
+          "description": "启用管理员用户。",
+          "operationId": "enable_user_admin_users__subject_id__enable_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "subject_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "用户主体标识。",
+                "title": "Subject Id"
+              },
+              "description": "用户主体标识。"
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/users/{subject_id}/roles": {
+        "post": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Replace User Roles",
+          "description": "替换管理员用户角色。",
+          "operationId": "replace_user_roles_admin_users__subject_id__roles_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "subject_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "用户主体标识。",
+                "title": "Subject Id"
+              },
+              "description": "用户主体标识。"
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/audit-events": {
+        "get": {
+          "tags": [
+            "admin_audit"
+          ],
+          "summary": "List Audit Events",
+          "description": "查询业务审计事件列表。",
+          "operationId": "list_audit_events_admin_audit_events_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "actor_subject_id",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "操作者主体标识。",
+                "title": "Actor Subject Id"
+              },
+              "description": "操作者主体标识。"
+            },
+            {
+              "name": "action",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AdminAuditAction"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "业务审计动作。",
+                "title": "Action"
+              },
+              "description": "业务审计动作。"
+            },
+            {
+              "name": "target_kind",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "目标对象类型。",
+                "title": "Target Kind"
+              },
+              "description": "目标对象类型。"
+            },
+            {
+              "name": "target_id",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "目标对象标识。",
+                "title": "Target Id"
+              },
+              "description": "目标对象标识。"
+            },
+            {
+              "name": "occurred_from",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "发生时间起点。",
+                "title": "Occurred From"
+              },
+              "description": "发生时间起点。"
+            },
+            {
+              "name": "occurred_to",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "发生时间终点。",
+                "title": "Occurred To"
+              },
+              "description": "发生时间终点。"
+            },
+            {
+              "name": "page_size",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "maximum": 200,
+                "minimum": 1,
+                "description": "分页大小。",
+                "default": 50,
+                "title": "Page Size"
+              },
+              "description": "分页大小。"
+            },
+            {
+              "name": "offset",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "分页偏移。",
+                "default": 0,
+                "title": "Offset"
+              },
+              "description": "分页偏移。"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminAuditEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "AdminAuditAction": {
+          "type": "string",
+          "enum": [
+            "user_created",
+            "user_updated",
+            "user_disabled",
+            "user_enabled",
+            "password_reset",
+            "role_assigned"
+          ],
+          "title": "AdminAuditAction",
+          "description": "业务审计动作枚举。"
+        },
+        "AdminAuditEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/AdminAuditHeader"
+            },
+            "detail": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AdminAuditEventPayload"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminAuditEventListPayload"
+                }
+              ],
+              "title": "Detail",
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "admin_audit_event": "#/components/schemas/AdminAuditEventPayload",
+                  "admin_audit_event_list": "#/components/schemas/AdminAuditEventListPayload"
+                }
+              }
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "AdminAuditEnvelope",
+          "description": "业务审计信封。"
+        },
+        "AdminAuditEventListPayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_audit_event_list",
+              "title": "Kind",
+              "default": "admin_audit_event_list"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "events": {
+              "items": {
+                "$ref": "#/components/schemas/AdminAuditEventPayload"
+              },
+              "type": "array",
+              "title": "Events"
+            },
+            "page_size": {
+              "type": "integer",
+              "maximum": 200.0,
+              "minimum": 1.0,
+              "title": "Page Size",
+              "default": 50
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "Offset",
+              "default": 0
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "Total"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "events",
+            "total"
+          ],
+          "title": "AdminAuditEventListPayload",
+          "description": "业务审计事件列表载荷。"
+        },
+        "AdminAuditEventPayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_audit_event",
+              "title": "Kind",
+              "default": "admin_audit_event"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "event_id": {
+              "type": "string",
+              "title": "Event Id"
+            },
+            "action": {
+              "$ref": "#/components/schemas/AdminAuditAction"
+            },
+            "actor_subject_id": {
+              "type": "string",
+              "title": "Actor Subject Id"
+            },
+            "target_kind": {
+              "type": "string",
+              "title": "Target Kind"
+            },
+            "target_id": {
+              "type": "string",
+              "title": "Target Id"
+            },
+            "result": {
+              "$ref": "#/components/schemas/AdminAuditResult"
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Occurred At"
+            },
+            "summary": {
+              "type": "string",
+              "title": "Summary"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "event_id",
+            "action",
+            "actor_subject_id",
+            "target_kind",
+            "target_id",
+            "result",
+            "occurred_at",
+            "summary"
+          ],
+          "title": "AdminAuditEventPayload",
+          "description": "业务审计事件载荷。"
+        },
+        "AdminAuditHeader": {
+          "properties": {
+            "kind": {
+              "$ref": "#/components/schemas/AdminAuditPayloadKind"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "operation_name": {
+              "$ref": "#/components/schemas/AdminAuditOperationName"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "operation_name"
+          ],
+          "title": "AdminAuditHeader",
+          "description": "业务审计公共头。"
+        },
+        "AdminAuditOperationName": {
+          "type": "string",
+          "enum": [
+            "event_list"
+          ],
+          "title": "AdminAuditOperationName",
+          "description": "业务审计操作名称枚举。"
+        },
+        "AdminAuditPayloadKind": {
+          "type": "string",
+          "enum": [
+            "admin_audit_event",
+            "admin_audit_event_list"
+          ],
+          "title": "AdminAuditPayloadKind",
+          "description": "业务审计载荷类型枚举。"
+        },
+        "AdminAuditResult": {
+          "type": "string",
+          "enum": [
+            "success",
+            "failed"
+          ],
+          "title": "AdminAuditResult",
+          "description": "业务审计结果枚举。"
+        },
+        "AdminBusinessRoleListPayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_business_role_list",
+              "title": "Kind",
+              "default": "admin_business_role_list"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "roles": {
+              "items": {
+                "$ref": "#/components/schemas/AdminBusinessRolePayload"
+              },
+              "type": "array",
+              "title": "Roles"
+            },
+            "page_size": {
+              "type": "integer",
+              "maximum": 200.0,
+              "minimum": 1.0,
+              "title": "Page Size"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "Offset"
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "Total"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "roles",
+            "page_size",
+            "offset",
+            "total"
+          ],
+          "title": "AdminBusinessRoleListPayload",
+          "description": "业务后台可分配角色分页载荷。"
+        },
+        "AdminBusinessRolePayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_business_role",
+              "title": "Kind",
+              "default": "admin_business_role"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "role_key": {
+              "$ref": "#/components/schemas/BusinessAdminRoleKey"
+            },
+            "role_name": {
+              "type": "string",
+              "title": "Role Name"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "role_key",
+            "role_name"
+          ],
+          "title": "AdminBusinessRolePayload",
+          "description": "业务后台可分配角色载荷。"
+        },
+        "AdminIdentityDeleteResultPayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "admin_scope_delete_result",
+                "admin_role_delete_result",
+                "admin_user_delete_result"
+              ],
+              "title": "Kind"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "target_id": {
+              "type": "string",
+              "title": "Target Id"
+            },
+            "deleted": {
+              "type": "boolean",
+              "title": "Deleted"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "target_id",
+            "deleted",
+            "reason"
+          ],
+          "title": "AdminIdentityDeleteResultPayload",
+          "description": "管理员身份删除结果载荷。"
+        },
+        "AdminIdentityEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/AdminIdentityHeader"
+            },
+            "detail": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AdminScopePayload"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminScopeListPayload"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminScopeCreateRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminScopeUpdateRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminRolePayload"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminRoleListPayload"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminRoleCreateRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminRoleUpdateRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminRoleScopeReplaceRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminBusinessRolePayload"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminBusinessRoleListPayload"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminUserPayload"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminUserListPayload"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminUserCreateRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminUserUpdateRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminUserPasswordResetRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminUserRoleReplaceRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminUserDisableRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminUserEnableRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminUserStatusResultPayload"
+                },
+                {
+                  "$ref": "#/components/schemas/AdminIdentityDeleteResultPayload"
+                }
+              ],
+              "title": "Detail",
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "admin_business_role": "#/components/schemas/AdminBusinessRolePayload",
+                  "admin_business_role_list": "#/components/schemas/AdminBusinessRoleListPayload",
+                  "admin_role": "#/components/schemas/AdminRolePayload",
+                  "admin_role_create": "#/components/schemas/AdminRoleCreateRequest",
+                  "admin_role_delete_result": "#/components/schemas/AdminIdentityDeleteResultPayload",
+                  "admin_role_list": "#/components/schemas/AdminRoleListPayload",
+                  "admin_role_scope_replace": "#/components/schemas/AdminRoleScopeReplaceRequest",
+                  "admin_role_update": "#/components/schemas/AdminRoleUpdateRequest",
+                  "admin_scope": "#/components/schemas/AdminScopePayload",
+                  "admin_scope_create": "#/components/schemas/AdminScopeCreateRequest",
+                  "admin_scope_delete_result": "#/components/schemas/AdminIdentityDeleteResultPayload",
+                  "admin_scope_list": "#/components/schemas/AdminScopeListPayload",
+                  "admin_scope_update": "#/components/schemas/AdminScopeUpdateRequest",
+                  "admin_user": "#/components/schemas/AdminUserPayload",
+                  "admin_user_create": "#/components/schemas/AdminUserCreateRequest",
+                  "admin_user_delete_result": "#/components/schemas/AdminIdentityDeleteResultPayload",
+                  "admin_user_disable": "#/components/schemas/AdminUserDisableRequest",
+                  "admin_user_enable": "#/components/schemas/AdminUserEnableRequest",
+                  "admin_user_list": "#/components/schemas/AdminUserListPayload",
+                  "admin_user_password_reset": "#/components/schemas/AdminUserPasswordResetRequest",
+                  "admin_user_role_replace": "#/components/schemas/AdminUserRoleReplaceRequest",
+                  "admin_user_status_result": "#/components/schemas/AdminUserStatusResultPayload",
+                  "admin_user_update": "#/components/schemas/AdminUserUpdateRequest"
+                }
+              }
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "AdminIdentityEnvelope",
+          "description": "管理员身份信封。"
+        },
+        "AdminIdentityHeader": {
+          "properties": {
+            "kind": {
+              "$ref": "#/components/schemas/AdminIdentityPayloadKind"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "operation_name": {
+              "$ref": "#/components/schemas/AdminIdentityOperationName"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "operation_name"
+          ],
+          "title": "AdminIdentityHeader",
+          "description": "管理员身份公共头。"
+        },
+        "AdminIdentityOperationName": {
+          "type": "string",
+          "enum": [
+            "scope_list",
+            "scope_detail",
+            "scope_create",
+            "scope_update",
+            "scope_delete",
+            "role_list",
+            "role_detail",
+            "role_create",
+            "role_update",
+            "role_scope_replace",
+            "role_delete",
+            "user_list",
+            "user_detail",
+            "user_create",
+            "user_update",
+            "user_password_reset",
+            "user_role_replace",
+            "user_delete",
+            "user_disable",
+            "user_enable"
+          ],
+          "title": "AdminIdentityOperationName",
+          "description": "管理员身份操作名称枚举。"
+        },
+        "AdminIdentityPayloadKind": {
+          "type": "string",
+          "enum": [
+            "admin_scope",
+            "admin_scope_list",
+            "admin_scope_create",
+            "admin_scope_update",
+            "admin_scope_delete_result",
+            "admin_role",
+            "admin_role_list",
+            "admin_role_create",
+            "admin_role_update",
+            "admin_role_scope_replace",
+            "admin_role_delete_result",
+            "admin_user",
+            "admin_user_list",
+            "admin_user_create",
+            "admin_user_update",
+            "admin_user_password_reset",
+            "admin_user_role_replace",
+            "admin_user_delete_result",
+            "admin_user_disable",
+            "admin_user_enable",
+            "admin_user_status_result",
+            "admin_business_role",
+            "admin_business_role_list"
+          ],
+          "title": "AdminIdentityPayloadKind",
+          "description": "管理员身份载荷类型枚举。"
+        },
+        "AdminRoleCreateRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_role_create",
+              "title": "Kind",
+              "default": "admin_role_create"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "role_key": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Role Key"
+            },
+            "role_name": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Role Name"
+            },
+            "scope_codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Scope Codes"
+            },
+            "confirmation": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64,
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Confirmation"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "role_key",
+            "role_name"
+          ],
+          "title": "AdminRoleCreateRequest",
+          "description": "管理员角色创建请求。"
+        },
+        "AdminRoleListPayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_role_list",
+              "title": "Kind",
+              "default": "admin_role_list"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "roles": {
+              "items": {
+                "$ref": "#/components/schemas/AdminRolePayload"
+              },
+              "type": "array",
+              "title": "Roles"
+            },
+            "page_size": {
+              "type": "integer",
+              "maximum": 200.0,
+              "minimum": 1.0,
+              "title": "Page Size"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "Offset"
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "Total"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "roles",
+            "page_size",
+            "offset",
+            "total"
+          ],
+          "title": "AdminRoleListPayload",
+          "description": "管理员角色分页列表载荷。"
+        },
+        "AdminRolePayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_role",
+              "title": "Kind",
+              "default": "admin_role"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "role_key": {
+              "type": "string",
+              "title": "Role Key"
+            },
+            "role_name": {
+              "type": "string",
+              "title": "Role Name"
+            },
+            "scope_codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Scope Codes"
+            },
+            "user_count": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "User Count"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "role_key",
+            "role_name",
+            "scope_codes",
+            "user_count"
+          ],
+          "title": "AdminRolePayload",
+          "description": "管理员角色响应载荷。"
+        },
+        "AdminRoleScopeReplaceRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_role_scope_replace",
+              "title": "Kind",
+              "default": "admin_role_scope_replace"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "scope_codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Scope Codes"
+            },
+            "confirmation": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Confirmation"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "confirmation"
+          ],
+          "title": "AdminRoleScopeReplaceRequest",
+          "description": "管理员角色 scope 替换请求。"
+        },
+        "AdminRoleUpdateRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_role_update",
+              "title": "Kind",
+              "default": "admin_role_update"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "role_name": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Role Name"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "role_name"
+          ],
+          "title": "AdminRoleUpdateRequest",
+          "description": "管理员角色更新请求。"
+        },
+        "AdminScopeCreateRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_scope_create",
+              "title": "Kind",
+              "default": "admin_scope_create"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "scope_code": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Scope Code"
+            },
+            "scope_name": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Scope Name"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description"
+            },
+            "enabled": {
+              "type": "boolean",
+              "title": "Enabled",
+              "default": true
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "scope_code",
+            "scope_name"
+          ],
+          "title": "AdminScopeCreateRequest",
+          "description": "管理员 scope 创建请求。"
+        },
+        "AdminScopeKind": {
+          "type": "string",
+          "enum": [
+            "builtin",
+            "custom"
+          ],
+          "title": "AdminScopeKind",
+          "description": "管理员 scope 类型枚举。"
+        },
+        "AdminScopeListPayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_scope_list",
+              "title": "Kind",
+              "default": "admin_scope_list"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "scopes": {
+              "items": {
+                "$ref": "#/components/schemas/AdminScopePayload"
+              },
+              "type": "array",
+              "title": "Scopes"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "scopes"
+          ],
+          "title": "AdminScopeListPayload",
+          "description": "管理员 scope 列表载荷。"
+        },
+        "AdminScopePayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_scope",
+              "title": "Kind",
+              "default": "admin_scope"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "scope_code": {
+              "type": "string",
+              "title": "Scope Code"
+            },
+            "scope_name": {
+              "type": "string",
+              "title": "Scope Name"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description"
+            },
+            "scope_kind": {
+              "$ref": "#/components/schemas/AdminScopeKind"
+            },
+            "enabled": {
+              "type": "boolean",
+              "title": "Enabled"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "scope_code",
+            "scope_name",
+            "description",
+            "scope_kind",
+            "enabled"
+          ],
+          "title": "AdminScopePayload",
+          "description": "管理员 scope 响应载荷。"
+        },
+        "AdminScopeUpdateRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_scope_update",
+              "title": "Kind",
+              "default": "admin_scope_update"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "scope_name": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scope Name"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description"
+            },
+            "enabled": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Enabled"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "AdminScopeUpdateRequest",
+          "description": "管理员 scope 更新请求。"
+        },
+        "AdminUserCreateRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_user_create",
+              "title": "Kind",
+              "default": "admin_user_create"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "username": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Username"
+            },
+            "password": {
+              "type": "string",
+              "minLength": 1,
+              "format": "password",
+              "title": "Password",
+              "writeOnly": true
+            },
+            "role_keys": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Role Keys"
+            },
+            "subject_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject Id"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "username",
+            "password"
+          ],
+          "title": "AdminUserCreateRequest",
+          "description": "管理员用户创建请求。"
+        },
+        "AdminUserDisableRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_user_disable",
+              "title": "Kind",
+              "default": "admin_user_disable"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Reason"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "reason"
+          ],
+          "title": "AdminUserDisableRequest",
+          "description": "管理员用户停用请求。"
+        },
+        "AdminUserEnableRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_user_enable",
+              "title": "Kind",
+              "default": "admin_user_enable"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "AdminUserEnableRequest",
+          "description": "管理员用户启用请求。"
+        },
+        "AdminUserListPayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_user_list",
+              "title": "Kind",
+              "default": "admin_user_list"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "users": {
+              "items": {
+                "$ref": "#/components/schemas/AdminUserPayload"
+              },
+              "type": "array",
+              "title": "Users"
+            },
+            "page_size": {
+              "type": "integer",
+              "maximum": 200.0,
+              "minimum": 1.0,
+              "title": "Page Size"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "Offset"
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "Total"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "users",
+            "page_size",
+            "offset",
+            "total"
+          ],
+          "title": "AdminUserListPayload",
+          "description": "管理员用户列表载荷。"
+        },
+        "AdminUserPasswordResetRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_user_password_reset",
+              "title": "Kind",
+              "default": "admin_user_password_reset"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "password": {
+              "type": "string",
+              "minLength": 1,
+              "format": "password",
+              "title": "Password",
+              "writeOnly": true
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "password"
+          ],
+          "title": "AdminUserPasswordResetRequest",
+          "description": "管理员用户密码重置请求。"
+        },
+        "AdminUserPayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_user",
+              "title": "Kind",
+              "default": "admin_user"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "subject_id": {
+              "type": "string",
+              "title": "Subject Id"
+            },
+            "username": {
+              "type": "string",
+              "title": "Username"
+            },
+            "is_active": {
+              "type": "boolean",
+              "title": "Is Active"
+            },
+            "role_keys": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Role Keys"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "subject_id",
+            "username",
+            "is_active",
+            "role_keys"
+          ],
+          "title": "AdminUserPayload",
+          "description": "管理员用户响应载荷。"
+        },
+        "AdminUserRoleReplaceRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_user_role_replace",
+              "title": "Kind",
+              "default": "admin_user_role_replace"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "role_keys": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Role Keys"
+            },
+            "confirmation": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Confirmation"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "confirmation"
+          ],
+          "title": "AdminUserRoleReplaceRequest",
+          "description": "管理员用户角色替换请求。"
+        },
+        "AdminUserStatusResultPayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_user_status_result",
+              "title": "Kind",
+              "default": "admin_user_status_result"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "subject_id": {
+              "type": "string",
+              "title": "Subject Id"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "disabled",
+                "enabled"
+              ],
+              "title": "Status"
+            },
+            "is_active": {
+              "type": "boolean",
+              "title": "Is Active"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "subject_id",
+            "status",
+            "is_active"
+          ],
+          "title": "AdminUserStatusResultPayload",
+          "description": "管理员用户状态变更结果载荷。"
+        },
+        "AdminUserUpdateRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_user_update",
+              "title": "Kind",
+              "default": "admin_user_update"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "username": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128,
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Username"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "AdminUserUpdateRequest",
+          "description": "管理员用户更新请求。"
+        },
+        "AuthenticatedPrincipal": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "authenticated_principal",
+              "title": "Kind",
+              "default": "authenticated_principal"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "subject_id": {
+              "type": "string",
+              "title": "Subject Id"
+            },
+            "username": {
+              "type": "string",
+              "title": "Username"
+            },
+            "roles": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Roles"
+            },
+            "scopes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Scopes"
+            },
+            "is_admin": {
+              "type": "boolean",
+              "title": "Is Admin",
+              "default": false
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "subject_id",
+            "username",
+            "roles",
+            "scopes"
+          ],
+          "title": "AuthenticatedPrincipal",
+          "description": "已认证主体Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar kind: 结构版本的具体类型标识。约束：需符合 ``Literal[AUTHENTICATED_PRINCIPAL_KIND]`` 注解；取值固定为 ``AUTHENTICATED_PRINCIPAL_KIND``。默认值：`AUTHENTICATED_PRINCIPAL_KIND`。取值语义：用于承载当前对象中的业务状态。\n:vartype kind: Literal[AUTHENTICATED_PRINCIPAL_KIND]\n:ivar schema_version: 结构模式版本。约束：需符合 ``Literal[AUTH_PRINCIPAL_SCHEMA_VERSION]`` 注解；取值固定为 ``AUTH_PRINCIPAL_SCHEMA_VERSION``。默认值：`AUTH_PRINCIPAL_SCHEMA_VERSION`。取值语义：用于承载当前对象中的业务状态。\n:vartype schema_version: Literal[AUTH_PRINCIPAL_SCHEMA_VERSION]\n:ivar subject_id: 认证主体标识。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于唯一标识对应实体。\n:vartype subject_id: str\n:ivar username: 登录用户名。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype username: str\n:ivar roles: 角色键列表。约束：需符合 ``list[str]`` 注解；按实现使用有序列表承载。默认值：无，必须显式提供。取值语义：用于描述角色标识或角色关联关系。\n:vartype roles: list[str]\n:ivar scopes: 作用域编码列表。约束：需符合 ``list[str]`` 注解；按实现使用有序列表承载。默认值：无，必须显式提供。取值语义：用于声明授权作用域或请求作用域。\n:vartype scopes: list[str]"
+        },
+        "BusinessAdminRoleKey": {
+          "type": "string",
+          "enum": [
+            "customer_service",
+            "business_operator"
+          ],
+          "title": "BusinessAdminRoleKey",
+          "description": "预定义业务角色键枚举。"
+        },
+        "HTTPValidationError": {
+          "properties": {
+            "detail": {
+              "items": {
+                "$ref": "#/components/schemas/ValidationError"
+              },
+              "type": "array",
+              "title": "Detail"
+            }
+          },
+          "type": "object",
+          "title": "HTTPValidationError"
+        },
+        "HealthProbePayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "title": "Kind",
+              "default": "health_probe"
+            },
+            "schema_version": {
+              "type": "string",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "status": {
+              "type": "string",
+              "title": "Status"
+            },
+            "ready": {
+              "type": "boolean",
+              "title": "Ready"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "status",
+            "ready"
+          ],
+          "title": "HealthProbePayload",
+          "description": "健康探针Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar kind: 结构版本的具体类型标识。约束：需符合 ``str`` 注解。默认值：`HEALTH_PROBE_KIND`。取值语义：用于承载当前对象中的业务状态。\n:vartype kind: str\n:ivar schema_version: 结构模式版本。约束：需符合 ``str`` 注解。默认值：`HEALTH_PROBE_SCHEMA_VERSION`。取值语义：用于承载当前对象中的业务状态。\n:vartype schema_version: str\n:ivar status: 当前状态枚举。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype status: str\n:ivar ready: 运行时是否已经就绪。约束：需符合 ``bool`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype ready: bool"
+        },
+        "ResponseEnvelope_AdminAuditEnvelope_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/AdminAuditEnvelope"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[AdminAuditEnvelope]"
+        },
+        "ResponseEnvelope_AdminIdentityEnvelope_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/AdminIdentityEnvelope"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[AdminIdentityEnvelope]"
+        },
+        "ResponseEnvelope_AuthenticatedPrincipal_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/AuthenticatedPrincipal"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[AuthenticatedPrincipal]"
+        },
+        "ResponseEnvelope_HealthProbePayload_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/HealthProbePayload"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[HealthProbePayload]"
+        },
+        "ResponseEnvelope_TokenIssuePayload_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/TokenIssuePayload"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[TokenIssuePayload]"
+        },
+        "ResponseEnvelope_TokenRevokePayload_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/TokenRevokePayload"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[TokenRevokePayload]"
+        },
+        "ResponseHeader": {
+          "properties": {
+            "code": {
+              "type": "string",
+              "title": "Code"
+            },
+            "message": {
+              "type": "string",
+              "title": "Message"
+            },
+            "request_id": {
+              "type": "string",
+              "title": "Request Id"
+            },
+            "trace_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trace Id"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "code",
+            "message",
+            "request_id",
+            "trace_id"
+          ],
+          "title": "ResponseHeader",
+          "description": "响应头Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar code: 统一响应码。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype code: str\n:ivar message: 消息文本。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype message: str\n:ivar request_id: 请求唯一标识。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于唯一标识对应实体。\n:vartype request_id: str\n:ivar trace_id: 链路追踪标识。约束：需符合 ``str | None`` 注解；允许为空值。默认值：无，必须显式提供。取值语义：用于唯一标识对应实体。\n:vartype trace_id: str | None"
+        },
+        "TokenIssuePayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "token_issue",
+              "title": "Kind",
+              "default": "token_issue"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.1",
+              "title": "Schema Version",
+              "default": "1.1"
+            },
+            "access_token": {
+              "type": "string",
+              "title": "Access Token"
+            },
+            "refresh_token": {
+              "type": "string",
+              "title": "Refresh Token"
+            },
+            "token_type": {
+              "type": "string",
+              "const": "Bearer",
+              "title": "Token Type",
+              "default": "Bearer"
+            },
+            "expires_in_seconds": {
+              "type": "integer",
+              "title": "Expires In Seconds"
+            },
+            "refresh_expires_in_seconds": {
+              "type": "integer",
+              "title": "Refresh Expires In Seconds"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "access_token",
+            "refresh_token",
+            "expires_in_seconds",
+            "refresh_expires_in_seconds"
+          ],
+          "title": "TokenIssuePayload",
+          "description": "令牌签发Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar kind: 结构版本的具体类型标识。约束：需符合 ``Literal[TOKEN_ISSUE_KIND]`` 注解；取值固定为 ``TOKEN_ISSUE_KIND``。默认值：`TOKEN_ISSUE_KIND`。取值语义：用于承载当前对象中的业务状态。\n:vartype kind: Literal[TOKEN_ISSUE_KIND]\n:ivar schema_version: 结构模式版本。约束：需符合 ``Literal[TOKEN_SCHEMA_VERSION]`` 注解；取值固定为 ``TOKEN_SCHEMA_VERSION``。默认值：`TOKEN_SCHEMA_VERSION`。取值语义：用于承载当前对象中的业务状态。\n:vartype schema_version: Literal[TOKEN_SCHEMA_VERSION]\n:ivar access_token: 访问令牌原文。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于表达访问令牌、刷新令牌或令牌会话信息。\n:vartype access_token: str\n:ivar refresh_token: ``refresh_token`` 字段。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于表达访问令牌、刷新令牌或令牌会话信息。\n:vartype refresh_token: str\n:ivar token_type: 令牌类型。约束：需符合 ``Literal[TOKEN_BEARER_TYPE]`` 注解；取值固定为 ``TOKEN_BEARER_TYPE``。默认值：`TOKEN_BEARER_TYPE`。取值语义：用于表达访问令牌、刷新令牌或令牌会话信息。\n:vartype token_type: Literal[TOKEN_BEARER_TYPE]\n:ivar expires_in_seconds: 访问令牌有效期秒数。约束：需符合 ``int`` 注解。默认值：无，必须显式提供。取值语义：用于表达秒级持续时间或超时窗口。\n:vartype expires_in_seconds: int\n:ivar refresh_expires_in_seconds: 刷新令牌有效期秒数。约束：需符合 ``int`` 注解。默认值：无，必须显式提供。取值语义：用于表达秒级持续时间或超时窗口。\n:vartype refresh_expires_in_seconds: int"
+        },
+        "TokenIssueRequest": {
+          "properties": {
+            "username": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Username"
+            },
+            "password": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Password"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "username",
+            "password"
+          ],
+          "title": "TokenIssueRequest",
+          "description": "令牌签发Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar username: 登录用户名。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype username: str\n:ivar password: ``password`` 字段。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载密码原文、哈希或相关算法配置。\n:vartype password: str"
+        },
+        "TokenRefreshRequest": {
+          "properties": {
+            "refresh_token": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 16,
+              "pattern": "^[A-Za-z0-9._~+/=-]+$",
+              "title": "Refresh Token"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "refresh_token"
+          ],
+          "title": "TokenRefreshRequest",
+          "description": "令牌刷新Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar refresh_token: ``refresh_token`` 字段。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于表达访问令牌、刷新令牌或令牌会话信息。\n:vartype refresh_token: str"
+        },
+        "TokenRevokePayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "token_revoke",
+              "title": "Kind",
+              "default": "token_revoke"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.1",
+              "title": "Schema Version",
+              "default": "1.1"
+            },
+            "revoked": {
+              "type": "boolean",
+              "title": "Revoked"
+            },
+            "revoked_at_epoch": {
+              "type": "integer",
+              "title": "Revoked At Epoch"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "revoked",
+            "revoked_at_epoch"
+          ],
+          "title": "TokenRevokePayload",
+          "description": "令牌撤销Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar kind: 结构版本的具体类型标识。约束：需符合 ``Literal[TOKEN_REVOKE_KIND]`` 注解；取值固定为 ``TOKEN_REVOKE_KIND``。默认值：`TOKEN_REVOKE_KIND`。取值语义：用于承载当前对象中的业务状态。\n:vartype kind: Literal[TOKEN_REVOKE_KIND]\n:ivar schema_version: 结构模式版本。约束：需符合 ``Literal[TOKEN_SCHEMA_VERSION]`` 注解；取值固定为 ``TOKEN_SCHEMA_VERSION``。默认值：`TOKEN_SCHEMA_VERSION`。取值语义：用于承载当前对象中的业务状态。\n:vartype schema_version: Literal[TOKEN_SCHEMA_VERSION]\n:ivar revoked: 令牌是否已经撤销。约束：需符合 ``bool`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype revoked: bool\n:ivar revoked_at_epoch: ``revoked_at_epoch`` 字段。约束：需符合 ``int`` 注解。默认值：无，必须显式提供。取值语义：用于表达 Unix 时间戳秒值。\n:vartype revoked_at_epoch: int"
+        },
+        "TokenRevokeRequest": {
+          "properties": {
+            "refresh_token": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 16,
+              "pattern": "^[A-Za-z0-9._~+/=-]+$",
+              "title": "Refresh Token"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "refresh_token"
+          ],
+          "title": "TokenRevokeRequest",
+          "description": "令牌撤销Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar refresh_token: ``refresh_token`` 字段。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于表达访问令牌、刷新令牌或令牌会话信息。\n:vartype refresh_token: str"
+        },
+        "ValidationError": {
+          "properties": {
+            "loc": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array",
+              "title": "Location"
+            },
+            "msg": {
+              "type": "string",
+              "title": "Message"
+            },
+            "type": {
+              "type": "string",
+              "title": "Error Type"
+            },
+            "input": {
+              "title": "Input"
+            },
+            "ctx": {
+              "type": "object",
+              "title": "Context"
+            }
+          },
+          "type": "object",
+          "required": [
+            "loc",
+            "msg",
+            "type"
+          ],
+          "title": "ValidationError"
+        }
+      },
+      "securitySchemes": {
+        "HTTPBearer": {
+          "type": "http",
+          "scheme": "bearer"
+        }
+      }
+    }
+  },
+  "routes": [
+    {
+      "path": "/admin/audit-events",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "list_audit_events_admin_audit_events_get"
+    },
+    {
+      "path": "/admin/business-roles",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "list_business_roles_admin_business_roles_get"
+    },
+    {
+      "path": "/admin/roles",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "list_roles_admin_roles_get"
+    },
+    {
+      "path": "/admin/roles",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "create_role_admin_roles_post"
+    },
+    {
+      "path": "/admin/roles/{role_key}",
+      "method": "DELETE",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "delete_role_admin_roles__role_key__delete"
+    },
+    {
+      "path": "/admin/roles/{role_key}",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "get_role_admin_roles__role_key__get"
+    },
+    {
+      "path": "/admin/roles/{role_key}",
+      "method": "PATCH",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "update_role_admin_roles__role_key__patch"
+    },
+    {
+      "path": "/admin/roles/{role_key}/scopes",
+      "method": "PUT",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "replace_role_scopes_admin_roles__role_key__scopes_put"
+    },
+    {
+      "path": "/admin/scopes",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "list_scopes_admin_scopes_get"
+    },
+    {
+      "path": "/admin/scopes",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "create_scope_admin_scopes_post"
+    },
+    {
+      "path": "/admin/scopes/{scope_code}",
+      "method": "DELETE",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "delete_scope_admin_scopes__scope_code__delete"
+    },
+    {
+      "path": "/admin/scopes/{scope_code}",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "get_scope_admin_scopes__scope_code__get"
+    },
+    {
+      "path": "/admin/scopes/{scope_code}",
+      "method": "PATCH",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "update_scope_admin_scopes__scope_code__patch"
+    },
+    {
+      "path": "/admin/users",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "list_users_admin_users_get"
+    },
+    {
+      "path": "/admin/users",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "create_user_admin_users_post"
+    },
+    {
+      "path": "/admin/users/{subject_id}",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "get_user_admin_users__subject_id__get"
+    },
+    {
+      "path": "/admin/users/{subject_id}",
+      "method": "PATCH",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "update_user_admin_users__subject_id__patch"
+    },
+    {
+      "path": "/admin/users/{subject_id}/disable",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "disable_user_admin_users__subject_id__disable_post"
+    },
+    {
+      "path": "/admin/users/{subject_id}/enable",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "enable_user_admin_users__subject_id__enable_post"
+    },
+    {
+      "path": "/admin/users/{subject_id}/password",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "reset_user_password_admin_users__subject_id__password_post"
+    },
+    {
+      "path": "/admin/users/{subject_id}/roles",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "replace_user_roles_admin_users__subject_id__roles_post"
+    },
+    {
+      "path": "/auth/me",
+      "method": "GET",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "get_me_auth_me_get"
+    },
+    {
+      "path": "/auth/refresh",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "post_refresh_auth_refresh_post"
+    },
+    {
+      "path": "/auth/revoke",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "post_revoke_auth_revoke_post"
+    },
+    {
+      "path": "/auth/token",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "post_token_auth_token_post"
+    },
+    {
+      "path": "/health/live",
+      "method": "GET",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "get_live_health_live_get"
+    },
+    {
+      "path": "/health/ready",
+      "method": "GET",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "get_ready_health_ready_get"
+    }
+  ],
+  "configuration": [
+    {
+      "path": "config\\app_base.toml",
+      "keys": [
+        "app.enable_openapi",
+        "app.environment",
+        "app.modules.enabled",
+        "app.name",
+        "app.reload.hot_reload_allowed",
+        "app.reload.restart_required",
+        "app.version"
+      ]
+    },
+    {
+      "path": "config\\app_development.toml",
+      "keys": [
+        "app.environment"
+      ]
+    },
+    {
+      "path": "config\\app_production.toml",
+      "keys": [
+        "app.enable_openapi",
+        "app.environment"
+      ]
+    },
+    {
+      "path": "config\\app_test.toml",
+      "keys": [
+        "app.environment"
+      ]
+    },
+    {
+      "path": "config\\modules\\auth_module\\auth_module_base.toml",
+      "keys": [
+        "module.bootstrap_admin.enabled",
+        "module.bootstrap_admin.role_bindings",
+        "module.bootstrap_admin.subject_id",
+        "module.bootstrap_admin.username"
+      ]
+    },
+    {
+      "path": "config\\modules\\auth_module\\auth_module_development.toml",
+      "keys": [
+        "module.bootstrap_admin.enabled",
+        "module.bootstrap_admin.role_bindings",
+        "module.bootstrap_admin.subject_id",
+        "module.bootstrap_admin.username"
+      ]
+    },
+    {
+      "path": "config\\modules\\auth_module\\auth_module_test.toml",
+      "keys": [
+        "module.bootstrap_admin.enabled",
+        "module.bootstrap_admin.role_bindings",
+        "module.bootstrap_admin.subject_id",
+        "module.bootstrap_admin.username"
+      ]
+    },
+    {
+      "path": "config\\modules\\system_module\\system_module_base.toml",
+      "keys": [
+        "module.overview_title",
+        "module.ready_probe_enabled"
+      ]
+    },
+    {
+      "path": "config\\modules\\task_module\\task_module_base.toml",
+      "keys": [
+        "module.default_job_kind",
+        "module.default_retry_limit",
+        "module.registrations"
+      ]
+    },
+    {
+      "path": "config\\modules\\task_module\\task_module_development.toml",
+      "keys": [
+        "module.default_job_kind",
+        "module.default_retry_limit",
+        "module.registrations"
+      ]
+    },
+    {
+      "path": "config\\modules\\task_module\\task_module_production.toml",
+      "keys": [
+        "module.default_job_kind",
+        "module.default_retry_limit",
+        "module.registrations"
+      ]
+    },
+    {
+      "path": "config\\modules\\task_module\\task_module_test.toml",
+      "keys": [
+        "module.default_job_kind",
+        "module.default_retry_limit",
+        "module.registrations"
+      ]
+    },
+    {
+      "path": "config\\runtime\\auth_runtime\\auth_runtime_base.toml",
+      "keys": [
+        "runtime.access_token_expires_in_seconds",
+        "runtime.audience",
+        "runtime.issue_access_token_failure_limit",
+        "runtime.issue_access_token_failure_window_seconds",
+        "runtime.issuer",
+        "runtime.jwt_algorithm",
+        "runtime.password_hash_algorithm",
+        "runtime.refresh_access_token_failure_limit",
+        "runtime.refresh_access_token_failure_window_seconds",
+        "runtime.refresh_token_expires_in_seconds",
+        "runtime.refresh_token_rotation_enabled",
+        "runtime.throttle_lock_seconds"
+      ]
+    },
+    {
+      "path": "config\\runtime\\auth_runtime\\auth_runtime_test.toml",
+      "keys": [
+        "runtime.access_token_expires_in_seconds",
+        "runtime.issue_access_token_failure_limit",
+        "runtime.issue_access_token_failure_window_seconds",
+        "runtime.refresh_access_token_failure_limit",
+        "runtime.refresh_access_token_failure_window_seconds",
+        "runtime.refresh_token_expires_in_seconds",
+        "runtime.throttle_lock_seconds"
+      ]
+    },
+    {
+      "path": "config\\runtime\\cache_runtime\\cache_runtime_base.toml",
+      "keys": [
+        "runtime.backend",
+        "runtime.backend_detail.kind",
+        "runtime.backend_detail.max_entries",
+        "runtime.backend_detail.schema_version",
+        "runtime.default_ttl_seconds",
+        "runtime.key_prefix",
+        "runtime.namespace_policies"
+      ]
+    },
+    {
+      "path": "config\\runtime\\cache_runtime\\cache_runtime_production.toml",
+      "keys": [
+        "runtime.backend",
+        "runtime.backend_detail.kind",
+        "runtime.backend_detail.max_connections",
+        "runtime.backend_detail.redis_url",
+        "runtime.backend_detail.schema_version",
+        "runtime.backend_detail.socket_connect_timeout_seconds",
+        "runtime.default_ttl_seconds",
+        "runtime.key_prefix",
+        "runtime.namespace_policies"
+      ]
+    },
+    {
+      "path": "config\\runtime\\cache_runtime\\cache_runtime_test.toml",
+      "keys": [
+        "runtime.backend_detail.kind",
+        "runtime.backend_detail.max_entries",
+        "runtime.backend_detail.schema_version",
+        "runtime.key_prefix",
+        "runtime.namespace_policies"
+      ]
+    },
+    {
+      "path": "config\\runtime\\database_runtime\\database_runtime_base.toml",
+      "keys": [
+        "runtime.auto_upgrade_on_startup",
+        "runtime.backend",
+        "runtime.connect_timeout_seconds",
+        "runtime.echo",
+        "runtime.max_overflow",
+        "runtime.pool_recycle_seconds",
+        "runtime.pool_size",
+        "runtime.schema",
+        "runtime.url"
+      ]
+    },
+    {
+      "path": "config\\runtime\\database_runtime\\database_runtime_development.toml",
+      "keys": [
+        "runtime.url"
+      ]
+    },
+    {
+      "path": "config\\runtime\\database_runtime\\database_runtime_production.toml",
+      "keys": [
+        "runtime.auto_upgrade_on_startup",
+        "runtime.echo",
+        "runtime.url"
+      ]
+    },
+    {
+      "path": "config\\runtime\\database_runtime\\database_runtime_test.toml",
+      "keys": [
+        "runtime.url"
+      ]
+    },
+    {
+      "path": "config\\runtime\\distributed_lock_runtime\\distributed_lock_runtime_base.toml",
+      "keys": [
+        "runtime.detail.backend",
+        "runtime.detail.kind",
+        "runtime.detail.lease_seconds",
+        "runtime.detail.schema_version",
+        "runtime.detail.wait_seconds",
+        "runtime.envelope_kind",
+        "runtime.header.enabled",
+        "runtime.header.kind",
+        "runtime.header.policy_name",
+        "runtime.header.schema_version",
+        "runtime.schema_version"
+      ]
+    },
+    {
+      "path": "config\\runtime\\distributed_lock_runtime\\distributed_lock_runtime_production.toml",
+      "keys": [
+        "runtime.detail.lease_seconds",
+        "runtime.detail.wait_seconds",
+        "runtime.header.enabled",
+        "runtime.header.policy_name"
+      ]
+    },
+    {
+      "path": "config\\runtime\\distributed_lock_runtime\\distributed_lock_runtime_test.toml",
+      "keys": [
+        "runtime.detail.lease_seconds",
+        "runtime.detail.wait_seconds",
+        "runtime.header.enabled",
+        "runtime.header.policy_name"
+      ]
+    },
+    {
+      "path": "config\\runtime\\key_management_runtime\\key_management_runtime_base.toml",
+      "keys": [
+        "runtime.detail.backend",
+        "runtime.detail.key_families",
+        "runtime.detail.kind",
+        "runtime.detail.schema_version",
+        "runtime.envelope_kind",
+        "runtime.header.enabled",
+        "runtime.header.kind",
+        "runtime.header.policy_name",
+        "runtime.header.schema_version",
+        "runtime.schema_version"
+      ]
+    },
+    {
+      "path": "config\\runtime\\key_management_runtime\\key_management_runtime_production.toml",
+      "keys": [
+        "runtime.detail.key_families",
+        "runtime.header.enabled",
+        "runtime.header.policy_name"
+      ]
+    },
+    {
+      "path": "config\\runtime\\key_management_runtime\\key_management_runtime_test.toml",
+      "keys": [
+        "runtime.detail.key_families",
+        "runtime.header.enabled",
+        "runtime.header.policy_name"
+      ]
+    },
+    {
+      "path": "config\\runtime\\logging_runtime\\logging_runtime_base.toml",
+      "keys": [
+        "runtime.buffer_max_items",
+        "runtime.enabled",
+        "runtime.entry_log_path",
+        "runtime.entry_project_name",
+        "runtime.level",
+        "runtime.sink",
+        "runtime.sink_detail.fallback_to_stdout",
+        "runtime.sink_detail.flush_interval_seconds",
+        "runtime.sink_detail.kind",
+        "runtime.sink_detail.max_batch_size",
+        "runtime.sink_detail.retention_days",
+        "runtime.sink_detail.schema_version",
+        "runtime.sink_detail.table_name"
+      ]
+    },
+    {
+      "path": "config\\runtime\\logging_runtime\\logging_runtime_test.toml",
+      "keys": [
+        "runtime.buffer_max_items",
+        "runtime.enabled",
+        "runtime.entry_log_path",
+        "runtime.entry_project_name",
+        "runtime.level",
+        "runtime.sink_detail.fallback_to_stdout",
+        "runtime.sink_detail.flush_interval_seconds",
+        "runtime.sink_detail.kind",
+        "runtime.sink_detail.max_batch_size",
+        "runtime.sink_detail.retention_days",
+        "runtime.sink_detail.schema_version",
+        "runtime.sink_detail.table_name"
+      ]
+    },
+    {
+      "path": "config\\runtime\\message_runtime\\message_runtime_base.toml",
+      "keys": [
+        "runtime.backend",
+        "runtime.backend_detail.kind",
+        "runtime.backend_detail.max_items",
+        "runtime.backend_detail.schema_version"
+      ]
+    },
+    {
+      "path": "config\\runtime\\message_runtime\\message_runtime_production.toml",
+      "keys": [
+        "runtime.backend",
+        "runtime.backend_detail.consumer_prefetch_count",
+        "runtime.backend_detail.dead_letter_exchange_name",
+        "runtime.backend_detail.kind",
+        "runtime.backend_detail.publisher_confirm_enabled",
+        "runtime.backend_detail.publisher_confirm_timeout_seconds",
+        "runtime.backend_detail.queue_max_length",
+        "runtime.backend_detail.rabbitmq_url",
+        "runtime.backend_detail.schema_version",
+        "runtime.backend_detail.startup_probe_enabled",
+        "runtime.backend_detail.startup_probe_timeout_seconds",
+        "runtime.backend_detail.task_exchange_durable",
+        "runtime.backend_detail.task_exchange_name",
+        "runtime.backend_detail.task_exchange_type",
+        "runtime.backend_detail.task_message_persistent"
+      ]
+    },
+    {
+      "path": "config\\runtime\\message_runtime\\message_runtime_test.toml",
+      "keys": [
+        "runtime.backend",
+        "runtime.backend_detail.kind",
+        "runtime.backend_detail.schema_version"
+      ]
+    },
+    {
+      "path": "config\\runtime\\metrics_runtime\\metrics_runtime_base.toml",
+      "keys": [
+        "runtime.detail.include_http_metrics",
+        "runtime.detail.include_runtime_metrics",
+        "runtime.detail.kind",
+        "runtime.detail.metrics_path",
+        "runtime.detail.schema_version",
+        "runtime.envelope_kind",
+        "runtime.header.enabled",
+        "runtime.header.kind",
+        "runtime.header.mode",
+        "runtime.header.policy_name",
+        "runtime.header.schema_version",
+        "runtime.schema_version"
+      ]
+    },
+    {
+      "path": "config\\runtime\\metrics_runtime\\metrics_runtime_production.toml",
+      "keys": [
+        "runtime.header.enabled"
+      ]
+    },
+    {
+      "path": "config\\runtime\\metrics_runtime\\metrics_runtime_test.toml",
+      "keys": [
+        "runtime.header.enabled"
+      ]
+    },
+    {
+      "path": "config\\runtime\\otel_runtime\\otel_runtime_base.toml",
+      "keys": [
+        "runtime.enabled",
+        "runtime.exporter_endpoint",
+        "runtime.service_name",
+        "runtime.traces_sample_ratio"
+      ]
+    },
+    {
+      "path": "config\\runtime\\security_runtime\\security_runtime_base.toml",
+      "keys": [
+        "runtime.detail.enable_csp",
+        "runtime.detail.enable_hsts",
+        "runtime.detail.expose_openapi",
+        "runtime.detail.expose_system_info",
+        "runtime.detail.kind",
+        "runtime.detail.protection.client_ip.trusted_proxy_cidr_blocks",
+        "runtime.detail.protection.flow_control.default_limit",
+        "runtime.detail.protection.flow_control.default_window_seconds",
+        "runtime.detail.protection.flow_control.enabled",
+        "runtime.detail.protection.flow_control.fail_mode",
+        "runtime.detail.protection.flow_control.policies",
+        "runtime.detail.protection.ip_block.cache_ttl_seconds",
+        "runtime.detail.protection.ip_block.default_block_seconds",
+        "runtime.detail.protection.ip_block.enabled",
+        "runtime.detail.protection.outbound_url_safety.allowed_hostnames",
+        "runtime.detail.protection.outbound_url_safety.allowed_schemes",
+        "runtime.detail.protection.outbound_url_safety.deny_cidr_blocks",
+        "runtime.detail.protection.outbound_url_safety.deny_hostnames",
+        "runtime.detail.protection.outbound_url_safety.deny_metadata_address",
+        "runtime.detail.protection.outbound_url_safety.deny_private_networks",
+        "runtime.detail.protection.outbound_url_safety.enabled",
+        "runtime.detail.protection.outbound_url_safety.enforce_allowed_hostnames",
+        "runtime.detail.protection.outbound_url_safety.kind",
+        "runtime.detail.protection.outbound_url_safety.schema_version",
+        "runtime.detail.protection.risk_control.enabled",
+        "runtime.detail.protection.risk_control.password_spray_limit",
+        "runtime.detail.protection.risk_control.password_spray_window_seconds",
+        "runtime.detail.protection.token_binding.applicable_paths",
+        "runtime.detail.protection.token_binding.enabled",
+        "runtime.detail.protection.token_binding.ip_digest_ttl_seconds",
+        "runtime.detail.protection.token_binding.kind",
+        "runtime.detail.protection.token_binding.mode",
+        "runtime.detail.protection.token_binding.schema_version",
+        "runtime.detail.protection.token_binding.token_uses",
+        "runtime.detail.require_distributed_auth_throttle",
+        "runtime.detail.require_external_jwt_secret",
+        "runtime.detail.schema_version",
+        "runtime.envelope_kind",
+        "runtime.header.enabled",
+        "runtime.header.kind",
+        "runtime.header.mode",
+        "runtime.header.policy_name",
+        "runtime.header.schema_version",
+        "runtime.schema_version"
+      ]
+    },
+    {
+      "path": "config\\runtime\\security_runtime\\security_runtime_production.toml",
+      "keys": [
+        "runtime.detail.enable_csp",
+        "runtime.detail.enable_hsts",
+        "runtime.detail.expose_openapi",
+        "runtime.detail.expose_system_info",
+        "runtime.detail.kind",
+        "runtime.detail.protection.client_ip.trusted_proxy_cidr_blocks",
+        "runtime.detail.protection.flow_control.default_limit",
+        "runtime.detail.protection.flow_control.default_window_seconds",
+        "runtime.detail.protection.flow_control.enabled",
+        "runtime.detail.protection.flow_control.fail_mode",
+        "runtime.detail.protection.flow_control.policies",
+        "runtime.detail.protection.ip_block.cache_ttl_seconds",
+        "runtime.detail.protection.ip_block.default_block_seconds",
+        "runtime.detail.protection.ip_block.enabled",
+        "runtime.detail.protection.outbound_url_safety.allowed_hostnames",
+        "runtime.detail.protection.outbound_url_safety.allowed_schemes",
+        "runtime.detail.protection.outbound_url_safety.deny_cidr_blocks",
+        "runtime.detail.protection.outbound_url_safety.deny_hostnames",
+        "runtime.detail.protection.outbound_url_safety.deny_metadata_address",
+        "runtime.detail.protection.outbound_url_safety.deny_private_networks",
+        "runtime.detail.protection.outbound_url_safety.enabled",
+        "runtime.detail.protection.outbound_url_safety.enforce_allowed_hostnames",
+        "runtime.detail.protection.outbound_url_safety.kind",
+        "runtime.detail.protection.outbound_url_safety.schema_version",
+        "runtime.detail.protection.risk_control.enabled",
+        "runtime.detail.protection.risk_control.password_spray_limit",
+        "runtime.detail.protection.risk_control.password_spray_window_seconds",
+        "runtime.detail.protection.token_binding.applicable_paths",
+        "runtime.detail.protection.token_binding.enabled",
+        "runtime.detail.protection.token_binding.ip_digest_ttl_seconds",
+        "runtime.detail.protection.token_binding.kind",
+        "runtime.detail.protection.token_binding.mode",
+        "runtime.detail.protection.token_binding.schema_version",
+        "runtime.detail.protection.token_binding.token_uses",
+        "runtime.detail.require_distributed_auth_throttle",
+        "runtime.detail.require_external_jwt_secret",
+        "runtime.detail.schema_version",
+        "runtime.header.mode",
+        "runtime.header.policy_name"
+      ]
+    },
+    {
+      "path": "config\\runtime\\security_runtime\\security_runtime_test.toml",
+      "keys": [
+        "runtime.detail.protection.client_ip.trusted_proxy_cidr_blocks",
+        "runtime.detail.protection.flow_control.default_limit",
+        "runtime.detail.protection.flow_control.default_window_seconds",
+        "runtime.detail.protection.flow_control.enabled",
+        "runtime.detail.protection.flow_control.fail_mode",
+        "runtime.detail.protection.flow_control.policies",
+        "runtime.detail.protection.ip_block.cache_ttl_seconds",
+        "runtime.detail.protection.ip_block.default_block_seconds",
+        "runtime.detail.protection.ip_block.enabled",
+        "runtime.detail.protection.outbound_url_safety.allowed_schemes",
+        "runtime.detail.protection.outbound_url_safety.deny_metadata_address",
+        "runtime.detail.protection.outbound_url_safety.deny_private_networks",
+        "runtime.detail.protection.outbound_url_safety.enabled",
+        "runtime.detail.protection.outbound_url_safety.kind",
+        "runtime.detail.protection.outbound_url_safety.schema_version",
+        "runtime.detail.protection.risk_control.enabled",
+        "runtime.detail.protection.risk_control.password_spray_limit",
+        "runtime.detail.protection.risk_control.password_spray_window_seconds",
+        "runtime.detail.protection.token_binding.applicable_paths",
+        "runtime.detail.protection.token_binding.enabled",
+        "runtime.detail.protection.token_binding.ip_digest_ttl_seconds",
+        "runtime.detail.protection.token_binding.kind",
+        "runtime.detail.protection.token_binding.mode",
+        "runtime.detail.protection.token_binding.schema_version",
+        "runtime.detail.protection.token_binding.token_uses",
+        "runtime.header.policy_name"
+      ]
+    },
+    {
+      "path": "config\\runtime\\task_runtime\\task_runtime_base.toml",
+      "keys": [
+        "runtime.backend",
+        "runtime.backend_detail.inline_execute_enabled",
+        "runtime.backend_detail.kind",
+        "runtime.backend_detail.schema_version",
+        "runtime.worker_enabled"
+      ]
+    },
+    {
+      "path": "config\\runtime\\task_runtime\\task_runtime_production.toml",
+      "keys": [
+        "runtime.backend",
+        "runtime.backend_detail.broker_kind",
+        "runtime.backend_detail.kind",
+        "runtime.backend_detail.retry_backoff_multiplier",
+        "runtime.backend_detail.retry_delay_seconds",
+        "runtime.backend_detail.retry_max_delay_seconds",
+        "runtime.backend_detail.schema_version",
+        "runtime.worker_enabled"
+      ]
+    },
+    {
+      "path": "config\\runtime\\task_runtime\\task_runtime_test.toml",
+      "keys": [
+        "runtime.backend",
+        "runtime.backend_detail.inline_execute_enabled",
+        "runtime.backend_detail.kind",
+        "runtime.backend_detail.schema_version",
+        "runtime.worker_enabled"
+      ]
+    },
+    {
+      "path": "config\\runtime\\web_runtime\\web_runtime_base.toml",
+      "keys": [
+        "runtime.api_prefix",
+        "runtime.cors.allow_credentials",
+        "runtime.cors.allow_headers",
+        "runtime.cors.allow_methods",
+        "runtime.cors.allow_origins",
+        "runtime.cors.enabled",
+        "runtime.enable_access_log",
+        "runtime.enable_security_headers",
+        "runtime.include_middleware_trace_header",
+        "runtime.max_request_body_bytes",
+        "runtime.outbound_http_client.detail.kind",
+        "runtime.outbound_http_client.detail.max_connections",
+        "runtime.outbound_http_client.detail.max_keepalive_connections",
+        "runtime.outbound_http_client.detail.schema_version",
+        "runtime.outbound_http_client.detail.timeout_seconds",
+        "runtime.outbound_http_client.envelope_kind",
+        "runtime.outbound_http_client.header.client_name",
+        "runtime.outbound_http_client.header.enabled",
+        "runtime.outbound_http_client.header.kind",
+        "runtime.outbound_http_client.header.mode",
+        "runtime.outbound_http_client.header.schema_version",
+        "runtime.outbound_http_client.schema_version",
+        "runtime.request_execution.detail.kind",
+        "runtime.request_execution.detail.max_pending_requests",
+        "runtime.request_execution.detail.max_workers",
+        "runtime.request_execution.detail.offload_timeout_seconds",
+        "runtime.request_execution.detail.queue_wait_timeout_seconds",
+        "runtime.request_execution.detail.schema_version",
+        "runtime.request_execution.envelope_kind",
+        "runtime.request_execution.header.enabled",
+        "runtime.request_execution.header.execution_name",
+        "runtime.request_execution.header.kind",
+        "runtime.request_execution.header.mode",
+        "runtime.request_execution.header.schema_version",
+        "runtime.request_execution.schema_version"
+      ]
+    },
+    {
+      "path": "config\\runtime\\web_runtime\\web_runtime_development.toml",
+      "keys": [
+        "runtime.cors.allow_credentials",
+        "runtime.cors.allow_headers",
+        "runtime.cors.allow_methods",
+        "runtime.cors.allow_origins",
+        "runtime.cors.enabled"
+      ]
+    },
+    {
+      "path": "config\\runtime\\web_runtime\\web_runtime_production.toml",
+      "keys": [
+        "runtime.cors.allow_credentials",
+        "runtime.cors.allow_headers",
+        "runtime.cors.allow_methods",
+        "runtime.cors.allow_origins",
+        "runtime.cors.enabled"
+      ]
+    },
+    {
+      "path": "config\\runtime\\web_runtime\\web_runtime_test.toml",
+      "keys": [
+        "runtime.cors.allow_credentials",
+        "runtime.cors.allow_headers",
+        "runtime.cors.allow_methods",
+        "runtime.cors.allow_origins",
+        "runtime.cors.enabled",
+        "runtime.outbound_http_client.detail.kind",
+        "runtime.outbound_http_client.detail.max_connections",
+        "runtime.outbound_http_client.detail.max_keepalive_connections",
+        "runtime.outbound_http_client.detail.schema_version",
+        "runtime.outbound_http_client.detail.timeout_seconds",
+        "runtime.outbound_http_client.envelope_kind",
+        "runtime.outbound_http_client.header.client_name",
+        "runtime.outbound_http_client.header.enabled",
+        "runtime.outbound_http_client.header.kind",
+        "runtime.outbound_http_client.header.mode",
+        "runtime.outbound_http_client.header.schema_version",
+        "runtime.outbound_http_client.schema_version",
+        "runtime.request_execution.detail.kind",
+        "runtime.request_execution.detail.max_pending_requests",
+        "runtime.request_execution.detail.max_workers",
+        "runtime.request_execution.detail.offload_timeout_seconds",
+        "runtime.request_execution.detail.queue_wait_timeout_seconds",
+        "runtime.request_execution.detail.schema_version",
+        "runtime.request_execution.envelope_kind",
+        "runtime.request_execution.header.enabled",
+        "runtime.request_execution.header.execution_name",
+        "runtime.request_execution.header.kind",
+        "runtime.request_execution.header.mode",
+        "runtime.request_execution.header.schema_version",
+        "runtime.request_execution.schema_version"
+      ]
+    }
+  ],
+  "migration_heads": [
+    "202607051000"
+  ],
+  "task_contracts": [
+    {
+      "path": "src\\core\\task_contract\\message_bus_contract.py",
+      "sha256": "ddf6f2b9ca22576a7544db9950d556ab65927547637c0273e561054de8fce181"
+    },
+    {
+      "path": "src\\core\\task_contract\\task_dispatcher_contract.py",
+      "sha256": "62d86549b9ba9dcccc4f877753218828022b0f8038fbe5e36e25cb04e8ac576f"
+    },
+    {
+      "path": "src\\core\\task_contract\\task_execution_record_contract.py",
+      "sha256": "6ed629af66bd301f3243a6d1970867edee18d98b90d99bf9e14285106c4cc829"
+    },
+    {
+      "path": "src\\core\\task_contract\\task_handler_contract.py",
+      "sha256": "7e2e10e3c3f88e22a6c96b8de2b9a989e31f2710945afad85f07083f605effef"
+    },
+    {
+      "path": "src\\core\\task_contract\\task_invocation_contract.py",
+      "sha256": "a9e0f23436bef892a1d9b0ff0da64c62cf8e4296c7041b6b127a98399559e0c4"
+    },
+    {
+      "path": "src\\core\\task_contract\\task_registration_contract.py",
+      "sha256": "c9e28d11f9763e9213ad7179e7dc8fb480718991c4e47f8552878866be1a37b6"
+    },
+    {
+      "path": "src\\core\\task_contract\\task_runtime_contract.py",
+      "sha256": "fd571d94532f95bc512a1c32e3fa7599bbb07975d9f2cb56ae8d5084c47861b9"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+[runtime]
+backend = "postgresql"
+url = "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/fastapi_web_skeleton"
+schema = "public"
+echo = false
+pool_size = 5
+max_overflow = 10
+pool_recycle_seconds = 1800
+connect_timeout_seconds = 5
+auto_upgrade_on_startup = false

@@ -1,0 +1,389 @@
+{
+  "header": {
+    "kind": "capacity_tuning_run",
+    "schema_version": "1.0",
+    "run_id": "capacity-6956e4f793264251ac5d9f8f66c4166e",
+    "seed": 1,
+    "environment_summary": "system=Windows;machine=AMD64;python=3.11.8",
+    "code_baseline": "4053d934d02ffeb365129c6da1552f8b2074eb9d457c4c994df346072fe879d5",
+    "load_profile": "steady"
+  },
+  "trials": [
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-1",
+        "seed": 2
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 2,
+          "max_pending_requests": 4,
+          "queue_wait_timeout_seconds": 1
+        },
+        "metrics": {
+          "throughput_per_second": 439.39063826934705,
+          "p50_milliseconds": 1.109900011215359,
+          "p95_milliseconds": 1.516199961770326,
+          "p99_milliseconds": 1.8438000115565956,
+          "error_rate": 0.0,
+          "peak_workers": 2,
+          "peak_cpu_percent": 0.0,
+          "peak_memory_mebibytes": 34.34375,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "rejected"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-2",
+        "seed": 3
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 2,
+          "max_pending_requests": 4,
+          "queue_wait_timeout_seconds": 2
+        },
+        "metrics": {
+          "throughput_per_second": 476.23110670888127,
+          "p50_milliseconds": 1.121399982366711,
+          "p95_milliseconds": 1.4727999805472791,
+          "p99_milliseconds": 1.49350002175197,
+          "error_rate": 0.0,
+          "peak_workers": 2,
+          "peak_cpu_percent": 0.0,
+          "peak_memory_mebibytes": 34.38671875,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-3",
+        "seed": 4
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 2,
+          "max_pending_requests": 8,
+          "queue_wait_timeout_seconds": 1
+        },
+        "metrics": {
+          "throughput_per_second": 472.17325598765325,
+          "p50_milliseconds": 1.1693999986164272,
+          "p95_milliseconds": 1.5421999851241708,
+          "p99_milliseconds": 1.761400024406612,
+          "error_rate": 0.0,
+          "peak_workers": 2,
+          "peak_cpu_percent": 0.0,
+          "peak_memory_mebibytes": 34.38671875,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-4",
+        "seed": 5
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 2,
+          "max_pending_requests": 8,
+          "queue_wait_timeout_seconds": 2
+        },
+        "metrics": {
+          "throughput_per_second": 440.2894170380105,
+          "p50_milliseconds": 1.1845999979414046,
+          "p95_milliseconds": 1.518899982329458,
+          "p99_milliseconds": 1.7915999633260071,
+          "error_rate": 0.0,
+          "peak_workers": 2,
+          "peak_cpu_percent": 0.0,
+          "peak_memory_mebibytes": 34.38671875,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-5",
+        "seed": 6
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 4,
+          "max_pending_requests": 4,
+          "queue_wait_timeout_seconds": 1
+        },
+        "metrics": {
+          "throughput_per_second": 681.6748755162624,
+          "p50_milliseconds": 0.5872999900020659,
+          "p95_milliseconds": 1.0725999600254,
+          "p99_milliseconds": 1.6583000542595983,
+          "error_rate": 0.0,
+          "peak_workers": 4,
+          "peak_cpu_percent": 97.7,
+          "peak_memory_mebibytes": 34.38671875,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-6",
+        "seed": 7
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 4,
+          "max_pending_requests": 4,
+          "queue_wait_timeout_seconds": 2
+        },
+        "metrics": {
+          "throughput_per_second": 647.5460697640214,
+          "p50_milliseconds": 0.5934000364504755,
+          "p95_milliseconds": 1.0783000034280121,
+          "p99_milliseconds": 1.2673999881371856,
+          "error_rate": 0.0,
+          "peak_workers": 4,
+          "peak_cpu_percent": 0.0,
+          "peak_memory_mebibytes": 34.38671875,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-7",
+        "seed": 8
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 4,
+          "max_pending_requests": 8,
+          "queue_wait_timeout_seconds": 1
+        },
+        "metrics": {
+          "throughput_per_second": 710.5174334289535,
+          "p50_milliseconds": 0.5816000048071146,
+          "p95_milliseconds": 1.0671999771147966,
+          "p99_milliseconds": 1.4286000514402986,
+          "error_rate": 0.0,
+          "peak_workers": 4,
+          "peak_cpu_percent": 0.0,
+          "peak_memory_mebibytes": 34.390625,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-8",
+        "seed": 9
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 4,
+          "max_pending_requests": 8,
+          "queue_wait_timeout_seconds": 2
+        },
+        "metrics": {
+          "throughput_per_second": 680.6270846659775,
+          "p50_milliseconds": 0.575200014282018,
+          "p95_milliseconds": 1.0008999961428344,
+          "p99_milliseconds": 1.036000030580908,
+          "error_rate": 0.0,
+          "peak_workers": 4,
+          "peak_cpu_percent": 104.2,
+          "peak_memory_mebibytes": 34.390625,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-9",
+        "seed": 10
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 8,
+          "max_pending_requests": 4,
+          "queue_wait_timeout_seconds": 1
+        },
+        "metrics": {
+          "throughput_per_second": 689.0651105709248,
+          "p50_milliseconds": 0.5655999993905425,
+          "p95_milliseconds": 0.9298999793827534,
+          "p99_milliseconds": 0.9405000018887222,
+          "error_rate": 0.0,
+          "peak_workers": 8,
+          "peak_cpu_percent": 0.0,
+          "peak_memory_mebibytes": 34.390625,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-10",
+        "seed": 11
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 8,
+          "max_pending_requests": 4,
+          "queue_wait_timeout_seconds": 2
+        },
+        "metrics": {
+          "throughput_per_second": 636.3414600383526,
+          "p50_milliseconds": 0.6074999691918492,
+          "p95_milliseconds": 0.7384999771602452,
+          "p99_milliseconds": 0.8173999958671629,
+          "error_rate": 0.0,
+          "peak_workers": 8,
+          "peak_cpu_percent": 97.7,
+          "peak_memory_mebibytes": 34.390625,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-11",
+        "seed": 12
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 8,
+          "max_pending_requests": 8,
+          "queue_wait_timeout_seconds": 1
+        },
+        "metrics": {
+          "throughput_per_second": 714.0222060414978,
+          "p50_milliseconds": 0.5491000483743846,
+          "p95_milliseconds": 1.0373999830335379,
+          "p99_milliseconds": 1.0462000500410795,
+          "error_rate": 0.0,
+          "peak_workers": 8,
+          "peak_cpu_percent": 0.0,
+          "peak_memory_mebibytes": 34.390625,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    },
+    {
+      "header": {
+        "kind": "tuning_trial_header",
+        "schema_version": "1.0",
+        "trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-12",
+        "seed": 13
+      },
+      "detail": {
+        "kind": "capacity_tuning_trial",
+        "schema_version": "1.0",
+        "parameters": {
+          "max_workers": 8,
+          "max_pending_requests": 8,
+          "queue_wait_timeout_seconds": 2
+        },
+        "metrics": {
+          "throughput_per_second": 720.5605959664499,
+          "p50_milliseconds": 0.5609000218100846,
+          "p95_milliseconds": 1.0782000026665628,
+          "p99_milliseconds": 1.133300014771521,
+          "error_rate": 0.0,
+          "peak_workers": 8,
+          "peak_cpu_percent": 104.2,
+          "peak_memory_mebibytes": 34.390625,
+          "peak_thread_count": 1,
+          "peak_connection_count": 0
+        },
+        "conclusion": "候选配置完成自动测量，等待跨负载复验。",
+        "promotion": "candidate"
+      }
+    }
+  ],
+  "best_trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-12",
+  "failed_trial_id": "capacity-6956e4f793264251ac5d9f8f66c4166e-trial-1",
+  "should_continue": true,
+  "conclusion": "最优配置仅列为 dry-run 候选；真实多轮负载复验通过前不得晋升。"
+}

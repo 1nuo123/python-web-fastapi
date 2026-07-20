@@ -1,0 +1,7 @@
+[runtime]
+backend = "local"
+
+[runtime.backend_detail]
+kind = "local"
+schema_version = "1.0"
+max_items = 1000

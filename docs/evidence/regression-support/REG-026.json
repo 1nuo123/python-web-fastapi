@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-026",
+  "source_path": "compose.production.yml",
+  "source_line": 3,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\compose.production.yml",
+  "baseline_sha256": "05ebe2b4615c50bcf734d716138286a3228651ed2b5ae3dad872029c38da96d3",
+  "current_sha256": "43c474765da90f1ac73f5b890290ee0c0a1ea8c82491cda6a59272bf1ef77ece",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "并行启动独立 production validation 项目。",
+  "affected_scope": "Compose 隔离与容器生命周期。",
+  "reproduction_command": "docker compose -f compose.yml -f compose.production.yml config",
+  "test_layer": "integration",
+  "test_file": "test\\integration_test\\test_security_production_integration.py",
+  "directed_testcase": "test_production_compose_config_should_not_publish_internal_ports",
+  "key_assertions": [
+    "production overlay 不发布应用宿主端口。"
+  ],
+  "directed_rerun_command": "pytest -q test/integration_test/test_security_production_integration.py -k test_production_compose_config_should_not_publish_internal_ports",
+  "impact_rerun_command": "nox -s regression"
+}

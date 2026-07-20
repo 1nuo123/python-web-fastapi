@@ -1,0 +1,18 @@
+[runtime]
+backend = "rabbitmq"
+
+[runtime.backend_detail]
+kind = "rabbitmq"
+schema_version = "1.0"
+rabbitmq_url = "amqp://required:required@rabbitmq:5672/"
+startup_probe_enabled = true
+startup_probe_timeout_seconds = 5
+task_exchange_name = "task.direct"
+task_exchange_type = "direct"
+task_exchange_durable = true
+task_message_persistent = true
+publisher_confirm_enabled = true
+publisher_confirm_timeout_seconds = 5
+queue_max_length = 10000
+consumer_prefetch_count = 8
+dead_letter_exchange_name = "task.dead_letter"

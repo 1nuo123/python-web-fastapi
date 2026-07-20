@@ -1,0 +1,37 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "static-e2b742b6ae1b4c0d8d6feb3dd6337b5b",
+    "code_baseline": "8ba70e05f1390f2734e9a1839adf9cd77b9281dbaaa20ea9ca7f7c5cbe95ad20",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-15T14:48:52.571360Z",
+    "command_entry": "nox -s static"
+  },
+  "kind": "static",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": "nox -s static",
+    "exit_code": 0,
+    "test_count": null,
+    "duration_seconds": 63.268676800013054,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\static-e2b742b6ae1b4c0d8d6feb3dd6337b5b.json",
+    "commands": [
+      {
+        "command": "nox -s static",
+        "tool_version": "python-3.11.8",
+        "exit_code": 0,
+        "finding_count": 0,
+        "evidence_path": "docs\\evidence\\test-runs\\static-e2b742b6ae1b4c0d8d6feb3dd6337b5b.json"
+      }
+    ],
+    "artifacts": [],
+    "warning_count": 0,
+    "skipped_count": 0,
+    "xfailed_count": 0,
+    "coverage": null,
+    "kind": "static"
+  }
+}

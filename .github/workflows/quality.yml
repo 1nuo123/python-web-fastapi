@@ -1,0 +1,71 @@
+name: quality
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: fastapi_web_skeleton_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-postgres-password
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fastapi_web_skeleton_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      rabbitmq:
+        image: rabbitmq:3.13-management
+        env:
+          RABBITMQ_DEFAULT_USER: fastapi_dev
+          RABBITMQ_DEFAULT_PASS: ci-rabbitmq-password
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_port_connectivity"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://postgres:ci-postgres-password@127.0.0.1:55432/fastapi_web_skeleton_test
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:ci-postgres-password@127.0.0.1:55432/fastapi_web_skeleton_test
+      REDIS_PASSWORD: ci-redis-password
+      REDIS_URL: redis://:ci-redis-password@127.0.0.1:56379/0
+      REDIS_TEST_URL: redis://:ci-redis-password@127.0.0.1:56379/0
+      RABBITMQ_TEST_URL: amqp://fastapi_dev:ci-rabbitmq-password@127.0.0.1:5672/
+      JWT_SECRET: ci-jwt-secret-minimum-32-characters
+      AUTH_BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-admin-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.17"
+          enable-cache: true
+      - name: 启动带认证的 Redis 测试依赖
+        run: |
+          docker run --detach --rm --name quality-redis --publish 56379:6379 redis:8-bookworm redis-server --requirepass "$REDIS_PASSWORD"
+          for attempt in {1..20}; do
+            if docker exec quality-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - run: uv sync --frozen --group dev
+      - run: uv run nox -s static offline regression
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-evidence
+          path: |
+            .tmp/coverage/coverage.json
+            .tmp/test-results/*.xml
+            docs/evidence/test-runs/*.json

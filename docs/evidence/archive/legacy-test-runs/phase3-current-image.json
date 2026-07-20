@@ -1,0 +1,43 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "phase3-current-image",
+    "code_baseline": "a9d45702c291b8e6b1723e0d0b58869fa7b816d2b57aa79e980330c7cb6aa325",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-16T03:31:03.407734Z",
+    "command_entry": "docker inspect production validation health, migration and worker"
+  },
+  "kind": "image",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": "docker inspect production validation health, migration and worker",
+    "exit_code": 0,
+    "test_count": null,
+    "duration_seconds": 0.3695258,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\phase3-current-image.json",
+    "commands": [
+      {
+        "command": "docker inspect production validation health, migration and worker",
+        "tool_version": "python-3.11.8",
+        "exit_code": 0,
+        "finding_count": 0,
+        "evidence_path": "docs\\evidence\\image\\current-production-validation.log"
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "snapshot",
+        "path": "docs\\evidence\\image\\current-production-validation.log",
+        "sha256": "19c4f3308d858464f9620df9d4837f76f4f845a9f030ce310e274cdeb41bc7c3"
+      }
+    ],
+    "warning_count": 0,
+    "skipped_count": 0,
+    "xfailed_count": 0,
+    "coverage": null,
+    "kind": "image"
+  }
+}

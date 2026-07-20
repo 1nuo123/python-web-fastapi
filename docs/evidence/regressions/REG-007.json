@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-007",
+    "affected_module": "src/infrastructure/resource_mount/shared_resource_lifecycle.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "Outbox worker 停止与测试释放路径不完整。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-007.json",
+    "kind": "source_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\resource_mount\\shared_resource_lifecycle.py",
+    "source_line": 608,
+    "trigger_condition": "关闭包含 Outbox 的任务运行时。",
+    "affected_scope": "publisher、dispatcher、后台线程和测试资源。",
+    "reproduction_command": "pytest -q test/unit_test -k outbox",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_task_execution_outbox_publisher_unit.py",
+    "directed_testcase": "test_background_worker_should_start_and_shutdown_cleanly",
+    "key_assertions": [
+      "Outbox worker 可确定停止并释放线程。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-007.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:00.800300Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-007.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:00.800300Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-007.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

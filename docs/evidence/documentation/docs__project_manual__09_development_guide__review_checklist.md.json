@@ -1,0 +1,24 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "topic": "docs/project_manual/09_development_guide/review_checklist.md",
+    "applicable_version": "2026.07.15",
+    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+    "verified_at": "2026-07-19T02:31:56.758477Z"
+  },
+  "kind": "architecture",
+  "detail": {
+    "schema_version": "1.0",
+    "truth_source": "source",
+    "evidence_path": "docs\\project_manual\\09_development_guide\\review_checklist.md",
+    "status": "current",
+    "replacement_path": null,
+    "content_sha256": "df68a6d0b3430e578e98abf13fabb82af02543557974e3daa7a947503c043ba9",
+    "validation_status": "verified",
+    "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
+    "fact_evidence_paths": [
+      "src"
+    ],
+    "kind": "architecture"
+  }
+}

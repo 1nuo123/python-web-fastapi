@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-011",
+    "affected_module": "noxfile.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "test_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "四个关键域组合覆盖率初始不足。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-011.json",
+    "kind": "test_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "noxfile.py",
+    "source_line": 47,
+    "trigger_condition": "执行总体及关键域覆盖率门禁。",
+    "affected_scope": "auth、security、task、persistence。",
+    "reproduction_command": "nox -s regression",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_phase_evidence_store_unit.py",
+    "directed_testcase": "test_store_when_test_run_saved_should_build_valid_index",
+    "key_assertions": [
+      "覆盖率和测试运行通过强类型证据持久化。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-011.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:01.510886Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-011.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:01.510886Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-011.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

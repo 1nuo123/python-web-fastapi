@@ -1,0 +1,7 @@
+[runtime.header]
+enabled = true
+policy_name = "distributed_lock_production"
+
+[runtime.detail]
+lease_seconds = 10
+wait_seconds = 1

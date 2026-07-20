@@ -1,0 +1,6 @@
+[runtime.cors]
+enabled = false
+allow_origins = []
+allow_methods = []
+allow_headers = []
+allow_credentials = false

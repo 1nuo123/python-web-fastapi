@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-015",
+  "source_path": "src\\infrastructure\\middleware_chain\\rate_limit_middleware.py",
+  "source_line": 106,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\middleware_chain\\rate_limit_middleware.py",
+  "baseline_sha256": "e186b443afe89d700fae8239a35867ac3e89ebfe153740ad6cca257224737dd4",
+  "current_sha256": "589909545950f1129a17bc08f1837acfa0b6a1d48ee81423bad3ffe9b29efcd7",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "限流依赖不可用。",
+  "affected_scope": "安全 fail-closed、中间件异常和 HTTP 状态。",
+  "reproduction_command": "pytest -q test/interface_test -k rate_limit",
+  "test_layer": "unit",
+  "test_file": "test\\interface_test\\test_rate_limit_http_interface.py",
+  "directed_testcase": "test_rate_limit_middleware_when_cache_unavailable_should_return_503",
+  "key_assertions": [
+    "限流依赖异常按 fail-closed 返回 503。"
+  ],
+  "directed_rerun_command": "pytest -q test/interface_test/test_rate_limit_http_interface.py -k test_rate_limit_middleware_when_cache_unavailable_should_return_503",
+  "impact_rerun_command": "nox -s regression"
+}

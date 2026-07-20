@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-001",
+    "affected_module": "src/api/fastapi_app_assembler.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "数据库引擎工厂注入签名与组合根调用不一致。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-001.json",
+    "kind": "source_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\api\\fastapi_app_assembler.py",
+    "source_line": 129,
+    "trigger_condition": "使用自定义数据库引擎工厂装配应用。",
+    "affected_scope": "FastAPI 组合根与数据库初始化。",
+    "reproduction_command": "pytest -q test/unit_test/test_fastapi_app_assembler_unit.py",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_fastapi_app_assembler_unit.py",
+    "directed_testcase": "test_assembler_with_provider_should_filter_binding_not_declared_in_environment",
+    "key_assertions": [
+      "组合根接受显式工厂并完成应用装配。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-001.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:12:42.514857Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-001.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:12:42.514857Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-001.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

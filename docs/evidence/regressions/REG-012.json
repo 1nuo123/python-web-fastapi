@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-012",
+    "affected_module": "test/performance/scenarios/locustfile.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "test_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "初始只有 autotuner dry-run，没有真实负载证据。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-012.json",
+    "kind": "test_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "critical-path",
+  "evidence": {
+    "source_path": "test\\performance\\scenarios\\locustfile.py",
+    "source_line": 19,
+    "trigger_condition": "执行冻结负载场景。",
+    "affected_scope": "稳定、突发、过载、依赖退化和多实例。",
+    "reproduction_command": "locust -f test/performance/scenarios/locustfile.py --headless",
+    "test_layer": "performance",
+    "test_file": "test\\performance\\autotuner\\test_capacity_autotuner.py",
+    "directed_testcase": "test_cli_should_generate_campaign_from_exact_persisted_runs",
+    "key_assertions": [
+      "真实负载与调参产物可追溯到唯一运行。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-012.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:01.783252Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-012.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:01.783252Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-012.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

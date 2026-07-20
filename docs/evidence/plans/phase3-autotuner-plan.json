@@ -1,0 +1,13 @@
+{
+  "output_directory": "docs/evidence/load/current-final",
+  "steps": [
+    {
+      "name": "capacity-autotuner",
+      "argv": [".venv/Scripts/python.exe", "-m", "test.performance.autotuner.capacity_autotuner"],
+      "timeout_seconds": 60,
+      "environment": [
+        {"name": "PYTHONUTF8", "value": "1"}
+      ]
+    }
+  ]
+}

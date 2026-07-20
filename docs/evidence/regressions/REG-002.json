@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-002",
+    "affected_module": "src/infrastructure/persistence/orm_model/app_log_record_orm_model.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "PostgreSQL JSONB 类型无法在离线 SQLite 建表。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-002.json",
+    "kind": "source_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\persistence\\orm_model\\app_log_record_orm_model.py",
+    "source_line": 36,
+    "trigger_condition": "离线测试创建完整 ORM 元数据。",
+    "affected_scope": "全部包含 JSON 字段的离线持久化测试。",
+    "reproduction_command": "pytest -q test/unit_test -k sqlite",
+    "test_layer": "unit",
+    "test_file": "test\\integration_test\\test_migration_job_integration.py",
+    "directed_testcase": "test_database_migration_cli_should_upgrade_test_database",
+    "key_assertions": [
+      "ORM 元数据可在目标数据库完成建表和迁移。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-002.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:00.323102Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-002.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:00.323102Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-002.json"
+    }
+  ],
+  "deferred_disposition": null
+}

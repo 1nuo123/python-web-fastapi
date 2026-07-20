@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-019",
+    "affected_module": "test/performance/autotuner/capacity_autotuner.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "test_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "autotuner 活动报告覆盖历史轮次。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-019.json",
+    "kind": "test_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "test\\performance\\autotuner\\capacity_autotuner.py",
+    "source_line": 84,
+    "trigger_condition": "连续执行多轮容量搜索。",
+    "affected_scope": "调参可追溯性和晋升结论。",
+    "reproduction_command": "pytest -q test/performance/autotuner/test_capacity_autotuner.py",
+    "test_layer": "performance",
+    "test_file": "test\\performance\\autotuner\\test_capacity_autotuner.py",
+    "directed_testcase": "test_search_when_run_ids_differ_should_keep_independent_trial_ids",
+    "key_assertions": [
+      "不同调参运行保留独立 trial 标识。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-019.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:02.852452Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-019.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:02.852452Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-019.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

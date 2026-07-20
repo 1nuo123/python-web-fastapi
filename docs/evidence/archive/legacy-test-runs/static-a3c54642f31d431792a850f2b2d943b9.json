@@ -1,0 +1,23 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "static-a3c54642f31d431792a850f2b2d943b9",
+    "code_baseline": "cfa022730477e0ed81cb5c179def7417b2eeb3cc181c6ebf5d3c27d3b989e803",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-15T10:36:10.475172Z",
+    "command_entry": "nox -s static"
+  },
+  "kind": "static",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "failed",
+    "command": "nox -s static",
+    "exit_code": 1,
+    "test_count": null,
+    "duration_seconds": 1.053115999995498,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": "静态质量会话存在失败命令。",
+    "evidence_path": "docs\\evidence\\test-runs\\static-a3c54642f31d431792a850f2b2d943b9.json",
+    "kind": "static"
+  }
+}

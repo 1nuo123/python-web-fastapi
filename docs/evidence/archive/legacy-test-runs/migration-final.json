@@ -1,0 +1,43 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "migration-final",
+    "code_baseline": "3644c16812bb840a312b2a7ace6eed48717cb6a8765aa7f7c404e083ea47fdd6",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-15T16:02:16.642596Z",
+    "command_entry": "docker compose production validation migration"
+  },
+  "kind": "migration",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": "docker compose production validation migration",
+    "exit_code": 0,
+    "test_count": null,
+    "duration_seconds": 30.0,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\migration-final.json",
+    "commands": [
+      {
+        "command": "docker compose production validation migration",
+        "tool_version": "docker-compose-2.40.3",
+        "exit_code": 0,
+        "finding_count": 0,
+        "evidence_path": "docs\\evidence\\image\\production-container-inspect.json"
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "migration_report",
+        "path": "docs\\evidence\\image\\production-container-inspect.json",
+        "sha256": "a7b5b02c65fb41e6929333df3d98a77469b81358c700427b0305ddbfdf72bafb"
+      }
+    ],
+    "warning_count": 0,
+    "skipped_count": 0,
+    "xfailed_count": 0,
+    "coverage": null,
+    "kind": "migration"
+  }
+}

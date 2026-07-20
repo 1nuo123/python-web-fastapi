@@ -1,0 +1,52 @@
+[runtime]
+api_prefix = ""
+max_request_body_bytes = 1048576
+enable_access_log = true
+enable_security_headers = true
+include_middleware_trace_header = false
+
+[runtime.cors]
+enabled = false
+allow_origins = []
+allow_methods = []
+allow_headers = []
+allow_credentials = false
+
+# 异步 Web 入口中的同步阻塞链路统一通过线程池桥接执行，避免直接卡住事件循环。
+[runtime.request_execution]
+envelope_kind = "request_execution_envelope"
+schema_version = "1.0"
+
+[runtime.request_execution.header]
+kind = "request_execution_header"
+schema_version = "1.0"
+execution_name = "default_sync_usecase"
+enabled = true
+mode = "threadpool"
+
+[runtime.request_execution.detail]
+kind = "threadpool"
+schema_version = "1.0"
+offload_timeout_seconds = 15
+max_workers = 8
+max_pending_requests = 32
+queue_wait_timeout_seconds = 2
+
+# 默认保留同步 HTTP 客户端；只有明确的高并发外部 HTTP 边界才切换为 async_http。
+[runtime.outbound_http_client]
+envelope_kind = "outbound_http_client_envelope"
+schema_version = "1.0"
+
+[runtime.outbound_http_client.header]
+kind = "outbound_http_client_header"
+schema_version = "1.0"
+client_name = "default_outbound_http"
+enabled = true
+mode = "sync_http"
+
+[runtime.outbound_http_client.detail]
+kind = "sync_http"
+schema_version = "1.0"
+timeout_seconds = 5
+max_connections = 64
+max_keepalive_connections = 16

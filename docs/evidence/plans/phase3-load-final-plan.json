@@ -1,0 +1,24 @@
+{
+  "output_directory": "docs/evidence/load/current-final",
+  "stop_on_failure": false,
+  "steps": [
+    {
+      "name": "steady-baseline",
+      "argv": [".venv/Scripts/locust.exe", "-f", "test/performance/scenarios/locustfile.py", "--headless", "--only-summary", "-u", "8", "-r", "2", "-t", "10s", "--host", "http://127.0.0.1:8000", "--csv", "docs/evidence/load/current-final/steady-baseline", "--html", "docs/evidence/load/current-final/steady-baseline.html"],
+      "timeout_seconds": 60,
+      "environment": [{"name": "PYTHONUTF8", "value": "1"}, {"name": "LOAD_SCENARIO_KIND", "value": "steady"}, {"name": "LOAD_SCENARIO_NAME", "value": "steady-baseline"}, {"name": "LOAD_USERS", "value": "8"}, {"name": "LOAD_SPAWN_RATE", "value": "2"}, {"name": "LOAD_DURATION_SECONDS", "value": "10"}, {"name": "LOAD_EXPECTED_STATUS_CODES", "value": "200"}]
+    },
+    {
+      "name": "burst",
+      "argv": [".venv/Scripts/locust.exe", "-f", "test/performance/scenarios/locustfile.py", "--headless", "--only-summary", "-u", "32", "-r", "16", "-t", "10s", "--host", "http://127.0.0.1:8000", "--csv", "docs/evidence/load/current-final/burst", "--html", "docs/evidence/load/current-final/burst.html"],
+      "timeout_seconds": 60,
+      "environment": [{"name": "PYTHONUTF8", "value": "1"}, {"name": "LOAD_SCENARIO_KIND", "value": "burst"}, {"name": "LOAD_SCENARIO_NAME", "value": "burst"}, {"name": "LOAD_BASELINE_USERS", "value": "8"}, {"name": "LOAD_PEAK_USERS", "value": "32"}, {"name": "LOAD_BURST_SECONDS", "value": "10"}, {"name": "LOAD_EXPECTED_STATUS_CODES", "value": "200,429"}]
+    },
+    {
+      "name": "overload",
+      "argv": [".venv/Scripts/locust.exe", "-f", "test/performance/scenarios/locustfile.py", "--headless", "--only-summary", "-u", "64", "-r", "32", "-t", "10s", "--host", "http://127.0.0.1:8000", "--csv", "docs/evidence/load/current-final/overload", "--html", "docs/evidence/load/current-final/overload.html"],
+      "timeout_seconds": 60,
+      "environment": [{"name": "PYTHONUTF8", "value": "1"}, {"name": "LOAD_SCENARIO_KIND", "value": "overload"}, {"name": "LOAD_SCENARIO_NAME", "value": "overload"}, {"name": "LOAD_USERS", "value": "64"}, {"name": "LOAD_DURATION_SECONDS", "value": "10"}, {"name": "LOAD_EXPECTED_STATUS_CODE", "value": "429"}, {"name": "LOAD_EXPECTED_STATUS_CODES", "value": "200,429"}]
+    }
+  ]
+}

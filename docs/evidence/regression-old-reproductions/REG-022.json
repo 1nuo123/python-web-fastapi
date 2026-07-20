@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-022",
+  "status": "unavailable",
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\api\\task_binding_provider.py",
+  "verification_command": "$target = Resolve-Path -LiteralPath '../work_baseline_20260713_1019/src/api/task_binding_provider.py' -ErrorAction SilentlyContinue; if ($null -eq $target) { Write-Output '目标文件不存在'; exit 1 }; Write-Output $target; exit 0",
+  "expected_result": "旧版基线包含满足当前验收契约的目标实现。",
+  "observed_result": "旧版目标文件存在，但现有基线不足以复现更早历史失败。",
+  "exit_code": 0,
+  "recorded_at": "2026-07-16T10:15:03.364155Z",
+  "raw_output_path": "docs\\evidence\\regression-old-reproductions\\REG-022.log"
+}

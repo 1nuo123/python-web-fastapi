@@ -1,0 +1,30 @@
+{
+  "output_directory": "docs/evidence/load/current-final",
+  "stop_on_failure": false,
+  "steps": [
+    {
+      "name": "production-dependency-stop",
+      "argv": ["docker", "compose", "-p", "fastapi-load-current-a", "-f", "compose.yml", "-f", "compose.production.yml", "-f", "docs/evidence/plans/production-load-a.override.yml", "stop", "redis"],
+      "timeout_seconds": 60
+    },
+    {
+      "name": "production-dependency-degraded",
+      "argv": [".venv/Scripts/locust.exe", "-f", "test/performance/scenarios/locustfile.py", "--headless", "--only-summary", "-u", "8", "-r", "4", "-t", "10s", "--host", "http://127.0.0.1:58001", "--csv", "docs/evidence/load/current-final/production-dependency-degraded", "--html", "docs/evidence/load/current-final/production-dependency-degraded.html"],
+      "timeout_seconds": 60,
+      "environment": [
+        {"name": "PYTHONUTF8", "value": "1"},
+        {"name": "LOAD_SCENARIO_KIND", "value": "dependency_degraded"},
+        {"name": "LOAD_SCENARIO_NAME", "value": "production-dependency-degraded"},
+        {"name": "LOAD_USERS", "value": "8"},
+        {"name": "LOAD_DURATION_SECONDS", "value": "10"},
+        {"name": "LOAD_INJECTED_LATENCY_MILLISECONDS", "value": "500"},
+        {"name": "LOAD_EXPECTED_STATUS_CODES", "value": "503"}
+      ]
+    },
+    {
+      "name": "production-dependency-recovery",
+      "argv": ["docker", "compose", "-p", "fastapi-load-current-a", "-f", "compose.yml", "-f", "compose.production.yml", "-f", "docs/evidence/plans/production-load-a.override.yml", "up", "-d", "--wait", "redis", "app"],
+      "timeout_seconds": 180
+    }
+  ]
+}

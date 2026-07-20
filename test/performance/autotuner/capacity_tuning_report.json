@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "run_paths": [
+    "test\\performance\\autotuner\\runs\\capacity-a1ff4f7f5d274804a6153f8cdf83af35.json",
+    "test\\performance\\autotuner\\runs\\capacity-a68bd39c12774500964782587c586c31.json",
+    "test\\performance\\autotuner\\runs\\capacity-511d2ab53c734a8fa1263f26dfe5fa31.json"
+  ],
+  "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+  "stable_best_parameters": false,
+  "stable_across_loads": false,
+  "resource_limits_satisfied": false,
+  "eligible_for_promotion": false,
+  "best_parameters": {
+    "max_workers": 8,
+    "max_pending_requests": 4,
+    "queue_wait_timeout_seconds": 2
+  },
+  "best_metrics": {
+    "throughput_per_second": 406.8879345497695,
+    "p50_milliseconds": 0.6046000053174794,
+    "p95_milliseconds": 1.1041000252589583,
+    "p99_milliseconds": 1.158399973064661,
+    "error_rate": 0.0,
+    "peak_workers": 8,
+    "peak_cpu_percent": 104.2,
+    "peak_memory_mebibytes": 34.63671875,
+    "peak_thread_count": 1,
+    "peak_connection_count": 0
+  },
+  "failed_parameters": {
+    "max_workers": 2,
+    "max_pending_requests": 4,
+    "queue_wait_timeout_seconds": 1
+  },
+  "failed_metrics": {
+    "throughput_per_second": 293.07428810393407,
+    "p50_milliseconds": 1.3910999987274408,
+    "p95_milliseconds": 1.9952000002376735,
+    "p99_milliseconds": 2.3153999936766922,
+    "error_rate": 0.0,
+    "peak_workers": 2,
+    "peak_cpu_percent": 0.0,
+    "peak_memory_mebibytes": 34.58984375,
+    "peak_thread_count": 1,
+    "peak_connection_count": 0
+  },
+  "promotion": "rejected",
+  "should_continue": false,
+  "conclusion": "当前活动属于 dry-run，或跨负载稳定性、资源风险未通过；保留最优/失败对比，淘汰晋升路线并保持冻结配置。"
+}

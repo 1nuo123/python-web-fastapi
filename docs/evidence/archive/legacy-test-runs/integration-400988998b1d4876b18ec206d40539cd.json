@@ -1,0 +1,37 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "integration-400988998b1d4876b18ec206d40539cd",
+    "code_baseline": "0a2813b878d7357f94d975e1075ed8973a08168eba570d43c58d9e25af82022e",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-15T15:07:37.694667Z",
+    "command_entry": "nox -s regression"
+  },
+  "kind": "integration",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "failed",
+    "command": "nox -s regression",
+    "exit_code": 1,
+    "test_count": null,
+    "duration_seconds": 717.0211151000112,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": "全量回归存在失败用例或覆盖率未达标。",
+    "evidence_path": "docs\\evidence\\test-runs\\integration-400988998b1d4876b18ec206d40539cd.json",
+    "commands": [
+      {
+        "command": "nox -s regression",
+        "tool_version": "python-3.11.8",
+        "exit_code": 1,
+        "finding_count": 0,
+        "evidence_path": "docs\\evidence\\test-runs\\integration-400988998b1d4876b18ec206d40539cd.json"
+      }
+    ],
+    "artifacts": [],
+    "warning_count": 0,
+    "skipped_count": 0,
+    "xfailed_count": 0,
+    "coverage": null,
+    "kind": "integration"
+  }
+}

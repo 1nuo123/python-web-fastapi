@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "baseline_path": "docs\\evidence\\snapshots\\public-contract-baseline.json",
+  "current_path": "docs\\evidence\\snapshots\\public-contract-current.json",
+  "compatible": true,
+  "changed_sections": []
+}

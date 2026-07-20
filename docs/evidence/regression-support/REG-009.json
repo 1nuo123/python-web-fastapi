@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-009",
+  "source_path": "test\\integration_test\\conftest.py",
+  "source_line": 173,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\test\\integration_test\\conftest.py",
+  "baseline_sha256": null,
+  "current_sha256": "4995e98fb0576b6e9466a7c5152dfdb93112f06f542c87c6b2d008c26ede200f",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "执行显式 PostgreSQL 集成夹具。",
+  "affected_scope": "迁移、事务、约束和资源释放。",
+  "reproduction_command": "pytest -q -m postgres",
+  "test_layer": "integration",
+  "test_file": "test\\integration_test\\test_migration_job_integration.py",
+  "directed_testcase": "test_migration_when_midway_statement_failed_should_rollback_database_state",
+  "key_assertions": [
+    "PostgreSQL 迁移失败后数据库状态回滚。"
+  ],
+  "directed_rerun_command": "pytest -q test/integration_test/test_migration_job_integration.py -k test_migration_when_midway_statement_failed_should_rollback_database_state",
+  "impact_rerun_command": "nox -s regression"
+}

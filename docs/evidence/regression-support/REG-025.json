@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-025",
+  "source_path": "test\\performance\\autotuner\\capacity_autotuner.py",
+  "source_line": 113,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\test\\performance\\autotuner\\capacity_autotuner.py",
+  "baseline_sha256": null,
+  "current_sha256": "644288f0189392cb8a998f78a6900400c1d9e8818d1720a5ebeeb863225bec85",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "从三轮原始 JSON 生成报告。",
+  "affected_scope": "容量试验、资源证据和晋升结论。",
+  "reproduction_command": "pytest -q test/performance/autotuner/test_capacity_autotuner.py",
+  "test_layer": "performance",
+  "test_file": "test\\performance\\autotuner\\test_capacity_autotuner.py",
+  "directed_testcase": "test_search_when_multiple_candidates_should_compare_best_and_failed",
+  "key_assertions": [
+    "活动报告同时保留最优与失败配置指标。"
+  ],
+  "directed_rerun_command": "pytest -q test/performance/autotuner/test_capacity_autotuner.py -k test_search_when_multiple_candidates_should_compare_best_and_failed",
+  "impact_rerun_command": "nox -s regression"
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-004",
+  "source_path": "src\\infrastructure\\persistence\\repository_impl\\refresh_token_repository_impl.py",
+  "source_line": 7,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\persistence\\repository_impl\\refresh_token_repository_impl.py",
+  "baseline_sha256": "2b1f869e406e33a1aecf58588d8be49a8d25163642ec555b9cf2c38d5f60732a",
+  "current_sha256": "b6ef43ee9bb691a820bdc14bbaec270c509ed6f045c29902785f8d55372d640c",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "从 SQLite 读取刷新令牌过期时间。",
+  "affected_scope": "刷新令牌校验与撤销路径。",
+  "reproduction_command": "pytest -q test/unit_test test/path_test -k refresh",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_auth_persistence_unit.py",
+  "directed_testcase": "test_refresh_token_session_status_should_mark_expired_active_session",
+  "key_assertions": [
+    "刷新令牌时间比较统一使用 UTC 语义。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_auth_persistence_unit.py -k test_refresh_token_session_status_should_mark_expired_active_session",
+  "impact_rerun_command": "nox -s regression"
+}

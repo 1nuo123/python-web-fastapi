@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-017",
+    "affected_module": "src/infrastructure/task/confirmed_funboost_rabbitmq_publisher.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "Funboost 主链缺少完整可靠发布语义和独立 worker。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-017.json",
+    "kind": "source_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\task\\confirmed_funboost_rabbitmq_publisher.py",
+    "source_line": 110,
+    "trigger_condition": "发布并消费生产任务。",
+    "affected_scope": "持久化、publisher confirm、背压与恢复。",
+    "reproduction_command": "pytest -q test/integration_test/test_funboost_rabbitmq_integration.py",
+    "test_layer": "unit",
+    "test_file": "test\\integration_test\\test_funboost_rabbitmq_integration.py",
+    "directed_testcase": "test_production_config_worker_should_complete_real_rabbitmq_state_writeback",
+    "key_assertions": [
+      "production 配置完成可靠发布、消费和状态回写。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-017.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:02.237769Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-017.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:02.237769Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-017.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

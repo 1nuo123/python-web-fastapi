@@ -1,0 +1,25 @@
+[module]
+default_retry_limit = 3
+default_job_kind = "task_execution_probe"
+
+[[module.registrations]]
+envelope_kind = "task_registration_envelope"
+schema_version = "1.0"
+
+[module.registrations.header]
+header_kind = "task_registration_header"
+schema_version = "1.0"
+task_name = "task_execution_probe"
+job_kind = "task_execution_probe"
+enabled = true
+backend = "funboost"
+
+[module.registrations.detail]
+kind = "funboost"
+schema_version = "1.0"
+queue_name = "task.execution.probe"
+exchange_name = "task.direct"
+routing_key = "task.execution.probe"
+broker_kind = "RABBITMQ_COMPLEX_ROUTING"
+retry_limit = 3
+consumer_worker_count = 2

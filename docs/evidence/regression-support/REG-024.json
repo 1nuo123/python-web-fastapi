@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-024",
+  "source_path": "src\\infrastructure\\evidence\\phase_evidence_store.py",
+  "source_line": 110,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\evidence\\phase_evidence_store.py",
+  "baseline_sha256": null,
+  "current_sha256": "3868b2d3da814d0a1782fede5811c8cf1408567bed06412777a087c78266acda",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "执行 Nox 和证据生成入口。",
+  "affected_scope": "TestRun、Regression、Documentation 与统一索引。",
+  "reproduction_command": "python -m src.cli.generate_phase_evidence",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_phase_evidence_store_unit.py",
+  "directed_testcase": "test_regression_catalog_when_built_should_record_every_finding",
+  "key_assertions": [
+    "阶段证据主流程生成全部 finding 记录。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_phase_evidence_store_unit.py -k test_regression_catalog_when_built_should_record_every_finding",
+  "impact_rerun_command": "nox -s regression"
+}

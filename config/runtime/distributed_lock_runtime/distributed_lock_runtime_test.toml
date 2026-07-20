@@ -1,0 +1,7 @@
+[runtime.header]
+enabled = true
+policy_name = "distributed_lock_test"
+
+[runtime.detail]
+lease_seconds = 5
+wait_seconds = 0

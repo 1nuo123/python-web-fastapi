@@ -1,0 +1,12 @@
+[
+  {
+    "command": ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 2 -r 1 -t 20s --host http://127.0.0.1:58002 --csv docs/evidence/load/current-final/resource-stability --html docs/evidence/load/current-final/resource-stability.html",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\resource-stability-load.log",
+    "started_at": "2026-07-16T10:53:28.720997Z",
+    "finished_at": "2026-07-16T10:53:52.823253Z",
+    "duration_seconds": 24.106336200027727
+  }
+]

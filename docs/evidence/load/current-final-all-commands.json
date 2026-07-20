@@ -1,0 +1,332 @@
+[
+    {
+        "command":  ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 8 -r 2 -t 10s --host http://127.0.0.1:8000 --csv docs/evidence/load/current-final/steady-baseline --html docs/evidence/load/current-final/steady-baseline.html",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\steady-baseline.log",
+        "started_at":  "2026-07-16T10:45:46.592268Z",
+        "finished_at":  "2026-07-16T10:45:59.667023Z",
+        "duration_seconds":  13.069722699990962
+    },
+    {
+        "command":  ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 8 -r 2 -t 10s --host http://127.0.0.1:8000 --csv docs/evidence/load/current-final/steady-retest-after-window --html docs/evidence/load/current-final/steady-retest-after-window.html",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\steady-retest-after-window.log",
+        "started_at":  "2026-07-16T10:47:33.664048Z",
+        "finished_at":  "2026-07-16T10:47:46.924371Z",
+        "duration_seconds":  13.260095799982082
+    },
+    {
+        "command":  ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 32 -r 16 -t 10s --host http://127.0.0.1:8000 --csv docs/evidence/load/current-final/burst --html docs/evidence/load/current-final/burst.html",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\burst.log",
+        "started_at":  "2026-07-16T10:45:59.667023Z",
+        "finished_at":  "2026-07-16T10:46:12.867710Z",
+        "duration_seconds":  13.199883799999952
+    },
+    {
+        "command":  ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 64 -r 32 -t 10s --host http://127.0.0.1:8000 --csv docs/evidence/load/current-final/overload --html docs/evidence/load/current-final/overload.html",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\overload.log",
+        "started_at":  "2026-07-16T10:46:12.867710Z",
+        "finished_at":  "2026-07-16T10:46:26.488014Z",
+        "duration_seconds":  13.618357300001662
+    },
+    {
+        "command":  "docker compose -p fastapi-load-current-a -f compose.yml -f compose.production.yml -f docs/evidence/plans/production-load-a.override.yml up -d --wait app",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\multi-instance-a-start.log",
+        "started_at":  "2026-07-16T10:50:12.807061Z",
+        "finished_at":  "2026-07-16T10:51:04.937131Z",
+        "duration_seconds":  52.131555400032084
+    },
+    {
+        "command":  "docker compose -p fastapi-load-current-b -f compose.yml -f compose.production.yml -f docs/evidence/plans/production-load-b.override.yml up -d --wait app",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\multi-instance-b-start.log",
+        "started_at":  "2026-07-16T10:51:04.939951Z",
+        "finished_at":  "2026-07-16T10:52:08.991644Z",
+        "duration_seconds":  64.05211119999876
+    },
+    {
+        "command":  ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 8 -r 4 -t 10s --host http://127.0.0.1:58001 --csv docs/evidence/load/current-final/multi-instance-a --html docs/evidence/load/current-final/multi-instance-a.html",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\multi-instance-a.log",
+        "started_at":  "2026-07-16T10:52:23.795477Z",
+        "finished_at":  "2026-07-16T10:52:37.817661Z",
+        "duration_seconds":  14.021551199955866
+    },
+    {
+        "command":  ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 8 -r 4 -t 10s --host http://127.0.0.1:58002 --csv docs/evidence/load/current-final/multi-instance-b --html docs/evidence/load/current-final/multi-instance-b.html",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\multi-instance-b.log",
+        "started_at":  "2026-07-16T10:52:23.795477Z",
+        "finished_at":  "2026-07-16T10:52:37.818321Z",
+        "duration_seconds":  14.021573400008492
+    },
+    {
+        "command":  "docker compose -p fastapi-load-current-a -f compose.yml -f compose.production.yml -f docs/evidence/plans/production-load-a.override.yml stop redis",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\production-dependency-stop.log",
+        "started_at":  "2026-07-16T10:52:53.280866Z",
+        "finished_at":  "2026-07-16T10:52:54.591239Z",
+        "duration_seconds":  1.3107050000107847
+    },
+    {
+        "command":  ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 8 -r 4 -t 10s --host http://127.0.0.1:58001 --csv docs/evidence/load/current-final/production-dependency-degraded --html docs/evidence/load/current-final/production-dependency-degraded.html",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\production-dependency-degraded.log",
+        "started_at":  "2026-07-16T10:52:54.593478Z",
+        "finished_at":  "2026-07-16T10:53:08.410504Z",
+        "duration_seconds":  13.817315400054213
+    },
+    {
+        "command":  "docker compose -p fastapi-load-current-a -f compose.yml -f compose.production.yml -f docs/evidence/plans/production-load-a.override.yml up -d --wait redis app",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\production-dependency-recovery.log",
+        "started_at":  "2026-07-16T10:53:08.412256Z",
+        "finished_at":  "2026-07-16T10:53:17.841955Z",
+        "duration_seconds":  9.43002799997339
+    },
+    {
+        "command":  ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 2 -r 1 -t 20s --host http://127.0.0.1:58002 --csv docs/evidence/load/current-final/resource-stability --html docs/evidence/load/current-final/resource-stability.html",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-stability-load.log",
+        "started_at":  "2026-07-16T10:53:28.720997Z",
+        "finished_at":  "2026-07-16T10:53:52.823253Z",
+        "duration_seconds":  24.106336200027727
+    },
+    {
+        "command":  "docker stats --no-stream --format \"{{json .}}\" fastapi-load-current-b-app-1",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\stats-01.log",
+        "started_at":  "2026-07-16T10:53:28.720997Z",
+        "finished_at":  "2026-07-16T10:53:30.509937Z",
+        "duration_seconds":  1.78993139998056
+    },
+    {
+        "command":  "docker exec fastapi-load-current-b-app-1 sh -c \"printf \u0027threads=\u0027; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf \u0027connections=\u0027; grep -hE \u0027^[[:space:]]*[0-9]+:\u0027 /proc/net/tcp /proc/net/tcp6 | wc -l\"",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\connections-01.log",
+        "started_at":  "2026-07-16T10:53:30.512271Z",
+        "finished_at":  "2026-07-16T10:53:30.879359Z",
+        "duration_seconds":  0.36669389996677637
+    },
+    {
+        "command":  "docker stats --no-stream --format \"{{json .}}\" fastapi-load-current-b-app-1",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\stats-02.log",
+        "started_at":  "2026-07-16T10:53:30.880620Z",
+        "finished_at":  "2026-07-16T10:53:32.619559Z",
+        "duration_seconds":  1.7391519999946468
+    },
+    {
+        "command":  "docker exec fastapi-load-current-b-app-1 sh -c \"printf \u0027threads=\u0027; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf \u0027connections=\u0027; grep -hE \u0027^[[:space:]]*[0-9]+:\u0027 /proc/net/tcp /proc/net/tcp6 | wc -l\"",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\connections-02.log",
+        "started_at":  "2026-07-16T10:53:32.621490Z",
+        "finished_at":  "2026-07-16T10:53:32.923407Z",
+        "duration_seconds":  0.3023387999855913
+    },
+    {
+        "command":  "docker stats --no-stream --format \"{{json .}}\" fastapi-load-current-b-app-1",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\stats-03.log",
+        "started_at":  "2026-07-16T10:53:32.924563Z",
+        "finished_at":  "2026-07-16T10:53:34.635546Z",
+        "duration_seconds":  1.7107678999891505
+    },
+    {
+        "command":  "docker exec fastapi-load-current-b-app-1 sh -c \"printf \u0027threads=\u0027; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf \u0027connections=\u0027; grep -hE \u0027^[[:space:]]*[0-9]+:\u0027 /proc/net/tcp /proc/net/tcp6 | wc -l\"",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\connections-03.log",
+        "started_at":  "2026-07-16T10:53:34.636728Z",
+        "finished_at":  "2026-07-16T10:53:34.963421Z",
+        "duration_seconds":  0.3266503000049852
+    },
+    {
+        "command":  "docker stats --no-stream --format \"{{json .}}\" fastapi-load-current-b-app-1",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\stats-04.log",
+        "started_at":  "2026-07-16T10:53:34.963421Z",
+        "finished_at":  "2026-07-16T10:53:36.682034Z",
+        "duration_seconds":  1.717183800006751
+    },
+    {
+        "command":  "docker exec fastapi-load-current-b-app-1 sh -c \"printf \u0027threads=\u0027; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf \u0027connections=\u0027; grep -hE \u0027^[[:space:]]*[0-9]+:\u0027 /proc/net/tcp /proc/net/tcp6 | wc -l\"",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\connections-04.log",
+        "started_at":  "2026-07-16T10:53:36.683484Z",
+        "finished_at":  "2026-07-16T10:53:37.026904Z",
+        "duration_seconds":  0.34434249997138977
+    },
+    {
+        "command":  "docker stats --no-stream --format \"{{json .}}\" fastapi-load-current-b-app-1",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\stats-05.log",
+        "started_at":  "2026-07-16T10:53:37.029491Z",
+        "finished_at":  "2026-07-16T10:53:38.875897Z",
+        "duration_seconds":  1.8464698999887332
+    },
+    {
+        "command":  "docker exec fastapi-load-current-b-app-1 sh -c \"printf \u0027threads=\u0027; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf \u0027connections=\u0027; grep -hE \u0027^[[:space:]]*[0-9]+:\u0027 /proc/net/tcp /proc/net/tcp6 | wc -l\"",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\connections-05.log",
+        "started_at":  "2026-07-16T10:53:38.876473Z",
+        "finished_at":  "2026-07-16T10:53:39.272316Z",
+        "duration_seconds":  0.3950553999748081
+    },
+    {
+        "command":  "docker stats --no-stream --format \"{{json .}}\" fastapi-load-current-b-app-1",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\stats-06.log",
+        "started_at":  "2026-07-16T10:53:39.273935Z",
+        "finished_at":  "2026-07-16T10:53:40.988750Z",
+        "duration_seconds":  1.7143756999867037
+    },
+    {
+        "command":  "docker exec fastapi-load-current-b-app-1 sh -c \"printf \u0027threads=\u0027; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf \u0027connections=\u0027; grep -hE \u0027^[[:space:]]*[0-9]+:\u0027 /proc/net/tcp /proc/net/tcp6 | wc -l\"",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\connections-06.log",
+        "started_at":  "2026-07-16T10:53:40.989440Z",
+        "finished_at":  "2026-07-16T10:53:41.417813Z",
+        "duration_seconds":  0.4278311000089161
+    },
+    {
+        "command":  "docker stats --no-stream --format \"{{json .}}\" fastapi-load-current-b-app-1",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\stats-07.log",
+        "started_at":  "2026-07-16T10:53:41.419666Z",
+        "finished_at":  "2026-07-16T10:53:43.151566Z",
+        "duration_seconds":  1.732534599956125
+    },
+    {
+        "command":  "docker exec fastapi-load-current-b-app-1 sh -c \"printf \u0027threads=\u0027; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf \u0027connections=\u0027; grep -hE \u0027^[[:space:]]*[0-9]+:\u0027 /proc/net/tcp /proc/net/tcp6 | wc -l\"",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\connections-07.log",
+        "started_at":  "2026-07-16T10:53:43.153745Z",
+        "finished_at":  "2026-07-16T10:53:43.563886Z",
+        "duration_seconds":  0.4100944999954663
+    },
+    {
+        "command":  "docker stats --no-stream --format \"{{json .}}\" fastapi-load-current-b-app-1",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\stats-08.log",
+        "started_at":  "2026-07-16T10:53:43.565095Z",
+        "finished_at":  "2026-07-16T10:53:45.328417Z",
+        "duration_seconds":  1.7632587000261992
+    },
+    {
+        "command":  "docker exec fastapi-load-current-b-app-1 sh -c \"printf \u0027threads=\u0027; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf \u0027connections=\u0027; grep -hE \u0027^[[:space:]]*[0-9]+:\u0027 /proc/net/tcp /proc/net/tcp6 | wc -l\"",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\connections-08.log",
+        "started_at":  "2026-07-16T10:53:45.330263Z",
+        "finished_at":  "2026-07-16T10:53:45.689000Z",
+        "duration_seconds":  0.3601646000170149
+    },
+    {
+        "command":  "docker stats --no-stream --format \"{{json .}}\" fastapi-load-current-b-app-1",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\stats-09.log",
+        "started_at":  "2026-07-16T10:53:45.690809Z",
+        "finished_at":  "2026-07-16T10:53:48.499556Z",
+        "duration_seconds":  2.8083693999797106
+    },
+    {
+        "command":  "docker exec fastapi-load-current-b-app-1 sh -c \"printf \u0027threads=\u0027; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf \u0027connections=\u0027; grep -hE \u0027^[[:space:]]*[0-9]+:\u0027 /proc/net/tcp /proc/net/tcp6 | wc -l\"",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\connections-09.log",
+        "started_at":  "2026-07-16T10:53:48.501750Z",
+        "finished_at":  "2026-07-16T10:53:48.825244Z",
+        "duration_seconds":  0.3234884000266902
+    },
+    {
+        "command":  "docker stats --no-stream --format \"{{json .}}\" fastapi-load-current-b-app-1",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\stats-10.log",
+        "started_at":  "2026-07-16T10:53:48.826352Z",
+        "finished_at":  "2026-07-16T10:53:50.546771Z",
+        "duration_seconds":  1.7205218999879435
+    },
+    {
+        "command":  "docker exec fastapi-load-current-b-app-1 sh -c \"printf \u0027threads=\u0027; find /proc/1/task -mindepth 1 -maxdepth 1 | wc -l; printf \u0027connections=\u0027; grep -hE \u0027^[[:space:]]*[0-9]+:\u0027 /proc/net/tcp /proc/net/tcp6 | wc -l\"",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\resource-samples\\connections-10.log",
+        "started_at":  "2026-07-16T10:53:50.546771Z",
+        "finished_at":  "2026-07-16T10:53:50.863041Z",
+        "duration_seconds":  0.3144919000333175
+    },
+    {
+        "command":  ".venv/Scripts/python.exe -m test.performance.autotuner.capacity_autotuner",
+        "tool_version":  "由原始日志中的版本命令记录",
+        "exit_code":  0,
+        "finding_count":  0,
+        "evidence_path":  "docs\\evidence\\load\\current-final\\capacity-autotuner.log",
+        "started_at":  "2026-07-16T10:58:37.654688Z",
+        "finished_at":  "2026-07-16T10:58:41.714702Z",
+        "duration_seconds":  4.059119499986991
+    }
+]

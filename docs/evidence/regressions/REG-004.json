@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-004",
+    "affected_module": "src/infrastructure/persistence/repository_impl/refresh_token_repository_impl.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "SQLite 读取刷新令牌时间时丢失时区。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-004.json",
+    "kind": "source_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\persistence\\repository_impl\\refresh_token_repository_impl.py",
+    "source_line": 7,
+    "trigger_condition": "从 SQLite 读取刷新令牌过期时间。",
+    "affected_scope": "刷新令牌校验与撤销路径。",
+    "reproduction_command": "pytest -q test/unit_test test/path_test -k refresh",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_auth_persistence_unit.py",
+    "directed_testcase": "test_refresh_token_session_status_should_mark_expired_active_session",
+    "key_assertions": [
+      "刷新令牌时间比较统一使用 UTC 语义。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-004.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:00.761956Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-004.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:00.761956Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-004.json"
+    }
+  ],
+  "deferred_disposition": null
+}

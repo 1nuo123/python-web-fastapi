@@ -1,0 +1,23 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "integration-72fd4546d2ee4ee993afa8aa52058c5e",
+    "code_baseline": "58d1fdeade06e8fb569455c28e1c74cbd7b81ccb691bc43cd85384a80ca95d05",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-15T10:46:14.213891Z",
+    "command_entry": "nox -s regression"
+  },
+  "kind": "integration",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": "nox -s regression",
+    "exit_code": 0,
+    "test_count": 753,
+    "duration_seconds": 737.7416723999777,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\integration-72fd4546d2ee4ee993afa8aa52058c5e.json",
+    "kind": "integration"
+  }
+}

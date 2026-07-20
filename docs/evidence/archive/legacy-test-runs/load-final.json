@@ -1,0 +1,49 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "load-final",
+    "code_baseline": "3644c16812bb840a312b2a7ace6eed48717cb6a8765aa7f7c404e083ea47fdd6",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-15T16:02:16.642596Z",
+    "command_entry": "locust steady burst overload degraded multi-instance"
+  },
+  "kind": "load",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": "locust steady burst overload degraded multi-instance",
+    "exit_code": 0,
+    "test_count": 2376,
+    "duration_seconds": 220.0,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\load-final.json",
+    "commands": [
+      {
+        "command": "locust steady burst overload degraded multi-instance",
+        "tool_version": "locust-2.45.0",
+        "exit_code": 0,
+        "finding_count": 0,
+        "evidence_path": "docs\\evidence\\load\\steady-retest_stats.csv"
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "load_stats",
+        "path": "docs\\evidence\\load\\steady-retest_stats.csv",
+        "sha256": "9d85a0311537b19cccb2f662aef478324e06d4ccb2562ceb39b1d901126635f3"
+      }
+    ],
+    "warning_count": 0,
+    "skipped_count": 0,
+    "xfailed_count": 0,
+    "coverage": null,
+    "kind": "load",
+    "promotion": "rejected",
+    "stable_across_runs": true,
+    "peak_cpu_percent": 6.25,
+    "peak_memory_mebibytes": 106.8,
+    "peak_thread_count": 9,
+    "peak_connection_count": 2
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-024",
+    "affected_module": "src/infrastructure/evidence/phase_evidence_store.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "阶段证据只有模型，没有写入和报告主流程。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-024.json",
+    "kind": "source_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\evidence\\phase_evidence_store.py",
+    "source_line": 110,
+    "trigger_condition": "执行 Nox 和证据生成入口。",
+    "affected_scope": "TestRun、Regression、Documentation 与统一索引。",
+    "reproduction_command": "python -m src.cli.generate_phase_evidence",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_phase_evidence_store_unit.py",
+    "directed_testcase": "test_regression_catalog_when_built_should_record_every_finding",
+    "key_assertions": [
+      "阶段证据主流程生成全部 finding 记录。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-024.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:03.635198Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-024.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:03.635198Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-024.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

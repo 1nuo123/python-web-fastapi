@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-005",
+  "source_path": "src\\infrastructure\\task\\local_task_dispatcher.py",
+  "source_line": 215,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\task\\local_task_dispatcher.py",
+  "baseline_sha256": "01b9ba0d0b01dc25907cb1e272e50586f70c168bc47769fdbd2ed8e99543eb44",
+  "current_sha256": "d084055c285c99898bc28317b2ec0d282d57f844c50da028b6776b0cefda5ede",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "有界任务池达到待处理上限。",
+  "affected_scope": "任务背压、异常映射与接口响应。",
+  "reproduction_command": "pytest -q test/unit_test test/exception_test -k capacity",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_local_task_dispatcher_unit.py",
+  "directed_testcase": "test_dispatch_when_message_capacity_exhausted_should_raise_capacity_fault",
+  "key_assertions": [
+    "容量耗尽映射为明确容量异常。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_local_task_dispatcher_unit.py -k test_dispatch_when_message_capacity_exhausted_should_raise_capacity_fault",
+  "impact_rerun_command": "nox -s regression"
+}

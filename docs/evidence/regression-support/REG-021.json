@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-021",
+  "source_path": "src\\infrastructure\\persistence\\repository_impl\\task_execution_record_repository_impl.py",
+  "source_line": 188,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\persistence\\repository_impl\\task_execution_record_repository_impl.py",
+  "baseline_sha256": "976fbbd7f66ff22db25262490dcada7da1faa9498fcfacf4b503f3ba033ed5d5",
+  "current_sha256": "2e9c9c9e9d84ef95b7479c140307494d3a686b8767040387258edbb3a9746001",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "消费者先于发布侧状态更新完成。",
+  "affected_scope": "任务状态机与并发一致性。",
+  "reproduction_command": "pytest -q test/unit_test -k mark_published",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_task_execution_outbox_publisher_unit.py",
+  "directed_testcase": "test_mark_published_when_consumer_finished_should_preserve_success",
+  "key_assertions": [
+    "发布回写不得覆盖更高任务状态。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_task_execution_outbox_publisher_unit.py -k test_mark_published_when_consumer_finished_should_preserve_success",
+  "impact_rerun_command": "nox -s regression"
+}

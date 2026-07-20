@@ -1,0 +1,17 @@
+[runtime]
+envelope_kind = "metrics_runtime_envelope"
+schema_version = "1.0"
+
+[runtime.header]
+kind = "metrics_runtime_header"
+schema_version = "1.0"
+mode = "prometheus_metrics"
+enabled = false
+policy_name = "metrics_default"
+
+[runtime.detail]
+kind = "prometheus_metrics"
+schema_version = "1.0"
+metrics_path = "/metrics"
+include_http_metrics = true
+include_runtime_metrics = true

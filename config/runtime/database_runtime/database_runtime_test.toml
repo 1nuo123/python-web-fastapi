@@ -1,0 +1,2 @@
+[runtime]
+url = "postgresql+psycopg://postgres:local-dev-postgres-password@127.0.0.1:55432/fastapi_web_skeleton_dev_test"

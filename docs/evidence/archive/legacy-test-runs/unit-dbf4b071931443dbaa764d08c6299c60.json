@@ -1,0 +1,23 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "unit-dbf4b071931443dbaa764d08c6299c60",
+    "code_baseline": "58d1fdeade06e8fb569455c28e1c74cbd7b81ccb691bc43cd85384a80ca95d05",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-15T10:38:25.612379Z",
+    "command_entry": "nox -s offline"
+  },
+  "kind": "unit",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": "nox -s offline",
+    "exit_code": 0,
+    "test_count": 640,
+    "duration_seconds": 446.5409740000032,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\unit-dbf4b071931443dbaa764d08c6299c60.json",
+    "kind": "unit"
+  }
+}

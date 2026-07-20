@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-018",
+    "affected_module": "src/core/phase_evidence_contract.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "Phase 3 至 Phase 5 缺少强类型阶段证据模型。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-018.json",
+    "kind": "source_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\core\\phase_evidence_contract.py",
+    "source_line": 300,
+    "trigger_condition": "序列化阶段证据。",
+    "affected_scope": "测试运行、回归和文档事实契约。",
+    "reproduction_command": "pytest -q test/contract_test/test_phase_evidence_contract.py",
+    "test_layer": "contract",
+    "test_file": "test\\contract_test\\test_phase_evidence_contract.py",
+    "directed_testcase": "test_regression_when_contract_valid_should_round_trip",
+    "key_assertions": [
+      "阶段证据判别联合可序列化往返。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-018.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:02.508722Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-018.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:02.508722Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-018.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

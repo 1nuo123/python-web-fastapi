@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-026",
+    "affected_module": "compose.production.yml",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "production overlay 保留应用宿主端口导致隔离验证冲突。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-026.json",
+    "kind": "source_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "critical-path",
+  "evidence": {
+    "source_path": "compose.production.yml",
+    "source_line": 3,
+    "trigger_condition": "并行启动独立 production validation 项目。",
+    "affected_scope": "Compose 隔离与容器生命周期。",
+    "reproduction_command": "docker compose -f compose.yml -f compose.production.yml config",
+    "test_layer": "integration",
+    "test_file": "test\\integration_test\\test_security_production_integration.py",
+    "directed_testcase": "test_production_compose_config_should_not_publish_internal_ports",
+    "key_assertions": [
+      "production overlay 不发布应用宿主端口。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-026.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:04.236512Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-026.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:04.236512Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-026.json"
+    }
+  ],
+  "deferred_disposition": null
+}

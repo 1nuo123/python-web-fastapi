@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-008",
+    "affected_module": "compose.yml",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "environment_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "Docker Linux engine 初始不可用。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-008.json",
+    "kind": "environment_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "critical-path",
+  "evidence": {
+    "source_path": "compose.yml",
+    "source_line": 3,
+    "trigger_condition": "执行生产容器验证。",
+    "affected_scope": "镜像、Compose 和容器生命周期。",
+    "reproduction_command": "docker info",
+    "test_layer": "integration",
+    "test_file": "test\\integration_test\\test_security_production_integration.py",
+    "directed_testcase": "test_production_app_should_keep_bounded_read_only_runtime",
+    "key_assertions": [
+      "生产容器配置保持只读和有界资源。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-008.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:01.223957Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-008.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:01.223957Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-008.json"
+    }
+  ],
+  "deferred_disposition": null
+}

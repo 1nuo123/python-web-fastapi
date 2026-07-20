@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-009",
+    "affected_module": "test/integration_test/conftest.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "environment_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "项目 PostgreSQL 初始不可用。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-009.json",
+    "kind": "environment_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "test\\integration_test\\conftest.py",
+    "source_line": 173,
+    "trigger_condition": "执行显式 PostgreSQL 集成夹具。",
+    "affected_scope": "迁移、事务、约束和资源释放。",
+    "reproduction_command": "pytest -q -m postgres",
+    "test_layer": "integration",
+    "test_file": "test\\integration_test\\test_migration_job_integration.py",
+    "directed_testcase": "test_migration_when_midway_statement_failed_should_rollback_database_state",
+    "key_assertions": [
+      "PostgreSQL 迁移失败后数据库状态回滚。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-009.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:01.229546Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-009.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:01.229546Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-009.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

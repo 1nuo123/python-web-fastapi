@@ -1,0 +1,5 @@
+[runtime]
+enabled = false
+service_name = "fastapi-web-skeleton"
+exporter_endpoint = ""
+traces_sample_ratio = 1.0

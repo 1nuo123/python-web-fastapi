@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-020",
+  "source_path": "src\\infrastructure\\task\\managed_funboost_thread_pool.py",
+  "source_line": 43,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\task\\managed_funboost_thread_pool.py",
+  "baseline_sha256": null,
+  "current_sha256": "9762e2404b4a34e0fa98e35232dfade5ff18ce700c0a692161a280021995db7a",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "消费者停止后释放线程池。",
+  "affected_scope": "进程退出、连接和线程资源。",
+  "reproduction_command": "pytest -q test/unit_test -k funboost",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_funboost_task_dispatcher_unit.py",
+  "directed_testcase": "test_bootstrapper_shutdown_when_consumer_pool_exists_should_close_pool",
+  "key_assertions": [
+    "消费线程池在 shutdown 时确定关闭。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_funboost_task_dispatcher_unit.py -k test_bootstrapper_shutdown_when_consumer_pool_exists_should_close_pool",
+  "impact_rerun_command": "nox -s regression"
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-006",
+  "source_path": "src\\infrastructure\\resource_mount\\runtime_resource_releaser.py",
+  "source_line": 13,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\resource_mount\\runtime_resource_releaser.py",
+  "baseline_sha256": "940c5e4cddb7fecedc933655a4c647afdbb0b51d2b7635cad03b9b05cb643247",
+  "current_sha256": "6883734109514bd110c8fa7639d0142b35e159a54a555b7ff96c9eba5f36acd2",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "应用执行正常或异常关闭。",
+  "affected_scope": "资源生命周期、日志完整性与数据库释放。",
+  "reproduction_command": "pytest -q test/unit_test test/path_test -k shutdown",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_resource_mount_lifecycle_unit.py",
+  "directed_testcase": "test_runtime_resource_releaser_should_continue_when_one_resource_failed",
+  "key_assertions": [
+    "资源释放按冻结顺序执行且聚合失败。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_resource_mount_lifecycle_unit.py -k test_runtime_resource_releaser_should_continue_when_one_resource_failed",
+  "impact_rerun_command": "nox -s regression"
+}

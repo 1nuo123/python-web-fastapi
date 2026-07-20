@@ -1,0 +1,29 @@
+[runtime]
+envelope_kind = "key_management_runtime"
+schema_version = "1.0"
+
+[runtime.header]
+kind = "key_management_header"
+schema_version = "1.0"
+enabled = true
+policy_name = "key_management_default"
+
+[runtime.detail]
+kind = "key_management_runtime"
+schema_version = "1.0"
+backend = "cache"
+
+[[runtime.detail.key_families]]
+kind = "managed_key_family"
+schema_version = "1.0"
+family_name = "jwt_signing"
+usage = "jwt_signing"
+enabled = true
+
+[runtime.detail.key_families.rotation_policy]
+kind = "key_rotation_policy"
+schema_version = "1.0"
+enabled = true
+rotation_interval_seconds = 7200
+active_key_count = 3
+compatibility_window_seconds = 7200

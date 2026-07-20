@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-023",
+  "source_path": ".github\\workflows\\quality.yml",
+  "source_line": 10,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\.github\\workflows\\quality.yml",
+  "baseline_sha256": null,
+  "current_sha256": "98c67c21f38b3b047462284a658d300a0ea16a74380931c56700052c6ade3cb2",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "首次推送后执行 GitHub Actions quality。",
+  "affected_scope": "远端质量门禁与 artifact。",
+  "reproduction_command": "gh run list --workflow quality",
+  "test_layer": "integration",
+  "test_file": "test\\integration_test\\test_migration_job_integration.py",
+  "directed_testcase": "test_compose_should_gate_app_by_migration_job",
+  "key_assertions": [
+    "CI 同入口具备真实依赖和迁移门禁。"
+  ],
+  "directed_rerun_command": "pytest -q test/integration_test/test_migration_job_integration.py -k test_compose_should_gate_app_by_migration_job",
+  "impact_rerun_command": "nox -s regression"
+}

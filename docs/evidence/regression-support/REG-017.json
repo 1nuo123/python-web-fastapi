@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-017",
+  "source_path": "src\\infrastructure\\task\\confirmed_funboost_rabbitmq_publisher.py",
+  "source_line": 110,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\task\\confirmed_funboost_rabbitmq_publisher.py",
+  "baseline_sha256": null,
+  "current_sha256": "f7e372c4a3530cce2cb67c4c3555ab4450924fab6b6cd20853382c863843d35a",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "发布并消费生产任务。",
+  "affected_scope": "持久化、publisher confirm、背压与恢复。",
+  "reproduction_command": "pytest -q test/integration_test/test_funboost_rabbitmq_integration.py",
+  "test_layer": "unit",
+  "test_file": "test\\integration_test\\test_funboost_rabbitmq_integration.py",
+  "directed_testcase": "test_production_config_worker_should_complete_real_rabbitmq_state_writeback",
+  "key_assertions": [
+    "production 配置完成可靠发布、消费和状态回写。"
+  ],
+  "directed_rerun_command": "pytest -q test/integration_test/test_funboost_rabbitmq_integration.py -k test_production_config_worker_should_complete_real_rabbitmq_state_writeback",
+  "impact_rerun_command": "nox -s regression"
+}

@@ -1,0 +1,42 @@
+[module]
+default_retry_limit = 2
+default_job_kind = "demo_task"
+
+[[module.registrations]]
+envelope_kind = "task_registration_envelope"
+schema_version = "1.0"
+
+[module.registrations.header]
+header_kind = "task_registration_header"
+schema_version = "1.0"
+task_name = "demo_task"
+job_kind = "demo_task"
+enabled = false
+backend = "local"
+
+[module.registrations.detail]
+kind = "local"
+schema_version = "1.0"
+retry_limit = 2
+
+[[module.registrations]]
+envelope_kind = "task_registration_envelope"
+schema_version = "1.0"
+
+[module.registrations.header]
+header_kind = "task_registration_header"
+schema_version = "1.0"
+task_name = "demo_task_funboost"
+job_kind = "demo_task_funboost"
+enabled = false
+backend = "funboost"
+
+[module.registrations.detail]
+kind = "funboost"
+schema_version = "1.0"
+queue_name = "demo_task_funboost_queue"
+exchange_name = "task.direct"
+routing_key = "demo.task.funboost"
+broker_kind = "RABBITMQ_COMPLEX_ROUTING"
+retry_limit = 3
+consumer_worker_count = 2

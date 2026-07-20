@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "phase3-final-offline",
+    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-16T10:24:03.593065Z",
+    "command_entry": "nox -s offline"
+  },
+  "kind": "unit",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": "nox -s offline",
+    "exit_code": 0,
+    "test_count": 669,
+    "duration_seconds": 361.5457376000122,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\phase3-final-offline.json",
+    "commands": [
+      {
+        "command": "nox -s offline",
+        "tool_version": "python-3.11.8",
+        "exit_code": 0,
+        "finding_count": 0,
+        "evidence_path": "docs\\evidence\\test-runs\\phase3-final-offline.json",
+        "started_at": "2026-07-16T10:24:03.593065Z",
+        "finished_at": "2026-07-16T10:30:05.138803Z",
+        "duration_seconds": 361.5457376000122
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "junit",
+        "path": "docs\\evidence\\test-artifacts\\phase3-final-offline.xml",
+        "sha256": "9356706fb401b0a130cbfa6a5c5fe952ddca50c035c5e7460de9e75a0f1eeb67",
+        "command_index": 0
+      }
+    ],
+    "warning_count": 5,
+    "skipped_count": 0,
+    "xfailed_count": 0,
+    "coverage": null,
+    "kind": "unit"
+  }
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "command": ".venv/Scripts/python.exe -m test.performance.autotuner.capacity_autotuner",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\capacity-autotuner.log",
+    "started_at": "2026-07-16T10:58:37.654688Z",
+    "finished_at": "2026-07-16T10:58:41.714702Z",
+    "duration_seconds": 4.059119499986991
+  }
+]

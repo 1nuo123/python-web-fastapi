@@ -1,0 +1,45 @@
+# 测试环境沿用同步主干与线程池桥接，使用更短超时便于尽快暴露阻塞回归。
+[runtime.cors]
+enabled = true
+allow_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+allow_methods = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
+allow_headers = ["Authorization", "Content-Type"]
+allow_credentials = true
+
+[runtime.request_execution]
+envelope_kind = "request_execution_envelope"
+schema_version = "1.0"
+
+[runtime.request_execution.header]
+kind = "request_execution_header"
+schema_version = "1.0"
+execution_name = "default_sync_usecase"
+enabled = true
+mode = "threadpool"
+
+[runtime.request_execution.detail]
+kind = "threadpool"
+schema_version = "1.0"
+offload_timeout_seconds = 5
+max_workers = 4
+max_pending_requests = 8
+queue_wait_timeout_seconds = 1
+
+# 测试环境默认仍使用同步 HTTP 客户端；异步客户端通过覆盖配置按需开启。
+[runtime.outbound_http_client]
+envelope_kind = "outbound_http_client_envelope"
+schema_version = "1.0"
+
+[runtime.outbound_http_client.header]
+kind = "outbound_http_client_header"
+schema_version = "1.0"
+client_name = "default_outbound_http"
+enabled = true
+mode = "sync_http"
+
+[runtime.outbound_http_client.detail]
+kind = "sync_http"
+schema_version = "1.0"
+timeout_seconds = 3
+max_connections = 16
+max_keepalive_connections = 4

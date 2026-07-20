@@ -1,0 +1,60 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "phase3-final-regression",
+    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-16T10:16:22.641007Z",
+    "command_entry": "nox -s regression"
+  },
+  "kind": "integration",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": "nox -s regression",
+    "exit_code": 0,
+    "test_count": 797,
+    "duration_seconds": 393.5352496000123,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json",
+    "commands": [
+      {
+        "command": "nox -s regression",
+        "tool_version": "python-3.11.8",
+        "exit_code": 0,
+        "finding_count": 0,
+        "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json",
+        "started_at": "2026-07-16T10:16:22.641007Z",
+        "finished_at": "2026-07-16T10:22:56.176257Z",
+        "duration_seconds": 393.5352496000123
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "junit",
+        "path": "docs\\evidence\\test-artifacts\\phase3-final-regression.xml",
+        "sha256": "794c1c6b2bae4a3ec662e8b3ce95a79a249ec9cc14b6ff595092eb0d4adfb9d9",
+        "command_index": 0
+      },
+      {
+        "kind": "coverage",
+        "path": "docs\\evidence\\test-artifacts\\phase3-final-coverage.json",
+        "sha256": "81001803e11daed6ae8c4eb7c06eae02686835c3d73824e12834e738b6669c2d",
+        "command_index": 0
+      }
+    ],
+    "warning_count": 225,
+    "skipped_count": 0,
+    "xfailed_count": 0,
+    "coverage": {
+      "total_percent": 90.79861111111111,
+      "auth_percent": 93.94939493949396,
+      "security_percent": 91.15646258503402,
+      "task_percent": 91.87180678123549,
+      "persistence_percent": 90.8869395711501,
+      "report_path": "docs\\evidence\\test-artifacts\\phase3-final-coverage.json"
+    },
+    "kind": "integration"
+  }
+}

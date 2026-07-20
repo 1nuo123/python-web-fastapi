@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-001",
+  "source_path": "src\\api\\fastapi_app_assembler.py",
+  "source_line": 129,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\api\\fastapi_app_assembler.py",
+  "baseline_sha256": null,
+  "current_sha256": "6a778b13472f867a77c4c15c8fed0940e8edcf6432b56f4a1b9db1d413886550",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "使用自定义数据库引擎工厂装配应用。",
+  "affected_scope": "FastAPI 组合根与数据库初始化。",
+  "reproduction_command": "pytest -q test/unit_test/test_fastapi_app_assembler_unit.py",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_fastapi_app_assembler_unit.py",
+  "directed_testcase": "test_assembler_with_provider_should_filter_binding_not_declared_in_environment",
+  "key_assertions": [
+    "组合根接受显式工厂并完成应用装配。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_fastapi_app_assembler_unit.py -k test_assembler_with_provider_should_filter_binding_not_declared_in_environment",
+  "impact_rerun_command": "nox -s regression"
+}

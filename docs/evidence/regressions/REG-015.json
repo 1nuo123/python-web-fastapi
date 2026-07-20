@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-015",
+    "affected_module": "src/infrastructure/middleware_chain/rate_limit_middleware.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "Redis 退化异常在限流响应转换前泄漏为 500。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-015.json",
+    "kind": "source_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\middleware_chain\\rate_limit_middleware.py",
+    "source_line": 106,
+    "trigger_condition": "限流依赖不可用。",
+    "affected_scope": "安全 fail-closed、中间件异常和 HTTP 状态。",
+    "reproduction_command": "pytest -q test/interface_test -k rate_limit",
+    "test_layer": "unit",
+    "test_file": "test\\interface_test\\test_rate_limit_http_interface.py",
+    "directed_testcase": "test_rate_limit_middleware_when_cache_unavailable_should_return_503",
+    "key_assertions": [
+      "限流依赖异常按 fail-closed 返回 503。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-015.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:02.225201Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-015.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:02.225201Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-015.json"
+    }
+  ],
+  "deferred_disposition": null
+}

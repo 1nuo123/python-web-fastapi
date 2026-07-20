@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-020",
+  "status": "failed",
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\task\\managed_funboost_thread_pool.py",
+  "verification_command": "$target = Resolve-Path -LiteralPath '../work_baseline_20260713_1019/src/infrastructure/task/managed_funboost_thread_pool.py' -ErrorAction SilentlyContinue; if ($null -eq $target) { Write-Output '目标文件不存在'; exit 1 }; Write-Output $target; exit 0",
+  "expected_result": "旧版基线包含满足当前验收契约的目标实现。",
+  "observed_result": "旧版目标文件不存在，当前验收契约在该基线稳定失败。",
+  "exit_code": 1,
+  "recorded_at": "2026-07-16T10:15:03.106757Z",
+  "raw_output_path": "docs\\evidence\\regression-old-reproductions\\REG-020.log"
+}

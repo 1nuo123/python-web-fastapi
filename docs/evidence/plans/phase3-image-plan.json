@@ -1,0 +1,61 @@
+{
+  "output_directory": "docs/evidence/image/current",
+  "stop_on_failure": false,
+  "steps": [
+    {
+      "name": "docker-version",
+      "argv": ["docker", "version", "--format", "{{.Client.Version}}"],
+      "timeout_seconds": 30
+    },
+    {
+      "name": "production-build",
+      "argv": ["docker", "compose", "-p", "fastapi-prod-validation-current", "-f", "compose.yml", "-f", "compose.production.yml", "--profile", "task-worker", "build"],
+      "timeout_seconds": 900
+    },
+    {
+      "name": "production-up",
+      "argv": ["docker", "compose", "-p", "fastapi-prod-validation-current", "-f", "compose.yml", "-f", "compose.production.yml", "--profile", "task-worker", "up", "-d", "--wait"],
+      "timeout_seconds": 300
+    },
+    {
+      "name": "production-status",
+      "argv": ["docker", "compose", "-p", "fastapi-prod-validation-current", "-f", "compose.yml", "-f", "compose.production.yml", "--profile", "task-worker", "ps", "--format", "json"],
+      "timeout_seconds": 30
+    },
+    {
+      "name": "application-inspect",
+      "argv": ["docker", "inspect", "fastapi-prod-validation-current-app-1"],
+      "timeout_seconds": 30
+    },
+    {
+      "name": "application-permissions",
+      "argv": ["docker", "exec", "fastapi-prod-validation-current-app-1", "sh", "-c", "test \"$(id -u)\" -ne 0 && if touch /readonly-check; then exit 1; else touch /tmp/write-check && rm /tmp/write-check; fi"],
+      "timeout_seconds": 30
+    },
+    {
+      "name": "application-sigterm",
+      "argv": ["docker", "stop", "--timeout", "40", "fastapi-prod-validation-current-app-1"],
+      "timeout_seconds": 60
+    },
+    {
+      "name": "application-shutdown-logs",
+      "argv": ["docker", "logs", "fastapi-prod-validation-current-app-1"],
+      "timeout_seconds": 30
+    },
+    {
+      "name": "application-restart",
+      "argv": ["docker", "start", "fastapi-prod-validation-current-app-1"],
+      "timeout_seconds": 30
+    },
+    {
+      "name": "application-recovery",
+      "argv": ["docker", "compose", "-p", "fastapi-prod-validation-current", "-f", "compose.yml", "-f", "compose.production.yml", "--profile", "task-worker", "up", "-d", "--wait"],
+      "timeout_seconds": 300
+    },
+    {
+      "name": "production-cleanup",
+      "argv": ["docker", "compose", "-p", "fastapi-prod-validation-current", "-f", "compose.yml", "-f", "compose.production.yml", "--profile", "task-worker", "down", "--volumes", "--remove-orphans"],
+      "timeout_seconds": 180
+    }
+  ]
+}

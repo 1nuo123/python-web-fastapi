@@ -1,0 +1,32 @@
+[
+  {
+    "command": "docker compose stop redis",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\dependency-stop.log",
+    "started_at": "2026-07-16T09:58:03.466105Z",
+    "finished_at": "2026-07-16T09:58:04.514240Z",
+    "duration_seconds": 1.047769299999345
+  },
+  {
+    "command": ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 8 -r 4 -t 10s --host http://127.0.0.1:8000 --csv docs/evidence/load/current-final/dependency-degraded --html docs/evidence/load/current-final/dependency-degraded.html",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 1,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\dependency-degraded.log",
+    "started_at": "2026-07-16T09:58:04.515011Z",
+    "finished_at": "2026-07-16T09:58:16.232118Z",
+    "duration_seconds": 11.717023400007747
+  },
+  {
+    "command": "docker compose up -d --wait redis app",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\dependency-start.log",
+    "started_at": "2026-07-16T09:58:16.233117Z",
+    "finished_at": "2026-07-16T09:58:22.949846Z",
+    "duration_seconds": 6.716397600015625
+  }
+]

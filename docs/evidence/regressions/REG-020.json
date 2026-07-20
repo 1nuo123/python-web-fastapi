@@ -1,0 +1,52 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-020",
+    "affected_module": "src/infrastructure/task/managed_funboost_thread_pool.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "第三方后台循环和弹性线程池缺少确定性关闭。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-020.json",
+    "kind": "source_fix"
+  },
+  "status": "verified",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\task\\managed_funboost_thread_pool.py",
+    "source_line": 43,
+    "trigger_condition": "消费者停止后释放线程池。",
+    "affected_scope": "进程退出、连接和线程资源。",
+    "reproduction_command": "pytest -q test/unit_test -k funboost",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_funboost_task_dispatcher_unit.py",
+    "directed_testcase": "test_bootstrapper_shutdown_when_consumer_pool_exists_should_close_pool",
+    "key_assertions": [
+      "消费线程池在 shutdown 时确定关闭。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-020.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:03.106757Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-020.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:03.106757Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-020.json"
+    },
+    {
+      "status": "verified",
+      "changed_at": "2026-07-16T10:22:57.234103Z",
+      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+    }
+  ],
+  "deferred_disposition": null
+}

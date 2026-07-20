@@ -1,0 +1,3 @@
+[module]
+ready_probe_enabled = true
+overview_title = "FastAPI 基础设施骨架"

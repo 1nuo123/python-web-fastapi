@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0",
+  "relations": [
+    {
+      "legacy_id": "PROD-001",
+      "canonical_ids": [],
+      "relation": "independent",
+      "conclusion": "管理员身份路由拆分 finding 独立保留。"
+    },
+    {
+      "legacy_id": "PROD-002",
+      "canonical_ids": [
+        "REG-005"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为本地任务容量耗尽必须显式拒绝。"
+    },
+    {
+      "legacy_id": "PROD-003",
+      "canonical_ids": [
+        "REG-016"
+      ],
+      "relation": "related",
+      "conclusion": "均由供应链审计发现，REG-016 聚焦 setuptools 漏洞。"
+    },
+    {
+      "legacy_id": "PROD-004",
+      "canonical_ids": [],
+      "relation": "independent",
+      "conclusion": "统一运行时容量策略 finding 独立保留。"
+    },
+    {
+      "legacy_id": "PROD-005",
+      "canonical_ids": [],
+      "relation": "independent",
+      "conclusion": "弱返回类型整改 finding 独立保留。"
+    },
+    {
+      "legacy_id": "PROD-006",
+      "canonical_ids": [],
+      "relation": "independent",
+      "conclusion": "管理员身份模块职责拆分 finding 独立保留。"
+    },
+    {
+      "legacy_id": "PROD-007",
+      "canonical_ids": [
+        "REG-006",
+        "REG-007"
+      ],
+      "relation": "related",
+      "conclusion": "资源门面重构与关闭生命周期 finding 相关但根因不同。"
+    },
+    {
+      "legacy_id": "PROD-008",
+      "canonical_ids": [],
+      "relation": "independent",
+      "conclusion": "Bandit 低危启发式 finding 独立保留。"
+    },
+    {
+      "legacy_id": "PROD-009",
+      "canonical_ids": [
+        "REG-016"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为 setuptools 已知漏洞。"
+    },
+    {
+      "legacy_id": "PROD-010",
+      "canonical_ids": [
+        "REG-017"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为 Funboost 可靠发布和消费闭环缺失。"
+    },
+    {
+      "legacy_id": "PROD-011",
+      "canonical_ids": [
+        "REG-018"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为阶段证据强类型契约缺失。"
+    },
+    {
+      "legacy_id": "PROD-012",
+      "canonical_ids": [
+        "REG-019"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为 autotuner 轮次被覆盖。"
+    },
+    {
+      "legacy_id": "PROD-013",
+      "canonical_ids": [
+        "REG-020"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为 Funboost 线程和消费循环无法确定关闭。"
+    },
+    {
+      "legacy_id": "PROD-014",
+      "canonical_ids": [
+        "REG-021"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为任务成功状态被发布回写覆盖。"
+    },
+    {
+      "legacy_id": "PROD-015",
+      "canonical_ids": [
+        "REG-022"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为 production 任务绑定仍使用演示语义。"
+    },
+    {
+      "legacy_id": "PROD-016",
+      "canonical_ids": [
+        "REG-023"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为远端 GitHub Actions 运行证据缺失。"
+    },
+    {
+      "legacy_id": "PROD-017",
+      "canonical_ids": [
+        "REG-024"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为阶段证据未接入持久化主流程。"
+    },
+    {
+      "legacy_id": "PROD-018",
+      "canonical_ids": [
+        "REG-025"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为 autotuner 汇总与原始轮次不一致。"
+    },
+    {
+      "legacy_id": "PROD-019",
+      "canonical_ids": [
+        "REG-026"
+      ],
+      "relation": "same_root_cause",
+      "conclusion": "均为 production Compose 端口隔离冲突。"
+    }
+  ]
+}

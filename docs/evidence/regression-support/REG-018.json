@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-018",
+  "source_path": "src\\core\\phase_evidence_contract.py",
+  "source_line": 300,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\core\\phase_evidence_contract.py",
+  "baseline_sha256": null,
+  "current_sha256": "2d31c5821fb812dc4b6e52916c534a7596835f95b6489ef04a56aa2ab15cecb1",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "序列化阶段证据。",
+  "affected_scope": "测试运行、回归和文档事实契约。",
+  "reproduction_command": "pytest -q test/contract_test/test_phase_evidence_contract.py",
+  "test_layer": "contract",
+  "test_file": "test\\contract_test\\test_phase_evidence_contract.py",
+  "directed_testcase": "test_regression_when_contract_valid_should_round_trip",
+  "key_assertions": [
+    "阶段证据判别联合可序列化往返。"
+  ],
+  "directed_rerun_command": "pytest -q test/contract_test/test_phase_evidence_contract.py -k test_regression_when_contract_valid_should_round_trip",
+  "impact_rerun_command": "nox -s regression"
+}

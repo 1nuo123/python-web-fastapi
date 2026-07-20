@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-005",
+    "affected_module": "src/infrastructure/task/local_task_dispatcher.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "本地任务分发把容量耗尽包装为一般失败。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-005.json",
+    "kind": "source_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\task\\local_task_dispatcher.py",
+    "source_line": 215,
+    "trigger_condition": "有界任务池达到待处理上限。",
+    "affected_scope": "任务背压、异常映射与接口响应。",
+    "reproduction_command": "pytest -q test/unit_test test/exception_test -k capacity",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_local_task_dispatcher_unit.py",
+    "directed_testcase": "test_dispatch_when_message_capacity_exhausted_should_raise_capacity_fault",
+    "key_assertions": [
+      "容量耗尽映射为明确容量异常。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-005.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:00.774880Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-005.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:00.774880Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-005.json"
+    }
+  ],
+  "deferred_disposition": null
+}

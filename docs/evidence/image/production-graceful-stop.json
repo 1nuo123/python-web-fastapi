@@ -1,0 +1,14 @@
+﻿[
+    {
+        "name":  "production-validation-app-1",
+        "status":  "exited",
+        "exit_code":  143,
+        "finished_at":  "2026-07-15T15:57:43.515245987Z"
+    },
+    {
+        "name":  "production-validation-task-worker-1",
+        "status":  "exited",
+        "exit_code":  0,
+        "finished_at":  "2026-07-15T15:57:44.679368168Z"
+    }
+]

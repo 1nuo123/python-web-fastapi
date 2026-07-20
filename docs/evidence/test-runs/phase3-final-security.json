@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "phase3-final-security",
+    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-16T10:34:11.690436Z",
+    "command_entry": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-security.xml test/boundary_test/test_security_boundary.py test/interface_test/test_security_http_interface.py test/interface_test/test_security_event_http_interface.py test/interface_test/test_rate_limit_http_interface.py test/integration_test/test_security_production_integration.py test/integration_test/test_runtime_boundary_integration.py test/integration_test/test_distributed_lock_redis_integration.py"
+  },
+  "kind": "security",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-security.xml test/boundary_test/test_security_boundary.py test/interface_test/test_security_http_interface.py test/interface_test/test_security_event_http_interface.py test/interface_test/test_rate_limit_http_interface.py test/integration_test/test_security_production_integration.py test/integration_test/test_runtime_boundary_integration.py test/integration_test/test_distributed_lock_redis_integration.py",
+    "exit_code": 0,
+    "test_count": 53,
+    "duration_seconds": 48.05,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\phase3-final-security.json",
+    "commands": [
+      {
+        "command": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-security.xml test/boundary_test/test_security_boundary.py test/interface_test/test_security_http_interface.py test/interface_test/test_security_event_http_interface.py test/interface_test/test_rate_limit_http_interface.py test/integration_test/test_security_production_integration.py test/integration_test/test_runtime_boundary_integration.py test/integration_test/test_distributed_lock_redis_integration.py",
+        "tool_version": "python-3.11.8",
+        "exit_code": 0,
+        "finding_count": 0,
+        "evidence_path": "docs\\evidence\\test-artifacts\\phase3-final-security.xml",
+        "started_at": "2026-07-16T10:34:11.690436Z",
+        "finished_at": "2026-07-16T10:34:59.740436Z",
+        "duration_seconds": 48.05
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "junit",
+        "path": "docs\\evidence\\test-artifacts\\phase3-final-security.xml",
+        "sha256": "d17239265ee39230aebb82ab3ebd8ebbb55911312043944b24c02009ccf82fd7",
+        "command_index": null
+      }
+    ],
+    "warning_count": 2,
+    "skipped_count": 0,
+    "xfailed_count": 0,
+    "coverage": null,
+    "kind": "security"
+  }
+}

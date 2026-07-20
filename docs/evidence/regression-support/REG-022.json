@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-022",
+  "source_path": "src\\api\\task_binding_provider.py",
+  "source_line": 12,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\api\\task_binding_provider.py",
+  "baseline_sha256": "2002860f12a22f992206f5fcc1371cb5638d7c8e8c861d80a9481585a2701d3c",
+  "current_sha256": "94abe873efcc1576e12401f8dc287c9a5fccd18f08ea5c48f18b61f59cfdd4ae",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "加载 production 配置并启动真实 worker。",
+  "affected_scope": "生产任务绑定、消费与状态回写。",
+  "reproduction_command": "pytest -q test/integration_test/test_funboost_rabbitmq_integration.py -k production",
+  "test_layer": "unit",
+  "test_file": "test\\unit_test\\test_task_worker_cli_unit.py",
+  "directed_testcase": "test_probe_handler_when_payload_valid_should_complete",
+  "key_assertions": [
+    "生产探针 handler 校验幂等标识并完成执行。"
+  ],
+  "directed_rerun_command": "pytest -q test/unit_test/test_task_worker_cli_unit.py -k test_probe_handler_when_payload_valid_should_complete",
+  "impact_rerun_command": "nox -s regression"
+}

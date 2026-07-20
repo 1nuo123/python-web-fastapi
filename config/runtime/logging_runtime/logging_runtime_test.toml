@@ -1,0 +1,15 @@
+[runtime]
+enabled = true
+level = "DEBUG"
+buffer_max_items = 200
+entry_project_name = "fastapi_web_skeleton"
+entry_log_path = "logs"
+
+[runtime.sink_detail]
+kind = "database"
+schema_version = "1.0"
+table_name = "app_log_record"
+flush_interval_seconds = 1
+max_batch_size = 20
+fallback_to_stdout = true
+retention_days = 7

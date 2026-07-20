@@ -1,0 +1,13 @@
+[runtime]
+jwt_algorithm = "HS256"
+access_token_expires_in_seconds = 900
+refresh_token_expires_in_seconds = 86400
+issuer = "fastapi-web-skeleton"
+audience = "fastapi-web-skeleton-client"
+password_hash_algorithm = "argon2"
+refresh_token_rotation_enabled = true
+issue_access_token_failure_limit = 5
+issue_access_token_failure_window_seconds = 300
+refresh_access_token_failure_limit = 5
+refresh_access_token_failure_window_seconds = 300
+throttle_lock_seconds = 300

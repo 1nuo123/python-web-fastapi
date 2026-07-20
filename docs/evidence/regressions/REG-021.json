@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-021",
+    "affected_module": "src/infrastructure/persistence/repository_impl/task_execution_record_repository_impl.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "发布确认可能把已成功执行状态回退为已发布。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-021.json",
+    "kind": "source_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\infrastructure\\persistence\\repository_impl\\task_execution_record_repository_impl.py",
+    "source_line": 188,
+    "trigger_condition": "消费者先于发布侧状态更新完成。",
+    "affected_scope": "任务状态机与并发一致性。",
+    "reproduction_command": "pytest -q test/unit_test -k mark_published",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_task_execution_outbox_publisher_unit.py",
+    "directed_testcase": "test_mark_published_when_consumer_finished_should_preserve_success",
+    "key_assertions": [
+      "发布回写不得覆盖更高任务状态。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-021.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:03.358567Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-021.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:03.358567Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-021.json"
+    }
+  ],
+  "deferred_disposition": null
+}

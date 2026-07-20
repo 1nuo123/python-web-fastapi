@@ -1,0 +1,4 @@
+[runtime]
+url = "postgresql+psycopg://required:required@postgres:5432/required"
+echo = false
+auto_upgrade_on_startup = false

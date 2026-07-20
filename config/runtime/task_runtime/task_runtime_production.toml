@@ -1,0 +1,11 @@
+[runtime]
+backend = "funboost"
+worker_enabled = false
+
+[runtime.backend_detail]
+kind = "funboost"
+schema_version = "1.0"
+broker_kind = "RABBITMQ_COMPLEX_ROUTING"
+retry_delay_seconds = 1
+retry_backoff_multiplier = 2
+retry_max_delay_seconds = 30

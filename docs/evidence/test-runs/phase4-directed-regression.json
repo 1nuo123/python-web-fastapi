@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "run_id": "phase4-directed-regression",
+    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+    "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "started_at": "2026-07-16T10:37:24.439355Z",
+    "command_entry": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase4-current-directed.xml test/unit_test/test_fastapi_app_assembler_unit.py test/integration_test/test_migration_job_integration.py test/unit_test/test_auth_persistence_unit.py test/unit_test/test_local_task_dispatcher_unit.py test/unit_test/test_resource_mount_lifecycle_unit.py test/unit_test/test_task_execution_outbox_publisher_unit.py test/integration_test/test_security_production_integration.py test/integration_test/test_funboost_rabbitmq_integration.py test/unit_test/test_phase_evidence_store_unit.py test/performance/autotuner/test_capacity_autotuner.py test/interface_test/test_rate_limit_http_interface.py test/unit_test/test_funboost_config_unit.py test/contract_test/test_phase_evidence_contract.py test/unit_test/test_funboost_task_dispatcher_unit.py test/unit_test/test_task_worker_cli_unit.py"
+  },
+  "kind": "integration",
+  "detail": {
+    "schema_version": "1.0",
+    "status": "passed",
+    "command": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase4-current-directed.xml test/unit_test/test_fastapi_app_assembler_unit.py test/integration_test/test_migration_job_integration.py test/unit_test/test_auth_persistence_unit.py test/unit_test/test_local_task_dispatcher_unit.py test/unit_test/test_resource_mount_lifecycle_unit.py test/unit_test/test_task_execution_outbox_publisher_unit.py test/integration_test/test_security_production_integration.py test/integration_test/test_funboost_rabbitmq_integration.py test/unit_test/test_phase_evidence_store_unit.py test/performance/autotuner/test_capacity_autotuner.py test/interface_test/test_rate_limit_http_interface.py test/unit_test/test_funboost_config_unit.py test/contract_test/test_phase_evidence_contract.py test/unit_test/test_funboost_task_dispatcher_unit.py test/unit_test/test_task_worker_cli_unit.py",
+    "exit_code": 0,
+    "test_count": 128,
+    "duration_seconds": 64.18,
+    "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
+    "failure_summary": null,
+    "evidence_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "commands": [
+      {
+        "command": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase4-current-directed.xml test/unit_test/test_fastapi_app_assembler_unit.py test/integration_test/test_migration_job_integration.py test/unit_test/test_auth_persistence_unit.py test/unit_test/test_local_task_dispatcher_unit.py test/unit_test/test_resource_mount_lifecycle_unit.py test/unit_test/test_task_execution_outbox_publisher_unit.py test/integration_test/test_security_production_integration.py test/integration_test/test_funboost_rabbitmq_integration.py test/unit_test/test_phase_evidence_store_unit.py test/performance/autotuner/test_capacity_autotuner.py test/interface_test/test_rate_limit_http_interface.py test/unit_test/test_funboost_config_unit.py test/contract_test/test_phase_evidence_contract.py test/unit_test/test_funboost_task_dispatcher_unit.py test/unit_test/test_task_worker_cli_unit.py",
+        "tool_version": "python-3.11.8",
+        "exit_code": 0,
+        "finding_count": 0,
+        "evidence_path": "docs\\evidence\\test-artifacts\\phase4-current-directed.xml",
+        "started_at": "2026-07-16T10:37:24.439355Z",
+        "finished_at": "2026-07-16T10:38:28.619355Z",
+        "duration_seconds": 64.18
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "junit",
+        "path": "docs\\evidence\\test-artifacts\\phase4-current-directed.xml",
+        "sha256": "f7c3c6dc61cefbcaf574df1d06ea9665645ae15a2a7d03706139e60b3f0a7de3",
+        "command_index": null
+      }
+    ],
+    "warning_count": 225,
+    "skipped_count": 0,
+    "xfailed_count": 0,
+    "coverage": null,
+    "kind": "integration"
+  }
+}

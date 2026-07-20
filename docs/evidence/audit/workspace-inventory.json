@@ -1,0 +1,3137 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-07-19T02:31:42.872864Z",
+  "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+  "entries": [
+    {
+      "kind": "source",
+      "path": "src\\__init__.py",
+      "sha256": "6312dc65d99d29a0e9ab462e956bace2e5cc9bdf83878db9ffc1fbe008d51b34"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\__init__.py",
+      "sha256": "a87b5f9afdbdc655e221f97a53cced22c203d27b5d2a062d5335c22c0c722b76"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\admin_list_page_contract.py",
+      "sha256": "1a9a669a05823840d9898c819d314ed3146fd15e8104958776224722db2dbb00"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\asgi_entry.py",
+      "sha256": "0a6076cb1450ef722df564049f8c570ce69dc8cd8ae15346cbf1645491df2145"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\dependency_context_accessor.py",
+      "sha256": "d64e726eb2ecf60f5d7751cea95fefc73dc802a95a00c02e5f2e25720d26d084"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_audit\\__init__.py",
+      "sha256": "933ccd2c093353445d75636031227c5303c3ac419900b0bd02765d57b981742c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_audit\\contract_admin_audit.py",
+      "sha256": "21a035bd8522b7ef8ccb5d346c314f509cb71c3e96b7b8e538174b24fc799c84"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_audit\\route_admin_audit.py",
+      "sha256": "e5c40969be6158832df7721c5c12f47c6daeec4c2042dba7c2eabeb0418aaef4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\__init__.py",
+      "sha256": "8ffb1ab839de07a6c43d9986c8e12f24bb1ed88a3122afefb90de700f39f72ac"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\contract_admin_identity_common.py",
+      "sha256": "0c7ccf1dd20f6bebf75c8545d408cbf544f20dd69e3389719c6553467c68b10b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\contract_admin_identity_envelope.py",
+      "sha256": "0a603641ea3dd7e3b2418a86816d681c645c2ed128a31db857c4d1cd2d1d1f9f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\contract_admin_role.py",
+      "sha256": "b5ce88caeed7dcb41b81d3c1ca09ab340de05f381974a0c1a96032a7c1347c17"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\contract_admin_scope.py",
+      "sha256": "a3367454e0d857b50920ed01afb35a3756b60f6d4ead5d6ef1bf05aaeafca6ba"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\contract_admin_user.py",
+      "sha256": "0b6aac53e90fd64f71cb6a1c44fa3186922b0016a861960f9a4112620056041a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\route_admin_identity.py",
+      "sha256": "945ff4267ed87c05a821e770525cc0cf7784ce077a769a8549a7919d06bca3c2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\route_admin_identity_common.py",
+      "sha256": "e33a338bb2ea762c98c310801de0be44a05a446f92a316aff406fe8aedce55d2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\route_admin_role.py",
+      "sha256": "f124dbfed6fbb0b3beca0be63a6d9de4912cfa780924dc4e796d08ae9f51b242"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\route_admin_scope.py",
+      "sha256": "dd9b7f67188507a3a08f74665f3685ba33599191dc32dab27f0be5887cfca1c6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_identity\\route_admin_user.py",
+      "sha256": "cf16fb98839e014b9ef1870e0650b738e6c41e98c8d2f4117fa707769a162652"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_log\\__init__.py",
+      "sha256": "f70045c001489ce7c919b7c873cacc2713f047a3a92df54eb9dc416c9ad8374a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_log\\contract_admin_log.py",
+      "sha256": "4b5fdc9cba2b11c3d7fc6ba9a993e598a255c8146a03d9a3bbac0640f054bcd3"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_log\\route_admin_log.py",
+      "sha256": "cc15c66970f5e222d5ee6e88c043f76008682b10d5f3f3e4fa86cdedb3e58bf6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_settings\\__init__.py",
+      "sha256": "1d9049869fb573cf75880251590426fc056dc25e0c86a24241948a097b673004"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_settings\\contract_admin_settings.py",
+      "sha256": "ea6a66c12cfd663bb8d522fccd4c6985e86d7de220de7960191a6164e6b4f198"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_settings\\route_admin_settings.py",
+      "sha256": "27ad9d8b844d02ce3ef323a95a52fc487e33ad9e284b905e3d1db2338c2175c6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_task\\__init__.py",
+      "sha256": "c5f4577aea2c059bd5efb9ce21d01e82f387b38193e6a51c83fe364d007c6a43"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_task\\contract_admin_task.py",
+      "sha256": "618a1c4f687b7aac53fc9a501fc61fd82258e47136332335ee285bf7a69a021c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_admin_task\\route_admin_task.py",
+      "sha256": "7a440c54d85d929e608753c2a92d3fc27e6855ef19b55f73b4d80af5915588b4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_auth_access\\__init__.py",
+      "sha256": "3594565f083cd8eceb96525d8af9607d005efb103c21cbb2d1c88044cc48abee"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_auth_access\\contract_auth_access.py",
+      "sha256": "918858de65134768b81e2f1e258baef31d61ed742e64e2d5e47c8e0bfaf17803"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_auth_access\\route_auth_access.py",
+      "sha256": "04fad47d07da40ec45e194632978aa1878420a19cdfdd21a043ba5e46304769b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_health_probe\\__init__.py",
+      "sha256": "3518a8f946bdce6512e595f0ed6bfc6d0378a44848fdf39ef3a37707f1aac811"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_health_probe\\contract_health_probe.py",
+      "sha256": "8491276c2574f4e78b92340b6e32a1c35644686526b817b9dc543acd8381d7c8"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_health_probe\\route_health_probe.py",
+      "sha256": "6a4d6a139ff84722959f1fd97e4ddda43035d052af3e03919e6ae286af9970e7"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_security_protection\\__init__.py",
+      "sha256": "e0b698d75c1ba2adc4ae72fcc7379de892fe86c470e391305486294fb9747f36"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_security_protection\\contract_security_protection.py",
+      "sha256": "2496ad7f0a780f59e1347f252a183f3fbb86ff9dddd9dcfc13b6b8404eef268f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_security_protection\\route_security_protection.py",
+      "sha256": "df9739478d51836378fd437b755fd3564168c96b22b41d26915237373d220b3f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_system_overview\\__init__.py",
+      "sha256": "51410499ddaac9145d00847603b28eb606f6ff1b56347af1fe173a030f7a7589"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_system_overview\\contract_system_overview.py",
+      "sha256": "37786a539b1ce97678dcf012da16e85e50a83a862919bbd58ac86c2d0b134b28"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_system_overview\\route_system_overview.py",
+      "sha256": "f16157f0e686cbd1ca9c1603604a699f067c0e2d287fdc99de8c02a0f75a118c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\evidence\\__init__.py",
+      "sha256": "07de268d08ca31c3992829625c8017729fecbc2be28454e7ca6995d608da7307"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\evidence\\public_contract_snapshot_builder.py",
+      "sha256": "6ff65aa571421e84aac80bdf099fb422145403fba4144194c2cbf68b062e6c1b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\fastapi_app_assembler.py",
+      "sha256": "6a778b13472f867a77c4c15c8fed0940e8edcf6432b56f4a1b9db1d413886550"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\task_binding_provider.py",
+      "sha256": "94abe873efcc1576e12401f8dc287c9a5fccd18f08ea5c48f18b61f59cfdd4ae"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\testing\\__init__.py",
+      "sha256": "e6bf967c2d4efa257c411347151c7ad3b3d372e3f1049285aacbe5002cbaa4eb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\testing\\demo_task_binding_factory.py",
+      "sha256": "ceb6d7fed9f9039992edd3bf717b018622d74f70993ea5a2396812e020641630"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\testing\\test_app_factory.py",
+      "sha256": "77a73dc63f2f938016d505af327b04d54d49b64d731abc604bbc600a5509d539"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\testing\\test_route_binder.py",
+      "sha256": "f45548f6b026943cf11f335b9be520cd1dd52076e8278cdc265e40afee9c9291"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\web_bundle_catalog.py",
+      "sha256": "787d06e9900683ecb8923121cdeeab536c31a4af7f88c3e1abf61407ee980644"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\web_module_manifest.py",
+      "sha256": "aedcc6b201eaf03fb423a14855a363093836e332ee1d8a3d36907c48d9843654"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\__init__.py",
+      "sha256": "4db7a6b1dcdf6ee8888c55700deda31e094362364d1d6964a940e9a2243969f7"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\__init__.py",
+      "sha256": "b0e9e7d44300a0743d87c0216efa923af1c1e29076f6a54ab3135a588acf9962"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\apply_admin_settings_reload_usecase.py",
+      "sha256": "f9e0961f1d9a0fd7235d1518568562aae0e78a19000d7fb56bd3a1ec7fa940da"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\audit\\__init__.py",
+      "sha256": "6e4e9c5c78de1c3e7aeeac62d0651f22bddce048358c13e1c0854a9ed5957093"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\audit\\list_admin_audit_events_usecase.py",
+      "sha256": "6306ba42d336a7b5d2d3c0e7cdc099ec4ce42561cf01a9dc2371cc7797cd65de"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\build_admin_settings_reload_candidate_usecase.py",
+      "sha256": "fae7b6583c3f2bff9327b2cadca39bdba85709573ed37a15343e7db829cac8b8"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\dispatch_admin_task_usecase.py",
+      "sha256": "91b0801093c59f44cb5696474d38b68ed6fcd32002d03b97795e21fb8da6b109"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\get_admin_task_execution_record_usecase.py",
+      "sha256": "87a717554d7cc02cc7e3ee5c62e1bd7d31631658e7865a565782f6d468ac0875"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\__init__.py",
+      "sha256": "d7bea1e1721e0a7b129e0f1ef76682fe7f18b30e2e8b6b7e59e97f56da5beec2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\initial_admin\\__init__.py",
+      "sha256": "860522deab742e37c5dc8b9d23ddf267591ea3e60997b17f608da7811224a408"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\initial_admin\\create_initial_admin_usecase.py",
+      "sha256": "17d9213e0521b01405b214d3cd33e264835736cd2c9b1f0ddc0fe7ffb09edb9e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\role\\__init__.py",
+      "sha256": "a31eb7a0a0e7c32fa5d5c9c2ad0778c67af6848759443a2306bbc105a62b5b6d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\role\\create_admin_role_usecase.py",
+      "sha256": "60d8756274cfc458dd2bbbd27444a5d12be13a93dcb6f146c8800bab88af2754"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\role\\delete_admin_role_usecase.py",
+      "sha256": "ea3a07c49b730e6f4aeeecd990dba182a3c8c6645fe48c2299b133f4ed6941d3"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\role\\get_admin_role_usecase.py",
+      "sha256": "d59fb2b4b54de25ac4ad6eb81db01aed187b67412a70683835edc4a95d028272"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\role\\list_admin_roles_usecase.py",
+      "sha256": "2d280af859f082005bceece329ce2b158ff22ffe73a07308304076f0900444e5"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\role\\replace_admin_role_scopes_usecase.py",
+      "sha256": "da96e1c629d56b4f9a26d471a8866c05b0b710f51e5e469df3a041f031a55d99"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\role\\update_admin_role_usecase.py",
+      "sha256": "db542e1fd9fdec93850cd4c7a26ed595865f20442e988e1dc9a569b909c9d02f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\scope\\__init__.py",
+      "sha256": "832145e6a924a9527bbf12cdeaffa624bbbd7356b2220bf893e43f872471ba66"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\scope\\create_admin_scope_usecase.py",
+      "sha256": "5bbd1967b54c07287b6fe43247b9cc7c1c05a9d93ddbd769c5d257c3c8018c0a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\scope\\delete_admin_scope_usecase.py",
+      "sha256": "5ab0802179e343b3bccb5228602f55d93e52966ae2fa937e690a59164bf8bd31"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\scope\\get_admin_scope_usecase.py",
+      "sha256": "8627da3a7cc68d9a48e375b953eaed9390f9db2c7840d0e76232b39a70e77085"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\scope\\list_admin_scopes_usecase.py",
+      "sha256": "faaf88a25b8d40cce8444df691adc34a51ed5146a54b4ca01a3de880ff7ba4f4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\scope\\update_admin_scope_usecase.py",
+      "sha256": "8b2e420e04f9752e1d47acf6a37a3eb52116ce711277797a86729c05e85cefe7"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\shared\\__init__.py",
+      "sha256": "70afd68f7f65ff979e6ade1cb9240ed355bcfc4ddf9e15ae67b9f8f071c532f0"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\shared\\admin_identity_command.py",
+      "sha256": "d43052b7a633310505e9a5296a365a0fc6f50852f62d3b21fed2219f6b245c21"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\user\\__init__.py",
+      "sha256": "89ec122732ad9087206020ccc9751152b5804099ebc98832e48f6a4752830072"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\user\\create_admin_user_usecase.py",
+      "sha256": "5f2047e4629b36b5799c6bdea89c01af21241a958500736c4fbf7c6152d9a9f9"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\user\\delete_admin_user_usecase.py",
+      "sha256": "3ca67b70b6f5e40a09bb253616a38c4b2f116879ce0f73d36eeca3fa93171807"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\user\\get_admin_user_usecase.py",
+      "sha256": "5e5bc9e88a52ce20cbfe37fd4c920e2883228a418506537bdfe6da1b986ac68f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\user\\list_admin_users_usecase.py",
+      "sha256": "f1051de5b32e21fe944185f8720fb63a02f6fe61554dad5fd23d3d3f13ab9ab3"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\user\\replace_admin_user_roles_usecase.py",
+      "sha256": "d8fcbfc78180df0f4751cd4d7f5451efa7831be361d9d1d2a635aefff3cdfa19"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\user\\reset_admin_user_password_usecase.py",
+      "sha256": "d9868a07783b98aaa7c638b6bb307fa0cce0a8faed5b1d2b87773757f171e18d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\user\\update_admin_user_usecase.py",
+      "sha256": "95ccba6136ec8ad01efe907260bf09c2e02691b57700038c6b7afea844b66bc1"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\list_admin_log_records_usecase.py",
+      "sha256": "2085dd8873fbcf2d320da061a58aebc18f0b8da2ad640662ca7e09662bca8f62"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\list_admin_security_events_usecase.py",
+      "sha256": "295f7e153d1d60d008a377ed9e704b9f412cb186400c6b7758fe343656eaac57"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\list_admin_task_execution_records_usecase.py",
+      "sha256": "07d96b5f41cbc439443ed4586d5de82f0b3e7345abb8937b0929bc8af31cdeef"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\list_admin_task_registrations_usecase.py",
+      "sha256": "7f8404056204ba80440a52cbe90c203d339b3e92a8918205c7ffe0e1d8c47541"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\read_admin_task_runtime_usecase.py",
+      "sha256": "a97715293cd8e6d71690bf020a98f0a3d69b1080d9429a924b52b9601496a621"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\security_protection\\__init__.py",
+      "sha256": "8740464f07d225474fd58649f357a7b90ed17e8604831a188414183bc5b1717e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\security_protection\\manage_admin_security_ip_blocks_usecase.py",
+      "sha256": "872fcbf6d1832a26bc886c99ca7712f9b1da079d2554100ad6a7911fec441a02"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\authorization_guard.py",
+      "sha256": "7f15a8d4c87e0997ef475ca5c5d13f5e4ca6ce6da745df47ed133d349f5ba755"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\dispatch_background_job_usecase.py",
+      "sha256": "ebef67ad53ef6de1efd9e33ddd85e623fee578cb9f7e84a159f28f5c14720221"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\health_probe_usecase.py",
+      "sha256": "101e01349abaf2d36b78ec9a0410aee1fb7d9c7418593931108205ce1cf3652b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\issue_access_token_usecase.py",
+      "sha256": "2d27535098986efd32957a4e04570aa3ee1e50d80c69edd3d9a383cf51a620ae"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\__init__.py",
+      "sha256": "056c5108429f5402a5aa3a3ec1697337911cc6fae3f4a9f0e58ae543d7473c62"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\admin_audit_query_port.py",
+      "sha256": "0b32d0f72fabb8fa28022e43cee382fca4daba5ca3b70c64662bca3691a06985"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\admin_identity_port.py",
+      "sha256": "6d1a31fbe575b8b5164ec45625f5f02b7f570df7183b88887445803faaff481c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\admin_log_query_port.py",
+      "sha256": "fe68cc5575284e28e87393430748121d33a3fe81ebf69efb5b86fa6dde8db2ed"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\admin_regression_result.py",
+      "sha256": "d822c4d62788f34426704e5c4800b2ae6455b24b1514b712ff9dc9574deeaba2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\admin_settings_reload_port.py",
+      "sha256": "8928ef7e7e2bfa898aaf320c5d2b41eb5ed0da2378729b44dee0b4d9e8d02e29"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\application_port_contract.py",
+      "sha256": "8d2ceac8a40fdf20f6b7f422658ed7b7d79fd913ff1abbfa8c4c08c35234e112"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\auth_runtime_port.py",
+      "sha256": "806b4c462aee4ccef1db30f233a67bfcc51b72eaafa0f218f6eb54c7f2224097"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\settings_reader_port.py",
+      "sha256": "2084f9d08ba6ecf104a740b5fdec34b83d55cee14d4635cb3289b3782d94e8fd"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\task_runtime_port.py",
+      "sha256": "c680c90c9b7e878a0cb290b408f7bc7efed80bcb228f4f45b454dfd2d51c27dc"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\refresh_access_token_usecase.py",
+      "sha256": "44f01633fdd5ea36e0ada698d82762ac221c7cef39bc0232e6ff30d5c1acb82e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\revoke_access_token_usecase.py",
+      "sha256": "1d7d6653bca501ef4bb2dfe1702a15641228b9a0d7de7ed1f063324e26634aa4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\system_overview_usecase.py",
+      "sha256": "6b5ce340a9aaf142a86f8dd435050826c9afbc9fd08c3eda013f37a64e32987a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\task\\__init__.py",
+      "sha256": "004447eb57bd1ca258f8e45af0921477c13990315bc728d9d8c8de3bd3da53b0"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\task\\task_execution_probe_handler.py",
+      "sha256": "48f3833bcbc599a2051dbcdac55e05cc1b0d23ffa3e47dc01d89e71da7fe66c6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\__init__.py",
+      "sha256": "463081e14845a4b908a5b9e96b7f005da1127fead5885a038fc3e67796961967"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\build_evidence_artifact_manifest.py",
+      "sha256": "4d5d0cf1ef5ec29ac671bf982f7e8c3182c3b23f1986630ed318ea6c2bb9f91b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\create_initial_admin.py",
+      "sha256": "9ac249b6238cf848b2ee236976fa6dee20a7917ee2e747a1184994be6a2285af"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\generate_phase_evidence.py",
+      "sha256": "c9f727f7c91202c88c851cc3c95367b49ab6702d63e0d3701280e63dc54f04c1"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\record_phase_test_run.py",
+      "sha256": "feafe735467fbdc47b46d16f43751be68a551f9997d388f34d650e2e7fa6981c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\run_database_migrations.py",
+      "sha256": "5d67a118b716624a977113887331af5dc35745521c04d14311cbaaa854b1aced"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\run_evidence_commands.py",
+      "sha256": "b815308f0920e86962e17e5a76073623fe49901551c9940e401de65e921adc84"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\run_task_worker.py",
+      "sha256": "37652154b0b36610ecde375b6a44e64bb99842577b586cb0ebc4b1aebafc60fe"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\__init__.py",
+      "sha256": "27c16f1ae75cec6f0998e9e57765161aaff1a37ded0ac92adc24d0eea18b4ea4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\__init__.py",
+      "sha256": "2a824b05041585b6841bc308dba2fd5501cfa5cba704f56140610015fb932e45"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\auth_identity_authorization_snapshot_contract.py",
+      "sha256": "ffc97b4941d8e756c72ad0f2d99f06c9306673c56516cc7744b1eb504d13747f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\auth_identity_status_contract.py",
+      "sha256": "5acef33bdd22d0defa933ddd64ee0372fcda8c2506ff5cf1436d38f97dbdd3ac"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\auth_throttle_state_contract.py",
+      "sha256": "fcca72ce8aef30fa052a2db8235d17555fb5a4cc89b58f23acda6c4a821ce5b0"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\authenticated_principal_contract.py",
+      "sha256": "4c412de06d99568b4f89ffdd428687f7a3d5d6ea50dd2acb5ed49065ec3e66fe"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\authorization_policy_contract.py",
+      "sha256": "66facdb3ae71f00964ebf07aad77299d5e1454027a67484a9df9572d811589ac"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\bootstrap_role_binding_contract.py",
+      "sha256": "c4c534c43fced8508e09a5353d702ab174242460b92214420a103ddf1eaa5429"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\refresh_token_invalidation_contract.py",
+      "sha256": "00b6ad968caf5f19173751902aed9c27963d6cffe3a0acb07d59d54f160c4bf8"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\token_payload_contract.py",
+      "sha256": "a2633b59b2a82a14cb0421244227a7e5e358c0a9123407ec77eeae9eb0fadf62"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\token_session_status_contract.py",
+      "sha256": "8dcaf636cb155fbdfa44c87b058ffb17182700fbba833b50adb181723fb9e0bb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\cache_contract\\__init__.py",
+      "sha256": "4ad42c4f1e761f0e16e20b7e13ea814eeefbe0191a4844a62dcbb75268e413f8"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\cache_contract\\cache_namespace_contract.py",
+      "sha256": "137f025a1ba2a06664d904184fb36c0fe484c6aca938eb1daa18f0265b6d29ca"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\cache_contract\\cache_payload_contract.py",
+      "sha256": "7cf7547e938c94544fac279167967cb26453883114d2fac4b63bf28c69127130"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\cache_contract\\cache_policy_contract.py",
+      "sha256": "7db5d97c65e7ab66cf56166a368d5756154d7e9540251f9515e7314142d40f56"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\cache_contract\\cache_runtime_contract.py",
+      "sha256": "02ed5a637009029e4e01669c7c20650d348807a47188f81ba50aa3889699b826"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\cache_contract\\cache_store_contract.py",
+      "sha256": "cc4a35c18280e2ebafc2271078a7ca5701cdca39819db65126a22bce090dcd05"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\concurrency_contract\\__init__.py",
+      "sha256": "b63c7b0aa7258d762eba2002caf945e5dc8641bd428bb833490c57dcb0ce3af5"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\concurrency_contract\\distributed_lock_contract.py",
+      "sha256": "6934b8e2610d0b264a290ff5178b2427b13452d2cdea01f55836f22076c3475d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\concurrency_contract\\runtime_capacity_contract.py",
+      "sha256": "9db67778cb95b475437a4afbb697875269686e46770a9b404a8ef439cf3a6158"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\contract_header.py",
+      "sha256": "1fb3e49fc4dad94973bb3a42a99839b29455b038e960ff08009874c7177b0bf8"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\exception_contract\\__init__.py",
+      "sha256": "ad212ac2ae5f64c44bda50b68cb3c21c32874e323a6384d7e0876c9c06136c37"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\exception_contract\\error_code_catalog_contract.py",
+      "sha256": "7b59193d6cc1c3d4e8f65c52d0a1ba9643d6dca8867869ee8e86675ab302ce9d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\exception_contract\\http_fault_contract.py",
+      "sha256": "7c1283c5d6bb3486bc3a2d40a530a14764c1e8cb952a08c218cf4d4f621522ef"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\http_contract\\__init__.py",
+      "sha256": "c3e36e25bdf3777f22428a4ac1440089269301932ad241017c8b680ac5bdd562"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\http_contract\\outbound_http_client_contract.py",
+      "sha256": "63772ac91867109e5ecd6a8031c560aaa163f63f87bade74a39c24d1cc919c0d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\http_contract\\request_execution_contract.py",
+      "sha256": "f5abcbba0a8a7817cf6cdcaee8e0734d54ca63bbff3eff5b3e7ecb442bb93440"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\http_contract\\request_scope_contract.py",
+      "sha256": "a9c035f40ca91559c2472c39e621424204cbe06c16220ae5462b46ec9e1fc12d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\http_contract\\response_envelope_contract.py",
+      "sha256": "b54e2f6f14139ac4304ac425bb609d8dea44c47eb6f3983fe72b870a8b043874"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\http_contract\\runtime_resource_contract.py",
+      "sha256": "9c159e2a9ff555d5bcaf5400acab984f44ac7a5a1944cb6998ef50fa418b51e1"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\http_contract\\security_runtime_contract.py",
+      "sha256": "bb7d0b7a0d26f9b5a58a35e76f5e1ad1a33c1b28d7c69b652693276a1057ff4c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\http_contract\\web_bundle_contract.py",
+      "sha256": "82f5b1cabe9da6f6560b9216d786213876407e3557c1c94e354ef26661873864"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\key_management_contract\\__init__.py",
+      "sha256": "4a0d7a2e98b13f6a6e5888fd57aa20b68087665d48edd3113a0725ca551afabe"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\key_management_contract\\key_management_contract.py",
+      "sha256": "70bfa917a327587f996132294a650673dbcbaf4a5e9fc43957903b505ecfbcbe"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\key_management_contract\\key_ring_contract.py",
+      "sha256": "67c9dc9dc4e2d207a0d4e26a5b39e4a68342bae1467a79682edc6d6b72918f68"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\key_management_contract\\key_rotation_policy_contract.py",
+      "sha256": "eecbe7459e08654adb32fe4990fbdeba81104760e396243c0da9c97a825739b8"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\logging_contract\\__init__.py",
+      "sha256": "27021024d3dad69b69acc6cc7282a079c9828defd4a610e2fd66d7dbf546b0ca"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\logging_contract\\log_event_contract.py",
+      "sha256": "932a84d8134e7af4aab36dd579ec932883805105d445353879cb30781d491b65"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\logging_contract\\log_runtime_contract.py",
+      "sha256": "e366d46315b46e8adabd26b6979a5b9a7998ca79da21cfeaf937af9832ae4aeb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\logging_contract\\log_writer_contract.py",
+      "sha256": "d7ec79678726d5c9f06565aef363988e559735a15b08b0e4afda78872ce8d7e2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\observability_contract\\__init__.py",
+      "sha256": "2b55b6efcb543b0a685154be70e7fabce57c0151c05858eb6d5c9187c087dd34"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\observability_contract\\metrics_runtime_contract.py",
+      "sha256": "2d188d281133e805e3a083c65bddd1d43a552155e1fc123fd25dae22b03179e1"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\persistence_contract\\__init__.py",
+      "sha256": "515923d79479b4d17dccea6f6e3d9f80b9aff68f9b9c7042dc17ba22e533cd54"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\persistence_contract\\auth_identity_repository_contract.py",
+      "sha256": "28b0ad8911129cee63ec56f35306e9eab59622fca97d926693c7a432fdf830d0"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\persistence_contract\\refresh_token_repository_contract.py",
+      "sha256": "fa5a2bf5ad34e57f2e8c04c314c286853ec7e32f3acf0a65ead8233f9f546a3a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\persistence_contract\\repository_contract.py",
+      "sha256": "ca04c2107b2b69665afb0505d2bd5172e0e7b0b221a3645bc47b4e2ba9314f04"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\persistence_contract\\unit_of_work_contract.py",
+      "sha256": "06a3ca15039dba48f02e184b1386c61f5e600141f9939294396448544d4b3db4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\phase_evidence_contract.py",
+      "sha256": "2d31c5821fb812dc4b6e52916c534a7596835f95b6489ef04a56aa2ab15cecb1"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\security_contract\\__init__.py",
+      "sha256": "769e54e95cce45c6764e7f05db4584e46226fa065fbdcf571eb4c7d03aff90ff"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\security_contract\\outbound_url_safety_contract.py",
+      "sha256": "ac54f639d977fddaaf351c45a551607c52bc7f5a2b08ae01dbc7c1aae8eb5550"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\security_contract\\rate_limit_policy_contract.py",
+      "sha256": "2fa5124f00a99575863b71b8b560230af568927ab27ede543b5a9957769816bb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\security_contract\\security_decision_contract.py",
+      "sha256": "2de2c438516d86e265d1967879ada231d1ab8987b0faed0d58cd18995e2a40a4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\security_contract\\security_event_contract.py",
+      "sha256": "b2f1e97094a9d45d42d01eede4dd2ad6c7761dfda35444e1aded285660259742"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\security_contract\\security_ip_block_contract.py",
+      "sha256": "545501cc4a2070ee0de996ca70d71d09df98a12477c53a0021a89c0c746d87fc"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\security_contract\\token_binding_contract.py",
+      "sha256": "bfb681efdb4d7241ce2a120c19794c080ec5e8935f84382b6bfad88e3d90b3b5"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\task_contract\\__init__.py",
+      "sha256": "47a6bff3785d9f629cdc08aae0c9eb0be906ec2931d4b3b8aa61d64e4cfc845b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\task_contract\\message_bus_contract.py",
+      "sha256": "ddf6f2b9ca22576a7544db9950d556ab65927547637c0273e561054de8fce181"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\task_contract\\task_dispatcher_contract.py",
+      "sha256": "62d86549b9ba9dcccc4f877753218828022b0f8038fbe5e36e25cb04e8ac576f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\task_contract\\task_execution_record_contract.py",
+      "sha256": "6ed629af66bd301f3243a6d1970867edee18d98b90d99bf9e14285106c4cc829"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\task_contract\\task_handler_contract.py",
+      "sha256": "7e2e10e3c3f88e22a6c96b8de2b9a989e31f2710945afad85f07083f605effef"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\task_contract\\task_invocation_contract.py",
+      "sha256": "a9e0f23436bef892a1d9b0ff0da64c62cf8e4296c7041b6b127a98399559e0c4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\task_contract\\task_registration_contract.py",
+      "sha256": "c9e28d11f9763e9213ad7179e7dc8fb480718991c4e47f8552878866be1a37b6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\task_contract\\task_runtime_contract.py",
+      "sha256": "fd571d94532f95bc512a1c32e3fa7599bbb07975d9f2cb56ae8d5084c47861b9"
+    },
+    {
+      "kind": "source",
+      "path": "src\\domain\\__init__.py",
+      "sha256": "38fa41c072537cc54497242e550252f05220992c43ad085ebbc73223d5e4bb60"
+    },
+    {
+      "kind": "source",
+      "path": "src\\domain\\auth\\__init__.py",
+      "sha256": "5320f04076754ab8e0261ecdd466ac0db502275fd7890c5473844ba2c4d56498"
+    },
+    {
+      "kind": "source",
+      "path": "src\\domain\\auth\\access_token_policy.py",
+      "sha256": "92f1d42876d721ff9a0442feb46b57f9b675f0b7d37d2f00fe527a5eaf280be0"
+    },
+    {
+      "kind": "source",
+      "path": "src\\domain\\auth\\admin_identity_error_code.py",
+      "sha256": "42be45d820a7dd667a2367633b43cf3e29de24833c3e22c5b1440e6105a70b8e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\domain\\auth\\admin_route_authorization_policy.py",
+      "sha256": "8d5d072b09042b0f53bfdb9938fdaa4c8be1f6b376412f3b5fa8186b63a5fc6b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\domain\\auth\\auth_error_code.py",
+      "sha256": "e37813c3f82588011de87aad02ca2a92c1c8900b06676344e24a7dfe5df91c6a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\domain\\auth\\auth_role_key.py",
+      "sha256": "e570bba5fc3db41947d314441303aa1d28c8bf1295f2785f8fde63c9ad5abd76"
+    },
+    {
+      "kind": "source",
+      "path": "src\\domain\\auth\\auth_scope_code.py",
+      "sha256": "a665a3ccf6389c4b46f9ce8f45d2dc518462a10cb09c32ceb4ae20b2d394d3a8"
+    },
+    {
+      "kind": "source",
+      "path": "src\\domain\\auth\\authorization_policy_evaluator.py",
+      "sha256": "de6f2e65020ab311f08cb165c04511095a9f6ebd2479f110a4cfb4ac265c024a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\__init__.py",
+      "sha256": "c7ebfaf6a7c3821fcd86999fe185b9cd5231164965546b4654340ee7124c72a7"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\admin_settings_reload_adapter.py",
+      "sha256": "aef4bf4dfc06595e01f6afb4e8e489e2cf7e809b99e43d3fb5a4565a0e512f3e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\auth\\__init__.py",
+      "sha256": "5320f04076754ab8e0261ecdd466ac0db502275fd7890c5473844ba2c4d56498"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\auth\\auth_failure_throttle.py",
+      "sha256": "8421aa38cc48f12adcb541d401b73a11a272890b4dd31f5027521f20bbb2779e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\auth\\bootstrap_admin_synchronizer.py",
+      "sha256": "7143a4ff5ec7a88d8068f66a3b7709b3403bb821c9cbb0475d76a3332e367804"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\auth\\jwt_token_service.py",
+      "sha256": "9f0757fae8dc394e0789c9fd1d0ff96531d1dc65d6bbe7889db8c45fca91ed7a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\auth\\oauth2_scheme_provider.py",
+      "sha256": "e7f7cf998808cfa2be06d350740f6918c8771c284bf39c5a5d65c5822b065b76"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\auth\\password_hasher.py",
+      "sha256": "f862f79a03ac8737ee53941e1f8168afd09ae07c1cd4f5b6433ff95a458c878a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\cache\\__init__.py",
+      "sha256": "5acf5af2c91a17b501d3df2cb68c59197518a850d08bc0ac94859e85fdd39eb2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\cache\\cache_key_builder.py",
+      "sha256": "ed5d6d25c2b6460aa5410682d5cc993f89f4d1e694961262ccd81b5d044c0bb4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\cache\\cache_payload_codec.py",
+      "sha256": "e1870af4454204d5db34b8b25e164a5550f49f2c6cfc00a91dadc202d61fec37"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\cache\\cache_policy_resolver.py",
+      "sha256": "9a7a6ed2fb69edf2e27ed54005dca3e9c517d6be78d4acec85a30bf5e6bb62fa"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\cache\\cache_service.py",
+      "sha256": "35c996d9a8f1f86600425116766165fcbe5df9b8d3f4e0efe90512ef660440ff"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\cache\\memory_cache_store.py",
+      "sha256": "b47af27c3f6142e2616643a04c7220d152ec88397f42a6eac0738f1c5ebdc7a4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\cache\\redis_cache_store.py",
+      "sha256": "0fe25a6d9ea5e90d4b509bd152a41c4d58dd6b44188c1ecdda639f2f1b7bd193"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\concurrency\\__init__.py",
+      "sha256": "cc3f5991d155d871b25a0642dfc607337528c92137a38412cc5544a16e99166c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\concurrency\\distributed_lock_provider.py",
+      "sha256": "99b42e60a40fa746699d1c5076a0b19377d087bb5c8cf5de3dfec5d153fd04bb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\concurrency\\redis_distributed_lock_adapter.py",
+      "sha256": "db83e4c0f80d801507c0c86f1ff4447522251adbaf0a20d8bf91e4cfc4937294"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\context\\__init__.py",
+      "sha256": "36796dff8643dc0a9b2ace579be1598b99a4f4bd61d2bb6c543440f308c7e519"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\context\\request_context_manager_impl.py",
+      "sha256": "3d30c71cf78eaeaaa6853fbf2ed5c611eb8e97af977673c67ec6c198028fea68"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\evidence\\__init__.py",
+      "sha256": "8c25a948db6c0635e055bc3ad4ae3722ea45e3a20d82a505d6a768f032fa3ec3"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\evidence\\code_baseline_calculator.py",
+      "sha256": "d6452821a0341c4f8d586dfd0d50962223afbe23d39b2c67555c49069b78d483"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\evidence\\documentation_catalog_builder.py",
+      "sha256": "907daef804098905dfc05ec6293a852d1acb6060979f24910358b566631ae760"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\evidence\\phase_evidence_store.py",
+      "sha256": "3868b2d3da814d0a1782fede5811c8cf1408567bed06412777a087c78266acda"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\evidence\\regression_catalog_builder.py",
+      "sha256": "c9ceec3084e06cb0b3f1471c17071dcc93a944741c7bd04cf7f80e3466a2f4cf"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\evidence\\workspace_audit_catalog_builder.py",
+      "sha256": "357aad369b9e270f01cdc127cff3819a620aac367d54f2b64044a3e4e8451c6c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\fastapi_exception_presenter.py",
+      "sha256": "92a39ffbf4fa84c5b00c1facf6ae2015a81576135948e5a059ea7fe8760afcb5"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\fastapi_lifespan_orchestrator.py",
+      "sha256": "fd5079d40acf752def824a908c02987869240f3fb706f15d60c6240606722a1c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\fastapi_middleware_plan.py",
+      "sha256": "c30c05be4f2436d2e67cef91d528ceb2fa4f77f6cd6a2832061e0e72e15a22b9"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\fastapi_openapi_surface.py",
+      "sha256": "9a91ec1d461c4d1bb7fb0f60d2667e856e23dfc314b76dbb76e159a2f8566d7c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\fastapi_otel_bridge.py",
+      "sha256": "e72692bbd1cffc28911068002c3bd38ec1b3296c409398096e81f53c243170fb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\fastapi_route_composer.py",
+      "sha256": "3789053318fec89f248a6df2d1c84a2a682262f9bc566eb2fa050cf64aa03bc5"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\key_management\\__init__.py",
+      "sha256": "9d70da26c713dbae409792c4b0249969602615dcee12e6cb17424a2bedbe5539"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\key_management\\database_key_ring_store.py",
+      "sha256": "a42ba3fd958542f988d2ae9ede79791802eaaed94136e204a316bae0f5f1fc37"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\key_management\\key_management_service.py",
+      "sha256": "b41ee9640c21e149b1474bc64df8b0ff57c6c3ce8ef99bc721bb157ccd0c1f1e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\key_management\\key_ring_store_contract.py",
+      "sha256": "49cfce1f263d0f9304eceda3774689ea3d238e049609cf460aa54a15f257a433"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\key_management\\key_rotation_service.py",
+      "sha256": "ef24b2a248d7f196d1d918a77aa2ac72bd2b92111a233f4014810c20b2a84bd2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\key_management\\redis_key_ring_store.py",
+      "sha256": "e1481edebb87faded5616eb330660cea4975f12fd4a7c7d7b86080abb18b54a2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\key_management\\sensitive_digest_service.py",
+      "sha256": "6093885f773bac6ce8e49b428b2415e5c6392c72302319d9dd7d9ae05e43325b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\logging\\__init__.py",
+      "sha256": "8555a7672754c036abe54f8b53fc744a2e5b898af44e5f451c4033edfe6d883f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\logging\\app_logger_factory.py",
+      "sha256": "90ef7897d95982f5324fe40974eb091a656ba5a6bae93b441928ebe3a2f0bb14"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\logging\\database_log_writer.py",
+      "sha256": "19787fa8fa087555f757b148b5ec639cff62ff5357c837582c148d7b04f7fa68"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\logging\\log_buffer_dispatcher.py",
+      "sha256": "3190720dc5446121dab0470cbade5a76053f6c22bedfd7b4ed9ba10addbcbb97"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\logging\\log_event_builder.py",
+      "sha256": "3da4c2444fa67d7220a478a3e85792fab58b8de3803b45438cd86cb22ca55448"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\logging\\logging_entry_environment_bridge.py",
+      "sha256": "9da8661aa2fb20f174d35d46bd91b019c03a1f8ed2be3f9666bed7e186c37eea"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\logging\\sensitive_text_redactor.py",
+      "sha256": "6ccf2b9ab6788f7725a85c05e95b0227338a7aef0488305a803d9914b17e995b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\logging\\structured_log_handler.py",
+      "sha256": "81ac153d86996c3a45e2b9312fb4beb1c5712f259f4b77fda8602157b6b31506"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\middleware_chain\\__init__.py",
+      "sha256": "7242b11869cf55db946a9a1845e1a76031787eb73f83b7dea4f7b6f94ad545e9"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\middleware_chain\\access_log_middleware.py",
+      "sha256": "a28a7ed829045ab8357b44fd8c443c425ca8f50d26872e0c612a4cf128262ce9"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\middleware_chain\\authentication_binding_middleware.py",
+      "sha256": "0c71a32767a53bc592bf6161f890bf4c5116324345a64db007d0d4321d87a488"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\middleware_chain\\elapsed_probe_middleware.py",
+      "sha256": "5fcf02cee65ea411a9599233c7598c2ad1f8c47d72bfe7787a918b4772929522"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\middleware_chain\\payload_guard_middleware.py",
+      "sha256": "41b1b14e553ff31facdfa3b3c8f1d2e501c2fd420cf8a40d7d3ae9be74f28631"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\middleware_chain\\rate_limit_middleware.py",
+      "sha256": "589909545950f1129a17bc08f1837acfa0b6a1d48ee81423bad3ffe9b29efcd7"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\middleware_chain\\request_scope_middleware.py",
+      "sha256": "2fa523d5f0bd02306f952c70d27e17d3c78c075beb0124b61ee33802fa1569ab"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\middleware_chain\\security_header_middleware.py",
+      "sha256": "5587f6d3551e5acb5ea25da93a8f9c606fea63f99b572aa9f313ca63529e6b6e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\observability\\__init__.py",
+      "sha256": "19e1697fd31e624460094e64f4869a584bfe82825d546a4bbc7bce8839b851d5"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\observability\\prometheus_metrics_registry.py",
+      "sha256": "27f84aacb20a6d417e88a74cfdf244b07db51cfe9159dba222cf705edf81024f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\observability\\prometheus_metrics_route.py",
+      "sha256": "1cb122cc0e00dd96a5c9076eb471e0aad8070c230f3ecc44314538611e4e6bb2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\orjson_document_response.py",
+      "sha256": "e75f24b262643273737a62d24a315c3e4c10b63d1ecd3033b2a7ba2bf254c700"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\__init__.py",
+      "sha256": "86972c63ca79179d62897a45816a6757346df09acd80e25c88352b68821b7d28"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\affected_rows_result_reader.py",
+      "sha256": "db785f57030cdfef23e72659f4be4991caaa4b6fa008d118ae17dd71198ad80b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\__init__.py",
+      "sha256": "ee31a32666b8942ffb633f8f05262bf54b503d5737ecc9fa24edbcb17617c76d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\env.py",
+      "sha256": "cc74003fc1fd94bf9150ae2ea3539ebf4452d6928304b5d398c97f6f71952de0"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605151600_create_auth_tables.py",
+      "sha256": "dcaf8f3d234c0fdd3eef6204a45f79f016b7ab5087d432899105568ba562d6ff"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605181039_create_app_log_record_table.py",
+      "sha256": "6c6d58a58d4a50a1d6dab355efb6c9c34faa1a2896adc7c2acbc3a35462dbd2c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605221609_create_task_execution_record_table.py",
+      "sha256": "df776b9ac8e22fa75d7c082df309b01712546844939647ed5b46e5a776a0c147"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605231821_add_task_execution_backend.py",
+      "sha256": "34f622caf1b1cc9e35377fe77585c4c4379b8de7bc020f893f3670ae7eecabdd"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605251640_harden_refresh_token_constraints.py",
+      "sha256": "42b41d7b47ee8f1e4e425661b35277586a50ea4b1d567695d54543f8a1b64bdd"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605260859_create_security_ip_block_record.py",
+      "sha256": "369765fff3d7ffb229905a31b8dad191d0f277e56da75677731cb0a191b3e482"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605271330_create_auth_scope_catalog.py",
+      "sha256": "a34f978298766687de93223beeb11b93b98c8c31ce4aa25d016d0cc219fd63dc"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605291041_fix_identity_task_schema_drift.py",
+      "sha256": "3f1ad218f2264dbf75828005859d7db9b3d4d3e20e9650b433a732a1c1d40354"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202607021200_add_task_execution_published_at.py",
+      "sha256": "3f122483b9fe92b0bd46153c85a5b58d4d760aa70126c3b8a829fe14028efa99"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202607051000_create_key_ring_snapshot.py",
+      "sha256": "61d3bc84cf934c9aec9e065d520362109cb04cb43f686f4d6a6cc5dd54c0424a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic_runner.py",
+      "sha256": "a30bfd144b7978d14c765f93a4f03cd3c186b629ef3e6506311ec69534cc6201"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\database_dialect.py",
+      "sha256": "0cfd63d563e7b1f0cef917198c1a3caf0294495a704682a45e5213f340e4c0dd"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\database_engine_factory_contract.py",
+      "sha256": "d1791d8270a57470ba5b9cd9af9a0ff160d28a42bc64c88e5f700ff7c0cf33af"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\__init__.py",
+      "sha256": "dc782aa0140355db09204e11571f235f2eead00d3ee2e5e454431c166ed9abb7"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\app_log_record_orm_model.py",
+      "sha256": "6447fe15f6c5481eeb60607dbe0f8f7c4f81c60b7fface98b355608b2837bf7d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\auth_refresh_token_orm_model.py",
+      "sha256": "22703d31e564cb678e60527bac8bfa0983e4786ad5d5eb76ca09cdc15598878e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\auth_role_orm_model.py",
+      "sha256": "32339bd55d4a50c6950d79e8316af629df540a8d43da50ad4e454b86f6031a52"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\auth_role_scope_orm_model.py",
+      "sha256": "d5b06dff79b78096bc4ae42f3dfc74a7962ebe07ac0ba830252be8c76f2dae48"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\auth_scope_orm_model.py",
+      "sha256": "df98004f6e3cf8b41e11e4d253f548f6eb867a38d7273c74d378a75fb831d0da"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\auth_user_orm_model.py",
+      "sha256": "67f9a9d395f75e1449f673f6a3684b5ebf12e2cc4b65124f0df7e79be642686f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\auth_user_role_orm_model.py",
+      "sha256": "d6c1c4d20fa8dbc3aed136b5ccf1a531a37fb6e5ada08434c5d6ba1b801b35ea"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\key_ring_snapshot_orm_model.py",
+      "sha256": "f9fa41d8ad8c642f74cf0b12f5cb0760694010c044f700ec0f26cfe4091c4161"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\security_ip_block_record_orm_model.py",
+      "sha256": "97591e79d17bc9ff0edd852fce48b32c9facc4f3b2d9d11091a619a67472f22d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\task_execution_outbox_orm_model.py",
+      "sha256": "78dd956f0cff1bfd6bb45e12d939e429bde3573b8101616259d52c8103fafcec"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\task_execution_record_orm_model.py",
+      "sha256": "01e544cf88a7ea828de90b184c06afd2303765a2b43199b8c66888c059e2eb28"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\__init__.py",
+      "sha256": "d85590c2c06b9d9cb49716ae842a07557711030b26bda3d2169917c7844ee0a3"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\admin_identity_repository_impl.py",
+      "sha256": "02d2d12e9bfec60c935269381f9b7445633ed66022ae99c548e1e1bfaef4d124"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\admin_identity_repository_support.py",
+      "sha256": "bb866bf5b8daf33edb6c5144f55d790224ba283f760b0e59395dd881e55dda73"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\admin_role_repository.py",
+      "sha256": "6f3b688a46f4e0cd2c8af914740e2fcff75920efa599241a51d670edd7a651da"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\admin_scope_repository.py",
+      "sha256": "23913009004a35beb2b93d3b62c94a3dcfb9852ef42b26fe1ed73c1986f7a2f2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\admin_user_repository.py",
+      "sha256": "5710555632130aa5dc7970a9ea1beb3c2654672b547019f0a5172055e578ecd6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\auth_identity_repository_impl.py",
+      "sha256": "78a1d28955c9e893cb91df9e8b84dfc3215e4d16d61c1070625669bfb125c0e5"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\log_record_repository_impl.py",
+      "sha256": "d2932f89edb5c48c1fd59158fd185c5203e3a6e6b2bf3d252a13386222fc50f2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\refresh_token_repository_impl.py",
+      "sha256": "b6ef43ee9bb691a820bdc14bbaec270c509ed6f045c29902785f8d55372d640c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\runtime_state_repository_impl.py",
+      "sha256": "834d65507a175e006e6273ea8b85c06d0259e3771a146fe62557a770ce4da6b6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\security_ip_block_repository.py",
+      "sha256": "f1b60da506dbd261a83485062f6d0a17082e4d5c2463fa5765397ad4f35b9e01"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\task_execution_outbox_repository_impl.py",
+      "sha256": "398e1fcf7ad62785aa49ec07657a7021feb57cac5572db5340a0316c935f33c8"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\task_execution_record_repository_impl.py",
+      "sha256": "2e9c9c9e9d84ef95b7479c140307494d3a686b8767040387258edbb3a9746001"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\sqlalchemy_engine_factory.py",
+      "sha256": "5e28138853080513542af3b5337ec372eddde53a4d0d32117e58c56618ccddbb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\sqlalchemy_metadata_registry.py",
+      "sha256": "d162912e860a41d29bc9b1448bdcf96ffa8e01bea9f2b774f4266d32532647f1"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\sqlalchemy_session_factory.py",
+      "sha256": "4ad9ede69a9f47018974743dc4c8bf9ba084fb4e63471fae5d8b297f5ce4df39"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\request_execution_bridge.py",
+      "sha256": "02a1358d541d27b9fcee50012a4a22d1422cc1040ad2cf8c1fd196f12e985f18"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\__init__.py",
+      "sha256": "c168863ab01ed9c04fce1022a5dbfa5b7d0ca933374e6e688f50f0aae6bafb7d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\admin_identity_resource_facade.py",
+      "sha256": "2b54dd15291ff8a16997d10cf38fafcd04d583025feaa1ad1baa62fff71bf6fd"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\admin_security_resource_facade.py",
+      "sha256": "afc87d581650561168625f8d20fe21452ce979e38e1deb2a81a77bc299176417"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\logging_resource_facade.py",
+      "sha256": "f50aaccd9a24a64b6f3b3647ca813ef323f50945ffbe7155df383497290516ee"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\runtime_accessor_refresher.py",
+      "sha256": "75ddb82bb9e11161ee38e543b10658a97457e8d04aa736dc3d1592ee8cdd4cb6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\runtime_resource_bootstrapper.py",
+      "sha256": "a5bfe80ccde56fa2e844581c397f64af40a23b9ab955482fec02725a60cc9128"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\runtime_resource_mount_contract.py",
+      "sha256": "db03faf956e399d397f25f081fb5396807973312fbe68fdf605476995d26210e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\runtime_resource_releaser.py",
+      "sha256": "6883734109514bd110c8fa7639d0142b35e159a54a555b7ff96c9eba5f36acd2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\shared_resource_accessor.py",
+      "sha256": "c478c07aeacdd3e205a5e91850a4fcee024fdbf20cfaaaa451d4c5a20e0fc44f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\shared_resource_constants.py",
+      "sha256": "8d48188040523232495789a389fd3b6b13c49eb06666cc03817b5d640ba5ea16"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\shared_resource_lifecycle.py",
+      "sha256": "faafbee9bfa7a0c839de81bfb406c5bf906763451c3e9a92e07a8afdefa359ac"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\shared_resource_models.py",
+      "sha256": "e08162f75b6af8da5ccffec30c905bfa60df184feff0dc7cb6679b6b25831d5f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\task_resource_facade.py",
+      "sha256": "1b4656caf89f2e372f5e8c42a87b210dcf6cda6ab2692fd0264cf13c3dfbbc53"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_slot\\__init__.py",
+      "sha256": "91600c036f1d7fb6a42f93491653b7cb7304446d8034b8eaa0311753954d1745"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_slot\\shared_async_http_client.py",
+      "sha256": "0cf594d244c318d98d18bb727f66c6fc7fe9f260e7c509697556b270dca713d2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_slot\\shared_db_session_manager.py",
+      "sha256": "693e58e1c5bce9a06f60b1f37c784997a9b7a7b42c18cbb91fc593a50e063e52"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_slot\\shared_http_client.py",
+      "sha256": "1e578372c33b980ffdc8acbadda4545d3e36994a24aa6e79267452de650d2ab2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_slot\\shared_http_resource_manager.py",
+      "sha256": "7f21eba4bbde3233cb293a7f592cfd66e0f441986896ac9bede0628bbc7db2ba"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\security\\client_ip_resolver.py",
+      "sha256": "92c8b3e9925a87c660353e1dd2933a7ad2ca1f343e34a91c4602cbd12e99993e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\security\\ip_block_guard.py",
+      "sha256": "fa9b4004e6028db8dc1a99577d7bb5478d1eb9f4febf8917a83b066b044a62ea"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\security\\outbound_url_safety_httpx_hook.py",
+      "sha256": "4063ed3931d96bb1fb11625621aa55a843a870192564d7915e351bbfeec72dbb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\security\\outbound_url_safety_transport.py",
+      "sha256": "d4394cc6e49c8e40259c93d2ab18ac86933ddf7e1cd68cff8355d92d4dcf191b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\security\\outbound_url_safety_validator.py",
+      "sha256": "31b34fd34cddeb18517a4611f17fab27c57cf05d972272e75af3b48f6350b0df"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\security\\rate_limit_guard.py",
+      "sha256": "0c51b6f194b5c2e108fd67adb2ad504b72f957d4a7ed790708a3e20b1b058c7a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\security\\risk_signal_guard.py",
+      "sha256": "3a7e9c626b41b46c38a29d84954f1de9ecbc8120779f2e375a700fe905bcd3a2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\security\\security_event_builder.py",
+      "sha256": "f54b526a195573dbad69d82bc7303668416cb4692e92e921f225f4824244bc80"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\security\\security_protection_guard.py",
+      "sha256": "d124963097218f689bb3b12bbd3fd18710f585b4b49fda5902a242cb4ff7c7b6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\security\\token_binding_guard.py",
+      "sha256": "26712e9adf60f7de0190d097301d51e51f29839730308e904b80978cd4ced533"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\__init__.py",
+      "sha256": "c61fe2889a7e0b409cf563ecbbbdc4ab9cdefb4497939065df5a0538b6173a73"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\app_settings_loader.py",
+      "sha256": "efcc6791385747fae43ae226fdb543f20ec60f519ff886c4fa69e52026cd32d1"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\application_settings.py",
+      "sha256": "1da4eb7ad730d339d8bf0ed629c490651cc1fdb72b324486e2972661c33dda44"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\dotenv_settings_loader.py",
+      "sha256": "cc21a114174b3cdffae43a6e775c4f263202cacc9d8f5c9ab77db3663064999d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\parsers\\__init__.py",
+      "sha256": "69a7b2fbe061eed09d0da633a165c6c280e1b13c811166b2e7627f6028a1e66d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\parsers\\module_settings_parser.py",
+      "sha256": "1e0e86074dbd9a989ac13dbc39397a6868026635c9686fedae6eebef51eaa788"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\parsers\\runtime_settings_parser.py",
+      "sha256": "043273585a25624e91c404085c0949c0374faa5df4a63951bd8d3367cbba890c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\raw_application_settings.py",
+      "sha256": "c125ea03adbeb7371e99534dd1376f8f61067ed6b4b04cd750d20b42ab747c41"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\runtime_capacity_policy_resolver.py",
+      "sha256": "20501b3515f1d93ca213fe25e37c64bc74147aaac7c3760cfa618bb44c10fecb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\settings_apply_contract.py",
+      "sha256": "0d52622a50b79c792f457430e3f0cf3be55b3beb0b9c7cdbc9989450d65af3d1"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\settings_apply_transaction.py",
+      "sha256": "76f03fb45f1fcfa2a63a0f6411dd289a00e859be8d021c20fdb8c47af0c9d278"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\settings_mapping_merger.py",
+      "sha256": "74f4a999be4f5332a45acffe52a8158813e9aa988aa1db6f31dc1bad82667811"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\settings_reload_coordinator.py",
+      "sha256": "ca5ccd45d62b471f679ba99adaeb53bc647269f0836194ccbdf20f31f04dfd1b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\settings_security_validator.py",
+      "sha256": "7fc2c0bdc5ca4bc37173972947d9398a13d1455f29218498d67fc46c769d343b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\settings\\settings_snapshot_store.py",
+      "sha256": "846c97d519744cfb48f582de47bf44c0465495b8c650f0cc32a6eda62d08a17e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\shared_resource_mount.py",
+      "sha256": "135c1b2471dea17ab7ed5ae917b2c11af1ff0419eb4c894ada06aed398563738"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\__init__.py",
+      "sha256": "3de7439eeb8776da25d9a86506a971b387fc855e7dfec4e64f1eff31432032f1"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\bounded_funboost_rabbitmq_consumer.py",
+      "sha256": "59acaaf8c4c562bcfe34c1f1bbfabc710de31b6fb856b18f92ca1eb3f0115f4a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\confirmed_funboost_rabbitmq_publisher.py",
+      "sha256": "f7e372c4a3530cce2cb67c4c3555ab4450924fab6b6cd20853382c863843d35a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\failed_task_recorder.py",
+      "sha256": "4b9aaa357d89fb3f0976a24977df3a573eb1ec19c78319fc492b01f1465c9e7a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\funboost_task_bootstrapper.py",
+      "sha256": "5e477f6ed5a33e1632e7a8bad1f609b7ff4f30fc12e865e7da1553cda6ee9f07"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\funboost_task_dispatcher.py",
+      "sha256": "dd67872632a50e5d8271fff5861a4550f44b2fd2bf0c0687af6d7be43c2ad622"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\local_message_bus.py",
+      "sha256": "dc1816614e9249c0e6d1a52fb900a3f18941b320479724f2c242823292927d5e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\local_task_dispatcher.py",
+      "sha256": "d084055c285c99898bc28317b2ec0d282d57f844c50da028b6776b0cefda5ede"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\managed_funboost_thread_pool.py",
+      "sha256": "9762e2404b4a34e0fa98e35232dfade5ff18ce700c0a692161a280021995db7a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\rabbitmq_message_bus.py",
+      "sha256": "b8c62bbe6a5d9cd33282040b7efd49e3069f05160acf0390a8a47517e1a843b4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\rabbitmq_message_gateway.py",
+      "sha256": "c4b594d54ec0aa2f436ff124ef630032fe49aba96b8e20f60a605fe0a22bd4c5"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\task_execution_outbox_publisher.py",
+      "sha256": "a06c6c3c8f453e17b46f24a7f184c5020776f2437aa1a197d61bd7d7c93101d5"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\task_execution_store.py",
+      "sha256": "269ade3e14c809e3a83845d9165b51fcf87abcabdd1efcf68d13595dde01d9eb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\task_registration_registry.py",
+      "sha256": "f1b7dff59491edf64a18d164d59975ac7f6971512ec67cb3a2ce0ef23f3515f5"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\task_runtime_manager.py",
+      "sha256": "03ba9cd7cb00ac29d663d15b5be66a0b93928a53a3fb4b4247f5400921c70b38"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\task\\task_worker_supervisor.py",
+      "sha256": "2ef4212c4a3c74da5ab5d8882735f906c6fb0efb5cf70c89eea4ec31587ebc2e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\testing\\__init__.py",
+      "sha256": "074328e4de4d5fc4f030b746a50e45647f75ac7fb2211c0b52dd3240e028b997"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\testing\\cache_policy_test_support.py",
+      "sha256": "b41c00621b4981d5f00eb9da2a57dd72053971fe7337a13f162bad63d1f105f6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\testing\\fake_cache_store.py",
+      "sha256": "3566adb9e79d28aecf28d061cdbbb9201bfe31852459981db74308d048c1e833"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\testing\\fake_clock.py",
+      "sha256": "1d376e83b457072550b940de466077702bb640e2193d5f18e730ddf0ba4820a6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\testing\\fake_message_bus.py",
+      "sha256": "411ead028e46e825cbb739fd48180b69e13812cd0fa6203ae589b7ff3146a72c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\testing\\sqlite_test_engine_factory.py",
+      "sha256": "5ab1a52ee9b84160dbf730b0b2b96f1f86576d0b4f2f32f08b5ed52769c292d1"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\testing\\task_execution_test_support.py",
+      "sha256": "4b1d36f32d189e38daa69f61ad97ce6b4ca49fe2c578d500c73525fdf9083872"
+    },
+    {
+      "kind": "source",
+      "path": "src\\main.py",
+      "sha256": "340c6d25f1e9bcc972e90b8d15c9cf14194637b3274158766860972b6c4f699e"
+    },
+    {
+      "kind": "dependency",
+      "path": "pyproject.toml",
+      "sha256": "6a9e50d1f004a6a1b09f77381fcc095b9c7f7cb595efd6e4064d8e77cdfeb5a8"
+    },
+    {
+      "kind": "dependency",
+      "path": "uv.lock",
+      "sha256": "0f7c86f3f2cb67790cfa8ed4a8551c5d4a4bf83e1b507e767737c72404885b7e"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\app_base.toml",
+      "sha256": "ee0ef8f48ac2cd8920ca5a23a16db7fd8a294a839171554d0b76fb52e70d6bc2"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\app_development.toml",
+      "sha256": "7b7d3a6103780e1d553637ce4003bff48a4ffe922d9e1833e02e49c322bfd18e"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\app_production.toml",
+      "sha256": "f7de20b4be771f7beec59f19efb9fa0c9c59062b2fc6cf1982b450206f82d625"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\app_test.toml",
+      "sha256": "00a96286e6ac5ad7ab80d95d4de1c06ada13de4a124d241fde87dabd8c7c0e18"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\modules\\auth_module\\auth_module_base.toml",
+      "sha256": "73de6e7b2951236a5d6822562532a33f7b94dc722ea9fbf064fa51a843a172a1"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\modules\\auth_module\\auth_module_development.toml",
+      "sha256": "74dacfa64fe7c43bb0369ce700e1d1ac38852aba965697635f1c6e6a6680d4ac"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\modules\\auth_module\\auth_module_test.toml",
+      "sha256": "74dacfa64fe7c43bb0369ce700e1d1ac38852aba965697635f1c6e6a6680d4ac"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\modules\\system_module\\system_module_base.toml",
+      "sha256": "cf3e2016cae06c7595f90a6e7403a502158c1a9ebd7e89040f46fc333df67e5c"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\modules\\task_module\\task_module_base.toml",
+      "sha256": "8f3537b765176d728561a03cea94e222626c07c7da2c2bb8cf610d94727ab923"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\modules\\task_module\\task_module_development.toml",
+      "sha256": "074d31e7d803d6cbcc06fa9d3caa65405624421e86c183c9d48d4882cb660926"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\modules\\task_module\\task_module_production.toml",
+      "sha256": "16821c38012c2318233ef581ca251040ecb7436f73617ebe423b2e9b94718d22"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\modules\\task_module\\task_module_test.toml",
+      "sha256": "b91a82c0fb963b856dff8b60dacdd1b59746fa39f48aa50eb90bf174edae321f"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\auth_runtime\\auth_runtime_base.toml",
+      "sha256": "4e5276e6b6183cd50729e788db543ad68e2bdf93dffcb096203cff08e6fc951a"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\auth_runtime\\auth_runtime_test.toml",
+      "sha256": "ffd699a2691f0902dfbba65fea4995522018a3d2216605af9d78d7bd8ea83cca"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\cache_runtime\\cache_runtime_base.toml",
+      "sha256": "ef11e30902f3d9cabfa645e041d51c3bb4b7484f7f65b71f7eaa800339b087fc"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\cache_runtime\\cache_runtime_production.toml",
+      "sha256": "500ee7b4c478a294f2805092f17feb7ef6f610f7eb203d32a93aaa46b503cc1c"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\cache_runtime\\cache_runtime_test.toml",
+      "sha256": "ee3085205594efaad78720080c54e5d6bb5d6bf5dff60ade1de77219b45d68f7"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\database_runtime\\database_runtime_base.toml",
+      "sha256": "5f9492cb74f2e09c5573393d2cce8e5291f3d73f37375cff3eb1db94fea6940d"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\database_runtime\\database_runtime_development.toml",
+      "sha256": "7ea926a3188ca9b60453ff3764c306a1562c54f3d577ee462ba6ec77b2d49e38"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\database_runtime\\database_runtime_production.toml",
+      "sha256": "c310951457d8330e3fd8b1bde7e4ebcbd406d33ae8122823fcb8b24edbda863b"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\database_runtime\\database_runtime_test.toml",
+      "sha256": "ae0d6f4b7bde0abaf3c0aaa29fbab90758ff43253adbb4797f04458ae0b6dc45"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\distributed_lock_runtime\\distributed_lock_runtime_base.toml",
+      "sha256": "7a7d06e5046d5c21c409927d6c48d7e8ede4c8886f39d31902ec3b59b3b0fafa"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\distributed_lock_runtime\\distributed_lock_runtime_production.toml",
+      "sha256": "368ed721e41b8eec00712f3c7520bdff485a1106b6cd6fb49de35ead814b02fd"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\distributed_lock_runtime\\distributed_lock_runtime_test.toml",
+      "sha256": "562296b68e1f6aec1cc81a8d1d5c82bf69c2391456039ff56f0e6e9d8ce6a480"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\key_management_runtime\\key_management_runtime_base.toml",
+      "sha256": "7c1c43ce16fd7c513a3d976ec7ed1ad9c47321de831119ac7447dfbdd1e6fb23"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\key_management_runtime\\key_management_runtime_production.toml",
+      "sha256": "575b4899124fe288a7432a6446e9cfdb18762118e3fee897b10e33b713509037"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\key_management_runtime\\key_management_runtime_test.toml",
+      "sha256": "0c01fae6e3bbe5e854e050d5688f6f289d8106c770a9471d5fbebafd5bd44397"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\logging_runtime\\logging_runtime_base.toml",
+      "sha256": "521cdad011f1726d73a1ade6078ceaeb71830adaddeffb4305a1bfb4211ea454"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\logging_runtime\\logging_runtime_test.toml",
+      "sha256": "ab2d198ccf57350f9e892e39718b12afb9c76a28106e9d37b122f94aafcbbab8"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\message_runtime\\message_runtime_base.toml",
+      "sha256": "152623fd7f8db363419757bfa151aee18d1238e5156ddc280a8cac434a6db678"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\message_runtime\\message_runtime_production.toml",
+      "sha256": "e33d744395b06a18aea460c05dfa5124e4701f61b698d96c74ffae8506001647"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\message_runtime\\message_runtime_test.toml",
+      "sha256": "637743994c3010a0523873f8d266e2d8d843685d1900cad871eb9e456025274a"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\metrics_runtime\\metrics_runtime_base.toml",
+      "sha256": "01330c82950904d1000ba3062c535631f759d4c99a427e373a7b54a745b65fb7"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\metrics_runtime\\metrics_runtime_production.toml",
+      "sha256": "f6baea78a1574a0b367e965f4aa1e6707eb87cd5df2a564b0abb0c8fdfff7ebc"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\metrics_runtime\\metrics_runtime_test.toml",
+      "sha256": "f6baea78a1574a0b367e965f4aa1e6707eb87cd5df2a564b0abb0c8fdfff7ebc"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\otel_runtime\\otel_runtime_base.toml",
+      "sha256": "49e3c0a8722c1acceeccc98eece4469c75f25c19ce42c9a5bff18795728e653a"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\security_runtime\\security_runtime_base.toml",
+      "sha256": "4a2c03ab5078966249e045ad1a4eb50ca42f28e71cd1598f119ab62aa0590ac3"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\security_runtime\\security_runtime_production.toml",
+      "sha256": "40a60356c92a5befa41529a0c67e3a588522b9455bb8b2b4a78771db52876f7d"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\security_runtime\\security_runtime_test.toml",
+      "sha256": "27502db0d3bb5090f28616d45c911d604279ea7b2be82dfab8d7f3d5c4e072df"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\task_runtime\\task_runtime_base.toml",
+      "sha256": "c4018626e2679db5fe291febb1f0be34f25a76cea8c61045ca5702d13f384bc1"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\task_runtime\\task_runtime_production.toml",
+      "sha256": "e6944de116bcb25b0f432baaa0318f09c536b200f7ebbe6b26b3c079c519cc18"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\task_runtime\\task_runtime_test.toml",
+      "sha256": "64e73f8dcd2ea8b1c11ee3c71d5e6571931e2bd153ffb0a389a2e2e155ab9ab7"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\web_runtime\\web_runtime_base.toml",
+      "sha256": "de744c6b7ed6c7fbde3d32d147a80d3fe3a440c2575df49b477250217b30b2b3"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\web_runtime\\web_runtime_development.toml",
+      "sha256": "9655c970a08c861e079f8fc2f658fe6a6c59c69cf37b4416f4c552b81969a935"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\web_runtime\\web_runtime_production.toml",
+      "sha256": "c2d308ffa30084f003fc38753635561d266e431bc15f89282985300f1a4597e0"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\web_runtime\\web_runtime_test.toml",
+      "sha256": "d2b7ad7a3eaac9ad0828aa09c43ba934d4cce26194c09315d9ef0e35da5c3a3a"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605151600_create_auth_tables.py",
+      "sha256": "dcaf8f3d234c0fdd3eef6204a45f79f016b7ab5087d432899105568ba562d6ff"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605181039_create_app_log_record_table.py",
+      "sha256": "6c6d58a58d4a50a1d6dab355efb6c9c34faa1a2896adc7c2acbc3a35462dbd2c"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605221609_create_task_execution_record_table.py",
+      "sha256": "df776b9ac8e22fa75d7c082df309b01712546844939647ed5b46e5a776a0c147"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605231821_add_task_execution_backend.py",
+      "sha256": "34f622caf1b1cc9e35377fe77585c4c4379b8de7bc020f893f3670ae7eecabdd"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605251640_harden_refresh_token_constraints.py",
+      "sha256": "42b41d7b47ee8f1e4e425661b35277586a50ea4b1d567695d54543f8a1b64bdd"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605260859_create_security_ip_block_record.py",
+      "sha256": "369765fff3d7ffb229905a31b8dad191d0f277e56da75677731cb0a191b3e482"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605271330_create_auth_scope_catalog.py",
+      "sha256": "a34f978298766687de93223beeb11b93b98c8c31ce4aa25d016d0cc219fd63dc"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605291041_fix_identity_task_schema_drift.py",
+      "sha256": "3f1ad218f2264dbf75828005859d7db9b3d4d3e20e9650b433a732a1c1d40354"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202607021200_add_task_execution_published_at.py",
+      "sha256": "3f122483b9fe92b0bd46153c85a5b58d4d760aa70126c3b8a829fe14028efa99"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202607051000_create_key_ring_snapshot.py",
+      "sha256": "61d3bc84cf934c9aec9e065d520362109cb04cb43f686f4d6a6cc5dd54c0424a"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_admin_audit\\route_admin_audit.py",
+      "sha256": "e5c40969be6158832df7721c5c12f47c6daeec4c2042dba7c2eabeb0418aaef4"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_admin_identity\\route_admin_identity.py",
+      "sha256": "945ff4267ed87c05a821e770525cc0cf7784ce077a769a8549a7919d06bca3c2"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_admin_identity\\route_admin_identity_common.py",
+      "sha256": "e33a338bb2ea762c98c310801de0be44a05a446f92a316aff406fe8aedce55d2"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_admin_identity\\route_admin_role.py",
+      "sha256": "f124dbfed6fbb0b3beca0be63a6d9de4912cfa780924dc4e796d08ae9f51b242"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_admin_identity\\route_admin_scope.py",
+      "sha256": "dd9b7f67188507a3a08f74665f3685ba33599191dc32dab27f0be5887cfca1c6"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_admin_identity\\route_admin_user.py",
+      "sha256": "cf16fb98839e014b9ef1870e0650b738e6c41e98c8d2f4117fa707769a162652"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_admin_log\\route_admin_log.py",
+      "sha256": "cc15c66970f5e222d5ee6e88c043f76008682b10d5f3f3e4fa86cdedb3e58bf6"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_admin_settings\\route_admin_settings.py",
+      "sha256": "27ad9d8b844d02ce3ef323a95a52fc487e33ad9e284b905e3d1db2338c2175c6"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_admin_task\\route_admin_task.py",
+      "sha256": "7a440c54d85d929e608753c2a92d3fc27e6855ef19b55f73b4d80af5915588b4"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_auth_access\\route_auth_access.py",
+      "sha256": "04fad47d07da40ec45e194632978aa1878420a19cdfdd21a043ba5e46304769b"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_health_probe\\route_health_probe.py",
+      "sha256": "6a4d6a139ff84722959f1fd97e4ddda43035d052af3e03919e6ae286af9970e7"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_security_protection\\route_security_protection.py",
+      "sha256": "df9739478d51836378fd437b755fd3564168c96b22b41d26915237373d220b3f"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_system_overview\\route_system_overview.py",
+      "sha256": "f16157f0e686cbd1ca9c1603604a699f067c0e2d287fdc99de8c02a0f75a118c"
+    },
+    {
+      "kind": "task",
+      "path": "src\\api\\endpoint_admin_task\\contract_admin_task.py",
+      "sha256": "618a1c4f687b7aac53fc9a501fc61fd82258e47136332335ee285bf7a69a021c"
+    },
+    {
+      "kind": "task",
+      "path": "src\\api\\endpoint_admin_task\\route_admin_task.py",
+      "sha256": "7a440c54d85d929e608753c2a92d3fc27e6855ef19b55f73b4d80af5915588b4"
+    },
+    {
+      "kind": "task",
+      "path": "src\\api\\task_binding_provider.py",
+      "sha256": "94abe873efcc1576e12401f8dc287c9a5fccd18f08ea5c48f18b61f59cfdd4ae"
+    },
+    {
+      "kind": "task",
+      "path": "src\\api\\testing\\demo_task_binding_factory.py",
+      "sha256": "ceb6d7fed9f9039992edd3bf717b018622d74f70993ea5a2396812e020641630"
+    },
+    {
+      "kind": "task",
+      "path": "src\\application\\admin\\dispatch_admin_task_usecase.py",
+      "sha256": "91b0801093c59f44cb5696474d38b68ed6fcd32002d03b97795e21fb8da6b109"
+    },
+    {
+      "kind": "task",
+      "path": "src\\application\\admin\\get_admin_task_execution_record_usecase.py",
+      "sha256": "87a717554d7cc02cc7e3ee5c62e1bd7d31631658e7865a565782f6d468ac0875"
+    },
+    {
+      "kind": "task",
+      "path": "src\\application\\admin\\list_admin_task_execution_records_usecase.py",
+      "sha256": "07d96b5f41cbc439443ed4586d5de82f0b3e7345abb8937b0929bc8af31cdeef"
+    },
+    {
+      "kind": "task",
+      "path": "src\\application\\admin\\list_admin_task_registrations_usecase.py",
+      "sha256": "7f8404056204ba80440a52cbe90c203d339b3e92a8918205c7ffe0e1d8c47541"
+    },
+    {
+      "kind": "task",
+      "path": "src\\application\\admin\\read_admin_task_runtime_usecase.py",
+      "sha256": "a97715293cd8e6d71690bf020a98f0a3d69b1080d9429a924b52b9601496a621"
+    },
+    {
+      "kind": "task",
+      "path": "src\\application\\ports\\task_runtime_port.py",
+      "sha256": "c680c90c9b7e878a0cb290b408f7bc7efed80bcb228f4f45b454dfd2d51c27dc"
+    },
+    {
+      "kind": "task",
+      "path": "src\\application\\task\\task_execution_probe_handler.py",
+      "sha256": "48f3833bcbc599a2051dbcdac55e05cc1b0d23ffa3e47dc01d89e71da7fe66c6"
+    },
+    {
+      "kind": "task",
+      "path": "src\\cli\\run_task_worker.py",
+      "sha256": "37652154b0b36610ecde375b6a44e64bb99842577b586cb0ebc4b1aebafc60fe"
+    },
+    {
+      "kind": "task",
+      "path": "src\\core\\task_contract\\task_dispatcher_contract.py",
+      "sha256": "62d86549b9ba9dcccc4f877753218828022b0f8038fbe5e36e25cb04e8ac576f"
+    },
+    {
+      "kind": "task",
+      "path": "src\\core\\task_contract\\task_execution_record_contract.py",
+      "sha256": "6ed629af66bd301f3243a6d1970867edee18d98b90d99bf9e14285106c4cc829"
+    },
+    {
+      "kind": "task",
+      "path": "src\\core\\task_contract\\task_handler_contract.py",
+      "sha256": "7e2e10e3c3f88e22a6c96b8de2b9a989e31f2710945afad85f07083f605effef"
+    },
+    {
+      "kind": "task",
+      "path": "src\\core\\task_contract\\task_invocation_contract.py",
+      "sha256": "a9e0f23436bef892a1d9b0ff0da64c62cf8e4296c7041b6b127a98399559e0c4"
+    },
+    {
+      "kind": "task",
+      "path": "src\\core\\task_contract\\task_registration_contract.py",
+      "sha256": "c9e28d11f9763e9213ad7179e7dc8fb480718991c4e47f8552878866be1a37b6"
+    },
+    {
+      "kind": "task",
+      "path": "src\\core\\task_contract\\task_runtime_contract.py",
+      "sha256": "fd571d94532f95bc512a1c32e3fa7599bbb07975d9f2cb56ae8d5084c47861b9"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605221609_create_task_execution_record_table.py",
+      "sha256": "df776b9ac8e22fa75d7c082df309b01712546844939647ed5b46e5a776a0c147"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605231821_add_task_execution_backend.py",
+      "sha256": "34f622caf1b1cc9e35377fe77585c4c4379b8de7bc020f893f3670ae7eecabdd"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605291041_fix_identity_task_schema_drift.py",
+      "sha256": "3f1ad218f2264dbf75828005859d7db9b3d4d3e20e9650b433a732a1c1d40354"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202607021200_add_task_execution_published_at.py",
+      "sha256": "3f122483b9fe92b0bd46153c85a5b58d4d760aa70126c3b8a829fe14028efa99"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\persistence\\orm_model\\task_execution_outbox_orm_model.py",
+      "sha256": "78dd956f0cff1bfd6bb45e12d939e429bde3573b8101616259d52c8103fafcec"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\persistence\\orm_model\\task_execution_record_orm_model.py",
+      "sha256": "01e544cf88a7ea828de90b184c06afd2303765a2b43199b8c66888c059e2eb28"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\task_execution_outbox_repository_impl.py",
+      "sha256": "398e1fcf7ad62785aa49ec07657a7021feb57cac5572db5340a0316c935f33c8"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\task_execution_record_repository_impl.py",
+      "sha256": "2e9c9c9e9d84ef95b7479c140307494d3a686b8767040387258edbb3a9746001"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\resource_mount\\task_resource_facade.py",
+      "sha256": "1b4656caf89f2e372f5e8c42a87b210dcf6cda6ab2692fd0264cf13c3dfbbc53"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\task\\failed_task_recorder.py",
+      "sha256": "4b9aaa357d89fb3f0976a24977df3a573eb1ec19c78319fc492b01f1465c9e7a"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\task\\funboost_task_bootstrapper.py",
+      "sha256": "5e477f6ed5a33e1632e7a8bad1f609b7ff4f30fc12e865e7da1553cda6ee9f07"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\task\\funboost_task_dispatcher.py",
+      "sha256": "dd67872632a50e5d8271fff5861a4550f44b2fd2bf0c0687af6d7be43c2ad622"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\task\\local_task_dispatcher.py",
+      "sha256": "d084055c285c99898bc28317b2ec0d282d57f844c50da028b6776b0cefda5ede"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\task\\task_execution_outbox_publisher.py",
+      "sha256": "a06c6c3c8f453e17b46f24a7f184c5020776f2437aa1a197d61bd7d7c93101d5"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\task\\task_execution_store.py",
+      "sha256": "269ade3e14c809e3a83845d9165b51fcf87abcabdd1efcf68d13595dde01d9eb"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\task\\task_registration_registry.py",
+      "sha256": "f1b7dff59491edf64a18d164d59975ac7f6971512ec67cb3a2ce0ef23f3515f5"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\task\\task_runtime_manager.py",
+      "sha256": "03ba9cd7cb00ac29d663d15b5be66a0b93928a53a3fb4b4247f5400921c70b38"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\task\\task_worker_supervisor.py",
+      "sha256": "2ef4212c4a3c74da5ab5d8882735f906c6fb0efb5cf70c89eea4ec31587ebc2e"
+    },
+    {
+      "kind": "task",
+      "path": "src\\infrastructure\\testing\\task_execution_test_support.py",
+      "sha256": "4b1d36f32d189e38daa69f61ad97ce6b4ca49fe2c578d500c73525fdf9083872"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\__init__.py",
+      "sha256": "c168863ab01ed9c04fce1022a5dbfa5b7d0ca933374e6e688f50f0aae6bafb7d"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\admin_identity_resource_facade.py",
+      "sha256": "2b54dd15291ff8a16997d10cf38fafcd04d583025feaa1ad1baa62fff71bf6fd"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\admin_security_resource_facade.py",
+      "sha256": "afc87d581650561168625f8d20fe21452ce979e38e1deb2a81a77bc299176417"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\logging_resource_facade.py",
+      "sha256": "f50aaccd9a24a64b6f3b3647ca813ef323f50945ffbe7155df383497290516ee"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\runtime_accessor_refresher.py",
+      "sha256": "75ddb82bb9e11161ee38e543b10658a97457e8d04aa736dc3d1592ee8cdd4cb6"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\runtime_resource_bootstrapper.py",
+      "sha256": "a5bfe80ccde56fa2e844581c397f64af40a23b9ab955482fec02725a60cc9128"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\runtime_resource_mount_contract.py",
+      "sha256": "db03faf956e399d397f25f081fb5396807973312fbe68fdf605476995d26210e"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\runtime_resource_releaser.py",
+      "sha256": "6883734109514bd110c8fa7639d0142b35e159a54a555b7ff96c9eba5f36acd2"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\shared_resource_accessor.py",
+      "sha256": "c478c07aeacdd3e205a5e91850a4fcee024fdbf20cfaaaa451d4c5a20e0fc44f"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\shared_resource_constants.py",
+      "sha256": "8d48188040523232495789a389fd3b6b13c49eb06666cc03817b5d640ba5ea16"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\shared_resource_lifecycle.py",
+      "sha256": "faafbee9bfa7a0c839de81bfb406c5bf906763451c3e9a92e07a8afdefa359ac"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\shared_resource_models.py",
+      "sha256": "e08162f75b6af8da5ccffec30c905bfa60df184feff0dc7cb6679b6b25831d5f"
+    },
+    {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\task_resource_facade.py",
+      "sha256": "1b4656caf89f2e372f5e8c42a87b210dcf6cda6ab2692fd0264cf13c3dfbbc53"
+    },
+    {
+      "kind": "test",
+      "path": "test\\boundary_test\\test_hard_migration_module_boundary.py",
+      "sha256": "8da39d7b72dee9ffc0d96c954ee7ca46179952581c268865b9755ccb481ac38c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\boundary_test\\test_repository_transaction_boundary.py",
+      "sha256": "ca37808c36e5a1db3215e452b2af4961a1ccc373e86cd23a0759ef12105da320"
+    },
+    {
+      "kind": "test",
+      "path": "test\\boundary_test\\test_security_boundary.py",
+      "sha256": "4e0d0b1417792ad66dbb767cdea79b2079239feff6885ba970e237ebd3e4dc24"
+    },
+    {
+      "kind": "test",
+      "path": "test\\boundary_test\\test_security_protection_boundary.py",
+      "sha256": "7b9e23d88d4948845a33b65613a53a4ba7566c8cbf590c096eebad9c60a4ab1c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\boundary_test\\test_task_execution_boundary.py",
+      "sha256": "7db675932aa0bfa40380256a3d72b2f2281afd05f139329114c4801ff0c0e2c1"
+    },
+    {
+      "kind": "test",
+      "path": "test\\class_inheritance_test\\test_runtime_contract_inheritance.py",
+      "sha256": "4827d5992ec62d83aa89d539f8688c2b8dcc145c2746eaf242cba3803c81a1be"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\admin_audit\\test_admin_audit_contract.py",
+      "sha256": "d771b44b6083619a92f08782628a2fcd251c1d6e1d6128bb5d546a04a7d25f54"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\admin_identity\\test_admin_identity_business_boundary_contract.py",
+      "sha256": "d83488d7c6cfa67c5bf87accde18a6d6f65cf0a2086764c2dd452d5a09e17887"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\admin_identity\\test_admin_identity_contract.py",
+      "sha256": "4f72e2e6e25097e731e3ebf2e4d0e672188247348d469e665b83d3a592b12780"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_admin_log_contract.py",
+      "sha256": "d0596ef781992c62bf7b10cc5e63125578c76f07d8567fdab984a9658759bfc6"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_admin_settings_contract.py",
+      "sha256": "3f2f17261418c642e89e7a7f3b64138627b6e17b1b9507cd5af98134a86c59d7"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_admin_task_contract.py",
+      "sha256": "bed80a2ba2acbeff1845eb526a97264c5d335f5cdac9924de9123fa4f70c1430"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_distributed_lock_contract.py",
+      "sha256": "c6c16d244628d06052785c418e584726cde841a78998edde734abff5e38ca901"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_http_contract.py",
+      "sha256": "1bdd03d6d3515f283724b6918493786c823e43c05d9616d2e0d1acbd47a48f53"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_key_management_contract.py",
+      "sha256": "fb98928e785685dfae69910826c0ea5ec4ca5ead162689b8337cf318a374ce66"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_logging_contract.py",
+      "sha256": "ae6275f086ab010349f7ae0f025dfe7f3dab0ab8e88f1ee2d32827d155bd79a6"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_metrics_runtime_contract.py",
+      "sha256": "5794a7275f2ef780ed4b1efec43ee9842ba421f6db9a7e12a8529c75d8e4de2c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_outbound_http_client_contract.py",
+      "sha256": "c840ad61a4015c15f80d0af459459aeff15b4e01f6d43e43840144337ada3bbd"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_phase_evidence_contract.py",
+      "sha256": "0133408d0f4a7e6272b823ceaa2a0467cda33bdc61d320bdbf5224a6fd8cb2e7"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_refresh_token_invalidation_contract.py",
+      "sha256": "d98b1097b5e98d4f571e0a31d509282eb15cd5dc218e0dcce1d2d33cfd923790"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_request_execution_contract.py",
+      "sha256": "3471e92448155c7442762fa76ef0848ba60cde5b5d65b366c87255cedd48b614"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_runtime_resource_mount_contract.py",
+      "sha256": "b47a809ad0adec08940f7a07ade6723c44782eb7fb47948ee596bb6ce1d6f2b2"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_security_protection_contract.py",
+      "sha256": "adcca65768934a9396ba917817df3da3fad3cc2b68837537e9c3519109c7998b"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_security_runtime_contract.py",
+      "sha256": "5fd5ce4d571d95b235723ff008c662037e45ac64d7f3088bf5ae15bc4aaa3aa6"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_task_execution_contract.py",
+      "sha256": "72b339ad78ba4f958bb9391ceda76224f8a4236a54a1a2631bcfafcff1e5d108"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_task_registration_contract.py",
+      "sha256": "3141efaf1fe7c7547539c16eaca09b65a77ba206294210bee3b81042a61af0ff"
+    },
+    {
+      "kind": "test",
+      "path": "test\\convention_usage_test\\test_end_to_end_usage.py",
+      "sha256": "19cab69bc793fb1ec5d973edf50bdb5f3de4a335a55019d3c0b0b7e7f7f45d19"
+    },
+    {
+      "kind": "test",
+      "path": "test\\exception_test\\test_logging_exception_path.py",
+      "sha256": "7759aec76c249c3a26863d7cdf6b1e98a462723e37a1af5e7303479702279762"
+    },
+    {
+      "kind": "test",
+      "path": "test\\exception_test\\test_logging_redaction_exception.py",
+      "sha256": "ac55cd4d93ae64832fdd70acc5e53966a69cbd8c69d0c1e302326edab8f31c59"
+    },
+    {
+      "kind": "test",
+      "path": "test\\exception_test\\test_runtime_exception.py",
+      "sha256": "45c123c427142410f653fe247db487963257e1ef2f67bae4e7b12561f0887554"
+    },
+    {
+      "kind": "test",
+      "path": "test\\exception_test\\test_security_exception.py",
+      "sha256": "884153a67936b8e8a0f7ed4332997be5250e3faf3f55f2d8dba949a39867c0b5"
+    },
+    {
+      "kind": "test",
+      "path": "test\\exception_test\\test_security_protection_exception.py",
+      "sha256": "151f31e43f84211d617a4dcc77f023156e736507c00c64612354d28a50e04eca"
+    },
+    {
+      "kind": "test",
+      "path": "test\\exception_test\\test_task_execution_exception.py",
+      "sha256": "823e87f0a14667d1b18e56032e9bb8abe7a5bae04675c3d7b33f761dfdd55628"
+    },
+    {
+      "kind": "test",
+      "path": "test\\initialization_test\\test_bootstrap_initialization.py",
+      "sha256": "ee1890b671722140f15dcf32babaf7d25783f15130ed607821820e0c4307a867"
+    },
+    {
+      "kind": "test",
+      "path": "test\\initialization_test\\test_cache_initialization.py",
+      "sha256": "266291a09d9280de37c6355ec91e47e76965c1206ed1bc5f2316d9e07cfe5f9f"
+    },
+    {
+      "kind": "test",
+      "path": "test\\initialization_test\\test_initial_admin_cli.py",
+      "sha256": "d59801236730f735905d529dcb809d3f9382abfd84642a351fda187ebbbd0a42"
+    },
+    {
+      "kind": "test",
+      "path": "test\\initialization_test\\test_logging_initialization.py",
+      "sha256": "56a7130d7ee0b819a5893aae1dffea13610959215992b90466505e9bee4d970d"
+    },
+    {
+      "kind": "test",
+      "path": "test\\initialization_test\\test_observability_initialization.py",
+      "sha256": "f4731ffb73eb315e96ebdb6279e7e5fc334d8f20e1b6f3b6d5434ea8bdace6ad"
+    },
+    {
+      "kind": "test",
+      "path": "test\\initialization_test\\test_runtime_initialization.py",
+      "sha256": "094a9397183fb8fd298b90a90abf7d63345893988eb0f627f5caa137ac75d20a"
+    },
+    {
+      "kind": "test",
+      "path": "test\\initialization_test\\test_security_initialization.py",
+      "sha256": "d7c09ad4895c3099d0aa29289b6942278a9783e2b4d23e68c29be3fc14c4d6fa"
+    },
+    {
+      "kind": "test",
+      "path": "test\\initialization_test\\test_security_protection_initialization.py",
+      "sha256": "605fbf946598166eb8aca50ec17a7201c7533ba345684ef701d2bad9bc3855d8"
+    },
+    {
+      "kind": "test",
+      "path": "test\\initialization_test\\test_task_runtime_initialization.py",
+      "sha256": "b62941177309c50fdccaca5535872610f622305f7b2b5eee6624b87e5b197fea"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\admin_identity\\test_admin_business_role_usecase_integration.py",
+      "sha256": "5fa60273e067f05c151d24bd971e0dc201cd936601e0a0c966921cb9a8132a5c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\admin_identity\\test_admin_identity_rbac_integration.py",
+      "sha256": "22f9b55547ca3ca8ce81cc7fd35b5820ce78928becb1470640a57263cc1e0f48"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\admin_identity\\test_admin_role_usecase_integration.py",
+      "sha256": "d026c1e72cfb481ae1b894a74e4648bab89f45e94fd03345e7427db778fa4998"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\admin_identity\\test_admin_scope_usecase_integration.py",
+      "sha256": "f46f71d425b592be6d0cbafb0d715a15b56be1bf53c725cf1f85fbf6854a37aa"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\admin_identity\\test_admin_user_status_usecase_integration.py",
+      "sha256": "16631bd50165660a24588cb045b3739801b2eced5bde0797b460598d3d880b69"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\admin_identity\\test_admin_user_usecase_integration.py",
+      "sha256": "d82e170c85806fa9554bafdbf2ef96227e5865c0d9dde163587b4a2e3b89f730"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_admin_business_console_smoke_integration.py",
+      "sha256": "0c67c35f8be061395679959b20f8d615f2a2a3d564f3bc4857d626e2d7212127"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_admin_smoke_integration.py",
+      "sha256": "699d8c5463fcccda76fc7a07395737c7cbd2f0ea3b9ccbec6ea878bfab863ea9"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_app_integration.py",
+      "sha256": "e82b6a3fe7acc72e9cafecdf9ceec93d2d1b8c4bef4629366f4aae17f68ddc68"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_cache_integration.py",
+      "sha256": "86cf90ff00a15e4eb0511bf76981fac899207dd933e90c58a8a22f19873fcadd"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_database_logging_integration.py",
+      "sha256": "e17a3b7a730b9f0c5ab073747ab1b7e9aa8026788302bd956ca27d65533ada7b"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_distributed_lock_redis_integration.py",
+      "sha256": "f55d450f053f3ffbb656b1f2c4cda11bdf41f18f2e22dd68ee27b82369e1de94"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_funboost_rabbitmq_integration.py",
+      "sha256": "8e55baa593538f9712056c2d856ff562cca746d558e6408ec53cd92b0c0939a7"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_key_management_redis_integration.py",
+      "sha256": "06e84bcbcdfbf9afc6339735cd6f768bfe8ef64a13939129c7f6a12725482615"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_migration_job_integration.py",
+      "sha256": "7212aab00be409ad0aba1f475dd0451997a45fce7b2b1fec780e7c2c7707aa47"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_runtime_boundary_integration.py",
+      "sha256": "14f29d01ced81982cbf4a8cbf5cbe5bbd168fa461235724c78ac85c016f46844"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_security_ip_block_integration.py",
+      "sha256": "ec65501a9a9b436e073b2bfa534358fff820fc47fa2e6ee401cdfd21246af322"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_security_production_integration.py",
+      "sha256": "7e34802ab297efe024ef5525b787596ed32e386cf183ad1beabf154ec9b4c29f"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_task_execution_record_integration.py",
+      "sha256": "16383f0221be98e02695371b748300e0e3815a928edf77cc9194cb22d0c1612d"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\admin_audit\\test_admin_audit_interface.py",
+      "sha256": "db6879cf42dd9c62d36af6aa52fdcc6525b7b9c76d2e1237547194fda31c7acd"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\admin_identity\\test_admin_identity_business_boundary_interface.py",
+      "sha256": "4b2e06b69bae520fa7c427c25f3b16574c56bb1f7af94dcaa24c95cac232030c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\admin_identity\\test_admin_role_interface.py",
+      "sha256": "59c928e589d1c4ae2a7479a3df3270bbf1ae6288d37bfd02d8135478c4502816"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\admin_identity\\test_admin_scope_interface.py",
+      "sha256": "15776e320d915c2e148599b35bf72e1b74e4526a539c53b3bb9973b1adb0e289"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\admin_identity\\test_admin_user_interface.py",
+      "sha256": "3458844d1d6bb60b5d47d77f9d7d15e10796a1cefda71c834260d003bc7f0718"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_admin_log_interface.py",
+      "sha256": "8745f2d3102e4ad6d48af3bc8991088f1ec852d295f06815f364ba13721a36f5"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_admin_ops_modules_disabled_interface.py",
+      "sha256": "08fbf07cac697eb811c3e68d15799b268b9adb109b26b935ae761eff0a46f087"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_admin_settings_interface.py",
+      "sha256": "ded15a1823e490a3f6d2b0416a18d748ea85e2b38b1836c23837e7ec6f28ee36"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_admin_task_interface.py",
+      "sha256": "915b4bea59691373cf5e3c4260e98ef138c66b3becec7f8df8d9061589ca45a8"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_http_interface.py",
+      "sha256": "4e2031c018fc4934a2198c6f6392d09870e7e1110ce1a8b8cd8afa0be3c6443f"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_local_startup_interface.py",
+      "sha256": "81843e790368e8dcd0cba8e6a91299e255f246bc0775d70cea55db73d14618c1"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_metrics_http_interface.py",
+      "sha256": "736b711b69fad6e6278a20963951de30f3d581b042af6871231de8ad30dde2a7"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_rate_limit_http_interface.py",
+      "sha256": "6f8bae3981eccd8559ce8f7c928edadb44fc60253af079c0de6f322e7327097a"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_security_event_http_interface.py",
+      "sha256": "185ce4b9010389729f221b2d6876b58db6a769326fc94941c239f94637466cf6"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_security_http_interface.py",
+      "sha256": "2a4b1d6a1c831d78f20e19023a0284136ff4f6216fafd6f00ea59b3609f231ad"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_security_protection_admin_interface.py",
+      "sha256": "ca6b0ea963ade49c32f70f8f0e4cb701b20c09286537b4af2aea5968871669c1"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_cache_runtime_path.py",
+      "sha256": "5742cc015764103953871130641766403e3035f4c460555cc8a621e4953fec70"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_fast_development_skeleton_path.py",
+      "sha256": "45781b1cc563c61ba8dc3edd565fed7f034c9638a1850af989a1bc60bde234c9"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_key_management_path.py",
+      "sha256": "b1708ea7282b0e2abe8cf05657df10da224ae23d020361c1ba45f0d28dcf15a4"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_logging_runtime_path.py",
+      "sha256": "8ea6086d0b77e5b2e839542d35bf18966d9a6998fa43febd04a17ec825da908a"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_runtime_path.py",
+      "sha256": "bc2aab8672d20a080c8b17897f0bde7cd52b3a6edb834ad58e96db2180515bab"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_security_protection_path.py",
+      "sha256": "17a7f90c1668f27d45dbca8d18725c1946b84add88ba4a4f96962620a78e906a"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_task_runtime_path.py",
+      "sha256": "ec4c7ea7afeca402aacbb7fd92e615a1647a10dcfe1f9e051dd3d8558f827963"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_web_execution_path.py",
+      "sha256": "dc006eb42710e2fbc21d64e29c3cc8449b82260cca323aa22a5033072b5cd8ae"
+    },
+    {
+      "kind": "test",
+      "path": "test\\performance\\autotuner\\test_capacity_autotuner.py",
+      "sha256": "f99421c59bf807b035319f7fc8f3c14aa1288f525cf6c10a0cc11d941e7eae25"
+    },
+    {
+      "kind": "test",
+      "path": "test\\performance\\scenarios\\test_locust_runtime_settings.py",
+      "sha256": "77d5818796c7ea9ba4345c4df60b4dc9f7b3e160c4c7d1d8c1a04683221aa2db"
+    },
+    {
+      "kind": "test",
+      "path": "test\\regression_test\\test_production_findings_regression.py",
+      "sha256": "a2cbf5d17994ddfaaf318aa8faf93a45b889f3440710fe6a820f03f48852d8c7"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\admin_audit\\test_admin_audit_query_unit.py",
+      "sha256": "a1e3eb0c293eea5eb9d1ad25872cd4ec2b93fe18d9bb6894188dcec700692248"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_admin_log_query_unit.py",
+      "sha256": "7fbecdcd92d22da308338e33a8a0ca5941a32b7e5b4481c78ece3276c14f26cf"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_admin_settings_usecase_unit.py",
+      "sha256": "633f90e19afc368056f48aa73589d706f55d32a75d4e58341832e30ec6378a67"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_admin_task_usecase_unit.py",
+      "sha256": "7c38154c703983c1059a8046b04ffe465ec0c5f12f4634e0144997a7791adbfa"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_alembic_environment_unit.py",
+      "sha256": "1ebf1761ef0361b7a6b6a363d1100208667b50c163949295fd232a4d57ddf333"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_application_port_boundary_unit.py",
+      "sha256": "5440586579171eec160673541b12f002f461a866c16ebb64b18b8d349dfa61dc"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_auth_persistence_unit.py",
+      "sha256": "88b658762229692d5d4438419868a842445ff0ff4b1607102591743343f5181c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_cache_unit.py",
+      "sha256": "19d47b7b46d1ad3ead94ffba5a5fd9232acfcfca0d06b1e6fd557c27a6db2440"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_code_baseline_calculator_unit.py",
+      "sha256": "e1bddf3e3f4604d1f9c773edb151711b7a10ca97359041e0e7826b14862897c6"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_confirmed_funboost_rabbitmq_publisher_unit.py",
+      "sha256": "32efbe3a785f274814fe15d59f8620b22b954f763499aa8164a6bf9bc9b7bc46"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_core_unit.py",
+      "sha256": "035dca9fe2caacf3ed6872dac36c2a777202e48a54b14d072d2f13723ce41995"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_distributed_lock_provider_unit.py",
+      "sha256": "7e747d2bea00da16e845d08d2f1cfcf597ad56f7f7c9e8ad0538275da9a71edd"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_dotenv_settings_loader_unit.py",
+      "sha256": "90c2809a56fc2f4cc819222e13ffc414eeb4a2fcd0c3a1822b33429f0bfc8fbf"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_evidence_command_runner_unit.py",
+      "sha256": "8eb805a5fd056419f6079d50dbadddd21f25db87f49f4b761040c05b9dd5024e"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_fastapi_app_assembler_unit.py",
+      "sha256": "702d8b159b8da720e9f6d8876bbdc3f79937f291ae4fd90e4bead2ba9d524075"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_fastapi_exception_presenter_unit.py",
+      "sha256": "292632f92da7339fdc2f5f2eb2781ee85194d3787023f36ad6300c79d4e12306"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_fastapi_openapi_surface_unit.py",
+      "sha256": "82826b855c43be65a95020aac29aafb7286cdcb01a6c4e6421a3bc17e7f391d1"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_fastapi_otel_bridge_unit.py",
+      "sha256": "c1b12e20a05bf1eb6b12c069ecac4b46d4341306efce6667443858d96b4fee88"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_funboost_config_unit.py",
+      "sha256": "7d167198ad884c2f2cb8f1734b5555ed73ef15530cb3d75bf8665710153a2b6a"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_funboost_task_dispatcher_unit.py",
+      "sha256": "1c49ef549c3a19d68f3a03b32ae646677684ff137f7147baa3e3729e169cbdd7"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_initial_admin_cli_unit.py",
+      "sha256": "7fa4c583d7a71d8a05a0d1275e1691afea5c029d451c76c7b6e75d156c0e7737"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_ip_block_guard_unit.py",
+      "sha256": "c5b044f96cc9cf0ec4c6e5927e6c7578db6f38013ff0616e5e2520091a747863"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_key_management_service_unit.py",
+      "sha256": "0d1502b2fb2bfe3edeacfffe29448572be79670baf4bc722a44f254f509b69a2"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_key_rotation_service_unit.py",
+      "sha256": "b3d5f3dd249b65dcc5a0b29c121e98d331e3703bcf44d4f6be764ca36d0feb91"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_local_task_dispatcher_unit.py",
+      "sha256": "230c62bb6f656c30be0c83c9c65ccbc8cafc7380fb49a50d92bdd6401e9c764e"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_log_writer_unit.py",
+      "sha256": "8f737ab63243addfa74ac73dee9cff0c4fa031e82f1eefebb4dca41ad9236413"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_logger_factory_unit.py",
+      "sha256": "836bd5a2e03572b6bc6e8bb02536abdaf339cdf275be2ccb831dcf1aec158290"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_offline_external_resource_guard_unit.py",
+      "sha256": "365971528febfb7ebf4cf395f66ccd0df58ccf8a0b62066e80ba020d9b939944"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_outbound_url_safety_validator_unit.py",
+      "sha256": "3e5e522ae95accb2cb9a67ae3d44d21a112f418ad58d307d58f7a5877b1661ec"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_phase_evidence_store_unit.py",
+      "sha256": "fbf008ea56f4bc2e259e0ad77866b2969cd84f236815bc40a36d4a55f93208af"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_prometheus_metrics_registry_unit.py",
+      "sha256": "3bff0dd07809a480e3c61b22e7289bc5159fee6e5c7f0395ab400127af765511"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_rabbitmq_message_bus_unit.py",
+      "sha256": "5a21365be649c15e4954be480e9778ae31b521eb6afa239d91b33d69f53b6f53"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_rabbitmq_message_gateway_unit.py",
+      "sha256": "b4b169a97269f10b52dc0aed501a76e8e55cd5fbedd33367223dacf09c6e8275"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_rate_limit_guard_unit.py",
+      "sha256": "3850f5226e225885906dae4dc63d5b70c494598f2544b9ff6dc38cc39402d4f9"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_request_execution_bridge_unit.py",
+      "sha256": "8632de4bc07263322b99aecff6eba2f7cf852bc4e12205609b136a607ae3a447"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_resource_mount_lifecycle_unit.py",
+      "sha256": "b3cf910b79a2db7b3a722ddfba2f9618c0e1d5a18ec48244deabe6b8b99671bd"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_runtime_capacity_policy_unit.py",
+      "sha256": "b221fbfa96ac6b8f99258c97232742fa2d800244349a155a1e1410b45c5f6f63"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_security_event_builder_unit.py",
+      "sha256": "99a582c595ae475d84718934c2cd57238588747fadfb0e1a50abbd32ffa62295"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_sensitive_text_redactor_unit.py",
+      "sha256": "1f1369b9b27401e40f7c5ee82811ce04d0e05b0af8765495d79945073bf6750e"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_settings_apply_transaction_unit.py",
+      "sha256": "abff22c6befafc889f3d41108b016dc7fd94bdd35c70a649851f8db91c96bcce"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_settings_security_unit.py",
+      "sha256": "6a72066926d48f77b378af6b0021e6b9b8f01bd1e6dcdb881ebadea3c69fc96e"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_settings_snapshot_store_unit.py",
+      "sha256": "a68dd967a8876c1265c52c38d1be7daa681a120d8cc6773e9908152e2861e44a"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_shared_async_http_client_unit.py",
+      "sha256": "ea2a16271bc616f33e4828efcfcd664aec598f590182f7cce890c3e339042b4c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_sqlite_test_engine_factory_unit.py",
+      "sha256": "527f35cb1865847160faafeec01bc4062414f33d6740610c29f510bfbe87b320"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_task_execution_outbox_publisher_unit.py",
+      "sha256": "c8de6af67d986d4846cee01bdd80463216a52a3e5054629378c11cd753a6774c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_task_execution_record_repository_unit.py",
+      "sha256": "59f8a67181c4b1c299d0cbf0afa0702241701b52c28044bfa5c6a4d9b348971b"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_task_registration_registry_unit.py",
+      "sha256": "75eae02e80cd19e0ee5aefae8a33b88be1217887b35805bad336f99d1218bdad"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_task_runtime_manager_unit.py",
+      "sha256": "be21f6b5c8f60964389c8ae9b52a81287c5bdb0702ee675104331ea04c785295"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_task_worker_cli_unit.py",
+      "sha256": "6524f5670823a561829b605f0cb454a8d519b18dc7241061c990b2fde195db61"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_test_database_isolation_unit.py",
+      "sha256": "18777f223c365909002202d42d741e65f6b779675e06d84fd504910211bdd943"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_token_binding_guard_unit.py",
+      "sha256": "e2b903ea52852f4b5eacf1e87d30ff0e3aa1ef2ea0b2399533e44e1b09f0760e"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_web_module_manifest_unit.py",
+      "sha256": "2a65e607746268957610e86d532731dc3de1729a9f5ac21614a990c98ad7d2cc"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_web_module_registry_boundary_unit.py",
+      "sha256": "0551f616a8186efbe8213195c4697b1b3aced1f99843478e23ab144f8c626428"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_workspace_evidence_catalog_unit.py",
+      "sha256": "f48f46992eae1c7df84abeea579812c0b3de9e2383407d5f3da75fa3f0686dbf"
+    }
+  ]
+}

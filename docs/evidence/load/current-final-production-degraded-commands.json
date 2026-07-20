@@ -1,0 +1,32 @@
+[
+  {
+    "command": "docker compose -p fastapi-load-current-a -f compose.yml -f compose.production.yml -f docs/evidence/plans/production-load-a.override.yml stop redis",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\production-dependency-stop.log",
+    "started_at": "2026-07-16T10:52:53.280866Z",
+    "finished_at": "2026-07-16T10:52:54.591239Z",
+    "duration_seconds": 1.3107050000107847
+  },
+  {
+    "command": ".venv/Scripts/locust.exe -f test/performance/scenarios/locustfile.py --headless --only-summary -u 8 -r 4 -t 10s --host http://127.0.0.1:58001 --csv docs/evidence/load/current-final/production-dependency-degraded --html docs/evidence/load/current-final/production-dependency-degraded.html",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\production-dependency-degraded.log",
+    "started_at": "2026-07-16T10:52:54.593478Z",
+    "finished_at": "2026-07-16T10:53:08.410504Z",
+    "duration_seconds": 13.817315400054213
+  },
+  {
+    "command": "docker compose -p fastapi-load-current-a -f compose.yml -f compose.production.yml -f docs/evidence/plans/production-load-a.override.yml up -d --wait redis app",
+    "tool_version": "由原始日志中的版本命令记录",
+    "exit_code": 0,
+    "finding_count": 0,
+    "evidence_path": "docs\\evidence\\load\\current-final\\production-dependency-recovery.log",
+    "started_at": "2026-07-16T10:53:08.412256Z",
+    "finished_at": "2026-07-16T10:53:17.841955Z",
+    "duration_seconds": 9.43002799997339
+  }
+]

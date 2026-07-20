@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-016",
+    "affected_module": "pyproject.toml",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "environment_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "setuptools 82.0.1 命中已知供应链漏洞。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-016.json",
+    "kind": "environment_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "pyproject.toml",
+    "source_line": 32,
+    "trigger_condition": "执行依赖漏洞审计。",
+    "affected_scope": "锁文件与运行环境依赖。",
+    "reproduction_command": "pip-audit",
+    "test_layer": "integration",
+    "test_file": "test\\unit_test\\test_funboost_config_unit.py",
+    "directed_testcase": "test_pyproject_should_pin_funboost_dependency",
+    "key_assertions": [
+      "供应链依赖由项目直接声明和锁定。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-016.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:02.231019Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-016.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:02.231019Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-016.json"
+    }
+  ],
+  "deferred_disposition": null
+}

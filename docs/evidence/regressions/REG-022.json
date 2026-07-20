@@ -1,0 +1,47 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "finding_id": "REG-022",
+    "affected_module": "src/api/task_binding_provider.py",
+    "severity": "P1",
+    "test_run_id": "phase3-final-regression"
+  },
+  "kind": "source_fix",
+  "detail": {
+    "schema_version": "1.0",
+    "root_cause": "production 仍使用演示任务注册且缺少完成约束。",
+    "evidence_path": "docs\\evidence\\regression-support\\REG-022.json",
+    "kind": "source_fix"
+  },
+  "status": "fixed",
+  "rerun_scope": "full-suite",
+  "evidence": {
+    "source_path": "src\\api\\task_binding_provider.py",
+    "source_line": 12,
+    "trigger_condition": "加载 production 配置并启动真实 worker。",
+    "affected_scope": "生产任务绑定、消费与状态回写。",
+    "reproduction_command": "pytest -q test/integration_test/test_funboost_rabbitmq_integration.py -k production",
+    "test_layer": "unit",
+    "test_file": "test\\unit_test\\test_task_worker_cli_unit.py",
+    "directed_testcase": "test_probe_handler_when_payload_valid_should_complete",
+    "key_assertions": [
+      "生产探针 handler 校验幂等标识并完成执行。"
+    ],
+    "old_reproduction_path": "docs\\evidence\\regression-old-reproductions\\REG-022.json",
+    "directed_rerun_path": "docs\\evidence\\test-runs\\phase4-directed-regression.json",
+    "impact_rerun_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
+  },
+  "status_history": [
+    {
+      "status": "open",
+      "changed_at": "2026-07-16T10:15:03.364155Z",
+      "evidence_path": "docs\\evidence\\regression-old-reproductions\\REG-022.json"
+    },
+    {
+      "status": "fixed",
+      "changed_at": "2026-07-16T10:15:03.364155Z",
+      "evidence_path": "docs\\evidence\\regression-support\\REG-022.json"
+    }
+  ],
+  "deferred_disposition": null
+}

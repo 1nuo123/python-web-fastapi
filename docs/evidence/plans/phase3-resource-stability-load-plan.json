@@ -1,0 +1,19 @@
+{
+  "output_directory": "docs/evidence/load/current-final",
+  "steps": [
+    {
+      "name": "resource-stability-load",
+      "argv": [".venv/Scripts/locust.exe", "-f", "test/performance/scenarios/locustfile.py", "--headless", "--only-summary", "-u", "2", "-r", "1", "-t", "20s", "--host", "http://127.0.0.1:58002", "--csv", "docs/evidence/load/current-final/resource-stability", "--html", "docs/evidence/load/current-final/resource-stability.html"],
+      "timeout_seconds": 60,
+      "environment": [
+        {"name": "PYTHONUTF8", "value": "1"},
+        {"name": "LOAD_SCENARIO_KIND", "value": "steady"},
+        {"name": "LOAD_SCENARIO_NAME", "value": "resource-stability"},
+        {"name": "LOAD_USERS", "value": "2"},
+        {"name": "LOAD_SPAWN_RATE", "value": "1"},
+        {"name": "LOAD_DURATION_SECONDS", "value": "20"},
+        {"name": "LOAD_EXPECTED_STATUS_CODES", "value": "200,429"}
+      ]
+    }
+  ]
+}

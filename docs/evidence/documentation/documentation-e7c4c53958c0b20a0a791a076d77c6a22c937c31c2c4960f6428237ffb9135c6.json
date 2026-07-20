@@ -1,0 +1,25 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "topic": "docs/2026_7_13_生产级代码审查回归报告.md",
+    "applicable_version": "2026.07.15",
+    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+    "verified_at": "2026-07-19T02:31:56.758477Z"
+  },
+  "kind": "architecture",
+  "detail": {
+    "schema_version": "1.0",
+    "truth_source": "source",
+    "evidence_path": "docs\\2026_7_13_生产级代码审查回归报告.md",
+    "status": "current",
+    "replacement_path": null,
+    "content_sha256": "0753287436e2f07677a89ba0ccf2574471f9b94602940393c66a1a04828306dd",
+    "validation_status": "verified",
+    "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
+    "fact_evidence_paths": [
+      "src",
+      "docs\\evidence\\phase_evidence_index.json"
+    ],
+    "kind": "architecture"
+  }
+}

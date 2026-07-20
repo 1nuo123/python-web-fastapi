@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-002",
+  "source_path": "src\\infrastructure\\persistence\\orm_model\\app_log_record_orm_model.py",
+  "source_line": 36,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\src\\infrastructure\\persistence\\orm_model\\app_log_record_orm_model.py",
+  "baseline_sha256": "fc6bf3000831846a248bfb12bd897703e4e09c96d212aefef1ccfe9afe15168c",
+  "current_sha256": "6447fe15f6c5481eeb60607dbe0f8f7c4f81c60b7fface98b355608b2837bf7d",
+  "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
+  "trigger_condition": "离线测试创建完整 ORM 元数据。",
+  "affected_scope": "全部包含 JSON 字段的离线持久化测试。",
+  "reproduction_command": "pytest -q test/unit_test -k sqlite",
+  "test_layer": "unit",
+  "test_file": "test\\integration_test\\test_migration_job_integration.py",
+  "directed_testcase": "test_database_migration_cli_should_upgrade_test_database",
+  "key_assertions": [
+    "ORM 元数据可在目标数据库完成建表和迁移。"
+  ],
+  "directed_rerun_command": "pytest -q test/integration_test/test_migration_job_integration.py -k test_database_migration_cli_should_upgrade_test_database",
+  "impact_rerun_command": "nox -s regression"
+}

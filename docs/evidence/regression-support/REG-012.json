@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "finding_id": "REG-012",
+  "source_path": "test\\performance\\scenarios\\locustfile.py",
+  "source_line": 19,
+  "baseline_source_path": "..\\work_baseline_20260713_1019\\test\\performance\\scenarios\\locustfile.py",
+  "baseline_sha256": null,
+  "current_sha256": "077f71b7a1c0bd6d715e761ec85a51743e41475d497d493c6a61611a8f7c0e0b",
+  "baseline_observation": "旧版基线不存在该文件；该能力由本轮硬迁移新增。",
+  "trigger_condition": "执行冻结负载场景。",
+  "affected_scope": "稳定、突发、过载、依赖退化和多实例。",
+  "reproduction_command": "locust -f test/performance/scenarios/locustfile.py --headless",
+  "test_layer": "performance",
+  "test_file": "test\\performance\\autotuner\\test_capacity_autotuner.py",
+  "directed_testcase": "test_cli_should_generate_campaign_from_exact_persisted_runs",
+  "key_assertions": [
+    "真实负载与调参产物可追溯到唯一运行。"
+  ],
+  "directed_rerun_command": "pytest -q test/performance/autotuner/test_capacity_autotuner.py -k test_cli_should_generate_campaign_from_exact_persisted_runs",
+  "impact_rerun_command": "nox -s regression"
+}
