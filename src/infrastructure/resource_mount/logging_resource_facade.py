@@ -26,12 +26,14 @@ from src.core.http_contract.runtime_resource_contract import (
     RuntimeResourceStatus,
 )
 from src.core.logging_contract.log_event_contract import (
+    AUDIT_CRITICAL_SECURITY_EVENT_TYPES,
     LOG_EVENT_SCHEMA_VERSION,
     LogDetailUnion,
     LogEventEnvelope,
     LogEventHeader,
     LogEventKind,
     LogLevel,
+    LogPersistencePriority,
     ResourceLifecycleAction,
     ResourceLifecycleLogDetail,
     SecurityLogDetail,
@@ -40,8 +42,12 @@ from src.core.logging_contract.log_writer_contract import LogWriteReason
 from src.core.security_contract.security_event_contract import (
     AdminIdentitySecurityEventDetail,
     SecurityEventEnvelope,
+    SecurityEventType,
 )
 from src.infrastructure.logging.sensitive_text_redactor import SensitiveTextRedactor
+from src.infrastructure.observability.prometheus_metrics_registry import (
+    SecurityEventMetric,
+)
 from src.infrastructure.persistence.orm_model.app_log_record_orm_model import (
     AppLogRecordOrmModel,
 )
@@ -61,6 +67,12 @@ from src.infrastructure.task.failed_task_recorder import (
 )
 
 LOG_DETAIL_ADAPTER: TypeAdapter[LogDetailUnion] = TypeAdapter(LogDetailUnion)
+AUDIT_CRITICAL_SECURITY_EVENT_TYPE_VALUES: frozenset[str] = frozenset(
+    event_type.value for event_type in AUDIT_CRITICAL_SECURITY_EVENT_TYPES
+)
+SECURITY_EVENT_TYPE_VALUES: frozenset[str] = frozenset(
+    event_type.value for event_type in SecurityEventType
+)
 
 
 class LoggingResourceFacade(SharedResourceLifecycle):
@@ -187,9 +199,66 @@ class LoggingResourceFacade(SharedResourceLifecycle):
     def emit_security_event(self, event: SecurityEventEnvelope) -> None:
         """
         写入安全事件。
+
+        审计类安全事件（管理员身份变更、安全配置拒绝）标记为审计关键优先级，
+        经日志缓冲派发器绕过缓冲即时落库；同时挂接安全事件低基数指标。
+
+        :param event: 安全事件信封。
+        :type event: SecurityEventEnvelope
+        :returns: 无返回值。
+        :rtype: None
         """
 
-        self.emit_log_event(self._log_event_builder.build_security_event(security_event=event))
+        self.emit_log_event(
+            self._log_event_builder.build_security_event(
+                security_event=event,
+                persistence_priority=self._resolve_security_persistence_priority(event),
+            )
+        )
+        self._record_security_event_metric(event)
+
+    def _resolve_security_persistence_priority(
+        self,
+        event: SecurityEventEnvelope,
+    ) -> LogPersistencePriority:
+        """
+        解析安全事件的日志持久化优先级。
+
+        :param event: 安全事件信封。
+        :type event: SecurityEventEnvelope
+        :returns: 审计关键事件返回 ``AUDIT_CRITICAL``，其余返回 ``STANDARD``。
+        :rtype: LogPersistencePriority
+        """
+
+        if event.header.event_type in AUDIT_CRITICAL_SECURITY_EVENT_TYPE_VALUES:
+            return LogPersistencePriority.AUDIT_CRITICAL
+        return LogPersistencePriority.STANDARD
+
+    def _record_security_event_metric(self, event: SecurityEventEnvelope) -> None:
+        """
+        记录安全事件指标。
+
+        标签取值执行白名单策略：仅当事件类型属于 ``SecurityEventType`` 封闭枚举时打点，
+        避免自由文本进入指标标签。
+
+        :param event: 安全事件信封。
+        :type event: SecurityEventEnvelope
+        :returns: 无返回值。
+        :rtype: None
+        """
+
+        metrics_registry = self.get_metrics_registry()
+        if metrics_registry is None:
+            return
+        if event.header.event_type not in SECURITY_EVENT_TYPE_VALUES:
+            return
+        metrics_registry.record_security_event(
+            SecurityEventMetric(
+                event_type=SecurityEventType(event.header.event_type),
+                decision=event.header.decision,
+                severity=event.header.severity,
+            )
+        )
 
     def flush_runtime_logs(self, *, reason: LogWriteReason) -> None:
         """

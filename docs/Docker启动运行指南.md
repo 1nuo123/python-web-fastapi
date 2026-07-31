@@ -156,3 +156,90 @@ docker compose -f compose.yml up -d
 
 - `docker compose -f compose.yml up -d`：通过，`app`、`postgres`、`redis`、`rabbitmq` 均运行且健康。
 - `$env:RABBITMQ_INTEGRATION_ENABLED='1'; .\.venv\Scripts\python.exe -m pytest -q`：通过，`630 passed, 62 warnings`。
+
+## 12. 流式服务启动与优雅停机
+
+容器入口固定为：
+
+```text
+python -m src.cli.run_web_server
+```
+
+该入口从 `runtime.stream` 读取并传给 Uvicorn：
+
+- `websocket_max_message_bytes` → `ws_max_size`；
+- `websocket_ping_interval_seconds` → `ws_ping_interval`；
+- `websocket_ping_timeout_seconds` → `ws_ping_timeout`；
+- `shutdown_grace_seconds + 5` → `timeout_graceful_shutdown`。
+
+Dockerfile 使用 `STOPSIGNAL SIGTERM`。收到 SIGTERM 后，应用先撤销 readiness 并拒绝新流会话，再通知
+现有会话、等待 `shutdown_grace_seconds`、取消剩余任务，最后关闭 Redis/内存状态存储和其他共享资源。
+`compose.yml` 的 `stop_grace_period: 40s` 必须大于应用排空窗口与 Uvicorn 缓冲时间之和；修改生产
+`shutdown_grace_seconds` 时必须同步检查编排平台 termination grace。
+
+生产 Redis 流恢复依赖 `REDIS_URL`。`redis_stream_runtime` 启动时连接或探测失败会阻止 readiness；
+单次票据消费同样 fail-closed。Compose 还为 app 设置 `pids_limit: 256` 与 `mem_limit: 1g`，避免长连接
+任务失控扩散到宿主机。
+
+代码、Dockerfile、依赖或流运行时配置变化后必须重建镜像，不能只执行无 `--build` 的 `up -d`：
+
+```powershell
+docker compose -f compose.yml up -d --build
+docker compose -f compose.yml ps
+docker compose -f compose.yml logs --no-color --tail 100 app
+docker inspect fastapi-web-skeleton-app-1 --format '{{json .Config.Cmd}} {{json .State.Health.Status}}'
+```
+
+期望命令为 `["python","-m","src.cli.run_web_server"]`，健康状态为 `healthy`。
+
+## 13. SSE 与 WebSocket 反向代理要求
+
+SSE 路由必须关闭代理缓冲、缓存和响应转换，代理读超时必须大于 SSE 心跳间隔及允许的最长空闲时间。
+应用已经返回 `Cache-Control: no-cache, no-transform` 和 `X-Accel-Buffering: no`，代理仍需显式遵守。
+Nginx 可按实际流路径配置：
+
+```nginx
+location /admin/tasks/executions/watch/stream {
+    proxy_pass http://app:8000;
+    proxy_http_version 1.1;
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 360s;
+    gzip off;
+}
+```
+
+WebSocket 代理必须转发 Upgrade、Connection、Origin 和 Authorization，并将消息大小与空闲超时设置为
+不小于应用运行时限制：
+
+```nginx
+location /admin/tasks/executions/watch/ws {
+    proxy_pass http://app:8000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Origin $http_origin;
+    proxy_set_header Authorization $http_authorization;
+    proxy_read_timeout 360s;
+}
+```
+
+生产浏览器 WebSocket 默认使用短期单次票据并严格校验 Origin。Bearer SSE 使用 POST fetch streaming；
+native EventSource 使用 GET 单次票据。禁止把长期 JWT 写入 SSE 或 WebSocket URL。
+
+以上路径是未配置 `runtime.web.api_prefix` 时的当前生产绑定；配置前缀后应在 Nginx location 中同步添加。
+生产 SSE 绑定当前使用 Bearer POST。WebSocket 浏览器票据路由
+`/admin/tasks/executions/watch/ticket` 仅在 `require_browser_ticket=true` 时注册。
+
+## 14. 2026-07-31 流式基建回归结果
+
+- `docker compose -f compose.yml up -d --build`：通过，重建后的 app、PostgreSQL、Redis、RabbitMQ 均 healthy；app 使用新的配置化 Uvicorn 入口。
+- `nox -s offline`：`786 passed, 1 deselected, 5 warnings`。
+- `nox -s static`：Ruff、mypy、import-linter、Bandit、pip-audit、detect-secrets、锁文件与 Compose 配置全部通过。
+- `nox -s regression`：`921 passed, 241 warnings`，无 skip/xfail，总覆盖率 `90.07%`；auth/security/task/persistence 关键域覆盖率均超过 `90%`。
+- 真实 Redis 与真实 Uvicorn 定向流测试：`3 passed, 4 warnings`。
+- 独立容量与真实网络稳定性测试：`2 passed, 16 warnings`；16 个并发编排流完成后任务数回落，SSE/WS 各 4 个并发连接反复 3 轮后，任务增长不超过 4，RSS 增长不超过 12 MiB。
+
+现存告警来自 Starlette TestClient/httpx、passlib/argon2、funboost/Pydantic 与 websockets legacy API，
+不影响当前断言和退出码。完整协议见
+[WebSocket 与 SSE 统一流式协议](design_docs/WebSocket与SSE统一流式协议.md)。

@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from http import HTTPStatus
+
 from fastapi import APIRouter, Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -24,6 +26,9 @@ from src.api.web_bundle_catalog import (
     WebBundleProviderEnvelope,
     WebBundleProviderHeader,
 )
+from src.core.auth_contract.authenticated_principal_contract import (
+    AuthenticatedPrincipal,
+)
 from src.core.exception_contract.error_code_catalog_contract import SuccessCode
 from src.core.http_contract.request_execution_contract import (
     DEFAULT_SYNC_REQUEST_EXECUTION_NAME,
@@ -32,6 +37,9 @@ from src.core.http_contract.response_envelope_contract import ResponseEnvelope
 from src.core.http_contract.web_bundle_contract import ApplicationModuleName, WebBundle
 from src.domain.auth.admin_route_authorization_policy import (
     ADMIN_SETTINGS_RELOAD_AUTHORIZATION_REQUIREMENT,
+)
+from src.infrastructure.resource_mount.shared_resource_constants import (
+    ADMIN_AUDIT_OPERATION_SETTINGS_RELOAD,
 )
 
 ADMIN_SETTINGS_ROUTE_TAG = "admin_settings"
@@ -43,6 +51,8 @@ ADMIN_SETTINGS_REQUEST_EXECUTION_NAME = DEFAULT_SYNC_REQUEST_EXECUTION_NAME
 ADMIN_SETTINGS_BEARER_SCHEME = HTTPBearer(auto_error=False)
 ADMIN_SETTINGS_CANDIDATE_SUCCESS_MESSAGE = "管理员配置热更新候选读取成功。"
 ADMIN_SETTINGS_RELOAD_SUCCESS_MESSAGE = "管理员配置热更新执行完成。"
+ADMIN_SETTINGS_RELOAD_AUDIT_TARGET_KIND = "settings"
+ADMIN_SETTINGS_RELOAD_AUDIT_TARGET_FALLBACK_ID = "runtime_settings"
 
 
 class AdminSettingsRouteCatalog:
@@ -145,12 +155,22 @@ class AdminSettingsRouteCatalog:
         :rtype: ResponseEnvelope[AdminSettingsReloadResultEnvelope]
         """
 
+        principal = self._accessor.read_authorized_principal(
+            request,
+            ADMIN_SETTINGS_RELOAD_AUTHORIZATION_REQUIREMENT,
+        )
         result = await self._accessor.read_request_execution_bridge(request).run_sync(
             execution_name=ADMIN_SETTINGS_REQUEST_EXECUTION_NAME,
             callable_object=self._accessor.read_apply_admin_settings_reload_usecase(
                 request
             ).execute,
         )
+        if result.success:
+            self._record_settings_reload_audit(
+                request=request,
+                principal=principal,
+                target_id=result.candidate_version,
+            )
         detail = AdminSettingsReloadResultPayload.from_result(result)
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),
@@ -163,6 +183,41 @@ class AdminSettingsRouteCatalog:
                 ),
                 detail=detail,
             ),
+        )
+
+    def _record_settings_reload_audit(
+        self,
+        *,
+        request: Request,
+        principal: AuthenticatedPrincipal,
+        target_id: str | None,
+    ) -> None:
+        """
+        记录管理员配置热更新审计事件。
+
+        审计事件类型为 ``ADMIN_IDENTITY_CHANGED``，操作名固定为
+        ``settings_reload``，经审计关键即时落库路径持久化。
+
+        :param request: 当前 HTTP 请求对象。
+        :type request: Request
+        :param principal: 已授权操作主体。
+        :type principal: AuthenticatedPrincipal
+        :param target_id: 生效的候选版本标识；缺失时回退到固定目标标识。
+        :type target_id: str | None
+        :returns: 无返回值。
+        :rtype: None
+        """
+
+        resource_mount = self._accessor.read_resource_mount(request)
+        resource_mount.emit_security_event(
+            resource_mount.get_security_event_builder().build_admin_identity_changed_event(
+                request=request,
+                actor_subject_id=principal.subject_id,
+                operation_name=ADMIN_AUDIT_OPERATION_SETTINGS_RELOAD,
+                target_kind=ADMIN_SETTINGS_RELOAD_AUDIT_TARGET_KIND,
+                target_id=target_id or ADMIN_SETTINGS_RELOAD_AUDIT_TARGET_FALLBACK_ID,
+                status_code=HTTPStatus.OK,
+            )
         )
 
 

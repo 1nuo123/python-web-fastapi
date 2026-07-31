@@ -184,7 +184,6 @@ class FastApiExceptionPresenter:
                 include_traceback=True,
             )
         )
-        self._logger.error("发生未预期异常，已写入脱敏结构化日志。")
         envelope = self._response_factory.build(
             code=str(CoreErrorCode.INTERNAL_UNEXPECTED),
             message=fault.message,

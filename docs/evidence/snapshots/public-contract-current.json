@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-07-19T02:31:41.516369Z",
-  "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
-  "openapi_sha256": "eaf9b77bfb25e6d142f11fb3659741fe97eba5eba308b3361ccd73e504572cbd",
+  "generated_at": "2026-07-31T01:57:14.813976Z",
+  "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+  "openapi_sha256": "37a4dba635c36bc9e398557c53d43879fe3f098856efb2fae2024d40c651adf7",
   "openapi_document": {
     "openapi": "3.1.0",
     "info": {
@@ -1615,6 +1615,71 @@
             }
           }
         }
+      },
+      "/testing/stream/batch": {
+        "post": {
+          "summary": "Testing Stream Batch",
+          "operationId": "testing_stream_batch",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/testing/stream/sse": {
+        "get": {
+          "summary": "Testing Stream Sse Get",
+          "operationId": "testing_stream_sse_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "summary": "Testing Stream Sse Post",
+          "operationId": "testing_stream_sse_post",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/testing/stream/ticket": {
+        "post": {
+          "summary": "Issue Ticket",
+          "description": "签发测试 WebSocket 单次票据。",
+          "operationId": "testing_stream_ticket",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/StreamAccessTicketEnvelope"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "components": {
@@ -1627,10 +1692,16 @@
             "user_disabled",
             "user_enabled",
             "password_reset",
-            "role_assigned"
+            "role_assigned",
+            "scope_changed",
+            "role_created",
+            "role_updated",
+            "role_deleted",
+            "role_roles_replaced",
+            "settings_reloaded"
           ],
           "title": "AdminAuditAction",
-          "description": "业务审计动作枚举。"
+          "description": "业务审计动作枚举。\n\n:cvar SCOPE_CHANGED: 管理员 scope 创建、更新或删除。\n:cvar ROLE_CREATED: 管理员角色创建。\n:cvar ROLE_UPDATED: 管理员角色更新。\n:cvar ROLE_DELETED: 管理员角色删除。\n:cvar ROLE_ROLES_REPLACED: 管理员角色 scope 集合替换。\n:cvar SETTINGS_RELOADED: 管理员配置热更新执行成功。"
         },
         "AdminAuditEnvelope": {
           "properties": {
@@ -3162,6 +3233,178 @@
           "title": "ResponseHeader",
           "description": "响应头Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar code: 统一响应码。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype code: str\n:ivar message: 消息文本。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype message: str\n:ivar request_id: 请求唯一标识。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于唯一标识对应实体。\n:vartype request_id: str\n:ivar trace_id: 链路追踪标识。约束：需符合 ``str | None`` 注解；允许为空值。默认值：无，必须显式提供。取值语义：用于唯一标识对应实体。\n:vartype trace_id: str | None"
         },
+        "StreamAccessTicketEnvelope": {
+          "properties": {
+            "envelope_kind": {
+              "type": "string",
+              "const": "stream_access_ticket",
+              "title": "Envelope Kind",
+              "default": "stream_access_ticket"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "header": {
+              "$ref": "#/components/schemas/StreamAccessTicketHeader"
+            },
+            "detail": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/StreamAccessTicketIssuedDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/StreamAccessTicketRejectedDetail"
+                }
+              ],
+              "title": "Detail",
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "stream_access_ticket_issued": "#/components/schemas/StreamAccessTicketIssuedDetail",
+                  "stream_access_ticket_rejected": "#/components/schemas/StreamAccessTicketRejectedDetail"
+                }
+              }
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "StreamAccessTicketEnvelope",
+          "description": "访问票据签发公开信封。"
+        },
+        "StreamAccessTicketHeader": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "stream_access_ticket_header",
+              "title": "Kind",
+              "default": "stream_access_ticket_header"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "subject_id": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Subject Id"
+            },
+            "operation_name": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Operation Name"
+            },
+            "result_kind": {
+              "$ref": "#/components/schemas/StreamAccessTicketResultKind"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "subject_id",
+            "operation_name",
+            "result_kind"
+          ],
+          "title": "StreamAccessTicketHeader",
+          "description": "访问票据公共头。"
+        },
+        "StreamAccessTicketIssuedDetail": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "stream_access_ticket_issued",
+              "title": "Kind",
+              "default": "stream_access_ticket_issued"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Ticket"
+            },
+            "client_ip": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Client Ip"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Expires At"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "ticket",
+            "client_ip",
+            "expires_at"
+          ],
+          "title": "StreamAccessTicketIssuedDetail",
+          "description": "仅在签发响应中出现一次的票据明文扩展。"
+        },
+        "StreamAccessTicketRejectedDetail": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "stream_access_ticket_rejected",
+              "title": "Kind",
+              "default": "stream_access_ticket_rejected"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "error_code": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Error Code"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Message"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "error_code",
+            "message"
+          ],
+          "title": "StreamAccessTicketRejectedDetail",
+          "description": "访问票据签发拒绝扩展。"
+        },
+        "StreamAccessTicketResultKind": {
+          "type": "string",
+          "enum": [
+            "stream_access_ticket_issued",
+            "stream_access_ticket_rejected"
+          ],
+          "title": "StreamAccessTicketResultKind",
+          "description": "访问票据签发结果类型。"
+        },
         "TokenIssuePayload": {
           "properties": {
             "kind": {
@@ -3591,6 +3834,38 @@
         200
       ],
       "operation_id": "get_ready_health_ready_get"
+    },
+    {
+      "path": "/testing/stream/batch",
+      "method": "POST",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "testing_stream_batch"
+    },
+    {
+      "path": "/testing/stream/sse",
+      "method": "GET",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "testing_stream_sse_get"
+    },
+    {
+      "path": "/testing/stream/sse",
+      "method": "POST",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "testing_stream_sse_post"
+    },
+    {
+      "path": "/testing/stream/ticket",
+      "method": "POST",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "testing_stream_ticket"
     }
   ],
   "configuration": [
@@ -3931,7 +4206,11 @@
       "path": "config\\runtime\\metrics_runtime\\metrics_runtime_base.toml",
       "keys": [
         "runtime.detail.include_http_metrics",
+        "runtime.detail.include_log_buffer_metrics",
         "runtime.detail.include_runtime_metrics",
+        "runtime.detail.include_saturation_metrics",
+        "runtime.detail.include_security_metrics",
+        "runtime.detail.include_task_metrics",
         "runtime.detail.kind",
         "runtime.detail.metrics_path",
         "runtime.detail.schema_version",
@@ -3947,12 +4226,20 @@
     {
       "path": "config\\runtime\\metrics_runtime\\metrics_runtime_production.toml",
       "keys": [
+        "runtime.detail.include_log_buffer_metrics",
+        "runtime.detail.include_saturation_metrics",
+        "runtime.detail.include_security_metrics",
+        "runtime.detail.include_task_metrics",
         "runtime.header.enabled"
       ]
     },
     {
       "path": "config\\runtime\\metrics_runtime\\metrics_runtime_test.toml",
       "keys": [
+        "runtime.detail.include_log_buffer_metrics",
+        "runtime.detail.include_saturation_metrics",
+        "runtime.detail.include_security_metrics",
+        "runtime.detail.include_task_metrics",
         "runtime.header.enabled"
       ]
     },
@@ -4087,6 +4374,101 @@
         "runtime.detail.protection.token_binding.schema_version",
         "runtime.detail.protection.token_binding.token_uses",
         "runtime.header.policy_name"
+      ]
+    },
+    {
+      "path": "config\\runtime\\stream_runtime\\stream_runtime_base.toml",
+      "keys": [
+        "runtime.detail.allowed_origins",
+        "runtime.detail.collection_max_bytes",
+        "runtime.detail.collection_max_events",
+        "runtime.detail.collection_timeout_seconds",
+        "runtime.detail.kind",
+        "runtime.detail.max_duration_seconds",
+        "runtime.detail.max_event_bytes",
+        "runtime.detail.max_sessions",
+        "runtime.detail.max_sessions_per_ip",
+        "runtime.detail.max_sessions_per_operation",
+        "runtime.detail.max_sessions_per_subject",
+        "runtime.detail.queue_capacity",
+        "runtime.detail.replay_max_events",
+        "runtime.detail.replay_ttl_seconds",
+        "runtime.detail.require_browser_ticket",
+        "runtime.detail.schema_version",
+        "runtime.detail.send_timeout_seconds",
+        "runtime.detail.shutdown_grace_seconds",
+        "runtime.detail.sse_heartbeat_seconds",
+        "runtime.detail.sse_retry_milliseconds",
+        "runtime.detail.ticket_ttl_seconds",
+        "runtime.detail.websocket_max_message_bytes",
+        "runtime.detail.websocket_ping_interval_seconds",
+        "runtime.detail.websocket_ping_timeout_seconds",
+        "runtime.envelope_kind",
+        "runtime.header.enabled",
+        "runtime.header.kind",
+        "runtime.header.mode",
+        "runtime.header.schema_version",
+        "runtime.schema_version"
+      ]
+    },
+    {
+      "path": "config\\runtime\\stream_runtime\\stream_runtime_production.toml",
+      "keys": [
+        "runtime.detail.allowed_origins",
+        "runtime.detail.collection_max_bytes",
+        "runtime.detail.collection_max_events",
+        "runtime.detail.collection_timeout_seconds",
+        "runtime.detail.kind",
+        "runtime.detail.max_duration_seconds",
+        "runtime.detail.max_event_bytes",
+        "runtime.detail.max_sessions",
+        "runtime.detail.max_sessions_per_ip",
+        "runtime.detail.max_sessions_per_operation",
+        "runtime.detail.max_sessions_per_subject",
+        "runtime.detail.queue_capacity",
+        "runtime.detail.redis_key_prefix",
+        "runtime.detail.redis_max_connections",
+        "runtime.detail.redis_socket_connect_timeout_seconds",
+        "runtime.detail.redis_url",
+        "runtime.detail.replay_max_events",
+        "runtime.detail.replay_ttl_seconds",
+        "runtime.detail.require_browser_ticket",
+        "runtime.detail.schema_version",
+        "runtime.detail.send_timeout_seconds",
+        "runtime.detail.shutdown_grace_seconds",
+        "runtime.detail.sse_heartbeat_seconds",
+        "runtime.detail.sse_retry_milliseconds",
+        "runtime.detail.ticket_ttl_seconds",
+        "runtime.detail.websocket_max_message_bytes",
+        "runtime.detail.websocket_ping_interval_seconds",
+        "runtime.detail.websocket_ping_timeout_seconds",
+        "runtime.header.mode"
+      ]
+    },
+    {
+      "path": "config\\runtime\\stream_runtime\\stream_runtime_test.toml",
+      "keys": [
+        "runtime.detail.allowed_origins",
+        "runtime.detail.collection_max_bytes",
+        "runtime.detail.collection_max_events",
+        "runtime.detail.collection_timeout_seconds",
+        "runtime.detail.max_duration_seconds",
+        "runtime.detail.max_event_bytes",
+        "runtime.detail.max_sessions",
+        "runtime.detail.max_sessions_per_ip",
+        "runtime.detail.max_sessions_per_operation",
+        "runtime.detail.max_sessions_per_subject",
+        "runtime.detail.queue_capacity",
+        "runtime.detail.replay_max_events",
+        "runtime.detail.replay_ttl_seconds",
+        "runtime.detail.send_timeout_seconds",
+        "runtime.detail.shutdown_grace_seconds",
+        "runtime.detail.sse_heartbeat_seconds",
+        "runtime.detail.sse_retry_milliseconds",
+        "runtime.detail.ticket_ttl_seconds",
+        "runtime.detail.websocket_max_message_bytes",
+        "runtime.detail.websocket_ping_interval_seconds",
+        "runtime.detail.websocket_ping_timeout_seconds"
       ]
     },
     {
@@ -4235,6 +4617,10 @@
       "sha256": "6ed629af66bd301f3243a6d1970867edee18d98b90d99bf9e14285106c4cc829"
     },
     {
+      "path": "src\\core\\task_contract\\task_execution_stream_contract.py",
+      "sha256": "372d33eff006bbc111dcc56c6291a0b69824f9764762bf47a6d0723dc490d361"
+    },
+    {
       "path": "src\\core\\task_contract\\task_handler_contract.py",
       "sha256": "7e2e10e3c3f88e22a6c96b8de2b9a989e31f2710945afad85f07083f605effef"
     },
@@ -4249,6 +4635,38 @@
     {
       "path": "src\\core\\task_contract\\task_runtime_contract.py",
       "sha256": "fd571d94532f95bc512a1c32e3fa7599bbb07975d9f2cb56ae8d5084c47861b9"
+    }
+  ],
+  "stream_contracts": [
+    {
+      "name": "stream_event",
+      "json_schema_document": "{\"$defs\":{\"StreamCloseReason\":{\"description\":\"流关闭原因封闭集合。\",\"enum\":[\"completed\",\"client_cancelled\",\"client_disconnected\",\"timeout\",\"slow_consumer\",\"policy_rejected\",\"service_shutdown\",\"internal_error\"],\"title\":\"StreamCloseReason\",\"type\":\"string\"},\"StreamCompletedDetail\":{\"additionalProperties\":false,\"description\":\"流正常完成事件扩展。\",\"properties\":{\"event_count\":{\"minimum\":0,\"title\":\"Event Count\",\"type\":\"integer\"},\"kind\":{\"const\":\"stream_completed\",\"default\":\"stream_completed\",\"title\":\"Kind\",\"type\":\"string\"},\"last_sequence\":{\"minimum\":0,\"title\":\"Last Sequence\",\"type\":\"integer\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"last_sequence\",\"event_count\"],\"title\":\"StreamCompletedDetail\",\"type\":\"object\"},\"StreamEventHeader\":{\"additionalProperties\":false,\"description\":\"流事件公共头。\\n\\n:ivar stream_id: 流会话标识。\\n:ivar event_id: 事件标识。\\n:ivar sequence: 会话内单调递增序号。\\n:ivar event_kind: 扩展事件类型。\\n:ivar schema_version: 契约版本。\\n:ivar request_id: 请求标识。\\n:ivar trace_id: 链路标识。\\n:ivar emitted_at: 事件发出时间。\",\"properties\":{\"emitted_at\":{\"format\":\"date-time\",\"title\":\"Emitted At\",\"type\":\"string\"},\"event_id\":{\"minLength\":1,\"title\":\"Event Id\",\"type\":\"string\"},\"event_kind\":{\"minLength\":1,\"title\":\"Event Kind\",\"type\":\"string\"},\"request_id\":{\"minLength\":1,\"title\":\"Request Id\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"sequence\":{\"minimum\":0,\"title\":\"Sequence\",\"type\":\"integer\"},\"stream_id\":{\"minLength\":1,\"title\":\"Stream Id\",\"type\":\"string\"},\"trace_id\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"title\":\"Trace Id\"}},\"required\":[\"stream_id\",\"event_id\",\"sequence\",\"event_kind\",\"request_id\",\"trace_id\"],\"title\":\"StreamEventHeader\",\"type\":\"object\"},\"StreamFaultDetail\":{\"additionalProperties\":false,\"description\":\"流故障终止事件扩展。\",\"properties\":{\"close_reason\":{\"$ref\":\"#/$defs/StreamCloseReason\"},\"error_code\":{\"minLength\":1,\"title\":\"Error Code\",\"type\":\"string\"},\"kind\":{\"const\":\"stream_fault\",\"default\":\"stream_fault\",\"title\":\"Kind\",\"type\":\"string\"},\"message\":{\"minLength\":1,\"title\":\"Message\",\"type\":\"string\"},\"retryable\":{\"title\":\"Retryable\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"error_code\",\"message\",\"retryable\",\"close_reason\"],\"title\":\"StreamFaultDetail\",\"type\":\"object\"},\"StreamHeartbeatDetail\":{\"additionalProperties\":false,\"description\":\"流业务心跳事件扩展。\\n\\nSSE 协议注释心跳不使用该事件，避免污染业务序列。\",\"properties\":{\"kind\":{\"const\":\"stream_heartbeat\",\"default\":\"stream_heartbeat\",\"title\":\"Kind\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"title\":\"StreamHeartbeatDetail\",\"type\":\"object\"},\"StreamProgressDetail\":{\"additionalProperties\":false,\"description\":\"流进度事件扩展。\",\"properties\":{\"current\":{\"minimum\":0,\"title\":\"Current\",\"type\":\"integer\"},\"kind\":{\"const\":\"stream_progress\",\"default\":\"stream_progress\",\"title\":\"Kind\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"stage\":{\"minLength\":1,\"title\":\"Stage\",\"type\":\"string\"},\"total\":{\"anyOf\":[{\"minimum\":0,\"type\":\"integer\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Total\"}},\"required\":[\"current\",\"stage\"],\"title\":\"StreamProgressDetail\",\"type\":\"object\"},\"StreamStartedDetail\":{\"additionalProperties\":false,\"description\":\"流开始事件扩展。\",\"properties\":{\"kind\":{\"const\":\"stream_started\",\"default\":\"stream_started\",\"title\":\"Kind\",\"type\":\"string\"},\"operation_name\":{\"minLength\":1,\"title\":\"Operation Name\",\"type\":\"string\"},\"resumable\":{\"title\":\"Resumable\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"transport\":{\"$ref\":\"#/$defs/StreamTransport\"}},\"required\":[\"operation_name\",\"transport\",\"resumable\"],\"title\":\"StreamStartedDetail\",\"type\":\"object\"},\"StreamTransport\":{\"description\":\"流交付传输类型。\",\"enum\":[\"http\",\"sse\",\"websocket\"],\"title\":\"StreamTransport\",\"type\":\"string\"}},\"additionalProperties\":false,\"properties\":{\"detail\":{\"discriminator\":{\"mapping\":{\"stream_completed\":\"#/$defs/StreamCompletedDetail\",\"stream_fault\":\"#/$defs/StreamFaultDetail\",\"stream_heartbeat\":\"#/$defs/StreamHeartbeatDetail\",\"stream_progress\":\"#/$defs/StreamProgressDetail\",\"stream_started\":\"#/$defs/StreamStartedDetail\"},\"propertyName\":\"kind\"},\"oneOf\":[{\"$ref\":\"#/$defs/StreamStartedDetail\"},{\"$ref\":\"#/$defs/StreamProgressDetail\"},{\"$ref\":\"#/$defs/StreamHeartbeatDetail\"},{\"$ref\":\"#/$defs/StreamCompletedDetail\"},{\"$ref\":\"#/$defs/StreamFaultDetail\"}],\"title\":\"Detail\"},\"envelope_kind\":{\"const\":\"stream_event_envelope\",\"default\":\"stream_event_envelope\",\"title\":\"Envelope Kind\",\"type\":\"string\"},\"header\":{\"$ref\":\"#/$defs/StreamEventHeader\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"header\",\"detail\"],\"title\":\"StreamEventEnvelope[Annotated[Union[StreamStartedDetail, StreamProgressDetail, StreamHeartbeatDetail, StreamCompletedDetail, StreamFaultDetail], FieldInfo(annotation=NoneType, required=True, discriminator='kind')]]\",\"type\":\"object\"}",
+      "sha256": "a06589b0249238b4a1660229b3bc07da59a6c80f0db8d3c55a781dbc42f0785b"
+    },
+    {
+      "name": "stream_client_control",
+      "json_schema_document": "{\"$defs\":{\"CancelControlDetail\":{\"additionalProperties\":false,\"description\":\"取消控制扩展。\",\"properties\":{\"kind\":{\"const\":\"cancel\",\"default\":\"cancel\",\"title\":\"Kind\",\"type\":\"string\"},\"reason\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Reason\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"title\":\"CancelControlDetail\",\"type\":\"object\"},\"PingControlDetail\":{\"additionalProperties\":false,\"description\":\"客户端探活控制扩展。\",\"properties\":{\"kind\":{\"const\":\"ping\",\"default\":\"ping\",\"title\":\"Kind\",\"type\":\"string\"},\"nonce\":{\"minLength\":1,\"title\":\"Nonce\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"nonce\"],\"title\":\"PingControlDetail\",\"type\":\"object\"},\"PublicStreamCommand\":{\"additionalProperties\":false,\"description\":\"公开控制 Schema 使用的最小强类型订阅命令。\",\"properties\":{\"kind\":{\"const\":\"public_stream_command\",\"default\":\"public_stream_command\",\"title\":\"Kind\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"title\":\"PublicStreamCommand\",\"type\":\"object\"},\"ResumeControlDetail\":{\"additionalProperties\":false,\"description\":\"恢复控制扩展。\",\"properties\":{\"kind\":{\"const\":\"resume\",\"default\":\"resume\",\"title\":\"Kind\",\"type\":\"string\"},\"last_event_id\":{\"minLength\":1,\"title\":\"Last Event Id\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"stream_id\":{\"minLength\":1,\"title\":\"Stream Id\",\"type\":\"string\"}},\"required\":[\"stream_id\",\"last_event_id\"],\"title\":\"ResumeControlDetail\",\"type\":\"object\"},\"StreamClientControlHeader\":{\"additionalProperties\":false,\"description\":\"客户端控制帧公共头。\",\"properties\":{\"control_kind\":{\"$ref\":\"#/$defs/StreamControlKind\"},\"kind\":{\"const\":\"stream_client_control_header\",\"default\":\"stream_client_control_header\",\"title\":\"Kind\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"control_kind\"],\"title\":\"StreamClientControlHeader\",\"type\":\"object\"},\"StreamControlKind\":{\"description\":\"客户端控制帧类型。\",\"enum\":[\"subscribe\",\"resume\",\"cancel\",\"ping\"],\"title\":\"StreamControlKind\",\"type\":\"string\"},\"SubscribeControlDetail_PublicStreamCommand_\":{\"additionalProperties\":false,\"properties\":{\"command\":{\"$ref\":\"#/$defs/PublicStreamCommand\"},\"kind\":{\"const\":\"subscribe\",\"default\":\"subscribe\",\"title\":\"Kind\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"command\"],\"title\":\"SubscribeControlDetail[PublicStreamCommand]\",\"type\":\"object\"}},\"additionalProperties\":false,\"properties\":{\"detail\":{\"discriminator\":{\"mapping\":{\"cancel\":\"#/$defs/CancelControlDetail\",\"ping\":\"#/$defs/PingControlDetail\",\"resume\":\"#/$defs/ResumeControlDetail\",\"subscribe\":\"#/$defs/SubscribeControlDetail_PublicStreamCommand_\"},\"propertyName\":\"kind\"},\"oneOf\":[{\"$ref\":\"#/$defs/SubscribeControlDetail_PublicStreamCommand_\"},{\"$ref\":\"#/$defs/ResumeControlDetail\"},{\"$ref\":\"#/$defs/CancelControlDetail\"},{\"$ref\":\"#/$defs/PingControlDetail\"}],\"title\":\"Detail\"},\"envelope_kind\":{\"const\":\"stream_client_control_envelope\",\"default\":\"stream_client_control_envelope\",\"title\":\"Envelope Kind\",\"type\":\"string\"},\"header\":{\"$ref\":\"#/$defs/StreamClientControlHeader\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"header\",\"detail\"],\"title\":\"StreamClientControlEnvelope[Annotated[Union[SubscribeControlDetail[PublicStreamCommand], ResumeControlDetail, CancelControlDetail, PingControlDetail], FieldInfo(annotation=NoneType, required=True, discriminator='kind')]]\",\"type\":\"object\"}",
+      "sha256": "53f1650b539bb64cf72f9da73a296e972a3a77e0fdf9db8db76634c1937e0105"
+    },
+    {
+      "name": "stream_operation_binding",
+      "json_schema_document": "{\"$defs\":{\"CommandStreamBindingDetail\":{\"additionalProperties\":false,\"description\":\"命令型流操作扩展。\",\"properties\":{\"batch_path\":{\"minLength\":1,\"title\":\"Batch Path\",\"type\":\"string\"},\"kind\":{\"const\":\"command_stream_binding\",\"default\":\"command_stream_binding\",\"title\":\"Kind\",\"type\":\"string\"},\"resumable\":{\"title\":\"Resumable\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"sse_delivery\":{\"anyOf\":[{\"$ref\":\"#/$defs/SseDeliveryDetail\"},{\"type\":\"null\"}]},\"sse_path\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Sse Path\"},\"ticket_path\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Ticket Path\"},\"transports\":{\"items\":{\"$ref\":\"#/$defs/StreamTransport\"},\"title\":\"Transports\",\"type\":\"array\",\"uniqueItems\":true},\"websocket_path\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Websocket Path\"},\"websocket_ticket_required\":{\"title\":\"Websocket Ticket Required\",\"type\":\"boolean\"}},\"required\":[\"batch_path\",\"sse_delivery\",\"websocket_ticket_required\",\"transports\",\"resumable\"],\"title\":\"CommandStreamBindingDetail\",\"type\":\"object\"},\"SseDeliveryDetail\":{\"additionalProperties\":false,\"description\":\"SSE 交付扩展。\",\"properties\":{\"heartbeat_seconds\":{\"minimum\":1,\"title\":\"Heartbeat Seconds\",\"type\":\"integer\"},\"kind\":{\"const\":\"sse_delivery\",\"default\":\"sse_delivery\",\"title\":\"Kind\",\"type\":\"string\"},\"mode\":{\"$ref\":\"#/$defs/SseDeliveryMode\"},\"resume_enabled\":{\"title\":\"Resume Enabled\",\"type\":\"boolean\"},\"retry_milliseconds\":{\"minimum\":1,\"title\":\"Retry Milliseconds\",\"type\":\"integer\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"ticket_required\":{\"title\":\"Ticket Required\",\"type\":\"boolean\"}},\"required\":[\"mode\",\"heartbeat_seconds\",\"retry_milliseconds\",\"resume_enabled\",\"ticket_required\"],\"title\":\"SseDeliveryDetail\",\"type\":\"object\"},\"SseDeliveryMode\":{\"description\":\"SSE 浏览器交付模式。\",\"enum\":[\"bearer_post\",\"ticket_get\",\"dual\"],\"title\":\"SseDeliveryMode\",\"type\":\"string\"},\"StreamDeliveryKind\":{\"description\":\"流操作绑定类型。\",\"enum\":[\"command_stream_binding\",\"subscription_stream_binding\"],\"title\":\"StreamDeliveryKind\",\"type\":\"string\"},\"StreamOperationBindingHeader\":{\"additionalProperties\":false,\"description\":\"流操作绑定公共头。\",\"properties\":{\"delivery_kind\":{\"$ref\":\"#/$defs/StreamDeliveryKind\"},\"kind\":{\"const\":\"stream_operation_binding_envelope\",\"default\":\"stream_operation_binding_envelope\",\"title\":\"Kind\",\"type\":\"string\"},\"operation_name\":{\"minLength\":1,\"title\":\"Operation Name\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"operation_name\",\"delivery_kind\"],\"title\":\"StreamOperationBindingHeader\",\"type\":\"object\"},\"StreamTransport\":{\"description\":\"流交付传输类型。\",\"enum\":[\"http\",\"sse\",\"websocket\"],\"title\":\"StreamTransport\",\"type\":\"string\"},\"SubscriptionStreamBindingDetail\":{\"additionalProperties\":false,\"description\":\"订阅型流操作扩展。\",\"properties\":{\"batch_path\":{\"minLength\":1,\"title\":\"Batch Path\",\"type\":\"string\"},\"kind\":{\"const\":\"subscription_stream_binding\",\"default\":\"subscription_stream_binding\",\"title\":\"Kind\",\"type\":\"string\"},\"resumable\":{\"title\":\"Resumable\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"sse_delivery\":{\"anyOf\":[{\"$ref\":\"#/$defs/SseDeliveryDetail\"},{\"type\":\"null\"}]},\"sse_path\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Sse Path\"},\"ticket_path\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Ticket Path\"},\"transports\":{\"items\":{\"$ref\":\"#/$defs/StreamTransport\"},\"title\":\"Transports\",\"type\":\"array\",\"uniqueItems\":true},\"websocket_path\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Websocket Path\"},\"websocket_ticket_required\":{\"title\":\"Websocket Ticket Required\",\"type\":\"boolean\"}},\"required\":[\"batch_path\",\"sse_delivery\",\"websocket_ticket_required\",\"transports\",\"resumable\"],\"title\":\"SubscriptionStreamBindingDetail\",\"type\":\"object\"}},\"additionalProperties\":false,\"description\":\"流操作绑定信封。\",\"properties\":{\"detail\":{\"discriminator\":{\"mapping\":{\"command_stream_binding\":\"#/$defs/CommandStreamBindingDetail\",\"subscription_stream_binding\":\"#/$defs/SubscriptionStreamBindingDetail\"},\"propertyName\":\"kind\"},\"oneOf\":[{\"$ref\":\"#/$defs/CommandStreamBindingDetail\"},{\"$ref\":\"#/$defs/SubscriptionStreamBindingDetail\"}],\"title\":\"Detail\"},\"envelope_kind\":{\"const\":\"stream_operation_binding_envelope\",\"default\":\"stream_operation_binding_envelope\",\"title\":\"Envelope Kind\",\"type\":\"string\"},\"header\":{\"$ref\":\"#/$defs/StreamOperationBindingHeader\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"header\",\"detail\"],\"title\":\"StreamOperationBindingEnvelope\",\"type\":\"object\"}",
+      "sha256": "e60587fa0641f7c103a480901565799834544cada2312d9521b6ecb7724e4bba"
+    },
+    {
+      "name": "stream_batch",
+      "json_schema_document": "{\"$defs\":{\"StreamBatchCompletedDetail_Annotated_Union_StreamStartedDetail__StreamProgressDetail__StreamHeartbeatDetail__StreamCompletedDetail__StreamFaultDetail___FieldInfo_annotation_NoneType__required_True__discriminator__kind____\":{\"additionalProperties\":false,\"properties\":{\"event_count\":{\"minimum\":0,\"title\":\"Event Count\",\"type\":\"integer\"},\"events\":{\"items\":{\"$ref\":\"#/$defs/StreamEventEnvelope_Annotated_Union_StreamStartedDetail__StreamProgressDetail__StreamHeartbeatDetail__StreamCompletedDetail__StreamFaultDetail___FieldInfo_annotation_NoneType__required_True__discriminator__kind____\"},\"title\":\"Events\",\"type\":\"array\"},\"kind\":{\"const\":\"stream_batch_completed\",\"default\":\"stream_batch_completed\",\"title\":\"Kind\",\"type\":\"string\"},\"last_sequence\":{\"minimum\":0,\"title\":\"Last Sequence\",\"type\":\"integer\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"terminal_event_id\":{\"minLength\":1,\"title\":\"Terminal Event Id\",\"type\":\"string\"},\"total_bytes\":{\"minimum\":0,\"title\":\"Total Bytes\",\"type\":\"integer\"}},\"required\":[\"events\",\"last_sequence\",\"event_count\",\"total_bytes\",\"terminal_event_id\"],\"title\":\"StreamBatchCompletedDetail[Annotated[Union[StreamStartedDetail, StreamProgressDetail, StreamHeartbeatDetail, StreamCompletedDetail, StreamFaultDetail], FieldInfo(annotation=NoneType, required=True, discriminator='kind')]]\",\"type\":\"object\"},\"StreamBatchHeader\":{\"additionalProperties\":false,\"description\":\"非流式聚合结果公共头。\",\"properties\":{\"kind\":{\"const\":\"stream_batch_header\",\"default\":\"stream_batch_header\",\"title\":\"Kind\",\"type\":\"string\"},\"result_kind\":{\"$ref\":\"#/$defs/StreamBatchResultKind\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"stream_id\":{\"minLength\":1,\"title\":\"Stream Id\",\"type\":\"string\"}},\"required\":[\"stream_id\",\"result_kind\"],\"title\":\"StreamBatchHeader\",\"type\":\"object\"},\"StreamBatchRejectedDetail\":{\"additionalProperties\":false,\"description\":\"非流式聚合拒绝扩展。\",\"properties\":{\"close_reason\":{\"$ref\":\"#/$defs/StreamCloseReason\"},\"error_code\":{\"minLength\":1,\"title\":\"Error Code\",\"type\":\"string\"},\"event_count\":{\"minimum\":0,\"title\":\"Event Count\",\"type\":\"integer\"},\"kind\":{\"const\":\"stream_batch_rejected\",\"default\":\"stream_batch_rejected\",\"title\":\"Kind\",\"type\":\"string\"},\"last_sequence\":{\"minimum\":0,\"title\":\"Last Sequence\",\"type\":\"integer\"},\"message\":{\"minLength\":1,\"title\":\"Message\",\"type\":\"string\"},\"retryable\":{\"title\":\"Retryable\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"terminal_event_id\":{\"minLength\":1,\"title\":\"Terminal Event Id\",\"type\":\"string\"},\"total_bytes\":{\"minimum\":0,\"title\":\"Total Bytes\",\"type\":\"integer\"}},\"required\":[\"error_code\",\"message\",\"retryable\",\"close_reason\",\"last_sequence\",\"event_count\",\"total_bytes\",\"terminal_event_id\"],\"title\":\"StreamBatchRejectedDetail\",\"type\":\"object\"},\"StreamBatchResultKind\":{\"description\":\"非流式聚合结果类型。\",\"enum\":[\"stream_batch_completed\",\"stream_batch_rejected\"],\"title\":\"StreamBatchResultKind\",\"type\":\"string\"},\"StreamCloseReason\":{\"description\":\"流关闭原因封闭集合。\",\"enum\":[\"completed\",\"client_cancelled\",\"client_disconnected\",\"timeout\",\"slow_consumer\",\"policy_rejected\",\"service_shutdown\",\"internal_error\"],\"title\":\"StreamCloseReason\",\"type\":\"string\"},\"StreamCompletedDetail\":{\"additionalProperties\":false,\"description\":\"流正常完成事件扩展。\",\"properties\":{\"event_count\":{\"minimum\":0,\"title\":\"Event Count\",\"type\":\"integer\"},\"kind\":{\"const\":\"stream_completed\",\"default\":\"stream_completed\",\"title\":\"Kind\",\"type\":\"string\"},\"last_sequence\":{\"minimum\":0,\"title\":\"Last Sequence\",\"type\":\"integer\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"last_sequence\",\"event_count\"],\"title\":\"StreamCompletedDetail\",\"type\":\"object\"},\"StreamEventEnvelope_Annotated_Union_StreamStartedDetail__StreamProgressDetail__StreamHeartbeatDetail__StreamCompletedDetail__StreamFaultDetail___FieldInfo_annotation_NoneType__required_True__discriminator__kind____\":{\"additionalProperties\":false,\"properties\":{\"detail\":{\"discriminator\":{\"mapping\":{\"stream_completed\":\"#/$defs/StreamCompletedDetail\",\"stream_fault\":\"#/$defs/StreamFaultDetail\",\"stream_heartbeat\":\"#/$defs/StreamHeartbeatDetail\",\"stream_progress\":\"#/$defs/StreamProgressDetail\",\"stream_started\":\"#/$defs/StreamStartedDetail\"},\"propertyName\":\"kind\"},\"oneOf\":[{\"$ref\":\"#/$defs/StreamStartedDetail\"},{\"$ref\":\"#/$defs/StreamProgressDetail\"},{\"$ref\":\"#/$defs/StreamHeartbeatDetail\"},{\"$ref\":\"#/$defs/StreamCompletedDetail\"},{\"$ref\":\"#/$defs/StreamFaultDetail\"}],\"title\":\"Detail\"},\"envelope_kind\":{\"const\":\"stream_event_envelope\",\"default\":\"stream_event_envelope\",\"title\":\"Envelope Kind\",\"type\":\"string\"},\"header\":{\"$ref\":\"#/$defs/StreamEventHeader\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"header\",\"detail\"],\"title\":\"StreamEventEnvelope[Annotated[Union[StreamStartedDetail, StreamProgressDetail, StreamHeartbeatDetail, StreamCompletedDetail, StreamFaultDetail], FieldInfo(annotation=NoneType, required=True, discriminator='kind')]]\",\"type\":\"object\"},\"StreamEventHeader\":{\"additionalProperties\":false,\"description\":\"流事件公共头。\\n\\n:ivar stream_id: 流会话标识。\\n:ivar event_id: 事件标识。\\n:ivar sequence: 会话内单调递增序号。\\n:ivar event_kind: 扩展事件类型。\\n:ivar schema_version: 契约版本。\\n:ivar request_id: 请求标识。\\n:ivar trace_id: 链路标识。\\n:ivar emitted_at: 事件发出时间。\",\"properties\":{\"emitted_at\":{\"format\":\"date-time\",\"title\":\"Emitted At\",\"type\":\"string\"},\"event_id\":{\"minLength\":1,\"title\":\"Event Id\",\"type\":\"string\"},\"event_kind\":{\"minLength\":1,\"title\":\"Event Kind\",\"type\":\"string\"},\"request_id\":{\"minLength\":1,\"title\":\"Request Id\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"sequence\":{\"minimum\":0,\"title\":\"Sequence\",\"type\":\"integer\"},\"stream_id\":{\"minLength\":1,\"title\":\"Stream Id\",\"type\":\"string\"},\"trace_id\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"title\":\"Trace Id\"}},\"required\":[\"stream_id\",\"event_id\",\"sequence\",\"event_kind\",\"request_id\",\"trace_id\"],\"title\":\"StreamEventHeader\",\"type\":\"object\"},\"StreamFaultDetail\":{\"additionalProperties\":false,\"description\":\"流故障终止事件扩展。\",\"properties\":{\"close_reason\":{\"$ref\":\"#/$defs/StreamCloseReason\"},\"error_code\":{\"minLength\":1,\"title\":\"Error Code\",\"type\":\"string\"},\"kind\":{\"const\":\"stream_fault\",\"default\":\"stream_fault\",\"title\":\"Kind\",\"type\":\"string\"},\"message\":{\"minLength\":1,\"title\":\"Message\",\"type\":\"string\"},\"retryable\":{\"title\":\"Retryable\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"error_code\",\"message\",\"retryable\",\"close_reason\"],\"title\":\"StreamFaultDetail\",\"type\":\"object\"},\"StreamHeartbeatDetail\":{\"additionalProperties\":false,\"description\":\"流业务心跳事件扩展。\\n\\nSSE 协议注释心跳不使用该事件，避免污染业务序列。\",\"properties\":{\"kind\":{\"const\":\"stream_heartbeat\",\"default\":\"stream_heartbeat\",\"title\":\"Kind\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"title\":\"StreamHeartbeatDetail\",\"type\":\"object\"},\"StreamProgressDetail\":{\"additionalProperties\":false,\"description\":\"流进度事件扩展。\",\"properties\":{\"current\":{\"minimum\":0,\"title\":\"Current\",\"type\":\"integer\"},\"kind\":{\"const\":\"stream_progress\",\"default\":\"stream_progress\",\"title\":\"Kind\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"stage\":{\"minLength\":1,\"title\":\"Stage\",\"type\":\"string\"},\"total\":{\"anyOf\":[{\"minimum\":0,\"type\":\"integer\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Total\"}},\"required\":[\"current\",\"stage\"],\"title\":\"StreamProgressDetail\",\"type\":\"object\"},\"StreamStartedDetail\":{\"additionalProperties\":false,\"description\":\"流开始事件扩展。\",\"properties\":{\"kind\":{\"const\":\"stream_started\",\"default\":\"stream_started\",\"title\":\"Kind\",\"type\":\"string\"},\"operation_name\":{\"minLength\":1,\"title\":\"Operation Name\",\"type\":\"string\"},\"resumable\":{\"title\":\"Resumable\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"transport\":{\"$ref\":\"#/$defs/StreamTransport\"}},\"required\":[\"operation_name\",\"transport\",\"resumable\"],\"title\":\"StreamStartedDetail\",\"type\":\"object\"},\"StreamTransport\":{\"description\":\"流交付传输类型。\",\"enum\":[\"http\",\"sse\",\"websocket\"],\"title\":\"StreamTransport\",\"type\":\"string\"}},\"additionalProperties\":false,\"properties\":{\"detail\":{\"discriminator\":{\"mapping\":{\"stream_batch_completed\":\"#/$defs/StreamBatchCompletedDetail_Annotated_Union_StreamStartedDetail__StreamProgressDetail__StreamHeartbeatDetail__StreamCompletedDetail__StreamFaultDetail___FieldInfo_annotation_NoneType__required_True__discriminator__kind____\",\"stream_batch_rejected\":\"#/$defs/StreamBatchRejectedDetail\"},\"propertyName\":\"kind\"},\"oneOf\":[{\"$ref\":\"#/$defs/StreamBatchCompletedDetail_Annotated_Union_StreamStartedDetail__StreamProgressDetail__StreamHeartbeatDetail__StreamCompletedDetail__StreamFaultDetail___FieldInfo_annotation_NoneType__required_True__discriminator__kind____\"},{\"$ref\":\"#/$defs/StreamBatchRejectedDetail\"}],\"title\":\"Detail\"},\"envelope_kind\":{\"const\":\"stream_batch_envelope\",\"default\":\"stream_batch_envelope\",\"title\":\"Envelope Kind\",\"type\":\"string\"},\"header\":{\"$ref\":\"#/$defs/StreamBatchHeader\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"header\",\"detail\"],\"title\":\"StreamBatchEnvelope[Annotated[Union[StreamStartedDetail, StreamProgressDetail, StreamHeartbeatDetail, StreamCompletedDetail, StreamFaultDetail], FieldInfo(annotation=NoneType, required=True, discriminator='kind')]]\",\"type\":\"object\"}",
+      "sha256": "5625bc8bee7a6fa6f5fb05c7a6ebdc753484ca4b7c5fc064d8dd7a42c3ded8a4"
+    },
+    {
+      "name": "stream_access_ticket",
+      "json_schema_document": "{\"$defs\":{\"StreamAccessTicketHeader\":{\"additionalProperties\":false,\"description\":\"访问票据公共头。\",\"properties\":{\"kind\":{\"const\":\"stream_access_ticket_header\",\"default\":\"stream_access_ticket_header\",\"title\":\"Kind\",\"type\":\"string\"},\"operation_name\":{\"minLength\":1,\"title\":\"Operation Name\",\"type\":\"string\"},\"result_kind\":{\"$ref\":\"#/$defs/StreamAccessTicketResultKind\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"subject_id\":{\"minLength\":1,\"title\":\"Subject Id\",\"type\":\"string\"}},\"required\":[\"subject_id\",\"operation_name\",\"result_kind\"],\"title\":\"StreamAccessTicketHeader\",\"type\":\"object\"},\"StreamAccessTicketIssuedDetail\":{\"additionalProperties\":false,\"description\":\"仅在签发响应中出现一次的票据明文扩展。\",\"properties\":{\"client_ip\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"title\":\"Client Ip\"},\"expires_at\":{\"format\":\"date-time\",\"title\":\"Expires At\",\"type\":\"string\"},\"kind\":{\"const\":\"stream_access_ticket_issued\",\"default\":\"stream_access_ticket_issued\",\"title\":\"Kind\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"ticket\":{\"minLength\":1,\"title\":\"Ticket\",\"type\":\"string\"}},\"required\":[\"ticket\",\"client_ip\",\"expires_at\"],\"title\":\"StreamAccessTicketIssuedDetail\",\"type\":\"object\"},\"StreamAccessTicketRejectedDetail\":{\"additionalProperties\":false,\"description\":\"访问票据签发拒绝扩展。\",\"properties\":{\"error_code\":{\"minLength\":1,\"title\":\"Error Code\",\"type\":\"string\"},\"kind\":{\"const\":\"stream_access_ticket_rejected\",\"default\":\"stream_access_ticket_rejected\",\"title\":\"Kind\",\"type\":\"string\"},\"message\":{\"minLength\":1,\"title\":\"Message\",\"type\":\"string\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"error_code\",\"message\"],\"title\":\"StreamAccessTicketRejectedDetail\",\"type\":\"object\"},\"StreamAccessTicketResultKind\":{\"description\":\"访问票据签发结果类型。\",\"enum\":[\"stream_access_ticket_issued\",\"stream_access_ticket_rejected\"],\"title\":\"StreamAccessTicketResultKind\",\"type\":\"string\"}},\"additionalProperties\":false,\"description\":\"访问票据签发公开信封。\",\"properties\":{\"detail\":{\"discriminator\":{\"mapping\":{\"stream_access_ticket_issued\":\"#/$defs/StreamAccessTicketIssuedDetail\",\"stream_access_ticket_rejected\":\"#/$defs/StreamAccessTicketRejectedDetail\"},\"propertyName\":\"kind\"},\"oneOf\":[{\"$ref\":\"#/$defs/StreamAccessTicketIssuedDetail\"},{\"$ref\":\"#/$defs/StreamAccessTicketRejectedDetail\"}],\"title\":\"Detail\"},\"envelope_kind\":{\"const\":\"stream_access_ticket\",\"default\":\"stream_access_ticket\",\"title\":\"Envelope Kind\",\"type\":\"string\"},\"header\":{\"$ref\":\"#/$defs/StreamAccessTicketHeader\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"header\",\"detail\"],\"title\":\"StreamAccessTicketEnvelope\",\"type\":\"object\"}",
+      "sha256": "4225e71f2705def42645c3a4f07f4e64dfea40c0dc686e0dfeee52574c1ff955"
+    },
+    {
+      "name": "stream_runtime",
+      "json_schema_document": "{\"$defs\":{\"LocalStreamRuntimeDetail\":{\"additionalProperties\":false,\"description\":\"本地流运行时扩展。\",\"properties\":{\"allowed_origins\":{\"items\":{\"type\":\"string\"},\"minItems\":1,\"title\":\"Allowed Origins\",\"type\":\"array\"},\"collection_max_bytes\":{\"maximum\":104857600,\"minimum\":1,\"title\":\"Collection Max Bytes\",\"type\":\"integer\"},\"collection_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Collection Max Events\",\"type\":\"integer\"},\"collection_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Collection Timeout Seconds\",\"type\":\"number\"},\"kind\":{\"const\":\"local_stream_runtime\",\"default\":\"local_stream_runtime\",\"title\":\"Kind\",\"type\":\"string\"},\"max_duration_seconds\":{\"maximum\":86400,\"minimum\":0.01,\"title\":\"Max Duration Seconds\",\"type\":\"number\"},\"max_event_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Max Event Bytes\",\"type\":\"integer\"},\"max_sessions\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions\",\"type\":\"integer\"},\"max_sessions_per_ip\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Ip\",\"type\":\"integer\"},\"max_sessions_per_operation\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Operation\",\"type\":\"integer\"},\"max_sessions_per_subject\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Subject\",\"type\":\"integer\"},\"queue_capacity\":{\"maximum\":10000,\"minimum\":1,\"title\":\"Queue Capacity\",\"type\":\"integer\"},\"replay_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Replay Max Events\",\"type\":\"integer\"},\"replay_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Replay Ttl Seconds\",\"type\":\"integer\"},\"require_browser_ticket\":{\"title\":\"Require Browser Ticket\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"send_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Send Timeout Seconds\",\"type\":\"number\"},\"shutdown_grace_seconds\":{\"minimum\":0.01,\"title\":\"Shutdown Grace Seconds\",\"type\":\"number\"},\"sse_heartbeat_seconds\":{\"minimum\":1,\"title\":\"Sse Heartbeat Seconds\",\"type\":\"integer\"},\"sse_retry_milliseconds\":{\"minimum\":1,\"title\":\"Sse Retry Milliseconds\",\"type\":\"integer\"},\"ticket_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Ticket Ttl Seconds\",\"type\":\"integer\"},\"websocket_max_message_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Websocket Max Message Bytes\",\"type\":\"integer\"},\"websocket_ping_interval_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Interval Seconds\",\"type\":\"number\"},\"websocket_ping_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Timeout Seconds\",\"type\":\"number\"}},\"required\":[\"queue_capacity\",\"send_timeout_seconds\",\"max_duration_seconds\",\"max_event_bytes\",\"collection_max_events\",\"collection_max_bytes\",\"collection_timeout_seconds\",\"max_sessions\",\"max_sessions_per_subject\",\"max_sessions_per_ip\",\"max_sessions_per_operation\",\"ticket_ttl_seconds\",\"replay_ttl_seconds\",\"replay_max_events\",\"sse_heartbeat_seconds\",\"sse_retry_milliseconds\",\"websocket_max_message_bytes\",\"websocket_ping_interval_seconds\",\"websocket_ping_timeout_seconds\",\"shutdown_grace_seconds\",\"allowed_origins\",\"require_browser_ticket\"],\"title\":\"LocalStreamRuntimeDetail\",\"type\":\"object\"},\"RedisStreamRuntimeDetail\":{\"additionalProperties\":false,\"description\":\"Redis 流运行时扩展。\",\"properties\":{\"allowed_origins\":{\"items\":{\"type\":\"string\"},\"minItems\":1,\"title\":\"Allowed Origins\",\"type\":\"array\"},\"collection_max_bytes\":{\"maximum\":104857600,\"minimum\":1,\"title\":\"Collection Max Bytes\",\"type\":\"integer\"},\"collection_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Collection Max Events\",\"type\":\"integer\"},\"collection_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Collection Timeout Seconds\",\"type\":\"number\"},\"kind\":{\"const\":\"redis_stream_runtime\",\"default\":\"redis_stream_runtime\",\"title\":\"Kind\",\"type\":\"string\"},\"max_duration_seconds\":{\"maximum\":86400,\"minimum\":0.01,\"title\":\"Max Duration Seconds\",\"type\":\"number\"},\"max_event_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Max Event Bytes\",\"type\":\"integer\"},\"max_sessions\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions\",\"type\":\"integer\"},\"max_sessions_per_ip\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Ip\",\"type\":\"integer\"},\"max_sessions_per_operation\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Operation\",\"type\":\"integer\"},\"max_sessions_per_subject\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Subject\",\"type\":\"integer\"},\"queue_capacity\":{\"maximum\":10000,\"minimum\":1,\"title\":\"Queue Capacity\",\"type\":\"integer\"},\"redis_key_prefix\":{\"minLength\":1,\"title\":\"Redis Key Prefix\",\"type\":\"string\"},\"redis_max_connections\":{\"maximum\":10000,\"minimum\":1,\"title\":\"Redis Max Connections\",\"type\":\"integer\"},\"redis_socket_connect_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Redis Socket Connect Timeout Seconds\",\"type\":\"number\"},\"redis_url\":{\"minLength\":1,\"title\":\"Redis Url\",\"type\":\"string\"},\"replay_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Replay Max Events\",\"type\":\"integer\"},\"replay_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Replay Ttl Seconds\",\"type\":\"integer\"},\"require_browser_ticket\":{\"title\":\"Require Browser Ticket\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"send_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Send Timeout Seconds\",\"type\":\"number\"},\"shutdown_grace_seconds\":{\"minimum\":0.01,\"title\":\"Shutdown Grace Seconds\",\"type\":\"number\"},\"sse_heartbeat_seconds\":{\"minimum\":1,\"title\":\"Sse Heartbeat Seconds\",\"type\":\"integer\"},\"sse_retry_milliseconds\":{\"minimum\":1,\"title\":\"Sse Retry Milliseconds\",\"type\":\"integer\"},\"ticket_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Ticket Ttl Seconds\",\"type\":\"integer\"},\"websocket_max_message_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Websocket Max Message Bytes\",\"type\":\"integer\"},\"websocket_ping_interval_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Interval Seconds\",\"type\":\"number\"},\"websocket_ping_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Timeout Seconds\",\"type\":\"number\"}},\"required\":[\"queue_capacity\",\"send_timeout_seconds\",\"max_duration_seconds\",\"max_event_bytes\",\"collection_max_events\",\"collection_max_bytes\",\"collection_timeout_seconds\",\"max_sessions\",\"max_sessions_per_subject\",\"max_sessions_per_ip\",\"max_sessions_per_operation\",\"ticket_ttl_seconds\",\"replay_ttl_seconds\",\"replay_max_events\",\"sse_heartbeat_seconds\",\"sse_retry_milliseconds\",\"websocket_max_message_bytes\",\"websocket_ping_interval_seconds\",\"websocket_ping_timeout_seconds\",\"shutdown_grace_seconds\",\"allowed_origins\",\"require_browser_ticket\",\"redis_url\",\"redis_key_prefix\",\"redis_socket_connect_timeout_seconds\",\"redis_max_connections\"],\"title\":\"RedisStreamRuntimeDetail\",\"type\":\"object\"},\"StreamRuntimeHeader\":{\"additionalProperties\":false,\"description\":\"流运行时公共头。\",\"properties\":{\"enabled\":{\"title\":\"Enabled\",\"type\":\"boolean\"},\"kind\":{\"const\":\"stream_runtime_header\",\"default\":\"stream_runtime_header\",\"title\":\"Kind\",\"type\":\"string\"},\"mode\":{\"$ref\":\"#/$defs/StreamRuntimeMode\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"mode\",\"enabled\"],\"title\":\"StreamRuntimeHeader\",\"type\":\"object\"},\"StreamRuntimeMode\":{\"description\":\"流状态后端模式。\",\"enum\":[\"local_stream_runtime\",\"redis_stream_runtime\"],\"title\":\"StreamRuntimeMode\",\"type\":\"string\"}},\"additionalProperties\":false,\"description\":\"流运行时信封。\",\"properties\":{\"detail\":{\"discriminator\":{\"mapping\":{\"local_stream_runtime\":\"#/$defs/LocalStreamRuntimeDetail\",\"redis_stream_runtime\":\"#/$defs/RedisStreamRuntimeDetail\"},\"propertyName\":\"kind\"},\"oneOf\":[{\"$ref\":\"#/$defs/LocalStreamRuntimeDetail\"},{\"$ref\":\"#/$defs/RedisStreamRuntimeDetail\"}],\"title\":\"Detail\"},\"envelope_kind\":{\"const\":\"stream_runtime_envelope\",\"default\":\"stream_runtime_envelope\",\"title\":\"Envelope Kind\",\"type\":\"string\"},\"header\":{\"$ref\":\"#/$defs/StreamRuntimeHeader\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"header\",\"detail\"],\"title\":\"StreamRuntimeEnvelope\",\"type\":\"object\"}",
+      "sha256": "f50ac2da653a10cc437909428965c9332a5cc8586f0325cc4ffed8a909a93e61"
     }
   ]
 }

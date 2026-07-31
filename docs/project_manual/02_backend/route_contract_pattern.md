@@ -1,77 +1,113 @@
 ﻿# 路由契约模式
 
-## 1. 文档目的
-说明 endpoint 模块中 route、contract、usecase、ResponseEnvelope 的对应关系。
+## 1. 这是什么
 
-**最后更新范围**：覆盖 `src/api/endpoint_*` 下的 route 和 contract 文件。
+说明每个 API 模块内部 `contract_*.py` + `route_*.py` 的固定写法（RouteCatalog 模式），包括路由函数的标准骨架、守卫依赖声明方式、分页信封与"header+detail"响应契约的用法。写任何新接口前先读本文。
 
-## 2. 适用读者
-- 新人开发者
-- 后端开发者
-- 测试维护者
+**最后更新范围**：覆盖 9 个 endpoint 模块的共同模式、`admin_list_page_contract.py` 分页契约与 `HealthProbeRouteCatalog` 完整示例。
 
-## 3. 关联源码
-| 路径 | 作用 |
-| --- | --- |
-| `src/api/endpoint_auth_access/route_auth_access.py` | 鉴权访问路由。 |
-| `src/api/endpoint_auth_access/contract_auth_access.py` | 鉴权请求模型。 |
-| `src/api/endpoint_admin_task/route_admin_task.py` | 管理员任务路由。 |
-| `src/api/endpoint_admin_task/contract_admin_task.py` | 管理员任务契约。 |
-| `src/api/dependency_context_accessor.py` | 路由依赖上下文读取入口。 |
-| `src/core/http_contract/request_execution_contract.py` | 同步用例卸载执行契约。 |
+## 2. 设计思想与动机
 
-## 4. 核心结论
-- 路由类命名通常为 `*RouteCatalog`，在 `__init__` 或 `_bind_*_routes` 辅助方法中调用 `router.add_api_route`。
-- 请求和响应 Pydantic 模型放在 `contract_*.py`。
-- 路由只做 HTTP 适配、权限依赖、调用用例和包装响应。
-- 同步用例调用通过 `DependencyContextAccessor.read_request_execution_bridge(request).run_sync(...)` 卸载，默认执行名为 `default_sync_usecase`。
-- `DependencyContextAccessor.read_route_context(request)` 从 `app.state.container` 和 `SharedResourceMount` 聚合 route 所需依赖；各 `read_*` 方法是面向路由的窄入口。
-- 响应模型使用 `ResponseEnvelope[PayloadOrEnvelope]`，其中 `data` 可以是 endpoint payload，也可以是 endpoint 自己定义的 header/detail 信封。
-- 后台受保护路由通过 `Depends(self.require_*)` 和 `HTTPBearer(auto_error=False)` 声明 Bearer 安全面，再由 `read_authorized_principal` 校验集中授权要求。
+- **contract 与 route 分离**：`contract_*.py` 只放 Pydantic 模型（请求体、响应 payload、查询信封），`route_*.py` 只放 HTTP 适配。模型可被 contract 测试独立校验，路由文件保持"读依赖 → 调用例 → 包信封"三步节奏。
+- **类持有 router 而非模块级装饰器**：`*RouteCatalog.__init__` 里显式 `add_api_route`，而不是 `@router.get(...)` 装饰器。动机：路由注册顺序、response_model、dependencies 全部集中可见；catalog 可被多次实例化（每个 app 独立）；守卫方法可以是实例方法（共享 `self._accessor`）。
+- **响应模型进 OpenAPI**：每条 `add_api_route` 都声明 `response_model=ResponseEnvelope[XxxPayload]`，OpenAPI 文档与运行时序列化同源。
+- **请求模型一律 `extra="forbid"` + 字段约束**：未知字段、越界值在进入用例前就被 422 拦截，用例只处理已验证输入。
 
-## 5. 结构说明
-每个 endpoint 模块由 `contract_*.py`、`route_*.py`、`*BundleProvider` 组成；后台模块还会依赖 `admin_route_authorization.py`。
+## 3. 标准骨架
 
-## 6. 工作流程
-```mermaid
-flowchart TD
-    A["HTTP Request"] --> B["FastAPI RouteCatalog"]
-    B --> C["route dependencies / authorization"]
-    C --> D["DependencyContextAccessor"]
-    D --> E["RequestExecutionBridge.run_sync"]
-    E --> F["Application Usecase"]
-    F --> G["ResponseEnvelopeFactory.build"]
+以健康探针为例（最简完整形态）：
+
+```35:61:src/api/endpoint_health_probe/route_health_probe.py
+class HealthProbeRouteCatalog:
+    """
+    健康探针路由目录，负责注册接口与响应契约。
+    """
+
+    def __init__(self) -> None:
+        ...
+        self._accessor = DependencyContextAccessor()
+        self.router = APIRouter(tags=[HEALTH_ROUTE_TAG])
+        self.router.add_api_route(
+            HEALTH_LIVE_PATH,
+            self.get_live,
+            methods=["GET"],
+            response_model=ResponseEnvelope[HealthProbePayload],
+        )
 ```
 
-## 7. 关键实现
-| 组件 | 文件 | 职责 |
+路由函数固定三步：
+
+```python
+async def get_live(self, request: Request) -> ResponseEnvelope[HealthProbePayload]:
+    # 1. 经桥接器执行同步用例（execution_name 与运行时配置匹配）
+    result = await self._accessor.read_request_execution_bridge(request).run_sync(
+        execution_name=HEALTH_REQUEST_EXECUTION_NAME,
+        callable_object=self._accessor.read_health_probe_usecase(request).execute,
+        probe_kind=HEALTH_LIVE_PROBE_KIND,
+    )
+    # 2. 用例结果 → 接口 payload（contract 提供 from_result 类方法）
+    payload = HealthProbePayload.from_result(result)
+    # 3. 统一信封包装
+    return self._accessor.read_response_factory(request).build(
+        code=str(SuccessCode.OK),
+        message="健康探针正常。",
+        request_scope=self._accessor.read_request_scope(request),
+        data=payload,
+    )
+```
+
+需要授权的路由在注册处声明守卫依赖（以 admin_settings 为例）：
+
+```73:79:src/api/endpoint_admin_settings/route_admin_settings.py
+        self.router.add_api_route(
+            ADMIN_SETTINGS_RELOAD_CANDIDATE_PATH,
+            self.read_reload_candidate,
+            methods=[ADMIN_SETTINGS_METHOD_GET],
+            response_model=ResponseEnvelope[AdminSettingsReloadCandidateEnvelope],
+            dependencies=[Depends(self.require_settings_reload)],
+        )
+```
+
+守卫方法内部统一调用 `self._accessor.read_authorized_principal(request, <REQUIREMENT>)`，REQUIREMENT 来自 `src/domain/auth/admin_route_authorization_policy.py` 的集中常量，路由文件不自定义角色/scope 组合。
+
+## 4. 契约模型的三种形态
+
+| 形态 | 用途 | 例子 |
 | --- | --- | --- |
-| `AuthAccessRouteCatalog.post_token` | `src/api/endpoint_auth_access/route_auth_access.py` | 令牌签发路由。 |
-| `AdminTaskRouteCatalog.dispatch_task` | `src/api/endpoint_admin_task/route_admin_task.py` | 管理员任务派发路由。 |
-| `AdminIdentityRouteCatalog._read_detail` | `src/api/endpoint_admin_identity/route_admin_identity.py` | 校验请求 detail 类型。 |
+| 请求模型 | body/query 校验，`extra="forbid"` + Field 约束 + 必要时 `model_validator` 规范化 | `TokenIssueRequest`（username 裁剪空白、1-128；password 1-256） |
+| 响应 payload | `kind` + `schema_version` + 业务字段；常配 `from_result/from_snapshot` 类方法做用例结果→payload 映射 | `HealthProbePayload{kind="health_probe", schema_version="1.0", status, ready}` |
+| header+detail 信封 | 列表/复合响应；header 声明操作与 kind，detail 为判别联合 | `AdminListPageEnvelope`、`AdminIdentityEnvelope`、`AdminTaskExecutionListEnvelope` |
 
-## 8. 如何修改或扩展
-1. 先定义或扩展 contract 模型。
-2. 在 RouteCatalog 中注册路径、方法和 response_model。
-3. 通过 `DependencyContextAccessor` 获取用例、`RequestScope`、请求执行桥、响应工厂和必要的授权主体。
-4. 同步用例使用 `request_execution_bridge.run_sync`，避免阻塞异步路由。
-5. 补 contract/interface/integration 测试并更新 API 文档。
+分页统一复用 `src/api/admin_list_page_contract.py`：查询侧 `AdminListPageQuery{page_size(1..最大值，默认值与上限来自 admin_identity_port 常量), offset(>=0)}`，响应侧 `AdminListPagePayload{page_size, items, offset, total, next_cursor}`。新列表接口不要自造分页字段。
 
-## 9. 测试覆盖
+## 5. 怎么用：新接口检查单
+
+1. contract：请求模型（约束写全）、响应 payload（kind/schema_version/映射方法）。
+2. route catalog：路径/方法常量 → `add_api_route`（response_model + 守卫 dependencies）→ 路由函数三步骨架。
+3. 授权：领域层选/加 requirement；守卫方法一行断言。
+4. 用例调用一律经 `run_sync`（除非目标真是原生 async 函数且运行时配置了 native_async 策略）。
+5. 错误：业务失败抛 `HttpFaultException(status_code, error_code, message)`，错误码用既有目录（`CoreErrorCode`/`AuthErrorCode`/`AdminIdentityErrorCode`），不发明裸字符串。
+6. 测试：contract 测试锁字段约束，interface 测试锁 HTTP 行为（含 401/403/422 路径）。
+
+## 6. 注意事项
+
+- 路由函数不做业务分支：条件逻辑（如 ready 探针 503 转换）允许存在，但仅限"用例结果 → HTTP 语义"的映射；数据校验/组合查询/事务都下沉用例。
+- `from_result` 映射方法放 contract 而不是 route，保证 payload 与用例结果的对应关系被 contract 测试覆盖。
+- 每个模块的 METHOD 常量（如 `ADMIN_TASK_METHOD_GET = "GET"`）看似冗余，实际是全项目"禁止魔法字符串"规范的一部分；沿用即可。
+- 修改响应 payload 字段 = 修改对外契约：需要同步 `public_contract_snapshot_builder` 基线、相关 API 文档与 interface 断言。
+
+## 7. 测试覆盖
+
 | 测试类型 | 文件 | 验证内容 |
 | --- | --- | --- |
-| contract | `test/contract_test/test_admin_task_contract.py` | 任务 API 契约。 |
-| contract | `test/contract_test/admin_identity/test_admin_identity_contract.py` | 身份 API 契约。 |
-| interface | `test/interface_test/test_admin_task_interface.py` | 任务接口行为。 |
+| contract | `test/contract_test/test_http_contract.py` 等 | 请求/响应模型约束与信封一致性。 |
+| interface | `test/interface_test/test_admin_task_interface.py` 等 | 路由行为、守卫、错误码。 |
+| unit | `test/unit_test/test_web_module_manifest_unit.py` | provider 输出、module/tag 一致性与 manifest 装载。 |
+| path | `test/path_test/test_web_execution_path.py` | 装配后 Web 路由执行路径。 |
 
-## 10. 常见问题
-- 如果请求 detail 类型不匹配，`AdminIdentityRouteCatalog._read_detail` 会返回请求无效。
+## 8. 相关文档
 
-## 11. 维护备注
-修改 route/contract 时同步更新 `05_api_reference` 下对应 API 文档。
-
-
-
-## 12. 相关文档
 - [项目文档总览](../README.md)
-- [API 总览](../05_api_reference/api_overview.md)
+- [API 模块注册](api_module_registration.md)
+- [响应信封](response_envelope.md)
+- [新增 API](../09_development_guide/adding_new_api.md)

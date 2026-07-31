@@ -102,3 +102,14 @@ class LocalMessageBus(MessageBus):
 
         with self._lock:
             return list(self._messages)
+
+    def read_queue_depth(self) -> int:
+        """
+        读取当前保留消息数量。
+
+        :returns: 本地队列当前消息数量。
+        :rtype: int
+        """
+
+        with self._lock:
+            return len(self._messages)

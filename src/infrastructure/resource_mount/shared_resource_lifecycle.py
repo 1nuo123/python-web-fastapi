@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 import hashlib
 import logging
 import threading
+from dataclasses import replace
 from http import HTTPStatus
 
 from sqlalchemy.engine import Engine
@@ -33,6 +34,7 @@ from src.core.logging_contract.log_writer_contract import LogWriteReason
 from src.core.persistence_contract.refresh_token_repository_contract import RefreshTokenRepository
 from src.core.persistence_contract.unit_of_work_contract import PersistenceSession
 from src.core.security_contract.security_event_contract import SecurityEventEnvelope
+from src.core.stream_contract.stream_runtime_contract import StreamRuntimeEnvelope
 from src.core.task_contract.message_bus_contract import (
     MessageBus,
 )
@@ -67,6 +69,11 @@ from src.infrastructure.logging.database_log_writer import DatabaseLogWriter
 from src.infrastructure.logging.log_buffer_dispatcher import LogBufferDispatcher
 from src.infrastructure.logging.log_event_builder import LogEventBuilder
 from src.infrastructure.logging.structured_log_handler import StructuredLogHandler
+from src.infrastructure.observability.prometheus_metrics_registry import (
+    PrometheusMetricsRegistry,
+    RuntimeSaturationMetric,
+    RuntimeSaturationResource,
+)
 from src.infrastructure.persistence.alembic_runner import AlembicRunner
 from src.infrastructure.persistence.database_engine_factory_contract import (
     DatabaseEngineFactory,
@@ -136,6 +143,7 @@ from src.infrastructure.resource_mount.shared_resource_constants import (
     RESOURCE_STARTUP_BEGIN_MESSAGE,
     RESOURCE_STARTUP_FAILED_MESSAGE,
     RESOURCE_STARTUP_FINISH_MESSAGE,
+    RESOURCE_STREAMING,
     RESOURCE_TASK,
     RESOURCE_TASK_MESSAGE_TRANSPORT,
     SETTINGS_APPLY_OPERATION_NAME,
@@ -197,10 +205,16 @@ from src.infrastructure.settings.settings_apply_transaction import (
     SettingsApplyTransaction,
 )
 from src.infrastructure.settings.settings_snapshot_store import SettingsStateHolder
+from src.infrastructure.streaming.streaming_runtime_factory import (
+    StreamingOperationComponentSet,
+    StreamingRuntimeFactory,
+    StreamingRuntimeResourceSet,
+)
 from src.infrastructure.task.failed_task_recorder import (
     FailedTaskRecorder,
     TaskFailureRecord,
 )
+from src.infrastructure.task.local_message_bus import LocalMessageBus
 from src.infrastructure.task.task_execution_outbox_publisher import (
     TASK_EXECUTION_OUTBOX_DEFAULT_LIMIT,
     TaskExecutionOutboxPublishResult,
@@ -339,6 +353,9 @@ class SharedResourceLifecycle:
         self._http_resource_manager = SharedHttpResourceManager(logger=logger)
         self._runtime_resource_bootstrapper = RuntimeResourceBootstrapper()
         self._runtime_resource_releaser = RuntimeResourceReleaser()
+        self._streaming_runtime_factory = StreamingRuntimeFactory()
+        self._streaming_resources: StreamingRuntimeResourceSet | None = None
+        self._pending_streaming_components: list[StreamingOperationComponentSet] = []
         self._last_resource_release_result: RuntimeResourceReleaseEnvelope | None = None
         self._runtime_accessor_refresher = RuntimeAccessorRefresher()
         self._capacity_policy_resolver = RuntimeCapacityPolicyResolver()
@@ -364,6 +381,7 @@ class SharedResourceLifecycle:
 
         self._http_runtime_accessor = HttpRuntimeAccessor(resource_set=None)
         self._runtime_generation = 0
+        self._metrics_registry: PrometheusMetricsRegistry | None = None
         self._session_factory: SqlAlchemySessionFactory | None = None
         self._db_session_manager: SharedDbSessionManager | None = None
         self._task_execution_store: TaskExecutionStore | None = None
@@ -419,6 +437,7 @@ class SharedResourceLifecycle:
                 RESOURCE_SECURITY_PROTECTION,
                 RESOURCE_TASK_MESSAGE_TRANSPORT,
                 RESOURCE_TASK,
+                RESOURCE_STREAMING,
             )
         }
         self._ready = False
@@ -458,6 +477,7 @@ class SharedResourceLifecycle:
                 settings=settings,
             )
             self._ready = True
+            self.refresh_runtime_saturation()
             self._logger.info(RESOURCE_STARTUP_FINISH_MESSAGE)
         except Exception as exc:
             self._ready = False
@@ -476,6 +496,71 @@ class SharedResourceLifecycle:
         self._last_resource_release_result = release_result
         self._logger.info(RESOURCE_RELEASE_FINISH_MESSAGE)
         return release_result
+
+    async def startup_streaming(self) -> None:
+        """在应用 lifespan 内启动统一流式资源。
+
+        :returns: 无返回值。
+        :rtype: None
+        """
+
+        runtime = self.read_runtime_bundle().settings.runtime.stream
+        if not runtime.header.enabled:
+            self.mark_runtime_resource_stopped(RESOURCE_STREAMING)
+            return
+        self._streaming_resources = await self._streaming_runtime_factory.build(
+            runtime,
+            metrics_registry=self.get_metrics_registry(),
+        )
+        self._streaming_resources = replace(
+            self._streaming_resources,
+            operation_components=tuple(self._pending_streaming_components),
+        )
+        self.mark_runtime_resource_ready(RESOURCE_STREAMING)
+
+    async def shutdown_streaming(self) -> None:
+        """排空并关闭统一流式资源。
+
+        :returns: 无返回值。
+        :rtype: None
+        """
+
+        resources = self._streaming_resources
+        self._streaming_resources = None
+        if resources is None:
+            self.mark_runtime_resource_stopped(RESOURCE_STREAMING)
+            return
+        await self._streaming_runtime_factory.shutdown(resources)
+        self.mark_runtime_resource_stopped(RESOURCE_STREAMING)
+
+    def get_streaming_resources(self) -> StreamingRuntimeResourceSet:
+        """获取已启动的统一流式资源。
+
+        :returns: 流式资源集。
+        :rtype: StreamingRuntimeResourceSet
+        :raises HttpFaultException: 流资源尚未启动时抛出。
+        """
+
+        if self._streaming_resources is None:
+            raise HttpFaultException(
+                status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+                error_code=CoreErrorCode.RESOURCE_NOT_READY,
+                message="统一流式运行时资源尚未就绪。",
+            )
+        return self._streaming_resources
+
+    def get_stream_runtime(self) -> StreamRuntimeEnvelope:
+        """读取当前生效的强类型流运行时配置。"""
+
+        return self.read_runtime_bundle().settings.runtime.stream
+
+    def register_streaming_operation_components(
+        self,
+        components: StreamingOperationComponentSet,
+    ) -> None:
+        """在 lifespan 启动前登记生产流绑定完整组件。"""
+
+        self._pending_streaming_components.append(components)
 
     def apply_settings(self, settings: ApplicationSettings) -> SettingsApplyResultPayload:
         """
@@ -601,6 +686,7 @@ class SharedResourceLifecycle:
                 resource_status=RuntimeResourceStatus.READY,
                 detail_text=None,
             )
+            self.refresh_runtime_saturation()
             if self._log_buffer_dispatcher is not None:
                 self._flush_logs(reason=LogWriteReason.MANUAL)
 
@@ -687,6 +773,107 @@ class SharedResourceLifecycle:
                 retired_resource.dispatcher.shutdown()
             if retired_resource.message_bus is not None:
                 retired_resource.message_bus.close()
+
+    def install_metrics_registry(self, metrics_registry: PrometheusMetricsRegistry) -> None:
+        """
+        挂载 Prometheus 指标注册器。
+
+        指标注册器由应用装配阶段在启动前挂载，供日志缓冲、任务执行链与
+        饱和度刷新等基础设施在启动后读取。
+
+        :param metrics_registry: Prometheus 指标注册器。
+        :type metrics_registry: PrometheusMetricsRegistry
+        :returns: 无返回值。
+        :rtype: None
+        """
+
+        self._metrics_registry = metrics_registry
+
+    def get_metrics_registry(self) -> PrometheusMetricsRegistry | None:
+        """
+        获取 Prometheus 指标注册器。
+
+        :returns: 已挂载的指标注册器；指标未启用时返回 ``None``。
+        :rtype: PrometheusMetricsRegistry | None
+        """
+
+        return self._metrics_registry
+
+    def refresh_runtime_saturation(self) -> None:
+        """
+        按容量策略快照刷新运行时饱和度指标。
+
+        以事件式触发：启动完成、配置热更新提交与指标抓取时各刷新一次。
+        指标未挂载时为空操作。
+
+        :returns: 无返回值。
+        :rtype: None
+        """
+
+        metrics_registry = self._metrics_registry
+        if metrics_registry is None:
+            return
+        capacity_detail = self.read_runtime_bundle().capacity_policy.detail
+        http_resource_set = self._http_runtime_accessor.resource_set
+        if http_resource_set is not None:
+            capacity_usage = http_resource_set.request_execution_bridge.read_capacity_usage()
+            metrics_registry.set_runtime_saturation(
+                RuntimeSaturationMetric(
+                    resource=RuntimeSaturationResource.REQUEST_THREAD_POOL,
+                    ratio=self._build_saturation_ratio(
+                        used=capacity_usage.in_flight_count,
+                        limit=capacity_usage.capacity_limit,
+                    ),
+                )
+            )
+        if self._session_factory is not None:
+            metrics_registry.set_runtime_saturation(
+                RuntimeSaturationMetric(
+                    resource=RuntimeSaturationResource.DB_POOL,
+                    ratio=self._build_saturation_ratio(
+                        used=self._session_factory.read_checked_out_connections(),
+                        limit=capacity_detail.database_connection_limit,
+                    ),
+                )
+            )
+        message_bus = self._task_runtime_accessor.message_bus
+        if isinstance(message_bus, LocalMessageBus):
+            metrics_registry.set_runtime_saturation(
+                RuntimeSaturationMetric(
+                    resource=RuntimeSaturationResource.TASK_QUEUE,
+                    ratio=self._build_saturation_ratio(
+                        used=message_bus.read_queue_depth(),
+                        limit=capacity_detail.message_queue_limit,
+                    ),
+                )
+            )
+        if self._log_buffer_dispatcher is not None:
+            failure_counter = self._log_buffer_dispatcher.read_audit_write_failure_counter()
+            metrics_registry.set_runtime_saturation(
+                RuntimeSaturationMetric(
+                    resource=RuntimeSaturationResource.LOG_BUFFER,
+                    ratio=self._build_saturation_ratio(
+                        used=failure_counter.pending_items,
+                        limit=capacity_detail.log_queue_limit,
+                    ),
+                )
+            )
+
+    def _build_saturation_ratio(self, *, used: int, limit: int) -> float:
+        """
+        构建饱和度比值。
+
+        :param used: 当前占用量。
+        :type used: int
+        :param limit: 容量上限。
+        :type limit: int
+        :returns: 占用量与上限的比值；上限非正时返回 0。
+        :rtype: float
+        """
+
+        if limit <= 0:
+            return 0.0
+        return used / limit
 
     def get_runtime_states(self) -> list[RuntimeResourceState]:
         """

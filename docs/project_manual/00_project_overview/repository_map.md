@@ -15,7 +15,7 @@
 | --- | --- |
 | `src/api` | HTTP API、路由、契约、Web 模块注册。 |
 | `src/application` | 用例层和应用端口。 |
-| `src/cli` | 数据库迁移和初始管理员等命令行入口。 |
+| `src/cli` | 数据库迁移、初始管理员、任务 worker 与阶段证据生成/记录命令行入口。 |
 | `src/core` | 跨层核心契约。 |
 | `src/domain` | 领域常量、角色、scope、错误码。 |
 | `src/infrastructure` | 运行时和外部资源实现。 |
@@ -25,7 +25,7 @@
 ## 4. 核心结论
 - `src/api/endpoint_*` 每个模块通常包含 `route_*.py` 和 `contract_*.py`。
 - `src/application/ports` 定义应用层依赖端口，基础设施通过 `SharedResourceMount` 适配。
-- `src/cli` 当前提供 `run_database_migrations` 与 `create_initial_admin` 两类运维初始化入口。
+- `src/cli` 当前包含数据库迁移（`run_database_migrations`）、初始管理员（`create_initial_admin`）、任务消费者（`run_task_worker`），以及 `generate_phase_evidence`、`record_phase_test_run`、`run_evidence_commands`、`build_evidence_artifact_manifest` 等证据链工具。
 - `src/infrastructure/testing` 下 fake/test support 只用于测试。
 - `config` 由 `AppSettingsLoader` 按基础层再环境层合并，缺失的环境覆盖文件会被跳过。
 - `docs/project_manual` 是当前说明书，原有 `/docs` 历史文档保留不移动。
@@ -64,7 +64,7 @@ flowchart TD
 | class_inheritance | `test/class_inheritance_test/test_runtime_contract_inheritance.py` | 验证运行时契约继承约定。 |
 
 ## 10. 常见问题
-- 待确认：`src/temp` 当前存在但未从核心装配链路确认用途。
+- 当前源码层没有 `src/temp` 目录；临时产物使用仓库根 `.tmp/`，Python `__pycache__/` 也是生成物，二者都不属于业务分层或装配链路。
 
 ## 11. 维护备注
 目录调整时同步更新本文件、README、开发指南和路径测试。

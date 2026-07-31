@@ -1,111 +1,140 @@
-﻿# 鉴权 API
+# 鉴权 API
 
-## 1. 文档目的
-说明令牌签发、刷新、吊销和读取当前主体接口。
+## 1. 范围与源码
 
-**最后更新范围**：覆盖本 API 的当前 route、contract、usecase、权限和测试，不包含前端页面调用约定。
+本模块提供用户名密码登录、refresh token 轮换、token session 吊销和当前主体自省。
 
-## 2. 适用读者
-- 新人开发者
-- 后端开发者
-- 测试维护者
-- 安全审查人员
-
-## 3. 关联源码
-| 路径 | 作用 |
+| 源码 | 职责 |
 | --- | --- |
-| `src/api/endpoint_auth_access/route_auth_access.py` | 鉴权路由。 |
-| `src/api/endpoint_auth_access/contract_auth_access.py` | 请求契约。 |
-| `src/application/issue_access_token_usecase.py` | 令牌签发用例。 |
-| `src/application/refresh_access_token_usecase.py` | 令牌刷新用例。 |
-| `src/application/revoke_access_token_usecase.py` | 令牌吊销用例。 |
+| `src/api/endpoint_auth_access/route_auth_access.py` | 4 个 route、同步桥接、认证失败安全事件。 |
+| `src/api/endpoint_auth_access/contract_auth_access.py` | 3 个请求模型及字段限制。 |
+| `src/application/issue_access_token_usecase.py` | 登录、密码 rehash、token session 落库。 |
+| `src/application/refresh_access_token_usecase.py` | refresh 轮换、重放吊销和双维度节流。 |
+| `src/application/revoke_access_token_usecase.py` | session 吊销与幂等返回。 |
+| `src/core/auth_contract/token_payload_contract.py` | token 响应与 JWT payload 契约。 |
 
-## 4. API 目的
-说明令牌签发、刷新、吊销和读取当前主体接口。
+## 2. 端点总表
 
-## 5. 路由入口
-| 方法 | 路径 | 路由函数 | 文件 |
-| --- | --- | --- | --- |
-| POST | /auth/token | `AuthAccessRouteCatalog.post_token` | `src/api/endpoint_auth_access/route_auth_access.py` |
-| POST | /auth/refresh | `AuthAccessRouteCatalog.post_refresh` | `src/api/endpoint_auth_access/route_auth_access.py` |
-| POST | /auth/revoke | `AuthAccessRouteCatalog.post_revoke` | `src/api/endpoint_auth_access/route_auth_access.py` |
-| GET | /auth/me | `AuthAccessRouteCatalog.get_me` | `src/api/endpoint_auth_access/route_auth_access.py` |
-
-## 6. 请求参数
-| 参数 | 位置 | 类型 | 是否必填 | 说明 |
+| 方法 | 路径 | 请求 | `data` | Route 级 Bearer |
 | --- | --- | --- | --- | --- |
-| username | body | str | token 必填 | 登录用户名；首尾空白会被裁剪，裁剪后长度为 1-128。 |
-| password | body | str | token 必填 | 登录密码；长度为 1-256。 |
-| refresh_token | body | str | refresh/revoke 必填 | 刷新令牌；长度为 16-4096，格式匹配 `^[A-Za-z0-9._~+/=-]+$`。 |
-| Authorization | header | Bearer token | me 必填 | 访问令牌。 |
+| POST | `/auth/token` | `TokenIssueRequest` | `TokenIssuePayload` | 否 |
+| POST | `/auth/refresh` | `TokenRefreshRequest` | `TokenIssuePayload` | 否 |
+| POST | `/auth/revoke` | `TokenRevokeRequest` | `TokenRevokePayload` | 否 |
+| GET | `/auth/me` | 无 | `AuthenticatedPrincipal` | 是 |
 
-### 6.1 认证请求模型约束
-| 请求模型 | 字段 | 约束 | 契约来源 |
-| --- | --- | --- | --- |
-| `TokenIssueRequest` | `username` | 先裁剪首尾空白；裁剪后长度必须为 1-128。 | `src/api/endpoint_auth_access/contract_auth_access.py` |
-| `TokenIssueRequest` | `password` | 长度必须为 1-256；不在接口层记录或回显原文。 | `src/api/endpoint_auth_access/contract_auth_access.py` |
-| `TokenRefreshRequest` | `refresh_token` | 长度必须为 16-4096，且仅允许字母、数字、`.`、`_`、`~`、`+`、`/`、`=`、`-`。 | `src/api/endpoint_auth_access/contract_auth_access.py` |
-| `TokenRevokeRequest` | `refresh_token` | 长度必须为 16-4096，且仅允许字母、数字、`.`、`_`、`~`、`+`、`/`、`=`、`-`。 | `src/api/endpoint_auth_access/contract_auth_access.py` |
+`/auth/revoke` 不要求另一个 access token；refresh token 本身是吊销凭据。4 个响应均由外层 `ResponseEnvelope[T]` 包装。
 
-认证请求体仍受全局 `runtime.web.max_request_body_bytes` 限制；字段级约束失败统一按请求契约错误返回。
+## 3. 请求契约
 
-## 7. 响应结构
-- `TokenIssueRequest`
-- `TokenRefreshRequest`
-- `TokenRevokeRequest`
-- `TokenIssuePayload`
-- `TokenRevokePayload`
-- `AuthenticatedPrincipal`
-- `ResponseEnvelope[...]`
-- `/auth/token` 和 `/auth/refresh` 的 `data` 为 `TokenIssuePayload`：`kind=token_issue`、`schema_version=1.1`、`access_token`、`refresh_token`、`token_type=Bearer`、`expires_in_seconds`、`refresh_expires_in_seconds`。
-- `/auth/revoke` 的 `data` 为 `TokenRevokePayload`：`kind=token_revoke`、`schema_version=1.1`、`revoked`、`revoked_at_epoch`；重复撤销已撤销会话保持幂等并复用原撤销时间。
-- `/auth/me` 的 `data` 为 `AuthenticatedPrincipal`：`kind=authenticated_principal`、`schema_version=1.0`、`subject_id`、`username`、`roles`、`scopes`、`is_admin`。
-- `TokenIssueRequest`、`TokenRefreshRequest`、`TokenRevokeRequest` 均使用 `extra="forbid"`，未知字段直接按请求契约错误处理，并在接口边界执行长度、格式与用户名规范化校验。
+三个 body model 都设置 `extra="forbid"`，未知字段返回 `422 system.request.invalid`。
 
-## 8. 鉴权与权限
-`/auth/token`、`/auth/refresh`、`/auth/revoke` 不声明路由级 bearer dependency；`/auth/me` 使用 `HTTPBearer(auto_error=False)` 并通过 `read_authenticated_principal` 要求登录。
+| 请求 | 字段 | 精确约束 |
+| --- | --- | --- |
+| `TokenIssueRequest` | `username` | string，原始长度 1..128；validator 去首尾空白，结果不得为空。归一化后的值传入登录与失败审计。 |
+| `TokenIssueRequest` | `password` | string，长度 1..256；不做 trim。 |
+| `TokenRefreshRequest` | `refresh_token` | string，长度 16..4096，正则 `^[A-Za-z0-9._~+/=-]+$`。 |
+| `TokenRevokeRequest` | `refresh_token` | 与 refresh 请求相同。 |
+| `/auth/me` | `Authorization` | `Bearer <access_token>`；refresh token 因 `token_use` 不匹配而无效。 |
 
-## 9. 业务流程
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Route
-    participant Bridge as RequestExecutionBridge
-    participant Usecase
-    participant Port as SharedResourceMount/Repository
-    Client->>Route: HTTP request
-    Route->>Bridge: run_sync when usecase is synchronous
-    Bridge->>Usecase: IssueAccessTokenUsecase / RefreshAccessTokenUsecase / RevokeTokenSessionUsecase
-    Usecase->>Port: read/write/query
-    Port-->>Usecase: snapshot/result
-    Usecase-->>Route: DTO or payload
-    Route-->>Client: ResponseEnvelope
+请求体还受全局 `runtime.web.max_request_body_bytes` 约束，超限为 `413 system.request.payload_too_large`。
+
+## 4. 响应契约
+
+### 4.1 token 签发/刷新
+
+`TokenIssuePayload`：
+
+| 字段 | 类型/值 |
+| --- | --- |
+| `kind` | 固定 `token_issue` |
+| `schema_version` | 固定 `1.1` |
+| `access_token` | JWT access token 原文 |
+| `refresh_token` | JWT refresh token 原文 |
+| `token_type` | 固定 `Bearer` |
+| `expires_in_seconds` | access token 有效期 |
+| `refresh_expires_in_seconds` | refresh token 有效期 |
+
+### 4.2 吊销
+
+`TokenRevokePayload` 为 `kind=token_revoke`、`schema_version=1.1`、`revoked: bool`、`revoked_at_epoch: int`。当前成功路径总是 `revoked=True`；重复吊销同一现存会话复用第一次的时间。
+
+### 4.3 当前主体
+
+`AuthenticatedPrincipal` 为 `kind=authenticated_principal`、`schema_version=1.0`，并包含 `subject_id`、`username`、`roles[]`、`scopes[]`、`is_admin`。`is_admin` 由是否包含 `admin` role 派生；拥有业务角色的普通用户可访问 `/auth/me`，但不能因此访问后台 API。
+
+## 5. 登录语义
+
+1. 先按 username 执行认证失败节流断言。
+2. 同一数据库事务读取身份、校验状态/密码、按需升级密码 hash、签发 token pair 并写 refresh session。
+3. 用户不存在、用户停用、密码错误统一返回 `401 auth.access.invalid_credentials`，并累计同一 username 的失败次数。
+4. commit 成功后清除失败计数。
+5. route 对 `invalid_credentials/request_throttled` 记录摘要化的登录失败/限流安全事件；risk control 启用且识别密码喷洒时追加 `auth_password_spray_suspected` 事件。用户名、IP、User-Agent 以 digest 记录。
+
+登录时“停用”刻意不返回 `account_disabled`，避免暴露账号存在性。
+
+## 6. refresh 轮换语义
+
+1. client IP 由可信代理策略下的 `ClientIpResolver` 解析，不直接信任任意 `X-Forwarded-For`。
+2. 同时检查 `refresh_token|ip:<resolved_ip>` 与 `refresh_token|global` 节流主体。
+3. 事务外按 `TokenUse.REFRESH` 解码；解码失败累计两个主体的失败计数。
+4. 事务内 `SELECT ... FOR UPDATE` 读取 token id，并核对 subject、session id、rotated/revoked 状态和当前身份。
+5. 正常轮换沿用 `token_session_id`；先写新 refresh 行，再把旧行标记为 rotated/revoked。
+6. 旧 token 已轮换时视为重放，吊销整个 session 后单独 commit，再返回 `401 auth.token.reused`。
+7. 成功 commit 后才清除两个刷新失败计数。
+
+route 对 refresh 的 `HttpFaultException` 发安全事件：重放映射为 `auth_refresh_reused`，其他 fault 以 `auth_token_invalid` 事件类型记录，token/IP/User-Agent 只写 digest。
+
+## 7. 吊销与 access token 即时失效
+
+- revoke 验证 refresh JWT、数据库记录、subject 和 session id；不存在/不匹配为 `401 auth.token.invalid`。
+- 吊销作用于整个 `token_session_id`，不是只改当前 refresh token 行。
+- access token 中虽然携带 roles/scopes，受保护请求仍读取当前身份授权真值；用户停用、密码重置或角色替换导致 refresh sessions 吊销，并可使存量 access token 在中间件校验时立即失效或失去权限。
+- revoke 当前没有登录/refresh 那样的失败节流和专用 route 失败审计。
+
+## 8. 错误码
+
+| HTTP | 错误码 | 端点与触发条件 |
+| --- | --- | --- |
+| 400/422 | `system.request.invalid` | JSON/Pydantic 请求不满足契约；通常验证错误由 presenter 返回 422。 |
+| 401 | `auth.access.invalid_credentials` | `/auth/token` 用户名、状态或密码失败。 |
+| 403 | `auth.access.account_disabled` | refresh 或 `/auth/me` 对应主体已停用。 |
+| 401 | `auth.token.invalid` | 签名/格式/用途错误，session 记录不存在，subject/session 不匹配。 |
+| 401 | `auth.token.expired` | access 或 refresh token 过期。 |
+| 401 | `auth.token.revoked` | refresh token session 已吊销，或受保护请求发现 session 吊销。 |
+| 401 | `auth.token.reused` | 已轮换 refresh token 被再次使用。 |
+| 429 | `auth.request.throttled` | 登录 username 或 refresh IP/global 维度超阈值。 |
+| 413 | `system.request.payload_too_large` | body 超全局上限。 |
+| 503 | `system.resource.not_ready` | 认证所需数据库/缓存/runtime 未就绪。 |
+
+## 9. 使用示例
+
+```json
+{
+  "username": "admin",
+  "password": "<password>"
+}
 ```
 
-## 10. 错误码
-| 错误码 | HTTP 状态 | 触发条件 | 来源 |
-| --- | --- | --- | --- |
-| auth.access.invalid_credentials | 401 | 用户名或密码无效。 | src/domain/auth/auth_error_code.py |
-| auth.request.throttled | 429 | 认证失败频率超过限制。 | src/domain/auth/auth_error_code.py |
-| auth.token.invalid | 401 | 令牌无效。 | src/domain/auth/auth_error_code.py |
-| auth.token.expired | 401 | 访问令牌或刷新令牌已过期。 | src/domain/auth/auth_error_code.py |
-| auth.token.revoked | 401 | 访问令牌所属刷新令牌会话已被吊销。 | src/domain/auth/auth_error_code.py |
-| auth.token.reused | 401 | 刷新令牌复用。 | src/domain/auth/auth_error_code.py |
-| auth.access.account_disabled | 403 | 刷新令牌或访问令牌绑定主体已停用。 | src/domain/auth/auth_error_code.py |
-| system.request.invalid | 422 | 请求体结构、字段类型或额外字段不满足 Pydantic 契约。 | src/infrastructure/fastapi_exception_presenter.py |
-| system.request.payload_too_large | 413 | 请求体超过 `runtime.web.max_request_body_bytes`。 | src/infrastructure/middleware_chain/payload_guard_middleware.py |
+```http
+Authorization: Bearer <access_token>
+```
 
-## 11. 测试用例
-| 测试文件 | 覆盖内容 |
+客户端应把 refresh token 当作一次性轮换凭据：refresh 成功后原子替换本地 token pair；若得到 `auth.token.reused`，应清除整个本地会话并重新登录。
+
+## 10. 事实核验测试
+
+| 测试 | 覆盖事实 |
 | --- | --- |
-| `test/interface_test/test_security_http_interface.py` | 鉴权 HTTP 行为。 |
-| `test/interface_test/test_rate_limit_http_interface.py` | 限流行为。 |
-| `test/unit_test/test_auth_persistence_unit.py` | 认证持久化。 |
+| `test/interface_test/test_http_interface.py` | token/refresh/revoke/me、过期和 OpenAPI principal。 |
+| `test/interface_test/test_security_http_interface.py` | 登录与访问认证行为。 |
+| `test/interface_test/test_rate_limit_http_interface.py` | 登录限流。 |
+| `test/interface_test/test_security_event_http_interface.py` | 登录/refresh 安全事件。 |
+| `test/contract_test/test_refresh_token_invalidation_contract.py` | refresh session 失效契约。 |
+| `test/integration_test/admin_identity/test_admin_identity_rbac_integration.py` | 身份变更后的 refresh session 吊销。 |
+| `test/path_test/test_runtime_path.py` | 端到端认证运行路径。 |
 
-## 12. 扩展注意事项
-- 认证失败会记录安全事件和风险信号。
-- 修改令牌结构时同步 `src/core/auth_contract/token_payload_contract.py`。
+## 11. 相关文档
 
-## 13. 相关文档
-- [项目文档总览](../README.md)
+- [领域模型与常量](../03_application_domain/domain_model_and_constants.md)
+- [应用用例](../03_application_domain/application_usecases.md)
 - [API 总览](api_overview.md)

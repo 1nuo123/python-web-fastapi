@@ -18,12 +18,15 @@ LOG_WRITE_RESULT_KIND = "log_write_result"
 class LogWriteReason(StrEnum):
     """
     日志刷盘触发原因枚举。
+
+    :cvar AUDIT_CRITICAL: 审计关键事件即时落库批次，用于失败归因与指标标签。
     """
 
     BUFFER_LIMIT = "buffer_limit"
     INTERVAL = "interval"
     SHUTDOWN = "shutdown"
     MANUAL = "manual"
+    AUDIT_CRITICAL = "audit_critical"
 
 
 class LogWriteRequest(BaseModel):

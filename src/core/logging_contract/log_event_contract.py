@@ -11,12 +11,17 @@ from typing import Annotated, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.core.http_contract.runtime_resource_contract import RuntimeResourceStatus
-from src.core.security_contract.security_event_contract import SecurityEventEnvelope
+from src.core.security_contract.security_event_contract import (
+    SecurityEventEnvelope,
+    SecurityEventType,
+)
+from src.core.stream_contract.stream_event_contract import StreamCloseReason, StreamTransport
 
-LOG_EVENT_SCHEMA_VERSION: Final = "1.0"
+LOG_EVENT_SCHEMA_VERSION: Final = "1.1"
 REQUEST_LOG_CONTEXT_KIND: Final = "request_log_context"
 LOG_EVENT_HEADER_KIND: Final = "log_event_header"
 ACCESS_LOG_DETAIL_KIND: Final = "access"
+STREAM_ACCESS_LOG_DETAIL_KIND: Final = "stream_access"
 EXCEPTION_LOG_DETAIL_KIND: Final = "exception"
 RESOURCE_LIFECYCLE_LOG_DETAIL_KIND: Final = "resource_lifecycle"
 TASK_FAILURE_LOG_DETAIL_KIND: Final = "task_failure"
@@ -27,6 +32,26 @@ SOURCE_NAME_MINIMUM_LENGTH = 1
 ELAPSED_MILLISECONDS_MINIMUM = 0.0
 HTTP_STATUS_CODE_MINIMUM = 100
 HTTP_STATUS_CODE_MAXIMUM = 599
+
+
+class LogPersistencePriority(StrEnum):
+    """
+    日志持久化优先级枚举。
+
+    :cvar STANDARD: 标准优先级，事件进入缓冲区按容量或时间窗口批量刷盘。
+    :cvar AUDIT_CRITICAL: 审计关键优先级，事件绕过缓冲区在发射线程内即时同步落库。
+    """
+
+    STANDARD = "standard"
+    AUDIT_CRITICAL = "audit_critical"
+
+
+AUDIT_CRITICAL_SECURITY_EVENT_TYPES: Final[frozenset[SecurityEventType]] = frozenset(
+    {
+        SecurityEventType.ADMIN_IDENTITY_CHANGED,
+        SecurityEventType.CONFIG_SECURITY_REJECTED,
+    }
+)
 
 
 class LogLevel(StrEnum):
@@ -47,6 +72,7 @@ class LogEventKind(StrEnum):
     """
 
     ACCESS = ACCESS_LOG_DETAIL_KIND
+    STREAM_ACCESS = STREAM_ACCESS_LOG_DETAIL_KIND
     EXCEPTION = EXCEPTION_LOG_DETAIL_KIND
     RESOURCE_LIFECYCLE = RESOURCE_LIFECYCLE_LOG_DETAIL_KIND
     TASK_FAILURE = TASK_FAILURE_LOG_DETAIL_KIND
@@ -71,7 +97,7 @@ class RequestLogContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["request_log_context"] = REQUEST_LOG_CONTEXT_KIND
-    schema_version: Literal["1.0"] = LOG_EVENT_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
     request_id: str = Field(min_length=EVENT_ID_MINIMUM_LENGTH)
     trace_id: str | None = None
     request_path: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
@@ -84,16 +110,20 @@ class RequestLogContext(BaseModel):
 class LogEventHeader(BaseModel):
     """
     日志公共头字段模型。
+
+    :ivar persistence_priority: 日志持久化优先级；``audit_critical`` 事件绕过缓冲即时落库。
+    :vartype persistence_priority: LogPersistencePriority
     """
 
     model_config = ConfigDict(extra="forbid")
 
     header_kind: Literal["log_event_header"] = LOG_EVENT_HEADER_KIND
-    schema_version: Literal["1.0"] = LOG_EVENT_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
     event_id: str = Field(min_length=EVENT_ID_MINIMUM_LENGTH)
     occurred_at: datetime
     level: LogLevel
     kind: LogEventKind
+    persistence_priority: LogPersistencePriority = LogPersistencePriority.STANDARD
     message: str = Field(min_length=MESSAGE_MINIMUM_LENGTH)
     request_id: str | None = None
     trace_id: str | None = None
@@ -110,7 +140,7 @@ class AccessLogDetail(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["access"] = ACCESS_LOG_DETAIL_KIND
-    schema_version: Literal["1.0"] = LOG_EVENT_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
     request_path: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
     request_method: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
     status_code: int = Field(
@@ -123,6 +153,24 @@ class AccessLogDetail(BaseModel):
     route_name: str | None = None
 
 
+class StreamAccessLogDetail(BaseModel):
+    """流会话完成后的低基数访问日志扩展。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["stream_access"] = STREAM_ACCESS_LOG_DETAIL_KIND
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
+    request_path: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
+    request_method: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
+    status_code: int = Field(ge=HTTP_STATUS_CODE_MINIMUM, le=HTTP_STATUS_CODE_MAXIMUM)
+    elapsed_milliseconds: float = Field(ge=ELAPSED_MILLISECONDS_MINIMUM)
+    operation_name: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
+    transport: StreamTransport
+    event_count: int = Field(ge=0)
+    close_reason: StreamCloseReason
+    subject_digest: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
+
+
 class ExceptionLogDetail(BaseModel):
     """
     异常日志扩展字段模型。
@@ -131,7 +179,7 @@ class ExceptionLogDetail(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["exception"] = EXCEPTION_LOG_DETAIL_KIND
-    schema_version: Literal["1.0"] = LOG_EVENT_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
     request_path: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
     request_method: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
     status_code: int = Field(
@@ -152,7 +200,7 @@ class ResourceLifecycleLogDetail(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["resource_lifecycle"] = RESOURCE_LIFECYCLE_LOG_DETAIL_KIND
-    schema_version: Literal["1.0"] = LOG_EVENT_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
     resource_name: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
     lifecycle_action: ResourceLifecycleAction
     resource_status: RuntimeResourceStatus
@@ -167,7 +215,7 @@ class TaskFailureLogDetail(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["task_failure"] = TASK_FAILURE_LOG_DETAIL_KIND
-    schema_version: Literal["1.0"] = LOG_EVENT_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
     task_id: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
     job_kind: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
     backend: str = Field(min_length=SOURCE_NAME_MINIMUM_LENGTH)
@@ -190,12 +238,13 @@ class SecurityLogDetail(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["security"] = SECURITY_LOG_DETAIL_KIND
-    schema_version: Literal["1.0"] = LOG_EVENT_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
     security_event: SecurityEventEnvelope
 
 
 LogDetailUnion = Annotated[
     AccessLogDetail
+    | StreamAccessLogDetail
     | ExceptionLogDetail
     | ResourceLifecycleLogDetail
     | TaskFailureLogDetail

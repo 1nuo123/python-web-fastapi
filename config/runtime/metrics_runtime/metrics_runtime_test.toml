@@ -1,2 +1,8 @@
 [runtime.header]
 enabled = false
+
+[runtime.detail]
+include_security_metrics = true
+include_task_metrics = true
+include_log_buffer_metrics = true
+include_saturation_metrics = true

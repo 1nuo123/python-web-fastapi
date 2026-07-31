@@ -1237,3 +1237,18 @@ config/
   5. `$env:RABBITMQ_INTEGRATION_ENABLED='1'; .\.venv\Scripts\python.exe -m pytest -q -rs test/integration_test/test_funboost_rabbitmq_integration.py test/integration_test/test_security_ip_block_integration.py`：通过，`9 passed, 61 warnings`，无 skip；
   6. `$env:RABBITMQ_INTEGRATION_ENABLED='1'; .\.venv\Scripts\python.exe -m pytest -q`：通过，`630 passed, 62 warnings`。
 - 当前仍存在既有第三方或历史测试告警：`pythonjsonlogger` 包路径迁移、`invoke` 使用 `imp`、`passlib` 读取 `argon2.__version__`、`funboost` 使用 Pydantic 旧接口，以及 `TestRouteBinder` 因辅助类构造函数被 Pytest 跳过收集。这些告警不影响本次验收结论。
+
+### 12.22 2026-07-30 WebSocket 与 SSE 统一流式基建回归
+
+- 流式能力的唯一业务入口为 `StreamEventSourcePort[TCommand, TDetail]`。业务源只产生强类型扩展事件，`StreamExecutionOrchestrator` 统一补齐 started/completed/fault、严格递增 sequence、会话超时、单事件字节上限和有界队列背压。非流式 HTTP、SSE 与 WebSocket 均复用该入口。
+- 公开事件、客户端控制、操作绑定、访问票据、有限重放和 local/redis 运行时继续遵循“公共头字段 + 强类型扩展字段”。判别 kind、schema_version 或额外字段不一致时直接拒绝，不使用自由字典承载稳定契约。
+- 非流式 HTTP 通过 `collect()` 执行最大事件数、最大字节数和超时三重限制，并使用现有 `ResponseEnvelope` 交付；它不是独立业务实现。
+- SSE 通过 `sse-starlette` 输出 `id/event/data/retry`，固定 `Cache-Control: no-cache, no-transform` 与 `X-Accel-Buffering: no`，注释心跳不占用业务 sequence。Bearer 浏览器使用 POST fetch streaming；native EventSource 使用 GET、URL 编码强类型 command 和短期单次票据，禁止长期 JWT 查询参数。
+- WebSocket 在 accept 前完成 Origin、Bearer/票据、授权、IP、限流和会话配额校验；新连接首帧只允许 subscribe 或 resume，订阅运行中只允许 cancel/ping。中途 resume、重复 subscribe 或其他非法状态转换会发送 stream_fault 并以 1008 关闭。关闭码冻结为 1000、1001、1008、1009、1011、1013。
+- 实时交付语义为至多一次。Redis 只提供绑定主体与操作、受 TTL 和最大事件数约束的有限恢复窗口，不充当持久消息队列；票据消费使用原子操作并 fail-closed，已建连会话的重放写入失败只关闭恢复能力，实时发送继续并记录中文告警。
+- `RequestScopeMiddleware`、`ElapsedProbeMiddleware`、`AccessLogMiddleware` 和指标出口已按纯 ASGI 生命周期覆盖 HTTP、SSE、WebSocket。会话结束后才记录耗时和访问日志；指标标签仅使用受控 transport/outcome/reason/event_kind 集合。
+- lifespan 顺序为同步共享资源启动后再启动流资源；关闭时先拒绝新会话、通知现有会话、在 grace 内等待、取消剩余任务、关闭状态存储，再释放其他共享资源。生成器执行 `aclose()`，`CancelledError` 保持传播，会话租约幂等释放。
+- Uvicorn 由 `python -m src.cli.run_web_server` 启动，并从 `runtime.stream` 投影 WS 消息大小、ping interval、ping timeout 和优雅停机参数。Compose 设置 40 秒 stop grace、PID/内存边界并注入 `REDIS_URL`。
+- 当前生产绑定是管理员任务执行观察流：`/admin/tasks/executions/watch/batch`、`/admin/tasks/executions/watch/stream`、`/admin/tasks/executions/watch/ws`；`/admin/tasks/executions/watch/ticket` 仅在 `require_browser_ticket=true` 时注册。测试专用 `/testing/stream/*` 不进入生产路由。
+- 最终项目环境回归为 `921 passed, 241 warnings`，总覆盖率 `90.07%`；独立流容量与真实 SSE/WS 反复连接测试为 `2 passed, 16 warnings`，资源增长保持在冻结阈值内。
+- 完整协议、浏览器示例、代理要求和当前测试基线见 [WebSocket 与 SSE 统一流式协议](WebSocket与SSE统一流式协议.md)。若历史流式描述与该文档或当前源码冲突，以当前强类型契约为准。

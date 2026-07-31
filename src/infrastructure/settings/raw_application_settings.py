@@ -962,6 +962,10 @@ class RawPrometheusMetricsRuntimeDetailMapping(TypedDict, total=False):
     metrics_path: str
     include_http_metrics: bool
     include_runtime_metrics: bool
+    include_security_metrics: bool
+    include_task_metrics: bool
+    include_log_buffer_metrics: bool
+    include_saturation_metrics: bool
 
 
 class RawMetricsRuntimeMapping(TypedDict, total=False):
@@ -1001,6 +1005,62 @@ class RawLoggingRuntimeMapping(TypedDict, total=False):
     entry_project_name: str
     entry_log_path: str
     sink_detail: RawDatabaseLogSinkDetailMapping
+
+
+class RawStreamRuntimeHeaderMapping(TypedDict, total=False):
+    """原始流运行时公共头映射。"""
+
+    kind: str
+    schema_version: str
+    mode: str
+    enabled: bool
+
+
+class RawLocalStreamRuntimeDetailMapping(TypedDict, total=False):
+    """原始本地流运行时扩展映射。"""
+
+    kind: str
+    schema_version: str
+    queue_capacity: int
+    send_timeout_seconds: float
+    max_duration_seconds: float
+    max_event_bytes: int
+    collection_max_events: int
+    collection_max_bytes: int
+    collection_timeout_seconds: float
+    max_sessions: int
+    max_sessions_per_subject: int
+    max_sessions_per_ip: int
+    max_sessions_per_operation: int
+    ticket_ttl_seconds: int
+    replay_ttl_seconds: int
+    replay_max_events: int
+    sse_heartbeat_seconds: int
+    sse_retry_milliseconds: int
+    websocket_max_message_bytes: int
+    websocket_ping_interval_seconds: float
+    websocket_ping_timeout_seconds: float
+    shutdown_grace_seconds: float
+    allowed_origins: list[str]
+    require_browser_ticket: bool
+
+
+class RawRedisStreamRuntimeDetailMapping(RawLocalStreamRuntimeDetailMapping, total=False):
+    """原始 Redis 流运行时扩展映射。"""
+
+    redis_url: str
+    redis_key_prefix: str
+    redis_socket_connect_timeout_seconds: float
+    redis_max_connections: int
+
+
+class RawStreamRuntimeMapping(TypedDict, total=False):
+    """原始流运行时信封映射。"""
+
+    envelope_kind: str
+    schema_version: str
+    header: RawStreamRuntimeHeaderMapping
+    detail: RawLocalStreamRuntimeDetailMapping | RawRedisStreamRuntimeDetailMapping
 
 
 class RawDistributedLockRuntimeHeaderMapping(TypedDict, total=False):
@@ -1114,6 +1174,7 @@ class RawRuntimeRootMapping(TypedDict, total=False):
     logging: RawLoggingRuntimeMapping
     distributed_lock: RawDistributedLockRuntimeMapping
     key_management: RawKeyManagementRuntimeMapping
+    stream: RawStreamRuntimeMapping
 
 
 class RawSettingsMapping(TypedDict, total=False):
@@ -1187,6 +1248,7 @@ class RawRuntimeTomlContent(TypedDict, total=False):
         | RawOtelRuntimeMapping
         | RawMetricsRuntimeMapping
         | RawLoggingRuntimeMapping
+        | RawStreamRuntimeMapping
     )
 
 

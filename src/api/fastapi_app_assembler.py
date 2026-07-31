@@ -13,6 +13,8 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from src.api.admin_task_stream_binding_factory import AdminTaskStreamBindingFactory
+from src.api.fastapi_stream_route_composer import FastApiStreamRouteComposer
 from src.api.task_binding_provider import ApplicationTaskBindingProvider
 from src.api.web_bundle_catalog import WebBundleCatalog
 from src.application.admin.apply_admin_settings_reload_usecase import (
@@ -110,6 +112,7 @@ from src.application.refresh_access_token_usecase import RefreshAccessTokenUseca
 from src.application.revoke_access_token_usecase import RevokeTokenSessionUsecase
 from src.application.system_overview_usecase import SystemOverviewUsecase
 from src.core.http_contract.response_envelope_contract import ResponseEnvelopeFactory
+from src.core.http_contract.web_bundle_contract import ApplicationModuleName
 from src.infrastructure.admin_settings_reload_adapter import AdminSettingsReloadAdapter
 from src.infrastructure.fastapi_exception_presenter import FastApiExceptionPresenter
 from src.infrastructure.fastapi_lifespan_orchestrator import FastApiLifespanOrchestrator
@@ -120,6 +123,7 @@ from src.infrastructure.fastapi_route_composer import FastApiRouteComposer
 from src.infrastructure.logging.app_logger_factory import AppLoggerFactory
 from src.infrastructure.observability.prometheus_metrics_registry import (
     PrometheusMetricsRegistry,
+    PrometheusMetricsRegistryOptions,
 )
 from src.infrastructure.observability.prometheus_metrics_route import (
     PrometheusHttpMetricsMiddleware,
@@ -194,6 +198,7 @@ class ApplicationContainer:
     settings_holder: SettingsStateHolder
     response_factory: ResponseEnvelopeFactory
     resource_mount: SharedResourceMount
+    stream_route_composer: FastApiStreamRouteComposer
     health_probe_usecase: HealthProbeUsecase
     system_overview_usecase: SystemOverviewUsecase
     issue_access_token_usecase: IssueAccessTokenUsecase
@@ -307,7 +312,7 @@ class FastApiAppAssembler:
             logger=logger,
         ).bind(app)
         self._bind_middlewares(app=app, container=container, logger=logger)
-        self._bind_prometheus_metrics(app=app, settings=settings)
+        self._bind_prometheus_metrics(app=app, settings=settings, resource_mount=resource_mount)
         mounted_modules = FastApiRouteComposer().compose(
             app=app,
             bundles=web_bundle_catalog.build(),
@@ -315,6 +320,18 @@ class FastApiAppAssembler:
             api_prefix=settings.runtime.web.api_prefix,
         )
         resource_mount.set_enabled_web_modules(mounted_modules)
+        if (
+            settings.runtime.stream.header.enabled
+            and ApplicationModuleName.ADMIN_TASK.value in mounted_modules
+        ):
+            container.stream_route_composer.compose(
+                app=app,
+                bindings=AdminTaskStreamBindingFactory().build(
+                    settings=settings,
+                    resource_mount=resource_mount,
+                    response_factory=container.response_factory,
+                ),
+            )
         FastApiOpenApiSurface(app=app, resource_mount=resource_mount).bind()
         return app
 
@@ -484,6 +501,7 @@ class FastApiAppAssembler:
             settings_holder=settings_holder,
             response_factory=ResponseEnvelopeFactory(),
             resource_mount=resource_mount,
+            stream_route_composer=FastApiStreamRouteComposer(),
             health_probe_usecase=HealthProbeUsecase(settings_reader_port=resource_mount),
             system_overview_usecase=SystemOverviewUsecase(
                 settings_reader_port=resource_mount,
@@ -616,14 +634,20 @@ class FastApiAppAssembler:
         *,
         app: FastAPI,
         settings: ApplicationSettings,
+        resource_mount: SharedResourceMount,
     ) -> None:
         """
         按运行时配置绑定 Prometheus 指标出口。
+
+        指标注册器同时挂载到共享资源挂载点，供日志缓冲、任务执行链与
+        饱和度刷新在启动阶段读取。
 
         :param app: 当前 FastAPI 应用。
         :type app: FastAPI
         :param settings: 已完成校验的应用配置。
         :type settings: ApplicationSettings
+        :param resource_mount: 共享资源挂载点。
+        :type resource_mount: SharedResourceMount
         :returns: 无返回值。
         :rtype: None
         """
@@ -631,13 +655,24 @@ class FastApiAppAssembler:
         metrics_settings = settings.runtime.metrics
         if not metrics_settings.header.enabled:
             return
-        registry = PrometheusMetricsRegistry()
+        registry = PrometheusMetricsRegistry(
+            options=PrometheusMetricsRegistryOptions(
+                include_security_metrics=metrics_settings.detail.include_security_metrics,
+                include_task_metrics=metrics_settings.detail.include_task_metrics,
+                include_log_buffer_metrics=metrics_settings.detail.include_log_buffer_metrics,
+                include_saturation_metrics=metrics_settings.detail.include_saturation_metrics,
+            )
+        )
+        resource_mount.install_metrics_registry(registry)
         if metrics_settings.detail.include_http_metrics:
             app.add_middleware(PrometheusHttpMetricsMiddleware, registry=registry)
         PrometheusMetricsRoute(
             registry=registry,
             metrics_path=metrics_settings.detail.metrics_path,
             include_runtime_metrics=metrics_settings.detail.include_runtime_metrics,
+            saturation_probe=(
+                resource_mount if metrics_settings.detail.include_saturation_metrics else None
+            ),
         ).bind(app)
 
     def _bind_middlewares(

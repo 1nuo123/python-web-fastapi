@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/04_infrastructure/configuration_system.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
-    "verified_at": "2026-07-19T02:31:56.758477Z"
+    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+    "verified_at": "2026-07-31T01:57:20.433190Z"
   },
   "kind": "architecture",
   "detail": {
@@ -13,7 +13,7 @@
     "evidence_path": "docs\\project_manual\\04_infrastructure\\configuration_system.md",
     "status": "current",
     "replacement_path": null,
-    "content_sha256": "ac285ff914c92b3f1edb891bec96aa4704c37abd7025e570081fd0fd70d53f92",
+    "content_sha256": "182aaaaa274d606515b3079632e6925fc0407dc3d86602ef614a670c6f3a09ca",
     "validation_status": "verified",
     "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
     "fact_evidence_paths": [

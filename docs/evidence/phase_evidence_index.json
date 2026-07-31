@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-07-19T02:31:57.801938Z",
+  "generated_at": "2026-07-31T01:57:21.106080Z",
   "test_runs": [
     "docs\\evidence\\test-runs\\phase3-final-image.json",
     "docs\\evidence\\test-runs\\phase3-final-load.json",
@@ -127,37 +127,36 @@
   "blocked_documentation": [],
   "open_regressions": [],
   "fixed_regressions": [
+    "docs\\evidence\\regressions\\REG-001.json",
     "docs\\evidence\\regressions\\REG-002.json",
+    "docs\\evidence\\regressions\\REG-003.json",
     "docs\\evidence\\regressions\\REG-004.json",
     "docs\\evidence\\regressions\\REG-005.json",
     "docs\\evidence\\regressions\\REG-006.json",
+    "docs\\evidence\\regressions\\REG-007.json",
     "docs\\evidence\\regressions\\REG-008.json",
+    "docs\\evidence\\regressions\\REG-009.json",
     "docs\\evidence\\regressions\\REG-010.json",
+    "docs\\evidence\\regressions\\REG-011.json",
+    "docs\\evidence\\regressions\\REG-012.json",
     "docs\\evidence\\regressions\\REG-013.json",
     "docs\\evidence\\regressions\\REG-014.json",
     "docs\\evidence\\regressions\\REG-015.json",
     "docs\\evidence\\regressions\\REG-016.json",
-    "docs\\evidence\\regressions\\REG-021.json",
-    "docs\\evidence\\regressions\\REG-022.json",
-    "docs\\evidence\\regressions\\REG-023.json",
-    "docs\\evidence\\regressions\\REG-026.json"
-  ],
-  "verified_regressions": [
-    "docs\\evidence\\regressions\\REG-001.json",
-    "docs\\evidence\\regressions\\REG-003.json",
-    "docs\\evidence\\regressions\\REG-007.json",
-    "docs\\evidence\\regressions\\REG-009.json",
-    "docs\\evidence\\regressions\\REG-011.json",
-    "docs\\evidence\\regressions\\REG-012.json",
     "docs\\evidence\\regressions\\REG-017.json",
     "docs\\evidence\\regressions\\REG-018.json",
     "docs\\evidence\\regressions\\REG-019.json",
     "docs\\evidence\\regressions\\REG-020.json",
+    "docs\\evidence\\regressions\\REG-021.json",
+    "docs\\evidence\\regressions\\REG-022.json",
+    "docs\\evidence\\regressions\\REG-023.json",
     "docs\\evidence\\regressions\\REG-024.json",
-    "docs\\evidence\\regressions\\REG-025.json"
+    "docs\\evidence\\regressions\\REG-025.json",
+    "docs\\evidence\\regressions\\REG-026.json"
   ],
+  "verified_regressions": [],
   "rejected_regressions": [],
-  "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+  "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
   "current_test_runs": [
     "docs\\evidence\\test-runs\\phase3-final-image.json",
     "docs\\evidence\\test-runs\\phase3-final-load.json",
@@ -165,9 +164,10 @@
     "docs\\evidence\\test-runs\\phase3-final-offline.json",
     "docs\\evidence\\test-runs\\phase3-final-regression.json",
     "docs\\evidence\\test-runs\\phase3-final-security.json",
-    "docs\\evidence\\test-runs\\phase3-final-static.json",
+    "docs\\evidence\\test-runs\\phase3-final-static.json"
+  ],
+  "stale_test_runs": [
     "docs\\evidence\\test-runs\\phase4-directed-regression.json"
   ],
-  "stale_test_runs": [],
   "missing_required_test_run_ids": []
 }

@@ -30,7 +30,16 @@ from src.infrastructure.persistence.repository_impl.log_record_repository_impl i
     LogRecordRepositoryImpl,
 )
 from src.infrastructure.resource_mount.shared_resource_constants import (
+    ADMIN_AUDIT_ACTION_BY_OPERATION,
     ADMIN_AUDIT_OPERATION_BY_ACTION,
+    ADMIN_AUDIT_OPERATION_ROLE_CREATE,
+    ADMIN_AUDIT_OPERATION_ROLE_DELETE,
+    ADMIN_AUDIT_OPERATION_ROLE_SCOPE_REPLACE,
+    ADMIN_AUDIT_OPERATION_ROLE_UPDATE,
+    ADMIN_AUDIT_OPERATION_SCOPE_CREATE,
+    ADMIN_AUDIT_OPERATION_SCOPE_DELETE,
+    ADMIN_AUDIT_OPERATION_SCOPE_UPDATE,
+    ADMIN_AUDIT_OPERATION_SETTINGS_RELOAD,
 )
 
 AUDIT_QUERY_EVENT_ID = "audit-query-unit-event"
@@ -112,6 +121,64 @@ class TestAdminAuditQueryUnit:
         assert AdminAuditAction.USER_ENABLED.value in action_values
         assert AdminAuditAction.PASSWORD_RESET.value in action_values
         assert AdminAuditAction.ROLE_ASSIGNED.value in action_values
+
+    def test_action_whitelist_should_contain_scope_role_settings_actions(self) -> None:
+        """
+        验证业务审计动作白名单覆盖 scope、role 与 settings 变更动作。
+        """
+
+        action_values = {action.value for action in AdminAuditAction}
+
+        assert AdminAuditAction.SCOPE_CHANGED.value in action_values
+        assert AdminAuditAction.ROLE_CREATED.value in action_values
+        assert AdminAuditAction.ROLE_UPDATED.value in action_values
+        assert AdminAuditAction.ROLE_DELETED.value in action_values
+        assert AdminAuditAction.ROLE_ROLES_REPLACED.value in action_values
+        assert AdminAuditAction.SETTINGS_RELOADED.value in action_values
+
+    def test_new_actions_should_map_to_identity_operation_names(self) -> None:
+        """
+        验证新动作枚举到操作名映射与反向映射一致。
+        """
+
+        assert ADMIN_AUDIT_OPERATION_BY_ACTION[AdminAuditAction.SCOPE_CHANGED] == (
+            ADMIN_AUDIT_OPERATION_SCOPE_CREATE,
+            ADMIN_AUDIT_OPERATION_SCOPE_UPDATE,
+            ADMIN_AUDIT_OPERATION_SCOPE_DELETE,
+        )
+        assert ADMIN_AUDIT_OPERATION_BY_ACTION[AdminAuditAction.ROLE_CREATED] == (
+            ADMIN_AUDIT_OPERATION_ROLE_CREATE,
+        )
+        assert ADMIN_AUDIT_OPERATION_BY_ACTION[AdminAuditAction.ROLE_UPDATED] == (
+            ADMIN_AUDIT_OPERATION_ROLE_UPDATE,
+        )
+        assert ADMIN_AUDIT_OPERATION_BY_ACTION[AdminAuditAction.ROLE_DELETED] == (
+            ADMIN_AUDIT_OPERATION_ROLE_DELETE,
+        )
+        assert ADMIN_AUDIT_OPERATION_BY_ACTION[AdminAuditAction.ROLE_ROLES_REPLACED] == (
+            ADMIN_AUDIT_OPERATION_ROLE_SCOPE_REPLACE,
+        )
+        assert ADMIN_AUDIT_OPERATION_BY_ACTION[AdminAuditAction.SETTINGS_RELOADED] == (
+            ADMIN_AUDIT_OPERATION_SETTINGS_RELOAD,
+        )
+        assert (
+            ADMIN_AUDIT_ACTION_BY_OPERATION[ADMIN_AUDIT_OPERATION_SETTINGS_RELOAD]
+            == AdminAuditAction.SETTINGS_RELOADED
+        )
+        assert (
+            ADMIN_AUDIT_ACTION_BY_OPERATION[ADMIN_AUDIT_OPERATION_SCOPE_DELETE]
+            == AdminAuditAction.SCOPE_CHANGED
+        )
+
+    def test_every_action_should_resolve_operation_names(self) -> None:
+        """
+        验证所有审计动作在操作名映射中均有条目。
+        """
+
+        assert set(ADMIN_AUDIT_OPERATION_BY_ACTION.keys()) == set(AdminAuditAction)
+        assert all(
+            len(operation_names) > 0 for operation_names in ADMIN_AUDIT_OPERATION_BY_ACTION.values()
+        )
 
     def test_query_should_keep_pagination_and_filter_fields(self) -> None:
         """

@@ -58,3 +58,7 @@ class CoreErrorCode(StrEnum):
     TASK_FAILED = "system.task.failed"
     DATABASE_UNAVAILABLE = "system.database.unavailable"
     CACHE_UNAVAILABLE = "system.cache.unavailable"
+    STREAM_PROTOCOL_INVALID = "system.stream.protocol_invalid"
+    STREAM_REPLAY_UNAVAILABLE = "system.stream.replay_unavailable"
+    STREAM_TICKET_INVALID = "system.stream.ticket_invalid"
+    STREAM_SLOW_CONSUMER = "system.stream.slow_consumer"

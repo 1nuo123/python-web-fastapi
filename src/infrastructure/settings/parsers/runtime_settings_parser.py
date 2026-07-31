@@ -20,6 +20,7 @@ METRICS_RUNTIME_SECTION_KEY: Final = "metrics"
 OTEL_RUNTIME_SECTION_KEY: Final = "otel"
 RUNTIME_SECTION_KEY: Final = "runtime"
 TASK_RUNTIME_SECTION_KEY: Final = "task"
+STREAM_RUNTIME_SECTION_KEY: Final = "stream"
 WEB_RUNTIME_SECTION_KEY: Final = "web"
 SECURITY_RUNTIME_SECTION_KEY: Final = "security"
 AUTH_RUNTIME_DIRECTORY_NAME = "auth_runtime"
@@ -33,6 +34,7 @@ METRICS_RUNTIME_DIRECTORY_NAME = "metrics_runtime"
 OTEL_RUNTIME_DIRECTORY_NAME = "otel_runtime"
 SECURITY_RUNTIME_DIRECTORY_NAME = "security_runtime"
 TASK_RUNTIME_DIRECTORY_NAME = "task_runtime"
+STREAM_RUNTIME_DIRECTORY_NAME = "stream_runtime"
 WEB_RUNTIME_DIRECTORY_NAME = "web_runtime"
 SETTINGS_SECTION_SCHEMA_VERSION: Final = "1.0"
 SETTINGS_SECTION_HEADER_KIND: Final = "settings_section_header"
@@ -74,6 +76,7 @@ class RuntimeSettingsSectionDetail(BaseModel):
         "otel",
         "logging",
         "metrics",
+        "stream",
     ]
     section_value: dict[str, object]
 
@@ -189,6 +192,12 @@ class RuntimeSettingsParser:
                 runtime_key=LOGGING_RUNTIME_SECTION_KEY,
                 file_content=file_content,
             )
+        if STREAM_RUNTIME_DIRECTORY_NAME in file_path.parts:
+            return self._build_runtime_section(
+                file_path=file_path,
+                runtime_key=STREAM_RUNTIME_SECTION_KEY,
+                file_content=file_content,
+            )
         return None
 
     def _build_runtime_section(
@@ -208,6 +217,7 @@ class RuntimeSettingsParser:
             "otel",
             "logging",
             "metrics",
+            "stream",
         ],
         file_content: dict[str, object],
     ) -> SettingsSectionEnvelope:

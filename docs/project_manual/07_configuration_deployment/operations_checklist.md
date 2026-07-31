@@ -93,7 +93,25 @@ flowchart TD
 | `INITIAL_ADMIN_BOOTSTRAP_SECRET` | 生产一次性 bootstrap secret。 | `<one-time-secret>` |
 | `INITIAL_ADMIN_BOOTSTRAP_SECRET_CONFIRM` | 生产一次性 bootstrap secret 二次确认；校验成功后从进程环境消费清除。 | `<one-time-secret>` |
 
-## 12. 相关文档
+## 12. 告警规则基线
+
+> 修订时间：2026-07-20，与 `config/observability/alert_rules.yml` 一致；文档与规则文件冲突时以规则文件为准。
+
+- 位置：`config/observability/alert_rules.yml`，随代码版本化；结构由 `src/core/observability_contract/alert_rule_contract.py` 契约约束，`AlertRuleCatalogLoader` 以 safe load 方式加载并校验。
+- 部署边界：规则文件由外部 Prometheus 挂载引用（转写为 rule group），应用不承载告警执行。
+- 指标开关：`config/runtime/metrics_runtime/*.toml` 的 `runtime.detail.include_*` 控制指标族注册；启用告警前确认 `runtime.metrics.header.enabled = true` 且相关指标族开关开启。
+
+| 规则名 | 级别 | 语义 | 处置动作 |
+| --- | --- | --- | --- |
+| `http_5xx_error_rate_high` | critical | 5xx 错误率超过 5% 持续 5 分钟 | 查看结构化异常日志与最近发布/热更新记录，必要时回滚配置或版本 |
+| `http_p95_latency_high` | warning | P95 延迟超过 1 秒持续 5 分钟 | 对照 `fastapi_runtime_saturation_ratio` 定位线程池/数据库/队列瓶颈，评估容量策略上限 |
+| `runtime_ready_down` | critical | ready 指标掉线或抓取缺失持续 2 分钟 | 检查容器健康检查、`/health/ready` 依赖资源（数据库/Redis/RabbitMQ）状态并恢复 |
+| `log_buffer_flush_failure_growing` | warning | 日志缓冲写失败 10 分钟窗口内增长 | 检查数据库可用性与连接池占用；确认 stdout 降级输出中的失败原因 |
+| `audit_critical_write_failure` | critical | 审计关键事件即时落库失败 | 立即检查数据库写路径；审计完整性受损期间冻结高危管理操作，事后比对 stdout 降级输出补录审计 |
+| `task_execution_failure_rate_high` | warning | 任务失败率超过 20% 持续 10 分钟 | 按 `task_name` 定位失败任务，查看 `task_failure` 日志与任务执行记录表中的错误信息 |
+
+## 13. 相关文档
 - [项目文档总览](../README.md)
 - [快速启动](../00_project_overview/quick_start.md)
 - [Docker 启动运行指南](../../Docker启动运行指南.md)
+- [Grafana 与 Prometheus 接入说明](../../observability_grafana_prometheus接入说明.md)

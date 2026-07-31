@@ -227,7 +227,10 @@ class RuntimeResourceBootstrapper:
         engine = mount.build_validated_database_engine(settings.runtime.database)
         session_factory = SqlAlchemySessionFactory(engine)
         db_session_manager = SharedDbSessionManager(session_factory)
-        task_execution_store = TaskExecutionStore(session_manager=db_session_manager)
+        task_execution_store = TaskExecutionStore(
+            session_manager=db_session_manager,
+            metrics_registry=mount.get_metrics_registry(),
+        )
         mount.install_database_runtime(
             session_factory=session_factory,
             db_session_manager=db_session_manager,
@@ -293,6 +296,7 @@ class RuntimeResourceBootstrapper:
             buffer_max_items=settings.runtime.logging.buffer_max_items,
             flush_interval_seconds=sink_detail.flush_interval_seconds,
             max_batch_size=sink_detail.max_batch_size,
+            metrics_registry=mount.get_metrics_registry(),
         )
         structured_log_handler = StructuredLogHandler(log_buffer_dispatcher)
         mount.configure_runtime_structured_log_handler(structured_log_handler)

@@ -13,11 +13,11 @@
     "evidence_path": "docs\\evidence\\regression-support\\REG-001.json",
     "kind": "source_fix"
   },
-  "status": "verified",
+  "status": "fixed",
   "rerun_scope": "full-suite",
   "evidence": {
     "source_path": "src\\api\\fastapi_app_assembler.py",
-    "source_line": 129,
+    "source_line": 133,
     "trigger_condition": "使用自定义数据库引擎工厂装配应用。",
     "affected_scope": "FastAPI 组合根与数据库初始化。",
     "reproduction_command": "pytest -q test/unit_test/test_fastapi_app_assembler_unit.py",
@@ -39,13 +39,8 @@
     },
     {
       "status": "fixed",
-      "changed_at": "2026-07-16T10:12:42.514857Z",
+      "changed_at": "2026-07-31T01:41:47.312906Z",
       "evidence_path": "docs\\evidence\\regression-support\\REG-001.json"
-    },
-    {
-      "status": "verified",
-      "changed_at": "2026-07-16T10:22:57.234103Z",
-      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
     }
   ],
   "deferred_disposition": null

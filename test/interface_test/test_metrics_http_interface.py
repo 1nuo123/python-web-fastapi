@@ -13,6 +13,16 @@ from fastapi.testclient import TestClient
 
 from src.api.testing.test_app_factory import TestAppFactory
 
+SECURITY_EVENT_TOTAL_METRIC_NAME = "fastapi_security_event_total"
+LOG_BUFFER_FLUSH_TOTAL_METRIC_NAME = "fastapi_log_buffer_flush_total"
+LOG_BUFFER_PENDING_ITEMS_METRIC_NAME = "fastapi_log_buffer_pending_items"
+TASK_EXECUTION_TOTAL_METRIC_NAME = "fastapi_task_execution_total"
+RUNTIME_SATURATION_RATIO_METRIC_NAME = "fastapi_runtime_saturation_ratio"
+REQUEST_THREAD_POOL_SATURATION_SAMPLE = (
+    'fastapi_runtime_saturation_ratio{resource="request_thread_pool"}'
+)
+CONFIG_SECURITY_REJECTED_SAMPLE_TEXT = 'event_type="config.security_rejected"'
+CONFIG_SECURITY_REJECTED_REASON = "test.metrics.config_rejected"
 HEALTH_LIVE_PATH = "/health/live"
 METRICS_PATH = "/metrics"
 OPENAPI_PATH = "/openapi.json"
@@ -65,6 +75,43 @@ class TestMetricsHttpInterface:
         assert PASSWORD_TEXT not in metrics_text
         assert SECRET_TEXT not in metrics_text
         assert TOKEN_TEXT not in metrics_text
+
+    def test_metrics_should_expose_new_metric_families_and_saturation(self) -> None:
+        """
+        验证 /metrics 暴露安全、日志缓冲、任务与饱和度四类新指标族。
+        """
+
+        app = TestAppFactory().create(overrides=self._build_metrics_override(True))
+        with TestClient(app) as client:
+            response = client.get(METRICS_PATH)
+
+        metrics_text = response.text
+        assert response.status_code == HTTPStatus.OK
+        assert SECURITY_EVENT_TOTAL_METRIC_NAME in metrics_text
+        assert LOG_BUFFER_FLUSH_TOTAL_METRIC_NAME in metrics_text
+        assert LOG_BUFFER_PENDING_ITEMS_METRIC_NAME in metrics_text
+        assert TASK_EXECUTION_TOTAL_METRIC_NAME in metrics_text
+        assert RUNTIME_SATURATION_RATIO_METRIC_NAME in metrics_text
+        assert REQUEST_THREAD_POOL_SATURATION_SAMPLE in metrics_text
+
+    def test_security_event_should_record_metric_sample(self) -> None:
+        """
+        验证安全事件写入路径挂接安全事件指标样本。
+        """
+
+        app = TestAppFactory().create(overrides=self._build_metrics_override(True))
+        with TestClient(app) as client:
+            resource_mount = app.state.container.resource_mount
+            resource_mount.emit_security_event(
+                resource_mount.get_security_event_builder().build_config_security_rejected_event(
+                    reason_code=CONFIG_SECURITY_REJECTED_REASON,
+                )
+            )
+            response = client.get(METRICS_PATH)
+
+        metrics_text = response.text
+        assert response.status_code == HTTPStatus.OK
+        assert CONFIG_SECURITY_REJECTED_SAMPLE_TEXT in metrics_text
 
     def test_metrics_when_disabled_should_return_404(self) -> None:
         """

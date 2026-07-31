@@ -28,6 +28,7 @@ from src.core.logging_contract.log_event_contract import (
     ResourceLifecycleAction,
     ResourceLifecycleLogDetail,
     SecurityLogDetail,
+    StreamAccessLogDetail,
     TaskFailureLogDetail,
 )
 from src.core.security_contract.security_event_contract import SecurityEventEnvelope
@@ -322,6 +323,7 @@ class AdminLogRecordDetailMapper:
             | ResourceLifecycleLogDetail
             | TaskFailureLogDetail
             | SecurityLogDetail
+            | StreamAccessLogDetail
             | AdminUnparsedLogDetail
         ),
     ) -> AdminLogRecordDetailPayload:
@@ -344,6 +346,8 @@ class AdminLogRecordDetailMapper:
             return AdminTaskFailureLogDetailPayload.from_detail(detail)
         if isinstance(detail, SecurityLogDetail):
             return AdminSecurityLogDetailPayload.from_detail(detail)
+        if isinstance(detail, StreamAccessLogDetail):
+            return AdminUnparsedLogDetailPayload(summary=ADMIN_LOG_UNSUPPORTED_DETAIL_SUMMARY)
         if isinstance(detail, AdminUnparsedLogDetail):
             return AdminUnparsedLogDetailPayload.from_detail(detail)
         return AdminUnparsedLogDetailPayload(summary=ADMIN_LOG_UNSUPPORTED_DETAIL_SUMMARY)

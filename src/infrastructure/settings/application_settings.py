@@ -43,6 +43,7 @@ from src.core.logging_contract.log_runtime_contract import (
 from src.core.observability_contract.metrics_runtime_contract import (
     MetricsRuntimeEnvelope,
 )
+from src.core.stream_contract.stream_runtime_contract import StreamRuntimeEnvelope
 from src.core.task_contract.task_registration_contract import (
     FunboostTaskRegistrationDetail,
     TaskRegistrationEnvelope,
@@ -78,9 +79,11 @@ TASK_RUNTIME_SECTION_KEY: Final = "task"
 OTEL_RUNTIME_SECTION_KEY: Final = "otel"
 METRICS_RUNTIME_SECTION_KEY: Final = "metrics"
 LOGGING_RUNTIME_SECTION_KEY: Final = "logging"
+STREAM_RUNTIME_SECTION_KEY: Final = "stream"
 METRICS_RUNTIME_DIRECTORY_NAME: Final = "metrics_runtime"
 OTEL_RUNTIME_DIRECTORY_NAME: Final = "otel_runtime"
 LOGGING_RUNTIME_DIRECTORY_NAME: Final = "logging_runtime"
+STREAM_RUNTIME_DIRECTORY_NAME: Final = "stream_runtime"
 SECURITY_RUNTIME_SECTION_KEY: Final = "security"
 DISTRIBUTED_LOCK_RUNTIME_SECTION_KEY: Final = "distributed_lock"
 KEY_MANAGEMENT_RUNTIME_SECTION_KEY: Final = "key_management"
@@ -810,6 +813,7 @@ class RuntimeSettings(BaseModel):
     otel: OtelRuntimeSettings
     metrics: MetricsRuntimeModel
     logging: LoggingRuntimeModel
+    stream: StreamRuntimeEnvelope
 
 
 class ApplicationSettings(BaseModel):

@@ -4,10 +4,15 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
+from pydantic import ValidationError
 
 from src.core.http_contract.runtime_resource_contract import RuntimeResourceStatus
 from src.core.logging_contract.log_event_contract import (
+    AUDIT_CRITICAL_SECURITY_EVENT_TYPES,
+    LOG_EVENT_SCHEMA_VERSION,
     AccessLogDetail,
     ExceptionLogDetail,
     LogDetailUnion,
@@ -15,6 +20,7 @@ from src.core.logging_contract.log_event_contract import (
     LogEventHeader,
     LogEventKind,
     LogLevel,
+    LogPersistencePriority,
     ResourceLifecycleAction,
     ResourceLifecycleLogDetail,
     TaskFailureLogDetail,
@@ -24,6 +30,14 @@ from src.core.logging_contract.log_runtime_contract import (
     LoggingRuntimeSettings,
     LogSink,
 )
+from src.core.logging_contract.log_writer_contract import LogWriteReason
+from src.core.security_contract.security_event_contract import SecurityEventType
+
+CURRENT_LOG_SCHEMA_VERSION = "1.1"
+LEGACY_LOG_SCHEMA_VERSION = "1.0"
+UNKNOWN_PERSISTENCE_PRIORITY = "urgent"
+PERSISTENCE_PRIORITY_FIELD = "persistence_priority"
+SCHEMA_VERSION_FIELD = "schema_version"
 
 
 class TestLoggingContract:
@@ -148,3 +162,84 @@ class TestLoggingContract:
         )
 
         assert detail.kind == "task_failure"
+
+    def test_log_event_schema_version_should_be_upgraded_to_1_1(self) -> None:
+        """
+        验证日志事件契约版本已升级到 1.1。
+        """
+
+        assert LOG_EVENT_SCHEMA_VERSION == CURRENT_LOG_SCHEMA_VERSION
+
+    def test_header_persistence_priority_should_default_to_standard(self) -> None:
+        """
+        验证公共头持久化优先级默认标准优先级。
+        """
+
+        header = self._build_header_payload()
+        header.pop(PERSISTENCE_PRIORITY_FIELD)
+
+        parsed_header = LogEventHeader.model_validate(header)
+
+        assert parsed_header.persistence_priority == LogPersistencePriority.STANDARD
+
+    def test_header_should_accept_audit_critical_priority(self) -> None:
+        """
+        验证公共头接受审计关键持久化优先级。
+        """
+
+        header = LogEventHeader.model_validate(self._build_header_payload())
+
+        assert header.persistence_priority == LogPersistencePriority.AUDIT_CRITICAL
+
+    def test_header_should_reject_unknown_persistence_priority(self) -> None:
+        """
+        验证公共头拒绝未知持久化优先级取值。
+        """
+
+        header = self._build_header_payload()
+        header[PERSISTENCE_PRIORITY_FIELD] = UNKNOWN_PERSISTENCE_PRIORITY
+
+        with pytest.raises(ValidationError):
+            LogEventHeader.model_validate(header)
+
+    def test_header_should_reject_legacy_schema_version(self) -> None:
+        """
+        验证旧版本 1.0 日志公共头反序列化被拒绝。
+        """
+
+        header = self._build_header_payload()
+        header[SCHEMA_VERSION_FIELD] = LEGACY_LOG_SCHEMA_VERSION
+
+        with pytest.raises(ValidationError):
+            LogEventHeader.model_validate(header)
+
+    def test_audit_critical_event_types_should_cover_admin_and_config_events(self) -> None:
+        """
+        验证审计关键事件类型集合覆盖管理员变更与安全配置拒绝。
+        """
+
+        assert SecurityEventType.ADMIN_IDENTITY_CHANGED in AUDIT_CRITICAL_SECURITY_EVENT_TYPES
+        assert SecurityEventType.CONFIG_SECURITY_REJECTED in AUDIT_CRITICAL_SECURITY_EVENT_TYPES
+
+    def test_write_reason_should_contain_audit_critical_member(self) -> None:
+        """
+        验证日志刷盘原因枚举包含审计关键成员。
+        """
+
+        assert LogWriteReason.AUDIT_CRITICAL.value == "audit_critical"
+
+    def _build_header_payload(self) -> dict[str, object]:
+        """
+        构建审计关键日志公共头载荷。
+        """
+
+        return {
+            "event_id": "event-1",
+            "occurred_at": datetime.now(UTC).isoformat(),
+            "level": LogLevel.INFO.value,
+            "kind": LogEventKind.SECURITY.value,
+            PERSISTENCE_PRIORITY_FIELD: LogPersistencePriority.AUDIT_CRITICAL.value,
+            "message": "审计关键事件。",
+            "source_module": "infrastructure",
+            "source_component": "security_protection",
+        }

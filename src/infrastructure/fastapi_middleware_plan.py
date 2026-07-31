@@ -69,7 +69,6 @@ class FastApiMiddlewarePlan:
                 SecurityHeaderMiddleware,
                 resource_mount=resource_mount,
             ),
-            Middleware(ElapsedProbeMiddleware),
         ]
         if runtime_settings.runtime.web.enable_access_log:
             bindings.append(
@@ -79,6 +78,7 @@ class FastApiMiddlewarePlan:
                     logger=logger,
                 )
             )
+        bindings.append(Middleware(ElapsedProbeMiddleware))
         if cors_settings.enabled:
             bindings.insert(
                 0,

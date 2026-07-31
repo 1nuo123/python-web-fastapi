@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/02_backend/fastapi_app_assembly.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
-    "verified_at": "2026-07-19T02:31:56.758477Z"
+    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+    "verified_at": "2026-07-31T01:57:20.433190Z"
   },
   "kind": "architecture",
   "detail": {
@@ -13,7 +13,7 @@
     "evidence_path": "docs\\project_manual\\02_backend\\fastapi_app_assembly.md",
     "status": "current",
     "replacement_path": null,
-    "content_sha256": "6a8c660a9fe771f9788c54ce4e02d70f2e0e953643111ec1a0519d841340c2df",
+    "content_sha256": "604e407863dde2be322e0b5f298663ed11e9c06f110df4e418c930f8ae61ecd7",
     "validation_status": "verified",
     "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
     "fact_evidence_paths": [

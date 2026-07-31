@@ -93,8 +93,8 @@ class TestRuntimePath:
             "AuthenticationBindingMiddleware",
             "RateLimitMiddleware",
             "SecurityHeaderMiddleware",
-            "ElapsedProbeMiddleware",
             "AccessLogMiddleware",
+            "ElapsedProbeMiddleware",
         ]
         runtime_binding_types = {
             PayloadGuardMiddleware,

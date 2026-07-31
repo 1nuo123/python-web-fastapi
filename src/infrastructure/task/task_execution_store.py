@@ -34,6 +34,11 @@ from src.core.task_contract.task_execution_record_contract import (
     TaskExecutionSuccessDetail,
 )
 from src.core.task_contract.task_runtime_contract import TaskBackend
+from src.infrastructure.observability.prometheus_metrics_registry import (
+    PrometheusMetricsRegistry,
+    TaskExecutionMetric,
+    TaskExecutionMetricOutcome,
+)
 from src.infrastructure.persistence.orm_model.task_execution_outbox_orm_model import (
     TaskExecutionOutboxOrmModel,
     TaskExecutionOutboxStatus,
@@ -96,12 +101,48 @@ class TaskExecutionStore:
     任务执行记录存储服务。
     """
 
-    def __init__(self, *, session_manager: SharedDbSessionManager) -> None:
+    def __init__(
+        self,
+        *,
+        session_manager: SharedDbSessionManager,
+        metrics_registry: PrometheusMetricsRegistry | None = None,
+    ) -> None:
         """
         初始化任务执行记录存储。
+
+        :param session_manager: 共享数据库会话管理器。
+        :type session_manager: SharedDbSessionManager
+        :param metrics_registry: Prometheus 指标注册器；``None`` 时不挂接任务执行指标。
+        :type metrics_registry: PrometheusMetricsRegistry | None
+        :returns: 无返回值。
+        :rtype: None
         """
 
         self._session_manager = session_manager
+        self._metrics_registry = metrics_registry
+
+    def _record_task_execution_metric(
+        self,
+        *,
+        job_kind: str,
+        outcome: TaskExecutionMetricOutcome,
+    ) -> None:
+        """
+        记录任务执行指标。
+
+        :param job_kind: 任务注册名。
+        :type job_kind: str
+        :param outcome: 任务执行结果。
+        :type outcome: TaskExecutionMetricOutcome
+        :returns: 无返回值。
+        :rtype: None
+        """
+
+        if self._metrics_registry is None:
+            return
+        self._metrics_registry.record_task_execution(
+            TaskExecutionMetric(task_name=job_kind, outcome=outcome)
+        )
 
     def reserve(
         self,
@@ -125,6 +166,11 @@ class TaskExecutionStore:
                 result = TaskExecutionRecordUpsertResult(
                     record=self._read_conflict_record(record),
                     created=False,
+                )
+            if not result.created:
+                self._record_task_execution_metric(
+                    job_kind=record.job_kind,
+                    outcome=TaskExecutionMetricOutcome.REJECTED,
                 )
             return TaskExecutionStoreResult(
                 record=result.record,
@@ -172,6 +218,11 @@ class TaskExecutionStore:
                     created=False,
                 )
                 outbox_record = None
+            if not result.created:
+                self._record_task_execution_metric(
+                    job_kind=record.job_kind,
+                    outcome=TaskExecutionMetricOutcome.REJECTED,
+                )
             return TaskExecutionStoreResult(
                 record=result.record,
                 created=result.created,
@@ -354,7 +405,7 @@ class TaskExecutionStore:
         标记成功。
         """
 
-        return self._update_record(
+        record = self._update_record(
             job_kind=job_kind,
             deduplication_key=deduplication_key,
             patch=TaskExecutionRecordUpdatePayload(
@@ -366,6 +417,11 @@ class TaskExecutionStore:
                 stage=stage,
             ),
         )
+        self._record_task_execution_metric(
+            job_kind=job_kind,
+            outcome=TaskExecutionMetricOutcome.SUCCESS,
+        )
+        return record
 
     def mark_failed(
         self,
@@ -385,7 +441,7 @@ class TaskExecutionStore:
         标记失败。
         """
 
-        return self._update_record(
+        record = self._update_record(
             job_kind=job_kind,
             deduplication_key=deduplication_key,
             patch=TaskExecutionRecordUpdatePayload(
@@ -407,6 +463,11 @@ class TaskExecutionStore:
             if message_id is not None
             else None,
         )
+        self._record_task_execution_metric(
+            job_kind=job_kind,
+            outcome=TaskExecutionMetricOutcome.FAILED,
+        )
+        return record
 
     def try_mark_failed(
         self,

@@ -76,6 +76,8 @@ from src.infrastructure.settings.application_settings import (
     RUNTIME_WEB_API_PREFIX_ENVIRONMENT_VARIABLE,
     SECURITY_RUNTIME_SECTION_KEY,
     SETTINGS_LOGGER_NAME,
+    STREAM_RUNTIME_DIRECTORY_NAME,
+    STREAM_RUNTIME_SECTION_KEY,
     SYSTEM_MODULE_SECTION_KEY,
     TASK_MODULE_SECTION_KEY,
     TASK_RUNTIME_SECTION_KEY,
@@ -205,6 +207,7 @@ class AppSettingsLoader:
                 OTEL_RUNTIME_SECTION_KEY: {},
                 METRICS_RUNTIME_SECTION_KEY: {},
                 LOGGING_RUNTIME_SECTION_KEY: {},
+                STREAM_RUNTIME_SECTION_KEY: {},
             },
         }
         # 文件按“基础层 -> 环境层”的顺序依次覆盖，后读到的配置拥有更高优先级。
@@ -310,6 +313,14 @@ class AppSettingsLoader:
             / "runtime"
             / LOGGING_RUNTIME_DIRECTORY_NAME
             / f"logging_runtime_{environment_name}.toml",
+            self._config_root
+            / "runtime"
+            / STREAM_RUNTIME_DIRECTORY_NAME
+            / "stream_runtime_base.toml",
+            self._config_root
+            / "runtime"
+            / STREAM_RUNTIME_DIRECTORY_NAME
+            / f"stream_runtime_{environment_name}.toml",
         ]
 
     def _read_toml(self, file_path: Path) -> RawTomlContent:
@@ -461,6 +472,15 @@ class AppSettingsLoader:
                     }
                 },
             )
+        if redis_url is not None and self._should_apply_stream_url_override(raw_settings):
+            override_tree = self._merge_mapping(
+                override_tree,
+                {
+                    RUNTIME_SECTION_KEY: {
+                        STREAM_RUNTIME_SECTION_KEY: {"detail": {REDIS_URL_FIELD_KEY: redis_url}}
+                    }
+                },
+            )
         if rabbitmq_url is not None and self._should_apply_message_url_override(
             raw_settings,
         ):
@@ -551,6 +571,22 @@ class AppSettingsLoader:
             {},
         )
         return message_settings.get(BACKEND_FIELD_KEY) == MessageBackend.RABBITMQ.value
+
+    def _should_apply_stream_url_override(self, raw_settings: RawSettingsMapping) -> bool:
+        """判断是否应把 Redis 连接串覆盖到流运行时。
+
+        :param raw_settings: 已合并文件配置。
+        :type raw_settings: RawSettingsMapping
+        :returns: 流运行时使用 Redis 时返回 ``True``。
+        :rtype: bool
+        """
+
+        stream_settings = raw_settings.get(RUNTIME_SECTION_KEY, {}).get(
+            STREAM_RUNTIME_SECTION_KEY,
+            {},
+        )
+        header = stream_settings.get("header", {})
+        return header.get("mode") == "redis_stream_runtime"
 
     def _validate_settings(self, raw_settings: RawSettingsMapping) -> ApplicationSettings:
         """

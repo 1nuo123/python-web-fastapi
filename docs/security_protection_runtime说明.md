@@ -1,5 +1,7 @@
 # 安全防护运行时说明
 
+> 修订时间：2026-07-20。审计关键事件即时落库语义与 `src/infrastructure/logging/log_buffer_dispatcher.py` 最终实现对齐；文档与源码冲突时以源码为准。
+
 ## 已落地能力
 
 - `runtime.security.detail.protection`：统一承载流控、风险控制、IP 封禁、Token-IP 绑定和出站 URL 安全策略。
@@ -8,6 +10,9 @@
 - IP 封禁链路：先查强类型 `IpBlockCacheEntry` 缓存，未命中查数据库，命中后回填缓存；释放封禁时同步删除缓存。缓存命中时按 `blocked_until_epoch` 动态计算 `Retry-After`，不超过真实剩余封禁时间。
 - 限流链路：`RateLimitMiddleware` 在请求入口执行流控，支持默认策略与 path/method 策略集合，超限返回 `429` 和 `Retry-After`。限流首次超限并触发封禁仍记录 `rate_limit.blocked`；已封禁 IP 后续命中记录为 `ip_block`。
 - 安全事件链路：认证失败、认证节流、密码喷洒疑似、refresh token 复用、限流、请求体过大、Token-IP 不匹配、SSRF 拦截等事件通过统一 `SecurityEventEnvelope` 写入现有结构化日志链路。
+- 审计关键事件即时落库：`admin.identity.changed`（含用户/scope/role 变更与配置热更新 `settings_reload`）与 `config.security_rejected` 两类事件在 `LoggingResourceFacade.emit_security_event()` 中被标记为 `persistence_priority = audit_critical`。`LogBufferDispatcher.emit()` 对该优先级绕过 lazy-flush 缓冲，在发射线程内以 `reason="audit_critical"` 同步提交数据库写请求，emit 返回前事件已进入事务提交路径，进程被强制终止不丢失窗口内审计事件（由 `test_audit_crash_safety_integration.py` 故障注入验证）。
+- 审计写失败降级：审计关键写失败时按 `fallback_to_stdout` 配置由 `DatabaseLogWriter` 执行脱敏后的 stdout 保底输出，同时写入独立内部 logger，并累计到 `AuditWriteFailureCounter` 只读快照（`failed_count`、`pending_items`），经指标桥接暴露为 `fastapi_log_buffer_flush_total{reason="audit_critical",failed="true"}`，配套告警规则 `audit_critical_write_failure`。
+- 安全事件指标：`emit_security_event()` 同点位挂接 `fastapi_security_event_total{event_type,decision,severity}` 低基数指标，标签执行 `SecurityEventType` 封闭枚举白名单，不属于白名单的事件类型不打点。
 - 客户端 IP 事实源：`ClientIpResolver` 是应用内唯一客户端 IP 解析入口。base/test 默认可信任 loopback 代理来源；production 默认不信任任何代理头，必须显式声明真实代理 CIDR 后才读取 `Forwarded` / `X-Forwarded-For`，非可信来源忽略伪造转发头并回退到连接来源 IP。
 - SSRF 防护：共享同步/异步 HTTP client 发起请求前校验 URL，并在连接层固定解析 IP、校验真实 peer IP，拒绝本机、私网、link-local、reserved、metadata、非 global 地址、peer 缺失和 peer mismatch。
 - 管理入口：`security_protection` 模块是安全控制面能力；`/security/ip-blocks` 的查询、创建、详情和释放接口统一走 `RequestExecutionBridge` 与管理员安全 IP 封禁用例，路由层只保留请求契约、鉴权和响应封装。
@@ -69,6 +74,8 @@
 | `payload.too_large` | 请求体大小保护 | 不记录请求体 |
 | `token_binding.mismatch` | Token-IP 绑定不匹配 | token 与 IP 只记录摘要 |
 | `ssrf.blocked` | 出站 HTTP URL 安全钩子与连接层 peer 校验 | host 只记录摘要，不记录完整 URL 查询串；host 不可用时写哨兵摘要 |
+| `admin.identity.changed` | 管理员用户/scope/role 变更与配置热更新（审计关键，即时落库） | 仅记录操作名、目标类型/标识与操作者主体标识 |
+| `config.security_rejected` | 配置热更新安全校验拒绝（审计关键，即时落库） | 仅记录拒绝原因码与被拒字段数量 |
 
 ## 管理链路
 

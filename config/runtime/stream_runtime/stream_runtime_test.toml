@@ -1,0 +1,22 @@
+[runtime.detail]
+queue_capacity = 4
+send_timeout_seconds = 0.5
+max_duration_seconds = 5.0
+max_event_bytes = 16384
+collection_max_events = 32
+collection_max_bytes = 131072
+collection_timeout_seconds = 2.0
+max_sessions = 16
+max_sessions_per_subject = 4
+max_sessions_per_ip = 8
+max_sessions_per_operation = 8
+ticket_ttl_seconds = 5
+replay_ttl_seconds = 30
+replay_max_events = 32
+sse_heartbeat_seconds = 1
+sse_retry_milliseconds = 1000
+websocket_max_message_bytes = 8192
+websocket_ping_interval_seconds = 1.0
+websocket_ping_timeout_seconds = 1.0
+shutdown_grace_seconds = 1.0
+allowed_origins = ["http://testserver"]

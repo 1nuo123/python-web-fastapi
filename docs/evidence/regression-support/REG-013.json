@@ -5,7 +5,7 @@
   "source_line": 34,
   "baseline_source_path": "..\\work_baseline_20260713_1019\\Dockerfile",
   "baseline_sha256": "8546354b04ae9acaea7c1004e38b825f473da9fbae02300b4db7168a9ceed6bf",
-  "current_sha256": "83ffc6315e54e49eaa48d91c11a9c9dbdf05be502da4cc492509cd0abf1172a0",
+  "current_sha256": "172357a4767d5a2da844f4f9784c77474af8f525143ebfe9267d4efa065b8011",
   "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
   "trigger_condition": "在只读根文件系统启动生产镜像。",
   "affected_scope": "应用、迁移和任务 worker 镜像。",

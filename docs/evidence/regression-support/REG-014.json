@@ -5,7 +5,7 @@
   "source_line": 61,
   "baseline_source_path": "..\\work_baseline_20260713_1019\\compose.yml",
   "baseline_sha256": "040849d539774fffaa3622357668d2bf91b0b7a84bcc771e17cca1be13273c2a",
-  "current_sha256": "b6710174f2242b4af3969e4cf380761927818a26e6bf0aa25df16754a0ad44b1",
+  "current_sha256": "2ab755e3ac208defd81e468c7123dc94a8d42baeebf7fe889f81953639fc7c55",
   "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
   "trigger_condition": "依赖健康后立即启动消费者。",
   "affected_scope": "RabbitMQ 健康门禁和生产启动。",

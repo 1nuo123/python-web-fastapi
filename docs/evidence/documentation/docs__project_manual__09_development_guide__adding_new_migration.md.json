@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/09_development_guide/adding_new_migration.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
-    "verified_at": "2026-07-19T02:31:56.758477Z"
+    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+    "verified_at": "2026-07-31T01:57:20.433190Z"
   },
   "kind": "architecture",
   "detail": {

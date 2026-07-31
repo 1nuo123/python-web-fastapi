@@ -13,7 +13,7 @@
     "evidence_path": "docs\\evidence\\regression-support\\REG-017.json",
     "kind": "source_fix"
   },
-  "status": "verified",
+  "status": "fixed",
   "rerun_scope": "full-suite",
   "evidence": {
     "source_path": "src\\infrastructure\\task\\confirmed_funboost_rabbitmq_publisher.py",
@@ -41,11 +41,6 @@
       "status": "fixed",
       "changed_at": "2026-07-16T10:15:02.237769Z",
       "evidence_path": "docs\\evidence\\regression-support\\REG-017.json"
-    },
-    {
-      "status": "verified",
-      "changed_at": "2026-07-16T10:22:57.234103Z",
-      "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json"
     }
   ],
   "deferred_disposition": null

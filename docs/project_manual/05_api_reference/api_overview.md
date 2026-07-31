@@ -1,82 +1,55 @@
 ﻿# API 总览
 
-## 1. 文档目的
-列出当前已注册 Web API 模块、模块边界和对应 route/contract 文件。
+## 1. 这是什么
 
-**最后更新范围**：覆盖 9 个 `src/api/endpoint_*` 模块和集中授权要求。
+全部 Web API 的导航与横切约定：模块清单、启用状态、权限矩阵、统一响应/错误/分页约定。单个 API 的细节在各专题文档。
 
-## 2. 适用读者
-- 新人开发者
-- 后端开发者
-- 测试维护者
-- 安全审查人员
+**最后更新范围**：覆盖 9 个 `src/api/endpoint_*` 模块、31 条路由与集中授权要求。
 
-## 3. 关联源码
-| 路径 | 作用 |
-| --- | --- |
-| `src/api/web_module_manifest.py` | API 模块清单。 |
-| `src/api/endpoint_health_probe` | 健康探针 API。 |
-| `src/api/endpoint_auth_access` | 鉴权 API。 |
-| `src/api/endpoint_system_overview` | 系统概览 API。 |
-| `src/api/endpoint_security_protection` | 安全防护 API。 |
-| `src/api/endpoint_admin_task` | 管理员任务 API。 |
-| `src/api/endpoint_admin_settings` | 管理员配置 API。 |
-| `src/api/endpoint_admin_log` | 管理员日志 API。 |
-| `src/api/endpoint_admin_identity` | 管理员身份 API。 |
-| `src/api/endpoint_admin_audit` | 管理员审计 API。 |
-| `src/domain/auth/admin_route_authorization_policy.py` | 后台集中授权要求。 |
+## 2. 模块与路由总表
 
-## 4. 核心结论
-- 当前 manifest 可确认 9 个模块。
-- 公开模块：health_probe、auth_access。
-- 业务后台模块：admin_identity、admin_audit。
-- 运维控制面模块：system_overview、security_protection、admin_task、admin_settings、admin_log。
-- `config/app_base.toml` 默认只启用 `health_probe`、`auth_access`、`admin_identity`、`admin_audit`；运维控制面模块需要显式加入 `app.modules.enabled` 后才挂载路由和 OpenAPI。
-- 本目录专题文档中的路径均为模块自身路径；运行时若配置 `runtime.web.api_prefix`，实际访问路径会加上该前缀，默认前缀为空。
-- 后台受保护接口统一通过 `DependencyContextAccessor.read_authorized_principal` 读取主体并执行 `ADMIN_ROUTE_AUTHORIZATION_REQUIREMENTS` 中的角色/scope 要求。
+| 模块 | 边界 | 路由 | 权限（角色 admin + scope） |
+| --- | --- | --- | --- |
+| health_probe | public | GET /health/live、GET /health/ready | 无需认证 |
+| auth_access | public | POST /auth/token、POST /auth/refresh、POST /auth/revoke、GET /auth/me | 前三个匿名；/auth/me 需登录 |
+| admin_identity | business_admin | /admin/scopes*（5）、/admin/roles* + /admin/business-roles（7）、/admin/users*（8） | auth:read（读）/ auth:scope_manage / auth:role_manage / auth:user_manage / auth:password_reset / auth:grant_admin（角色scope替换、用户角色替换） |
+| admin_audit | business_admin | GET /admin/audit-events | auth:read |
+| system_overview | ops_only | GET /system/info | system:read |
+| security_protection | ops_only | GET/POST /security/ip-blocks、GET /security/ip-blocks/{record_id}、POST /security/ip-blocks/release | security:manage |
+| admin_task | ops_only | GET /admin/tasks/executions、GET /admin/tasks/executions/{task_id}、GET /admin/tasks/runtime、GET /admin/tasks/registrations、POST /admin/tasks/dispatch | system:read（读）/ task:dispatch（派发） |
+| admin_settings | ops_only | GET /admin/settings/reload/candidate、POST /admin/settings/reload | system:read |
+| admin_log | ops_only | GET /admin/logs、GET /admin/security-events | system:read |
 
-## 5. 结构说明
-每个 API 专题文档保持 route/contract/usecase/test 对应关系。
+启用状态：`config/app_base.toml` 默认启用 health_probe、auth_access、admin_identity、admin_audit；ops_only 五模块需显式加入 `app.modules.enabled`。文档中的路径为模块自身路径，实际访问需加 `runtime.web.api_prefix`（默认空）。
 
-## 6. 工作流程
-```mermaid
-flowchart TD
-    A["HTTP Request"] --> B["FastAPI RouteCatalog"]
-    B --> C["DependencyContextAccessor"]
-    C --> D["Application Usecase"]
-    D --> E["SharedResourceMount / Repository"]
-    E --> F["PostgreSQL / Redis / RabbitMQ / HTTP"]
-```
+## 3. 横切约定
 
-## 7. 关键实现
-| 组件 | 文件 | 职责 |
-| --- | --- | --- |
-| `WebModuleManifestRegistry.list_entries` | `src/api/web_module_manifest.py` | 列出模块。 |
-| `ADMIN_ROUTE_AUTHORIZATION_REQUIREMENTS` | `src/domain/auth/admin_route_authorization_policy.py` | 后台授权要求。 |
-| `DependencyContextAccessor.read_authenticated_principal` | `src/api/dependency_context_accessor.py` | 未认证请求返回 401 `auth.token.invalid`。 |
-| `AuthorizationGuard.assert_requirement` | `src/application/authorization_guard.py` | 已认证但角色/scope 不足返回 403 `auth.authorization.permission_denied`。 |
+- **响应**：一律 `ResponseEnvelope{header{code,message,request_id,trace_id},data}`；成功 `code=system.success.ok`。见[响应信封](../02_backend/response_envelope.md)。
+- **错误**：401 `auth.token.*`（未认证/令牌问题）、403 `auth.authorization.permission_denied`（权限不足）、422 `system.request.invalid`（校验失败）、413 载荷超限、429 限流/节流、503 未就绪/容量耗尽、504 执行超时、500 未预期。错误码目录见[异常处理](../02_backend/exception_handling.md)。
+- **认证**：`Authorization: Bearer <access_token>`；后台接口守卫链 = 认证中间件绑定主体 → 路由 `Security(HTTPBearer(auto_error=False))` + `read_authorized_principal(requirement)`。
+- **分页**：查询参数 `page_size`（默认 50、上限 200，任务/日志/scope 列表用 `limit`，默认 50 上限 200）+ `offset`（≥0）；响应含 total/next_cursor（分页信封）。
+- **响应头**：`X-Request-ID`（恒有）、`X-Trace-ID`（有 trace 时）、`X-Elapsed-Ms`；限流拒绝带 `Retry-After`。
+- **OpenAPI**：`enable_openapi=true` 时 `/docs`、`/redoc`、`/openapi.json` 可用（生产默认关闭）；`/metrics` 不进 OpenAPI。
 
-## 8. 如何修改或扩展
-1. 新增 API 时先更新 manifest 和 `ApplicationModuleName`。
-2. 新增 API 专题文档并从本总览和 README 链接。
-3. 补 interface 和 contract 测试。
+## 4. 专题文档
 
-## 9. 测试覆盖
+[鉴权](auth_api.md) · [健康探针](health_api.md) · [系统概览](system_overview_api.md) · [管理员身份](admin_identity_api.md) · [管理员审计](admin_audit_api.md) · [管理员任务](admin_task_api.md) · [管理员配置](admin_settings_api.md) · [管理员日志](admin_log_api.md) · [安全防护](security_protection_api.md)
+
+## 5. 注意事项
+
+- 新增 API：manifest/枚举/路由/契约/权限五处齐动，见[新增 API](../09_development_guide/adding_new_api.md)；对外契约变更需同步 `public_contract_snapshot_builder` 基线。
+- 接口未出现在 OpenAPI 时依次检查：模块是否在 enabled 列表、环境是否关闭 OpenAPI、api_prefix 是否遗漏。
+
+## 6. 测试覆盖
+
 | 测试类型 | 文件 | 验证内容 |
 | --- | --- | --- |
-| unit | `test/unit_test/test_web_module_manifest_unit.py` | 模块清单。 |
-| interface | `test/interface_test/test_http_interface.py` | HTTP 表面。 |
-| integration | `test/integration_test/test_app_integration.py` | 应用集成。 |
+| unit | `test/unit_test/test_web_module_manifest_unit.py` | 模块清单与边界。 |
+| interface | `test/interface_test/*` | 各模块 HTTP 表面。 |
+| integration | `test/integration_test/test_app_integration.py` | 启用模块集成。 |
 
-## 10. 常见问题
-- 如果 API 未出现在 OpenAPI，检查模块是否启用以及 production 是否关闭 OpenAPI。
+## 7. 相关文档
 
-## 11. 维护备注
-API 变更时同步更新对应 API 文档、总览和开发指南。
-
-
-
-## 12. 相关文档
 - [项目文档总览](../README.md)
-- [鉴权 API](auth_api.md)
-- [新增 API](../09_development_guide/adding_new_api.md)
+- [API 模块注册](../02_backend/api_module_registration.md)
+- [管理后台能力](../03_application_domain/admin_business_capabilities.md)

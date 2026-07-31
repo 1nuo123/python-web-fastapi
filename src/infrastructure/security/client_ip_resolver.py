@@ -9,8 +9,8 @@ from enum import StrEnum
 from ipaddress import ip_address, ip_network
 from typing import Annotated, Final, Literal
 
-from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from starlette.requests import HTTPConnection
 
 CLIENT_IP_RESOLUTION_SCHEMA_VERSION: Final = "1.0"
 CLIENT_IP_RESOLUTION_HEADER_KIND: Final = "client_ip_resolution"
@@ -139,7 +139,7 @@ class ClientIpResolver:
             ip_network(cidr_block, strict=False) for cidr_block in policy.cidr_blocks
         )
 
-    def resolve(self, request: Request) -> ClientIpResolutionEnvelope:
+    def resolve(self, request: HTTPConnection) -> ClientIpResolutionEnvelope:
         """
         解析客户端 IP。
         """
@@ -162,14 +162,14 @@ class ClientIpResolver:
                 )
         return self._build_direct_result(remote_ip=remote_ip)
 
-    def resolve_client_ip(self, request: Request) -> str:
+    def resolve_client_ip(self, request: HTTPConnection) -> str:
         """
         解析客户端 IP 字符串。
         """
 
         return self.resolve(request).detail.client_ip
 
-    def _read_remote_ip(self, request: Request) -> str:
+    def _read_remote_ip(self, request: HTTPConnection) -> str:
         """
         读取直连远端 IP。
         """
@@ -189,7 +189,7 @@ class ClientIpResolver:
             return False
         return any(parsed_ip in network for network in self._trusted_networks)
 
-    def _read_forwarded_header_ip(self, request: Request) -> str | None:
+    def _read_forwarded_header_ip(self, request: HTTPConnection) -> str | None:
         """
         从 Forwarded 头读取客户端 IP。
         """
@@ -205,7 +205,7 @@ class ClientIpResolver:
             return self._normalize_candidate_ip(value)
         return None
 
-    def _read_x_forwarded_for_ip(self, request: Request) -> str | None:
+    def _read_x_forwarded_for_ip(self, request: HTTPConnection) -> str | None:
         """
         从 X-Forwarded-For 头读取客户端 IP。
         """

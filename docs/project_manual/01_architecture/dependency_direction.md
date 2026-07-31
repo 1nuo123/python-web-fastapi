@@ -1,84 +1,85 @@
 ﻿# 依赖方向
 
-## 1. 文档目的
-说明项目内允许的依赖方向，帮助评审避免反向依赖和基础设施泄漏。
+## 1. 这是什么
 
-**最后更新范围**：覆盖应用端口、核心契约、基础设施实现、WebBundle 契约、UnitOfWork/PersistenceSession 事务会话契约和路由调用方式。
+定义项目内**允许的 import 方向**与**禁止的 import 方向**，区分 import-linter 实际强制的层级规则与组合根/薄路由等评审约定，并解释 core 的框架类型例外。评审发现可疑 import 时，用本文判定是静态规则违规还是设计约定偏离。
 
-## 2. 适用读者
-- 新人开发者
-- 后端开发者
-- 测试维护者
+**最后更新范围**：覆盖 import-linter 四条契约、应用端口、`WebBundle`/`PersistenceSession` 例外、组合根豁免与测试 fake 的引用限制。
 
-## 3. 关联源码
-| 路径 | 作用 |
-| --- | --- |
-| `src/application/ports` | 应用层端口。 |
-| `src/core/*_contract` | 核心契约。 |
-| `src/core/http_contract/web_bundle_contract.py` | `WebBundle` 契约；当前显式承载 FastAPI `APIRouter`。 |
-| `src/core/persistence_contract/unit_of_work_contract.py` | `UnitOfWork` 契约；通过 `PersistenceSession` 协议暴露最小事务会话能力。 |
-| `src/application/ports/auth_runtime_port.py` | 鉴权用例端口；仓储工厂方法沿用 `PersistenceSession` 类型。 |
-| `src/infrastructure/shared_resource_mount.py` | 端口实现与资源门面。 |
-| `src/api/fastapi_app_assembler.py` | 依赖汇聚和对象注入。 |
-| `src/api/dependency_context_accessor.py` | 接口层读取应用容器。 |
+## 2. 规则总表
 
-## 4. 核心结论
-- 应用用例依赖端口，不依赖 FastAPI Request。
-- 基础设施可以依赖 core/application 端口并实现它们。
-- route 负责 HTTP 适配，可读取用例但不直接处理数据库事务。
-- 当前存在一个有意的 HTTP 契约例外：`src/core/http_contract/web_bundle_contract.py` 的 `WebBundle` 持有 `fastapi.APIRouter`，用于把 Web 模块清单、provider 和装配器连接起来；该耦合不应扩散到普通业务契约或应用用例。
-- 持久化契约统一通过 `UnitOfWork.get_session()` 返回 `PersistenceSession` 协议，并由 `AuthRuntimePort` 的仓储工厂方法接收该协议；普通用例仍只通过 `UnitOfWork`、仓储契约和端口工作，不直接 import ORM model、SQLAlchemy `Session` 或基础设施实现。
-- `FastApiAppAssembler` 是依赖汇聚点，可以同时 import API provider、application usecase、core contract 和 infrastructure adapter；用例本身仍通过端口接收 `SharedResourceMount` 提供的能力。
-- 测试 fake 位于 `src/infrastructure/testing`，只用于测试和测试应用工厂。
+| 源层 | 可以依赖 | 禁止依赖 | 强制手段 |
+| --- | --- | --- | --- |
+| `src/core` | 标准库、pydantic、（例外）fastapi.APIRouter | api / application / domain / infrastructure | import-linter |
+| `src/domain` | core | api / application / infrastructure | import-linter |
+| `src/application` | core、domain、自身 ports | api / infrastructure | import-linter |
+| `src/infrastructure` | core、domain、application、第三方库 | api | import-linter；“优先只依赖 application/ports”是设计方向，不是当前强制规则 |
+| `src/api` | 所有层（其中 Web 主对象图集中在组合根） | —— | import-linter 无禁止项；薄路由与集中组装由评审/路径测试维护 |
 
-## 5. 结构说明
-主链路依赖方向是 API -> application -> ports/core；infrastructure 实现 ports/core 并由装配器注入。装配层作为组合根允许跨层引用。核心层中的 WebBundle 契约是为了注册 `APIRouter` 的 HTTP 表面契约，持久化契约中的 `PersistenceSession` 是事务会话边界；这些例外不代表普通业务契约可以依赖 FastAPI、ORM model、SQLAlchemy `Session` 或基础设施实现。
+要点：
 
-## 6. 工作流程
-```mermaid
-flowchart LR
-    API["src/api"] --> APP["src/application"]
-    APP --> PORTS["src/application/ports"]
-    APP --> CORE["src/core contracts"]
-    INFRA["src/infrastructure"] --> PORTS
-    INFRA --> CORE
-    API --> INFRA_MOUNT["SharedResourceMount via app.state.container"]
-    CORE --> WEBBUNDLE["WebBundle -> APIRouter contract"]
-    INFRA_COMPOSITION["FastApiAppAssembler"] --> API
-    INFRA_COMPOSITION --> APP
-    INFRA_COMPOSITION --> INFRA
+- **infrastructure 可以 import application**。这不是违规——`SharedResourceMount` 要实现 `src/application/ports` 的 Protocol；当前 `resource_mount` 还引用 `AuthorizationGuard` 和安全管理用例类型，持久化映射也引用 admin identity command。被 import-linter 禁止的是反方向（application → infrastructure），不能把“基础设施只依赖 ports”误写成已强制事实。
+- **api 是最外层**，理论上可以 import 一切；但为了保持路由薄适配，业务路由文件只应 import 自身 contract、`DependencyContextAccessor`、core 契约与 domain 授权常量，跨层组装集中在组合根。
+
+## 3. 为什么这样设计
+
+依赖方向的目标是**可替换性**与**编译期可发现性**：
+
+1. 用例依赖 Protocol（结构化鸭子类型），测试可注入任意满足签名的 fake，不需要 mock 补丁。
+2. infrastructure 换实现（Memory→Redis、Local→RabbitMQ）时，编译面只在装配器与配置模型，业务代码零改动。
+3. import-linter 把违规变成 CI 失败而不是 code review 口头约定；`uv run nox -s static` 每次执行。
+
+## 4. 两个 core 契约例外（详细边界）
+
+### 4.1 `WebBundle`（core 持有 `fastapi.APIRouter`）
+
+```36:48:src/core/http_contract/web_bundle_contract.py
+@dataclass(slots=True)
+class WebBundle:
+    """
+    Web集合数据对象，用于承载当前流程的结构化字段。
+    ...
+    """
+
+    module_name: str
+    router: APIRouter
 ```
 
-## 7. 关键实现
-| 组件 | 文件 | 职责 |
+允许的使用面：`src/api` 的 provider 产出它、`src/infrastructure/fastapi_route_composer.py` 消费它。**不允许**：业务用例、仓储、任何 core 业务契约接触 `APIRouter`。
+
+### 4.2 `PersistenceSession`（名义会话协议）
+
+`UnitOfWork.get_session()` 返回 `PersistenceSession`（core 中定义的空协议类）；`SqlAlchemyPersistenceSession`（infrastructure）同时继承 SQLAlchemy `Session` 与该协议。仓储工厂端口（如 `AuthRuntimePort.create_refresh_token_repository(session: PersistenceSession)`）以协议类型收参，具体仓储实现内部再收窄为 SQLAlchemy 会话。这样用例代码引用不到 SQLAlchemy 符号，而 infrastructure 拿到的是真实会话。
+
+## 5. 组合根与最外层接线（不是 linter 豁免）
+
+四条 forbidden 契约按**源包**判定，没有为具体文件设置豁免：`src/api` 本身是最外层，所以 `FastApiAppAssembler`、`DependencyContextAccessor`、`TestAppFactory` 可以跨层接线；`AsgiApplicationFactory` 当前只把调用参数转交给 assembler。Web 主对象构建应继续集中在 assembler，依赖读取集中在 accessor，测试替换集中在 test factory。新代码是否适合进入这些位置，应看它是否只做“构造、连接、读取已装配依赖或测试替换”，而不是把业务规则搬进最外层。
+
+## 6. 测试 fake 的引用限制
+
+`src/infrastructure/testing`（`FakeCacheStore`、`FakeClock`、`FakeMessageBus`、`SqliteTestEngineFactory`、任务/缓存测试支撑）只允许被 `test/**` 与 `src/api/testing/test_app_factory.py` 引用。生产装配路径出现这些符号视为缺陷（评审 + `test/path_test` 约定测试保护）。
+
+## 7. 常见违规与纠正
+
+| 违规 | 症状 | 纠正 |
 | --- | --- | --- |
-| `ApplicationPortEnvelope` | `src/application/ports/application_port_contract.py` | 描述应用端口信息。 |
-| `WebBundle` | `src/core/http_contract/web_bundle_contract.py` | 承载 Web 模块名和 `APIRouter`，供 provider 与装配器交接。 |
-| `UnitOfWork` | `src/core/persistence_contract/unit_of_work_contract.py` | 事务端口。 |
-| `AuthRuntimePort` | `src/application/ports/auth_runtime_port.py` | 通过 `UnitOfWork` 和 `PersistenceSession` 创建鉴权仓储。 |
-| `SharedResourceMount.create_unit_of_work` | `src/infrastructure/shared_resource_mount.py` | 提供事务实现。 |
+| 用例 import 仓储实现 | application → infrastructure，static 检查失败 | 在 ports 定义仓储工厂方法，装配器注入 |
+| 路由内直接 `create_engine`/`Redis()` | 资源生命周期失控 | 经 `DependencyContextAccessor` 读 `resource_mount` 提供的能力 |
+| core 契约里 import ORM 模型 | core → infrastructure | 在 core 定义快照/载荷模型，仓储做 ORM↔契约映射 |
+| 中间件 import 路由模块取常量 | infrastructure → api | 把常量下沉到 core 或 domain |
+| 出现循环 import | 启动 ImportError | 通常是 route/usecase/infrastructure 互相穿透；用 `TYPE_CHECKING` 块只解决类型标注，运行期依赖必须重新分层 |
 
-## 8. 如何修改或扩展
-1. 新增外部依赖时先定义端口或复用 core contract。
-2. 不要让 usecase import 具体 ORM model、SQLAlchemy `Session`、基础设施实现或 FastAPI Request；需要事务会话时沿用 `UnitOfWork` 暴露的 `PersistenceSession` 边界。
-3. 新增 Web 模块时通过 manifest/provider 输出 `WebBundle`，不要在装配器之外散落 `include_router`。
-4. 在 review checklist 中检查依赖方向。
+## 8. 测试覆盖
 
-## 9. 测试覆盖
 | 测试类型 | 文件 | 验证内容 |
 | --- | --- | --- |
-| unit | `test/unit_test/test_application_port_boundary_unit.py` | 应用端口边界。 |
-| boundary | `test/boundary_test/test_hard_migration_module_boundary.py` | 模块与运行时边界。 |
-| path | `test/path_test/test_runtime_path.py` | 运行时路径。 |
+| static | import-linter（`uv run nox -s static`） | 四条 forbidden 契约。 |
+| unit | `test/unit_test/test_application_port_boundary_unit.py` | 端口边界。 |
+| boundary | `test/boundary_test/test_hard_migration_module_boundary.py` | 模块/运行时边界。 |
+| path | `test/path_test/test_runtime_path.py` | 运行时读取路径。 |
 
-## 10. 常见问题
-- 如果出现循环 import，优先检查 route/usecase/infrastructure 边界是否互相穿透。
+## 9. 相关文档
 
-## 11. 维护备注
-变更端口和依赖方向时同步更新架构决策与评审清单。
-
-
-
-## 12. 相关文档
 - [项目文档总览](../README.md)
+- [分层架构](layered_architecture.md)
 - [评审清单](../09_development_guide/review_checklist.md)

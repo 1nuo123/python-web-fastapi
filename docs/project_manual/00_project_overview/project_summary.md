@@ -23,6 +23,7 @@
 | `Dockerfile` | 容器镜像入口。 |
 | `compose.yml` | 本地服务编排。 |
 | `compose.production.yml` | 生产环境 Compose 覆盖。 |
+| `.github/workflows/quality.yml` | push/PR 持续集成入口与质量证据上传。 |
 
 ## 4. 核心结论
 - `src/main.py` 暴露 `app = create_app()`，真实装配由 `FastApiAppAssembler` 完成。
@@ -30,7 +31,9 @@
 - 用例层在 `src/application`，基础设施实现集中在 `src/infrastructure`。
 - 持久化以 SQLAlchemy ORM 和 Alembic 迁移为主，当前配置默认使用 PostgreSQL。
 - 生产容器仍由 `Dockerfile` 启动 `uvicorn src.main:app`；生产 Compose 通过 `compose.production.yml` 覆盖依赖服务端口暴露、Redis/RabbitMQ 凭据和生产环境变量。
+- `compose.yml` 还声明了 `task-worker` profile：Web 进程与 `python -m src.cli.run_task_worker` 消费进程分离，二者复用配置、任务注册与 `SharedResourceMount`，可独立扩容。
 - 测试目录按 `unit_test`、`contract_test`、`interface_test`、`integration_test`、`boundary_test`、`exception_test`、`initialization_test`、`path_test`、`convention_usage_test`、`class_inheritance_test` 分层。
+- GitHub Actions 在 push/PR 上启动 PostgreSQL、带认证 Redis、RabbitMQ，执行 `uv sync --frozen --group dev` 与 `uv run nox -s static offline regression`，并在任何结果下上传覆盖率、JUnit 与阶段测试证据。
 
 ## 5. 结构说明
 `src` 下的代码呈现 API 接口层、应用层、核心契约、领域常量、基础设施实现和 CLI 入口等边界；`config` 提供 app、modules、runtime 三类配置；`test` 对关键契约、类继承约束和运行路径做分层验证。
@@ -66,7 +69,7 @@ flowchart TD
 
 ## 10. 常见问题
 - 本目录不替代历史执行方案；历史方案只作为背景资料。
-- 待确认：当前仓库未发现 CI workflow，持续集成命令需由维护者确认。
+- CI 事实源是 `.github/workflows/quality.yml`；本地只跑 `pytest` 不等价于 CI，完整门禁还包含 static/offline/regression nox 会话及真实 PostgreSQL、Redis、RabbitMQ 服务。
 
 ## 11. 维护备注
 修改项目范围、运行时或部署方式时，同步检查 README、架构、部署、测试和维护章节。

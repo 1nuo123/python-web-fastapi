@@ -16,6 +16,7 @@ from src.api.testing.demo_task_binding_factory import (
     DEMO_TASK_KIND,
     DemoTaskBindingFactory,
 )
+from src.api.testing.streaming_test_route_binder import StreamingTestRouteBinder
 from src.infrastructure.persistence.database_engine_factory_contract import (
     DatabaseEngineFactory,
 )
@@ -145,7 +146,7 @@ class TestAppFactory:
         """
 
         resolved_persistence_backend = persistence_backend or TestPersistenceBackendSelector.read()
-        return FastApiAppAssembler()(
+        app = FastApiAppAssembler()(
             environment=AppEnvironment.TEST,
             settings_overrides=self._merge_demo_task_overrides(overrides),
             task_bindings=(
@@ -160,6 +161,8 @@ class TestAppFactory:
                 else None
             ),
         )
+        StreamingTestRouteBinder(app).bind()
+        return app
 
     def _merge_demo_task_overrides(
         self,

@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/05_api_reference/admin_task_api.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
-    "verified_at": "2026-07-19T02:31:56.758477Z"
+    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+    "verified_at": "2026-07-31T01:57:20.433190Z"
   },
   "kind": "api",
   "detail": {
@@ -13,7 +13,7 @@
     "evidence_path": "docs\\project_manual\\05_api_reference\\admin_task_api.md",
     "status": "current",
     "replacement_path": null,
-    "content_sha256": "a221e16be7fdd143d05d1fe5faa2a50b19e5bc169e80aa5064bd4d5038e6b6d4",
+    "content_sha256": "0625d0df9167e4cff6eb2f4b4d4f3144b6a1f5ebbad18bf3ea9144b423fbcc20",
     "validation_status": "verified",
     "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
     "fact_evidence_paths": [

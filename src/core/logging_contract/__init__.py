@@ -3,6 +3,7 @@
 """
 
 from src.core.logging_contract.log_event_contract import (
+    AUDIT_CRITICAL_SECURITY_EVENT_TYPES,
     AccessLogDetail,
     ExceptionLogDetail,
     LogDetailUnion,
@@ -10,9 +11,11 @@ from src.core.logging_contract.log_event_contract import (
     LogEventHeader,
     LogEventKind,
     LogLevel,
+    LogPersistencePriority,
     RequestLogContext,
     ResourceLifecycleAction,
     ResourceLifecycleLogDetail,
+    StreamAccessLogDetail,
     TaskFailureLogDetail,
 )
 from src.core.logging_contract.log_runtime_contract import (
@@ -27,6 +30,7 @@ from src.core.logging_contract.log_writer_contract import (
 )
 
 __all__ = [
+    "AUDIT_CRITICAL_SECURITY_EVENT_TYPES",
     "AccessLogDetail",
     "DatabaseLogSinkDetail",
     "ExceptionLogDetail",
@@ -35,6 +39,7 @@ __all__ = [
     "LogEventHeader",
     "LogEventKind",
     "LogLevel",
+    "LogPersistencePriority",
     "LogSink",
     "LoggingRuntimeSettings",
     "LogWriteReason",
@@ -43,5 +48,6 @@ __all__ = [
     "RequestLogContext",
     "ResourceLifecycleAction",
     "ResourceLifecycleLogDetail",
+    "StreamAccessLogDetail",
     "TaskFailureLogDetail",
 ]

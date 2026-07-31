@@ -1,84 +1,120 @@
-﻿# 管理员配置 API
+# 管理员配置 API
 
-## 1. 文档目的
-说明配置热更新候选读取和应用接口。
+## 1. 范围与源码
 
-**最后更新范围**：覆盖本 API 的当前 route、contract、usecase、权限和测试，不包含前端页面调用约定。
+`admin_settings` 是默认不启用的 `ops_only` 模块，提供配置热更新候选摘要和 reload 执行。
 
-## 2. 适用读者
-- 新人开发者
-- 后端开发者
-- 测试维护者
-- 安全审查人员
-
-## 3. 关联源码
-| 路径 | 作用 |
+| 源码 | 职责 |
 | --- | --- |
-| `src/api/endpoint_admin_settings/route_admin_settings.py` | 配置热更新路由。 |
-| `src/api/endpoint_admin_settings/contract_admin_settings.py` | 配置热更新契约。 |
-| `src/application/admin/build_admin_settings_reload_candidate_usecase.py` | 候选读取用例。 |
-| `src/application/admin/apply_admin_settings_reload_usecase.py` | 应用热更新用例。 |
+| `src/api/endpoint_admin_settings/route_admin_settings.py` | 2 个 route、权限、响应和成功审计。 |
+| `src/api/endpoint_admin_settings/contract_admin_settings.py` | candidate/request/result 双层信封。 |
+| `src/application/admin/*admin_settings_reload*_usecase.py` | 两个薄用例。 |
+| `src/application/ports/admin_settings_reload_port.py` | candidate/result snapshot 与 Protocol。 |
+| `src/infrastructure/admin_settings_reload_adapter.py` | 当前环境到 `SettingsReloadCoordinator` 的适配。 |
 
-## 4. API 目的
-说明配置热更新候选读取和应用接口。
+## 2. 端点与权限
 
-## 5. 路由入口
-| 方法 | 路径 | 路由函数 | 文件 |
-| --- | --- | --- | --- |
-| GET | /admin/settings/reload/candidate | `AdminSettingsRouteCatalog.read_reload_candidate` | `src/api/endpoint_admin_settings/route_admin_settings.py` |
-| POST | /admin/settings/reload | `AdminSettingsRouteCatalog.apply_reload` | `src/api/endpoint_admin_settings/route_admin_settings.py` |
-
-## 6. 请求参数
-| 参数 | 位置 | 类型 | 是否必填 | 说明 |
+| 方法 | 路径 | 请求 | 响应 `data` | 权限 |
 | --- | --- | --- | --- | --- |
-| AdminSettingsReloadRequestEnvelope | body | object | reload 必填 | 热更新请求信封；`detail` 为无业务字段的 `AdminSettingsReloadRequestDetail`，route 仅校验契约后执行热更新。 |
-- 热更新请求信封的 `header.kind` 与 `detail.kind` 均为 `admin_settings_reload`，`header.operation_name=apply_reload`，`schema_version=1.0`；额外字段会触发 422。
+| GET | `/admin/settings/reload/candidate` | 无 | `AdminSettingsReloadCandidateEnvelope` | admin + `system:read` |
+| POST | `/admin/settings/reload` | `AdminSettingsReloadRequestEnvelope` | `AdminSettingsReloadResultEnvelope` | admin + `system:read` |
 
-## 7. 响应结构
-- `AdminSettingsReloadCandidateEnvelope`
-- `AdminSettingsReloadResultEnvelope`
-- `AdminSettingsReloadRequestEnvelope` 只作为 `POST /admin/settings/reload` 请求体，不作为响应返回。
-- 候选响应 `detail` 包含 `candidate_version`、`digest`。
-- 热更新结果 `detail` 包含 `success`、`rolled_back`、`reason`、`candidate_version`、`restored_resources`、`active_snapshot_id`。
+启用方式是把 `admin_settings` 加入 `app.modules.enabled` 并重启。未启用是 404；Bearer 缺失/无效是 401；缺角色或 scope 是 403。
 
-## 8. 鉴权与权限
-运维控制面模块，默认不挂载；启用 `admin_settings` 后需要 Bearer token，要求角色 `admin` + scope `system:read`。
+## 3. 请求信封
 
-## 9. 业务流程
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Route
-    participant Bridge as RequestExecutionBridge
-    participant Usecase
-    participant Port as SharedResourceMount/Repository
-    Client->>Route: HTTP request
-    Route->>Bridge: run_sync when usecase is synchronous
-    Bridge->>Usecase: BuildAdminSettingsReloadCandidateUsecase / ApplyAdminSettingsReloadUsecase
-    Usecase->>Port: read/write/query
-    Port-->>Usecase: snapshot/result
-    Usecase-->>Route: DTO or payload
-    Route-->>Client: ResponseEnvelope
+POST body 必须是：
+
+```json
+{
+  "header": {
+    "kind": "admin_settings_reload",
+    "schema_version": "1.0",
+    "operation_name": "apply_reload"
+  },
+  "detail": {
+    "kind": "admin_settings_reload",
+    "schema_version": "1.0"
+  }
+}
 ```
 
-## 10. 错误码
-| 错误码 | HTTP 状态 | 触发条件 | 来源 |
-| --- | --- | --- | --- |
-| system.request.invalid | 422 | 请求结构或 detail 类型不满足契约。 | src/core/exception_contract/error_code_catalog_contract.py |
-| 404 | 404 | `admin_settings` 未加入 `app.modules.enabled` 时路由不存在。 | src/api/web_module_manifest.py |
-| auth.token.invalid | 401 | 未提供或未通过访问令牌认证。 | src/api/dependency_context_accessor.py |
-| auth.authorization.permission_denied | 403 | 已认证但角色或 scope 不满足。 | src/application/authorization_guard.py |
+header/detail 均 `extra="forbid"`，`kind` 与 `schema_version` 必须一致。detail 当前没有 dry-run、candidate id 或 force 字段；candidate GET 和 apply POST 是各自独立地从当前环境重新构建/执行。
 
-## 11. 测试用例
-| 测试文件 | 覆盖内容 |
+## 4. Candidate 响应
+
+外层为 `ResponseEnvelope`；`data.header` 为：
+
+- `kind=admin_settings_reload_candidate`
+- `schema_version=1.0`
+- `operation_name=read_candidate`
+
+`data.detail` 只有 `kind/schema_version/candidate_version/digest`。它是摘要契约，不暴露变更字段、配置明文、hot/restart 分类或环境变量值；更详细的 diff 属 coordinator 内部数据，不在当前 API surface。
+
+## 5. Apply 响应
+
+`data.header.kind=admin_settings_reload_result`、`operation_name=reload_result`。detail 字段：
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `success` | bool | reload 是否成功生效。 |
+| `rolled_back` | bool | 失败时是否执行回滚。 |
+| `reason` | string/null | 拒绝或失败原因。 |
+| `candidate_version` | string/null | 本次候选版本。 |
+| `restored_resources` | string[] | 回滚恢复的资源名。 |
+| `active_snapshot_id` | string/null | 当前生效快照。 |
+
+关键语义：adapter/usecase 把拒绝和回滚作为 `AdminSettingsReloadResultSnapshot` 返回，route 始终构建成功的 HTTP response。因此 `success=False` 仍可能是 HTTP 200 + outer `system.success`；调用方必须检查 `data.detail.success` 和 `rolled_back/reason`，不能只检查状态码。
+
+## 6. 执行与审计
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant R as Route
+    participant U as Usecase
+    participant A as AdminSettingsReloadAdapter
+    participant S as SettingsReloadCoordinator
+    C->>R: POST reload envelope
+    R->>R: Bearer + admin + system:read
+    R->>U: run_sync(execute)
+    U->>A: apply_admin_settings_reload()
+    A->>S: reload(current environment)
+    S-->>A: ReloadResultPayload
+    A-->>R: result snapshot
+    alt result.success
+        R->>R: emit settings_reload audit
+    end
+    R-->>C: HTTP 200 result envelope
+```
+
+- 允许热更新与必须重启字段由配置中的 reload policy 和 coordinator 校验。
+- `settings_reload` 审计目标 `target_kind=settings`，target id 优先使用 `candidate_version`，缺失时使用 `runtime_settings`。
+- 只有 `success=True` 发成功业务审计；拒绝/失败产生的 `config_security_rejected` 属安全日志链路，不会伪装成 `settings_reloaded`。
+
+## 7. 错误语义
+
+| HTTP/结果 | 错误码或字段 | 条件 |
+| --- | --- | --- |
+| 404 | route 不存在 | 模块未启用。 |
+| 401 | `auth.token.invalid` | 未认证。 |
+| 403 | `auth.authorization.permission_denied` | 缺 admin/system:read。 |
+| 422 | `system.request.invalid` | POST 信封缺字段、额外字段或 header/detail 不一致。 |
+| 200 | `detail.success=False` | 候选被拒、应用失败或发生回滚等协调器业务结果。 |
+| 5xx | 统一异常错误码 | coordinator/基础设施抛出而不是返回 result snapshot 的未处理故障。 |
+
+## 8. 事实核验测试
+
+| 测试 | 覆盖事实 |
 | --- | --- |
-| `test/interface_test/test_admin_settings_interface.py` | 配置接口。 |
-| `test/contract_test/test_admin_settings_contract.py` | 配置契约。 |
-| `test/unit_test/test_admin_settings_usecase_unit.py` | 配置用例。 |
+| `test/interface_test/test_admin_settings_interface.py` | 模块启停、认证授权、请求信封、未知字段和执行。 |
+| `test/contract_test/test_admin_settings_contract.py` | candidate/request/result header/detail 契约。 |
+| `test/unit_test/test_admin_settings_usecase_unit.py` | candidate、成功、拒绝和回滚结果映射。 |
+| `test/unit_test/test_settings_apply_transaction_unit.py` | 资源应用与回滚事务。 |
+| `test/unit_test/test_settings_snapshot_store_unit.py` | active snapshot 行为。 |
 
-## 12. 扩展注意事项
-- 热更新范围受 `config/app_base.toml` 中 `app.reload.hot_reload_allowed` 和 `restart_required` 约束。
+## 9. 相关文档
 
-## 13. 相关文档
-- [项目文档总览](../README.md)
+- [管理后台能力](../03_application_domain/admin_business_capabilities.md)
+- [应用端口](../03_application_domain/application_ports.md)
 - [API 总览](api_overview.md)

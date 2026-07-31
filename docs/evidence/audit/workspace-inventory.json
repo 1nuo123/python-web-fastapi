@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-07-19T02:31:42.872864Z",
-  "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
+  "generated_at": "2026-07-31T01:57:15.491564Z",
+  "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
   "entries": [
     {
       "kind": "source",
@@ -17,6 +17,11 @@
       "kind": "source",
       "path": "src\\api\\admin_list_page_contract.py",
       "sha256": "1a9a669a05823840d9898c819d314ed3146fd15e8104958776224722db2dbb00"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\admin_task_stream_binding_factory.py",
+      "sha256": "2b359918a4ec9e54121514846cf4a02826957e8816883291ecdb74dd75570473"
     },
     {
       "kind": "source",
@@ -106,7 +111,7 @@
     {
       "kind": "source",
       "path": "src\\api\\endpoint_admin_log\\contract_admin_log.py",
-      "sha256": "4b5fdc9cba2b11c3d7fc6ba9a993e598a255c8146a03d9a3bbac0640f054bcd3"
+      "sha256": "94045591da66ee9ce3677fb0f95e6168f31b8fa5e52ed30cf98a3e45d92a4581"
     },
     {
       "kind": "source",
@@ -126,7 +131,7 @@
     {
       "kind": "source",
       "path": "src\\api\\endpoint_admin_settings\\route_admin_settings.py",
-      "sha256": "27ad9d8b844d02ce3ef323a95a52fc487e33ad9e284b905e3d1db2338c2175c6"
+      "sha256": "9b44a75869735ae09346d6e82e1854b5bee32b28e5ea19a04345bc7695b67778"
     },
     {
       "kind": "source",
@@ -211,12 +216,22 @@
     {
       "kind": "source",
       "path": "src\\api\\evidence\\public_contract_snapshot_builder.py",
-      "sha256": "6ff65aa571421e84aac80bdf099fb422145403fba4144194c2cbf68b062e6c1b"
+      "sha256": "93de886046c70679ceb4f8d10585e2669ce0b5ba17d3ccaebdd16767c16854b8"
     },
     {
       "kind": "source",
       "path": "src\\api\\fastapi_app_assembler.py",
-      "sha256": "6a778b13472f867a77c4c15c8fed0940e8edcf6432b56f4a1b9db1d413886550"
+      "sha256": "b89a77a88624921c6235e77f1a922502a8fdd9bc193e82dcdea7f61559f5b05f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\fastapi_stream_route_composer.py",
+      "sha256": "129019440825ce205da1dae1b2ee520129149fa03e5e4762aa787229e8eac521"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\streaming_context_accessor.py",
+      "sha256": "f8f3f2b79b41cd0841f6a4d0e755c4ddde369c9decc01198a8634faf102b1179"
     },
     {
       "kind": "source",
@@ -235,8 +250,13 @@
     },
     {
       "kind": "source",
+      "path": "src\\api\\testing\\streaming_test_route_binder.py",
+      "sha256": "9cd6ae8bd84ac48409c6bb2c4383d02675f1ab73c597745095f07ed00281b1b6"
+    },
+    {
+      "kind": "source",
       "path": "src\\api\\testing\\test_app_factory.py",
-      "sha256": "77a73dc63f2f938016d505af327b04d54d49b64d731abc604bbc600a5509d539"
+      "sha256": "38b14c70cc9950a024ba5cbf48b9832cc092ca0f971f66589ba8eaace18ce6b0"
     },
     {
       "kind": "source",
@@ -460,6 +480,11 @@
     },
     {
       "kind": "source",
+      "path": "src\\application\\admin\\task_execution_stream_source.py",
+      "sha256": "3029700dce22e85fb978ab35ac36c9d8af9f40a81ff2fd9a3f1142272cf6dc8e"
+    },
+    {
+      "kind": "source",
       "path": "src\\application\\authorization_guard.py",
       "sha256": "7f15a8d4c87e0997ef475ca5c5d13f5e4ca6ce6da745df47ed133d349f5ba755"
     },
@@ -481,12 +506,12 @@
     {
       "kind": "source",
       "path": "src\\application\\ports\\__init__.py",
-      "sha256": "056c5108429f5402a5aa3a3ec1697337911cc6fae3f4a9f0e58ae543d7473c62"
+      "sha256": "3c1e730f76224e7fa2e30b5fd6c86bac498aa8d017ae38bb82e1c62351f4c83b"
     },
     {
       "kind": "source",
       "path": "src\\application\\ports\\admin_audit_query_port.py",
-      "sha256": "0b32d0f72fabb8fa28022e43cee382fca4daba5ca3b70c64662bca3691a06985"
+      "sha256": "27409a43c272a68be500cc05c76f6519dcec39f04ec1192e7329681aeded4a5f"
     },
     {
       "kind": "source",
@@ -525,6 +550,16 @@
     },
     {
       "kind": "source",
+      "path": "src\\application\\ports\\stream_event_source_port.py",
+      "sha256": "46a43001c3e2eeff925e463b7abcd967518ac85ec00f1b5f540fdbebe2f28c0f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\ports\\stream_state_store_port.py",
+      "sha256": "58884d588a27ab59172ac350de71beb3fc93048cfdd35448505b9f888753db5e"
+    },
+    {
+      "kind": "source",
       "path": "src\\application\\ports\\task_runtime_port.py",
       "sha256": "c680c90c9b7e878a0cb290b408f7bc7efed80bcb228f4f45b454dfd2d51c27dc"
     },
@@ -537,6 +572,21 @@
       "kind": "source",
       "path": "src\\application\\revoke_access_token_usecase.py",
       "sha256": "1d7d6653bca501ef4bb2dfe1702a15641228b9a0d7de7ed1f063324e26634aa4"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\streaming\\__init__.py",
+      "sha256": "ce35dccf9bb8e4da774c039622c1f4b21fdcbc422e990f2d699e22bdb94851c2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\streaming\\stream_access_ticket_service.py",
+      "sha256": "5305a40d6a195f9740348864ae71681737204f6e01e25a239dcdfd11f0b74501"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\streaming\\stream_execution_orchestrator.py",
+      "sha256": "945bf8f905cc553d097042585e276d44e41a3c00bc3058023de175b27d460151"
     },
     {
       "kind": "source",
@@ -592,6 +642,11 @@
       "kind": "source",
       "path": "src\\cli\\run_task_worker.py",
       "sha256": "37652154b0b36610ecde375b6a44e64bb99842577b586cb0ebc4b1aebafc60fe"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\run_web_server.py",
+      "sha256": "0b953dc8df56dd362f76198627a31a0fc64759ff85a2ce135d444dd9ce7f690c"
     },
     {
       "kind": "source",
@@ -706,7 +761,7 @@
     {
       "kind": "source",
       "path": "src\\core\\exception_contract\\error_code_catalog_contract.py",
-      "sha256": "7b59193d6cc1c3d4e8f65c52d0a1ba9643d6dca8867869ee8e86675ab302ce9d"
+      "sha256": "d40bd8de637caf7ff0883db56b36f9f8e62172ee5785e72b6472e6bc50a908db"
     },
     {
       "kind": "source",
@@ -776,12 +831,12 @@
     {
       "kind": "source",
       "path": "src\\core\\logging_contract\\__init__.py",
-      "sha256": "27021024d3dad69b69acc6cc7282a079c9828defd4a610e2fd66d7dbf546b0ca"
+      "sha256": "89eb9b16e831dd68a25c1324bf3b16de2e575912c9706a6e5d1c9a2527dbdf1d"
     },
     {
       "kind": "source",
       "path": "src\\core\\logging_contract\\log_event_contract.py",
-      "sha256": "932a84d8134e7af4aab36dd579ec932883805105d445353879cb30781d491b65"
+      "sha256": "cee0260d57da98771d30daa484f2e0e62a05de8dc945d1bf6a981e79a58a50d5"
     },
     {
       "kind": "source",
@@ -791,17 +846,22 @@
     {
       "kind": "source",
       "path": "src\\core\\logging_contract\\log_writer_contract.py",
-      "sha256": "d7ec79678726d5c9f06565aef363988e559735a15b08b0e4afda78872ce8d7e2"
+      "sha256": "9b5222675fd0f85a33255a97b2202bcac18d1d89cec07f572c0f2a0865e99a04"
     },
     {
       "kind": "source",
       "path": "src\\core\\observability_contract\\__init__.py",
-      "sha256": "2b55b6efcb543b0a685154be70e7fabce57c0151c05858eb6d5c9187c087dd34"
+      "sha256": "6c286aa423cf37c0fb8107afba200b77d9bbbc28e13ac3a46efe81a20b569f72"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\observability_contract\\alert_rule_contract.py",
+      "sha256": "fdf43f982af091e9980bd36f87ac74248fe67059215ea1e4c51bf711e040b1b3"
     },
     {
       "kind": "source",
       "path": "src\\core\\observability_contract\\metrics_runtime_contract.py",
-      "sha256": "2d188d281133e805e3a083c65bddd1d43a552155e1fc123fd25dae22b03179e1"
+      "sha256": "2e2b29bb35e22b581530a247e367d969f24ff580a4012527a34c247e2187584d"
     },
     {
       "kind": "source",
@@ -870,6 +930,36 @@
     },
     {
       "kind": "source",
+      "path": "src\\core\\stream_contract\\__init__.py",
+      "sha256": "b1e268bcf306610e97c6e76147edbfedd2af2a7ba0f15422406900bdb0b2731d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\stream_contract\\stream_access_contract.py",
+      "sha256": "4095266ee5f37d6f4fe288e1349c18c8a40fd335ce7661a79d48d5205e11c60d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\stream_contract\\stream_control_contract.py",
+      "sha256": "e26eaf03e5060027c4cc65777e9528d1ae5d976ec21ab94e156dbd4db06b1aed"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\stream_contract\\stream_delivery_contract.py",
+      "sha256": "ced4be697dc29f172f73cd430f9c143fadb6cc9acb6e1b3c925d342582999b47"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\stream_contract\\stream_event_contract.py",
+      "sha256": "f569acb8d7498a3408ff2f77fabc495a22cd1c5a5ba3d3627de56cc583c4a416"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\stream_contract\\stream_runtime_contract.py",
+      "sha256": "5fbf7237b4ded17a1190ad1608d650b97357ed1e8abc26a553e4b3dbeb1fc928"
+    },
+    {
+      "kind": "source",
       "path": "src\\core\\task_contract\\__init__.py",
       "sha256": "47a6bff3785d9f629cdc08aae0c9eb0be906ec2931d4b3b8aa61d64e4cfc845b"
     },
@@ -887,6 +977,11 @@
       "kind": "source",
       "path": "src\\core\\task_contract\\task_execution_record_contract.py",
       "sha256": "6ed629af66bd301f3243a6d1970867edee18d98b90d99bf9e14285106c4cc829"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\task_contract\\task_execution_stream_contract.py",
+      "sha256": "372d33eff006bbc111dcc56c6291a0b69824f9764762bf47a6d0723dc490d361"
     },
     {
       "kind": "source",
@@ -972,6 +1067,11 @@
       "kind": "source",
       "path": "src\\infrastructure\\auth\\auth_failure_throttle.py",
       "sha256": "8421aa38cc48f12adcb541d401b73a11a272890b4dd31f5027521f20bbb2779e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\auth\\authenticated_principal_resolver.py",
+      "sha256": "308d178d8939c41f5cc1008c57a85eec8f935e653fc2e1103d06ac1765de1e31"
     },
     {
       "kind": "source",
@@ -1086,17 +1186,17 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\fastapi_exception_presenter.py",
-      "sha256": "92a39ffbf4fa84c5b00c1facf6ae2015a81576135948e5a059ea7fe8760afcb5"
+      "sha256": "6b96bf03a8bf84a12af9c404132aa547addf2f837f278bee573ca40bf16025ab"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\fastapi_lifespan_orchestrator.py",
-      "sha256": "fd5079d40acf752def824a908c02987869240f3fb706f15d60c6240606722a1c"
+      "sha256": "fb4466c5689c5b50e7ce74ef847d0ce328453d1b72eb676dc341462a30e964a8"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\fastapi_middleware_plan.py",
-      "sha256": "c30c05be4f2436d2e67cef91d528ceb2fa4f77f6cd6a2832061e0e72e15a22b9"
+      "sha256": "a271fc2f33b89868117afa1148259b437a1339405b7f9d5b3e1e0c4613256883"
     },
     {
       "kind": "source",
@@ -1106,7 +1206,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\fastapi_otel_bridge.py",
-      "sha256": "e72692bbd1cffc28911068002c3bd38ec1b3296c409398096e81f53c243170fb"
+      "sha256": "a57c75f2b66082f80a8e69663d27273f9c9f254d2888007a3cd1ea5f9132763b"
     },
     {
       "kind": "source",
@@ -1166,12 +1266,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\logging\\log_buffer_dispatcher.py",
-      "sha256": "3190720dc5446121dab0470cbade5a76053f6c22bedfd7b4ed9ba10addbcbb97"
+      "sha256": "6a565bd978a9ebdb526c177e21f26d2847a9623dd271caac845d0defc25a076a"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\logging\\log_event_builder.py",
-      "sha256": "3da4c2444fa67d7220a478a3e85792fab58b8de3803b45438cd86cb22ca55448"
+      "sha256": "4ed6af477a5f441bb796373e8f74cf718537e3e190d4c844a3947f8c451fccad"
     },
     {
       "kind": "source",
@@ -1196,17 +1296,17 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\middleware_chain\\access_log_middleware.py",
-      "sha256": "a28a7ed829045ab8357b44fd8c443c425ca8f50d26872e0c612a4cf128262ce9"
+      "sha256": "97b2fef1d4bbd4e458e6e6b7ba5bce7347dff504f3d96b14fc1516a303490262"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\middleware_chain\\authentication_binding_middleware.py",
-      "sha256": "0c71a32767a53bc592bf6161f890bf4c5116324345a64db007d0d4321d87a488"
+      "sha256": "73f655892f2a39e1e8c4566410f32fb5717e2f2dac04acd929edc243d189bc26"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\middleware_chain\\elapsed_probe_middleware.py",
-      "sha256": "5fcf02cee65ea411a9599233c7598c2ad1f8c47d72bfe7787a918b4772929522"
+      "sha256": "4096d579816e5a43c79cc49c6c62e2c462f9ff83fbe5d56fc567019e766c1213"
     },
     {
       "kind": "source",
@@ -1221,7 +1321,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\middleware_chain\\request_scope_middleware.py",
-      "sha256": "2fa523d5f0bd02306f952c70d27e17d3c78c075beb0124b61ee33802fa1569ab"
+      "sha256": "4baf7d92f77fbcc5fbb1cdd90a8857e39b3dbd60151a9a9431e42cf028ea9048"
     },
     {
       "kind": "source",
@@ -1231,17 +1331,22 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\observability\\__init__.py",
-      "sha256": "19e1697fd31e624460094e64f4869a584bfe82825d546a4bbc7bce8839b851d5"
+      "sha256": "3a17d1f1724cf6160e81f9781342a9393b41a954420ca76b35cd959a9c3ba7d0"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\observability\\alert_rule_catalog_loader.py",
+      "sha256": "82d9cef11dcab83cf3c6f78ea50f8f890e22270ba984c42c8166012c92a16915"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\observability\\prometheus_metrics_registry.py",
-      "sha256": "27f84aacb20a6d417e88a74cfdf244b07db51cfe9159dba222cf705edf81024f"
+      "sha256": "ab4aaadc875de7ee678230bfcd7d8389e443010d7f8048969f6482fbfffe58f6"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\observability\\prometheus_metrics_route.py",
-      "sha256": "1cb122cc0e00dd96a5c9076eb471e0aad8070c230f3ecc44314538611e4e6bb2"
+      "sha256": "fd9ed173db9f04eece2275db4f4cbe1977f74f9171e2382fb3c87d0de834a218"
     },
     {
       "kind": "source",
@@ -1471,12 +1576,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\sqlalchemy_session_factory.py",
-      "sha256": "4ad9ede69a9f47018974743dc4c8bf9ba084fb4e63471fae5d8b297f5ce4df39"
+      "sha256": "7ec8dbbfc40868ff7b515116c51de3d5dd487a4c981d551881a6a6d4cf1182b0"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\request_execution_bridge.py",
-      "sha256": "02a1358d541d27b9fcee50012a4a22d1422cc1040ad2cf8c1fd196f12e985f18"
+      "sha256": "8d481fe63014d6135e4098808167bec283a95a7a15cd54add07f3e65be17c569"
     },
     {
       "kind": "source",
@@ -1496,7 +1601,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\resource_mount\\logging_resource_facade.py",
-      "sha256": "f50aaccd9a24a64b6f3b3647ca813ef323f50945ffbe7155df383497290516ee"
+      "sha256": "f22dc3844ed76d7ccd6a34b9c9fad73b30e51d0335ab4f40c37217a24db3eeb0"
     },
     {
       "kind": "source",
@@ -1506,7 +1611,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\resource_mount\\runtime_resource_bootstrapper.py",
-      "sha256": "a5bfe80ccde56fa2e844581c397f64af40a23b9ab955482fec02725a60cc9128"
+      "sha256": "a26426521b16b7ed4150322833e12ef0c146675aa85d29c5cc29792d8019c3b4"
     },
     {
       "kind": "source",
@@ -1526,12 +1631,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\resource_mount\\shared_resource_constants.py",
-      "sha256": "8d48188040523232495789a389fd3b6b13c49eb06666cc03817b5d640ba5ea16"
+      "sha256": "afbb8f76b0b4b175635e5af176adb1219d905ee902c880cc13a8ffd5517bfa76"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\resource_mount\\shared_resource_lifecycle.py",
-      "sha256": "faafbee9bfa7a0c839de81bfb406c5bf906763451c3e9a92e07a8afdefa359ac"
+      "sha256": "6c261ade2131dd8865ee46725787ecf178cb2fbc673c9b72e1de8f9857f9c824"
     },
     {
       "kind": "source",
@@ -1571,7 +1676,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\security\\client_ip_resolver.py",
-      "sha256": "92c8b3e9925a87c660353e1dd2933a7ad2ca1f343e34a91c4602cbd12e99993e"
+      "sha256": "4e41077f9f0d0c8a102fc590b5d8c1af3d7a1cac5ea219a67ded7b39becf8191"
     },
     {
       "kind": "source",
@@ -1626,12 +1731,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\settings\\app_settings_loader.py",
-      "sha256": "efcc6791385747fae43ae226fdb543f20ec60f519ff886c4fa69e52026cd32d1"
+      "sha256": "785f90a3cae4e9854d6d70f9b94ff504e38bb683b9f416cc7067710ab27c5ad5"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\settings\\application_settings.py",
-      "sha256": "1da4eb7ad730d339d8bf0ed629c490651cc1fdb72b324486e2972661c33dda44"
+      "sha256": "a43a984124495eab924fd92cecef9510c52d52e227a183c6905a8ea6edbfb9d9"
     },
     {
       "kind": "source",
@@ -1651,12 +1756,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\settings\\parsers\\runtime_settings_parser.py",
-      "sha256": "043273585a25624e91c404085c0949c0374faa5df4a63951bd8d3367cbba890c"
+      "sha256": "bbaf47c45fe6c926ba7c0b75bfffeaa15e1fe985ff07bc802525788775e7058c"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\settings\\raw_application_settings.py",
-      "sha256": "c125ea03adbeb7371e99534dd1376f8f61067ed6b4b04cd750d20b42ab747c41"
+      "sha256": "05aa31fa7a218b33f0ceb7f319a071b81f43c0a4075148ec6c63d0556ce4b7fc"
     },
     {
       "kind": "source",
@@ -1686,7 +1791,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\settings\\settings_security_validator.py",
-      "sha256": "7fc2c0bdc5ca4bc37173972947d9398a13d1455f29218498d67fc46c769d343b"
+      "sha256": "f0222d7db8cd90dabbbf6f7a8b5a57d978480c6fe0deb60e14cc9cdcace3a32f"
     },
     {
       "kind": "source",
@@ -1697,6 +1802,76 @@
       "kind": "source",
       "path": "src\\infrastructure\\shared_resource_mount.py",
       "sha256": "135c1b2471dea17ab7ed5ae917b2c11af1ff0419eb4c894ada06aed398563738"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\__init__.py",
+      "sha256": "1605974ac8b3cd38296c2045d72cedceda3e7f0ed86caafe52d6cc2a6e8eb136"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\deferred_stream_resources.py",
+      "sha256": "66530d63451ec57604c82f84636526422d50862bed37a2c2a9b3fdf5a5a388fd"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\http_batch_response_presenter.py",
+      "sha256": "d8debdfdc69a2e59f45c07be7531f8c7d29ab3db9b3f9c9d19df7786f3a59705"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\memory_stream_state_store.py",
+      "sha256": "11c7ac18e64cc035fd89d8eb60dccc6d8acee491aafda405d10c2f3da1fdf08f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\production_websocket_admission_adapter.py",
+      "sha256": "e3a82d3d27b38588358b4ffd897293adc2a8970b9cbc4af7485ff14931a30c1e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\redis_stream_state_store.py",
+      "sha256": "50cfa05d5ee82917d923767d01284230cf1b457e4747435154542c3bd178fed8"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\sse_response_presenter.py",
+      "sha256": "8d40c434ed15e1e7e5300119a3a3c631f464be76be3ff87abb46f9ab8a32082b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\stream_event_codec.py",
+      "sha256": "7bb118bc13f7e0bbb9f7a79902fe8f2f8bc2690f4a917ad957c4fde1a5b27565"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\stream_metrics_observer.py",
+      "sha256": "6b1e9b544d119ea44095b7df4ea5bf12ff734c0a2640a3e6c6159da13f68766e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\stream_observation.py",
+      "sha256": "67f682a2111d52e0745b0ecbea93e4832a4db91db10dcfb1347548e7e1634299"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\stream_session_registry.py",
+      "sha256": "daef8100b18f56fab1137c1fec90ea0631e5ceacf0e6ce556b259170f85e144d"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\streaming_runtime_factory.py",
+      "sha256": "264c7a6a35fab8c37828494a302d4e05a34f1af2d30774f59a82b6c89bea7fab"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\websocket_connection_guard.py",
+      "sha256": "ad1377dc8f4d97070439e9b8b7117431198fd9732addce6647b6c30e2bf566ae"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\streaming\\websocket_session_handler.py",
+      "sha256": "bafd188693b9751d363ceebb9acc9a50aa56eeb6e0e3924866b75679b36a7648"
     },
     {
       "kind": "source",
@@ -1731,7 +1906,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\task\\local_message_bus.py",
-      "sha256": "dc1816614e9249c0e6d1a52fb900a3f18941b320479724f2c242823292927d5e"
+      "sha256": "051d6ceb98b56ab5cc495c39dae0ab71be18dae3db254232d45d2e7f0a90d03a"
     },
     {
       "kind": "source",
@@ -1761,7 +1936,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\task\\task_execution_store.py",
-      "sha256": "269ade3e14c809e3a83845d9165b51fcf87abcabdd1efcf68d13595dde01d9eb"
+      "sha256": "7dd04c39051f9cc0f2cb243ca87115965805b3516417d4edf59c7e38b99ca7dd"
     },
     {
       "kind": "source",
@@ -1811,7 +1986,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\testing\\task_execution_test_support.py",
-      "sha256": "4b1d36f32d189e38daa69f61ad97ce6b4ca49fe2c578d500c73525fdf9083872"
+      "sha256": "6a1ce50221610adb67958204125fcbe2894fd9bdb6573e9bdeb9f1018a2516d4"
     },
     {
       "kind": "source",
@@ -1821,17 +1996,17 @@
     {
       "kind": "dependency",
       "path": "pyproject.toml",
-      "sha256": "6a9e50d1f004a6a1b09f77381fcc095b9c7f7cb595efd6e4064d8e77cdfeb5a8"
+      "sha256": "951a36c15ba13b4b118c9c1330c9d955088fbfe97c58290b9cdae627ded7abca"
     },
     {
       "kind": "dependency",
       "path": "uv.lock",
-      "sha256": "0f7c86f3f2cb67790cfa8ed4a8551c5d4a4bf83e1b507e767737c72404885b7e"
+      "sha256": "9bd5b6ace70f7ccaaad9d5fac9292664002a6c87e6bc652b022969564f738f69"
     },
     {
       "kind": "configuration",
       "path": "config\\app_base.toml",
-      "sha256": "ee0ef8f48ac2cd8920ca5a23a16db7fd8a294a839171554d0b76fb52e70d6bc2"
+      "sha256": "f8a005bad611349a144bed777e5d8cd8942fe7e77d8f4ffc6833081001396286"
     },
     {
       "kind": "configuration",
@@ -1991,17 +2166,17 @@
     {
       "kind": "configuration",
       "path": "config\\runtime\\metrics_runtime\\metrics_runtime_base.toml",
-      "sha256": "01330c82950904d1000ba3062c535631f759d4c99a427e373a7b54a745b65fb7"
+      "sha256": "ff0fc95e0abe617a60cb990b50fde23484eafe3205c3f05bcef859140c6c73a1"
     },
     {
       "kind": "configuration",
       "path": "config\\runtime\\metrics_runtime\\metrics_runtime_production.toml",
-      "sha256": "f6baea78a1574a0b367e965f4aa1e6707eb87cd5df2a564b0abb0c8fdfff7ebc"
+      "sha256": "d00cc5bc07cfbb8faef1bb65e34534ef14d4ecb5725a870ec3d40fdbcd5ecb48"
     },
     {
       "kind": "configuration",
       "path": "config\\runtime\\metrics_runtime\\metrics_runtime_test.toml",
-      "sha256": "f6baea78a1574a0b367e965f4aa1e6707eb87cd5df2a564b0abb0c8fdfff7ebc"
+      "sha256": "d00cc5bc07cfbb8faef1bb65e34534ef14d4ecb5725a870ec3d40fdbcd5ecb48"
     },
     {
       "kind": "configuration",
@@ -2022,6 +2197,21 @@
       "kind": "configuration",
       "path": "config\\runtime\\security_runtime\\security_runtime_test.toml",
       "sha256": "27502db0d3bb5090f28616d45c911d604279ea7b2be82dfab8d7f3d5c4e072df"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\stream_runtime\\stream_runtime_base.toml",
+      "sha256": "35b8a5a2a582f91d2b3d804f6c643192814522bb75cfe8f45f1a3e64592c39ad"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\stream_runtime\\stream_runtime_production.toml",
+      "sha256": "e32b1505478cba02c3199389b14e1a7cebda02d4beb9c2db3f59438c701f5b97"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\runtime\\stream_runtime\\stream_runtime_test.toml",
+      "sha256": "08bd8ee6be0fed197b218bceadda38787858896355fad935ae91c48052ebbeb9"
     },
     {
       "kind": "configuration",
@@ -2146,7 +2336,7 @@
     {
       "kind": "route",
       "path": "src\\api\\endpoint_admin_settings\\route_admin_settings.py",
-      "sha256": "27ad9d8b844d02ce3ef323a95a52fc487e33ad9e284b905e3d1db2338c2175c6"
+      "sha256": "9b44a75869735ae09346d6e82e1854b5bee32b28e5ea19a04345bc7695b67778"
     },
     {
       "kind": "route",
@@ -2172,6 +2362,11 @@
       "kind": "route",
       "path": "src\\api\\endpoint_system_overview\\route_system_overview.py",
       "sha256": "f16157f0e686cbd1ca9c1603604a699f067c0e2d287fdc99de8c02a0f75a118c"
+    },
+    {
+      "kind": "task",
+      "path": "src\\api\\admin_task_stream_binding_factory.py",
+      "sha256": "2b359918a4ec9e54121514846cf4a02826957e8816883291ecdb74dd75570473"
     },
     {
       "kind": "task",
@@ -2220,6 +2415,11 @@
     },
     {
       "kind": "task",
+      "path": "src\\application\\admin\\task_execution_stream_source.py",
+      "sha256": "3029700dce22e85fb978ab35ac36c9d8af9f40a81ff2fd9a3f1142272cf6dc8e"
+    },
+    {
+      "kind": "task",
       "path": "src\\application\\ports\\task_runtime_port.py",
       "sha256": "c680c90c9b7e878a0cb290b408f7bc7efed80bcb228f4f45b454dfd2d51c27dc"
     },
@@ -2242,6 +2442,11 @@
       "kind": "task",
       "path": "src\\core\\task_contract\\task_execution_record_contract.py",
       "sha256": "6ed629af66bd301f3243a6d1970867edee18d98b90d99bf9e14285106c4cc829"
+    },
+    {
+      "kind": "task",
+      "path": "src\\core\\task_contract\\task_execution_stream_contract.py",
+      "sha256": "372d33eff006bbc111dcc56c6291a0b69824f9764762bf47a6d0723dc490d361"
     },
     {
       "kind": "task",
@@ -2336,7 +2541,7 @@
     {
       "kind": "task",
       "path": "src\\infrastructure\\task\\task_execution_store.py",
-      "sha256": "269ade3e14c809e3a83845d9165b51fcf87abcabdd1efcf68d13595dde01d9eb"
+      "sha256": "7dd04c39051f9cc0f2cb243ca87115965805b3516417d4edf59c7e38b99ca7dd"
     },
     {
       "kind": "task",
@@ -2356,7 +2561,7 @@
     {
       "kind": "task",
       "path": "src\\infrastructure\\testing\\task_execution_test_support.py",
-      "sha256": "4b1d36f32d189e38daa69f61ad97ce6b4ca49fe2c578d500c73525fdf9083872"
+      "sha256": "6a1ce50221610adb67958204125fcbe2894fd9bdb6573e9bdeb9f1018a2516d4"
     },
     {
       "kind": "resource",
@@ -2376,7 +2581,7 @@
     {
       "kind": "resource",
       "path": "src\\infrastructure\\resource_mount\\logging_resource_facade.py",
-      "sha256": "f50aaccd9a24a64b6f3b3647ca813ef323f50945ffbe7155df383497290516ee"
+      "sha256": "f22dc3844ed76d7ccd6a34b9c9fad73b30e51d0335ab4f40c37217a24db3eeb0"
     },
     {
       "kind": "resource",
@@ -2386,7 +2591,7 @@
     {
       "kind": "resource",
       "path": "src\\infrastructure\\resource_mount\\runtime_resource_bootstrapper.py",
-      "sha256": "a5bfe80ccde56fa2e844581c397f64af40a23b9ab955482fec02725a60cc9128"
+      "sha256": "a26426521b16b7ed4150322833e12ef0c146675aa85d29c5cc29792d8019c3b4"
     },
     {
       "kind": "resource",
@@ -2406,12 +2611,12 @@
     {
       "kind": "resource",
       "path": "src\\infrastructure\\resource_mount\\shared_resource_constants.py",
-      "sha256": "8d48188040523232495789a389fd3b6b13c49eb06666cc03817b5d640ba5ea16"
+      "sha256": "afbb8f76b0b4b175635e5af176adb1219d905ee902c880cc13a8ffd5517bfa76"
     },
     {
       "kind": "resource",
       "path": "src\\infrastructure\\resource_mount\\shared_resource_lifecycle.py",
-      "sha256": "faafbee9bfa7a0c839de81bfb406c5bf906763451c3e9a92e07a8afdefa359ac"
+      "sha256": "6c261ade2131dd8865ee46725787ecf178cb2fbc673c9b72e1de8f9857f9c824"
     },
     {
       "kind": "resource",
@@ -2442,6 +2647,11 @@
       "kind": "test",
       "path": "test\\boundary_test\\test_security_protection_boundary.py",
       "sha256": "7b9e23d88d4948845a33b65613a53a4ba7566c8cbf590c096eebad9c60a4ab1c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\boundary_test\\test_streaming_boundary.py",
+      "sha256": "de7c5ec5a8b8185f22b2b9c2580beb852378578b86fcd1e26a38764c4dcdb546"
     },
     {
       "kind": "test",
@@ -2485,6 +2695,11 @@
     },
     {
       "kind": "test",
+      "path": "test\\contract_test\\test_alert_rule_contract.py",
+      "sha256": "cbaf621af14023448acb17c9e8da6f90c1540eae2ea2a99ac4251504fd2d3ae3"
+    },
+    {
+      "kind": "test",
       "path": "test\\contract_test\\test_distributed_lock_contract.py",
       "sha256": "c6c16d244628d06052785c418e584726cde841a78998edde734abff5e38ca901"
     },
@@ -2501,12 +2716,12 @@
     {
       "kind": "test",
       "path": "test\\contract_test\\test_logging_contract.py",
-      "sha256": "ae6275f086ab010349f7ae0f025dfe7f3dab0ab8e88f1ee2d32827d155bd79a6"
+      "sha256": "e459d477c91cc57754ecc0904a6b620fe3c92010f1620c5f141d004a298af66b"
     },
     {
       "kind": "test",
       "path": "test\\contract_test\\test_metrics_runtime_contract.py",
-      "sha256": "5794a7275f2ef780ed4b1efec43ee9842ba421f6db9a7e12a8529c75d8e4de2c"
+      "sha256": "fec2fac84e312a40e5b99bef40738d236867f2843cc12669cce808c4b0498553"
     },
     {
       "kind": "test",
@@ -2542,6 +2757,11 @@
       "kind": "test",
       "path": "test\\contract_test\\test_security_runtime_contract.py",
       "sha256": "5fd5ce4d571d95b235723ff008c662037e45ac64d7f3088bf5ae15bc4aaa3aa6"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_stream_contract.py",
+      "sha256": "d8a699e7aefb2d34dc6f6338c167e777465ea35c8f2394b22f3cebf3f4c9110a"
     },
     {
       "kind": "test",
@@ -2582,6 +2802,11 @@
       "kind": "test",
       "path": "test\\exception_test\\test_security_protection_exception.py",
       "sha256": "151f31e43f84211d617a4dcc77f023156e736507c00c64612354d28a50e04eca"
+    },
+    {
+      "kind": "test",
+      "path": "test\\exception_test\\test_streaming_exception.py",
+      "sha256": "43634e34be955721d1c4b27711d2b6fedada21177560658341005fea03922e65"
     },
     {
       "kind": "test",
@@ -2627,6 +2852,11 @@
       "kind": "test",
       "path": "test\\initialization_test\\test_security_protection_initialization.py",
       "sha256": "605fbf946598166eb8aca50ec17a7201c7533ba345684ef701d2bad9bc3855d8"
+    },
+    {
+      "kind": "test",
+      "path": "test\\initialization_test\\test_streaming_runtime_initialization.py",
+      "sha256": "09a7efd87b05f2fcb1cc6a2c48c3fa9e0d492275d8c375322ef3788e7c6b2d81"
     },
     {
       "kind": "test",
@@ -2680,6 +2910,11 @@
     },
     {
       "kind": "test",
+      "path": "test\\integration_test\\test_audit_crash_safety_integration.py",
+      "sha256": "76af425b31673738593b0cf2e3c9309574aa4cdfff3c192d3310767b9a339984"
+    },
+    {
+      "kind": "test",
       "path": "test\\integration_test\\test_cache_integration.py",
       "sha256": "86cf90ff00a15e4eb0511bf76981fac899207dd933e90c58a8a22f19873fcadd"
     },
@@ -2725,8 +2960,18 @@
     },
     {
       "kind": "test",
+      "path": "test\\integration_test\\test_streaming_network_integration.py",
+      "sha256": "e370fb667ac77264a570f24a5a149de8cc1c5ab14902a082ccce0e94a6fbd94f"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_streaming_redis_integration.py",
+      "sha256": "005b3deee30da27642edb4713753bb86ece2f74f88b372aa495139f6de293ae8"
+    },
+    {
+      "kind": "test",
       "path": "test\\integration_test\\test_task_execution_record_integration.py",
-      "sha256": "16383f0221be98e02695371b748300e0e3815a928edf77cc9194cb22d0c1612d"
+      "sha256": "a46b90ae4979dd70a3caa823dfc45f260e788e64448347278063cad0aa14f86a"
     },
     {
       "kind": "test",
@@ -2766,7 +3011,7 @@
     {
       "kind": "test",
       "path": "test\\interface_test\\test_admin_settings_interface.py",
-      "sha256": "ded15a1823e490a3f6d2b0416a18d748ea85e2b38b1836c23837e7ec6f28ee36"
+      "sha256": "079bf55856e93ac080a2193ed132687ac60f8d6d7c70c9653d3c532869cd73dc"
     },
     {
       "kind": "test",
@@ -2786,7 +3031,7 @@
     {
       "kind": "test",
       "path": "test\\interface_test\\test_metrics_http_interface.py",
-      "sha256": "736b711b69fad6e6278a20963951de30f3d581b042af6871231de8ad30dde2a7"
+      "sha256": "0e94794846fe143d5ecf910933f1bf360f74a13642ac6ce0c07ecb0fbd108bce"
     },
     {
       "kind": "test",
@@ -2807,6 +3052,16 @@
       "kind": "test",
       "path": "test\\interface_test\\test_security_protection_admin_interface.py",
       "sha256": "ca6b0ea963ade49c32f70f8f0e4cb701b20c09286537b4af2aea5968871669c1"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_streaming_http_interface.py",
+      "sha256": "54230786b846ac965449b392ccdf387128fc4277ce7dea48b7fc139a6dd8dde1"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_streaming_websocket_interface.py",
+      "sha256": "df18eff032c955be67e7eefd855d5b930cb54f3fb867ed4503d171675dd0352c"
     },
     {
       "kind": "test",
@@ -2831,12 +3086,22 @@
     {
       "kind": "test",
       "path": "test\\path_test\\test_runtime_path.py",
-      "sha256": "bc2aab8672d20a080c8b17897f0bde7cd52b3a6edb834ad58e96db2180515bab"
+      "sha256": "904b2b4b26ae8ca6c33d913d99a2d7497e97322bdb8bde010b24154900827f28"
     },
     {
       "kind": "test",
       "path": "test\\path_test\\test_security_protection_path.py",
       "sha256": "17a7f90c1668f27d45dbca8d18725c1946b84add88ba4a4f96962620a78e906a"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_streaming_asgi_observation_path.py",
+      "sha256": "66b80eac2cbc884a60e4dfc31766a6805d4eea1629dc38afb812a888b3316c76"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_streaming_delivery_path.py",
+      "sha256": "aa0fb59734bbcb14197a6a9625f34a3fa5e2cc0204a115a4021da13f0dfdfe94"
     },
     {
       "kind": "test",
@@ -2860,13 +3125,18 @@
     },
     {
       "kind": "test",
+      "path": "test\\performance\\test_streaming_capacity.py",
+      "sha256": "e920ce213091c0ae2255c19a04f30f7886bc859831037a6ddb88457bedc365f3"
+    },
+    {
+      "kind": "test",
       "path": "test\\regression_test\\test_production_findings_regression.py",
       "sha256": "a2cbf5d17994ddfaaf318aa8faf93a45b889f3440710fe6a820f03f48852d8c7"
     },
     {
       "kind": "test",
       "path": "test\\unit_test\\admin_audit\\test_admin_audit_query_unit.py",
-      "sha256": "a1e3eb0c293eea5eb9d1ad25872cd4ec2b93fe18d9bb6894188dcec700692248"
+      "sha256": "2f631b1bc47d5d3bf1a268f1b348ae2ec0b69257266b8d677c682379f3b12ada"
     },
     {
       "kind": "test",
@@ -2887,6 +3157,11 @@
       "kind": "test",
       "path": "test\\unit_test\\test_alembic_environment_unit.py",
       "sha256": "1ebf1761ef0361b7a6b6a363d1100208667b50c163949295fd232a4d57ddf333"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_alert_rule_catalog_unit.py",
+      "sha256": "d1d8eb31889d9917390c7b75e8b86ff9229810737417d7889efd37c333e3109a"
     },
     {
       "kind": "test",
@@ -2990,6 +3265,11 @@
     },
     {
       "kind": "test",
+      "path": "test\\unit_test\\test_log_buffer_dispatcher_unit.py",
+      "sha256": "4caaed0ef09590b8190bbaa401dabf9a748e274b4d4a2cb6a2d09b5362b12bae"
+    },
+    {
+      "kind": "test",
       "path": "test\\unit_test\\test_log_writer_unit.py",
       "sha256": "8f737ab63243addfa74ac73dee9cff0c4fa031e82f1eefebb4dca41ad9236413"
     },
@@ -3016,7 +3296,7 @@
     {
       "kind": "test",
       "path": "test\\unit_test\\test_prometheus_metrics_registry_unit.py",
-      "sha256": "3bff0dd07809a480e3c61b22e7289bc5159fee6e5c7f0395ab400127af765511"
+      "sha256": "ba417bd3b98580deea67b0b05e8a4c03b59444769ba5bc7027ef34225c61e13b"
     },
     {
       "kind": "test",
@@ -3041,7 +3321,7 @@
     {
       "kind": "test",
       "path": "test\\unit_test\\test_resource_mount_lifecycle_unit.py",
-      "sha256": "b3cf910b79a2db7b3a722ddfba2f9618c0e1d5a18ec48244deabe6b8b99671bd"
+      "sha256": "a133dfb427204570ce9c0f233d42ffc4965d67ffd9cca1cfc21603e707d131d2"
     },
     {
       "kind": "test",
@@ -3082,6 +3362,31 @@
       "kind": "test",
       "path": "test\\unit_test\\test_sqlite_test_engine_factory_unit.py",
       "sha256": "527f35cb1865847160faafeec01bc4062414f33d6740610c29f510bfbe87b320"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_stream_event_codec_unit.py",
+      "sha256": "6adf4616c251109dc0488b4e1af5b91394e7273a50e417eab51b9747613f871c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_stream_execution_orchestrator_unit.py",
+      "sha256": "a0ba66fc71c5951496e9154abe56122d515327ce5112d3b48ab41ef7a15c92c1"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_stream_metrics_unit.py",
+      "sha256": "4129dd7859a655ca3fac5ced84f64314048a8e1b8fbb4c80bae979433d07eee1"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_stream_session_registry_unit.py",
+      "sha256": "47ffab15a9e78ccde3955f502a08f84bfce4c5b35e40f161b49b84525b0e2f0f"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_stream_state_store_unit.py",
+      "sha256": "3fb7af082269bcec58a536e4993c3476a903e2fe2e848d7adb475222aa952aba"
     },
     {
       "kind": "test",

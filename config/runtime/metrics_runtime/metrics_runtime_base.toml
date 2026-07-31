@@ -1,17 +1,21 @@
 [runtime]
 envelope_kind = "metrics_runtime_envelope"
-schema_version = "1.0"
+schema_version = "1.1"
 
 [runtime.header]
 kind = "metrics_runtime_header"
-schema_version = "1.0"
+schema_version = "1.1"
 mode = "prometheus_metrics"
 enabled = false
 policy_name = "metrics_default"
 
 [runtime.detail]
 kind = "prometheus_metrics"
-schema_version = "1.0"
+schema_version = "1.1"
 metrics_path = "/metrics"
 include_http_metrics = true
 include_runtime_metrics = true
+include_security_metrics = true
+include_task_metrics = true
+include_log_buffer_metrics = true
+include_saturation_metrics = true

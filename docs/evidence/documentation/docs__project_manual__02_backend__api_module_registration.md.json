@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/02_backend/api_module_registration.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
-    "verified_at": "2026-07-19T02:31:56.758477Z"
+    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+    "verified_at": "2026-07-31T01:57:20.433190Z"
   },
   "kind": "architecture",
   "detail": {
@@ -13,7 +13,7 @@
     "evidence_path": "docs\\project_manual\\02_backend\\api_module_registration.md",
     "status": "current",
     "replacement_path": null,
-    "content_sha256": "40d0efc87271c140fb3122b42218df4cd4aa094d5aece55f9997be990d49648d",
+    "content_sha256": "734d255fe72a19011d836459c90bf12430c18f51d69f4c5285c43068034fa5a2",
     "validation_status": "verified",
     "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
     "fact_evidence_paths": [

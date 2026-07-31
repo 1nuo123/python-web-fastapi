@@ -9,6 +9,7 @@ import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from functools import partial
 from http import HTTPStatus
 from threading import Thread, current_thread
@@ -37,6 +38,21 @@ REQUEST_EXECUTION_NATIVE_ASYNC_FALLBACK_MESSAGE = (
 )
 REQUEST_EXECUTION_CAPACITY_EXHAUSTED_MESSAGE = "请求执行容量已耗尽。"
 T_RequestExecutionResult = TypeVar("T_RequestExecutionResult")
+
+
+@dataclass(frozen=True, slots=True)
+class RequestExecutionCapacityUsage:
+    """
+    请求执行容量使用快照。
+
+    :ivar in_flight_count: 当前占用容量的在途调用数量。
+    :vartype in_flight_count: int
+    :ivar capacity_limit: 工作线程与等待队列的容量总上限。
+    :vartype capacity_limit: int
+    """
+
+    in_flight_count: int
+    capacity_limit: int
 
 
 class RequestExecutionBridge:
@@ -78,10 +94,25 @@ class RequestExecutionBridge:
             if isinstance(detail, ThreadpoolExecutionDetail)
             else REQUEST_EXECUTION_DEFAULT_QUEUE_WAIT_TIMEOUT_SECONDS
         )
-        self._capacity = asyncio.BoundedSemaphore(max_workers + max_pending_requests)
+        self._capacity_limit = max_workers + max_pending_requests
+        self._in_flight_count = 0
+        self._capacity = asyncio.BoundedSemaphore(self._capacity_limit)
         self._executor = ThreadPoolExecutor(
             max_workers=max_workers,
             thread_name_prefix=REQUEST_EXECUTION_THREAD_NAME_PREFIX,
+        )
+
+    def read_capacity_usage(self) -> RequestExecutionCapacityUsage:
+        """
+        读取请求执行容量使用快照。
+
+        :returns: 当前在途调用数量与容量总上限。
+        :rtype: RequestExecutionCapacityUsage
+        """
+
+        return RequestExecutionCapacityUsage(
+            in_flight_count=self._in_flight_count,
+            capacity_limit=self._capacity_limit,
         )
 
     async def run_sync(
@@ -239,15 +270,17 @@ class RequestExecutionBridge:
                 message=REQUEST_EXECUTION_CAPACITY_EXHAUSTED_MESSAGE,
                 detail=execution_name,
             ) from exc
+        self._in_flight_count += 1
         try:
             executor_future = loop.run_in_executor(
                 self._executor,
                 partial(callable_object, **kwargs),
             )
         except BaseException:
+            self._in_flight_count -= 1
             self._capacity.release()
             raise
-        executor_future.add_done_callback(lambda completed_future: self._capacity.release())
+        executor_future.add_done_callback(lambda completed_future: self._release_capacity_slot())
         try:
             return await asyncio.wait_for(
                 asyncio.shield(executor_future),
@@ -302,6 +335,17 @@ class RequestExecutionBridge:
             callable_object=callable_object,
             **kwargs,
         )
+
+    def _release_capacity_slot(self) -> None:
+        """
+        释放一个容量槽位并回收在途计数。
+
+        :returns: 无返回值。
+        :rtype: None
+        """
+
+        self._in_flight_count -= 1
+        self._capacity.release()
 
     def close(self) -> None:
         """

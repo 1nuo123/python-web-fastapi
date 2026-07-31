@@ -8,25 +8,25 @@
   {
     "kind": "log",
     "path": "docs\\evidence\\image\\current\\production-build.log",
-    "sha256": "04fe8a010b94febe0aa82fe112634f9f61c6ba959029426a056896f1cb5faad1",
+    "sha256": "7931893cd72bfd79db453d03aa6c24cd00d62b4403be81556b8b7c50a0dd744c",
     "command_index": 1
   },
   {
     "kind": "log",
     "path": "docs\\evidence\\image\\current\\production-up.log",
-    "sha256": "452c59d1ca038a4de1c0305a5047b83f0a847fa9e01587ddf479890172e58469",
+    "sha256": "3293e9dcd54e6ea9a2cbffc2baa10a913e99d6ed6c5ecc7d895a06762bc26fa9",
     "command_index": 2
   },
   {
     "kind": "log",
     "path": "docs\\evidence\\image\\current\\production-status.log",
-    "sha256": "93b8c3fef54591d23a6a4ebf8f4925ba7f247d0964d94a153476e8f022c98934",
+    "sha256": "b92485cb31142a42e0efaf561bba202c8efa1b7df1cf3529fa4048b45aa609c5",
     "command_index": 3
   },
   {
     "kind": "image",
     "path": "docs\\evidence\\image\\current\\application-inspect.log",
-    "sha256": "5bf45a1f78e7dfbcf313e130d6ce47ff04da42c64826eb12e2284221a9c111dc",
+    "sha256": "d88385ec6bff723cdac89f4f551d15232287ae74f8e19de38f55163608583cb3",
     "command_index": 4
   },
   {
@@ -44,7 +44,7 @@
   {
     "kind": "log",
     "path": "docs\\evidence\\image\\current\\application-shutdown-logs.log",
-    "sha256": "951687beda1810e6bd6a7bf78ef28808cd1ba60fc2bb0d676e1c3a1e0107148c",
+    "sha256": "ae3e5e6f92a73666f5d01227eaf5951edd266ecd052850d1a5f5f6967764a400",
     "command_index": 7
   },
   {
@@ -56,13 +56,13 @@
   {
     "kind": "log",
     "path": "docs\\evidence\\image\\current\\application-recovery.log",
-    "sha256": "6a84ae4ebc4317f0317f1f82b12d3e5b6906ad36b5cd69eb8e52574f824d68c6",
+    "sha256": "ea5bebe02d27ded22f4fabcc8488040016d084eef6ea24e639cd4673b8ae8e39",
     "command_index": 9
   },
   {
     "kind": "log",
     "path": "docs\\evidence\\image\\current\\production-cleanup.log",
-    "sha256": "ad3d59159b92b2154dd874b8e8a78f756c465deed5d932eba4c3dd393cc36cb9",
+    "sha256": "3ab5cc971e21af702b5d6a3d73ff7ba794bc6f4c19f26320a74c05b5a8994c88",
     "command_index": 10
   }
 ]

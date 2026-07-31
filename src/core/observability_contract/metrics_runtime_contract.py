@@ -9,7 +9,7 @@ from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-METRICS_RUNTIME_SCHEMA_VERSION: Final = "1.0"
+METRICS_RUNTIME_SCHEMA_VERSION: Final = "1.1"
 METRICS_RUNTIME_ENVELOPE_KIND: Final = "metrics_runtime_envelope"
 METRICS_RUNTIME_HEADER_KIND: Final = "metrics_runtime_header"
 PROMETHEUS_METRICS_DETAIL_KIND: Final = "prometheus_metrics"
@@ -36,7 +36,7 @@ class MetricsRuntimeHeader(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["metrics_runtime_header"] = METRICS_RUNTIME_HEADER_KIND
-    schema_version: Literal["1.0"] = METRICS_RUNTIME_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = METRICS_RUNTIME_SCHEMA_VERSION
     mode: MetricsRuntimeMode
     enabled: bool
     policy_name: str = Field(min_length=METRICS_POLICY_NAME_MINIMUM_LENGTH)
@@ -45,18 +45,31 @@ class MetricsRuntimeHeader(BaseModel):
 class PrometheusMetricsRuntimeDetail(BaseModel):
     """
     Prometheus 指标运行时扩展模型。
+
+    :ivar include_security_metrics: 是否暴露安全事件指标。
+    :vartype include_security_metrics: bool
+    :ivar include_task_metrics: 是否暴露任务执行指标。
+    :vartype include_task_metrics: bool
+    :ivar include_log_buffer_metrics: 是否暴露日志缓冲刷盘与积压指标。
+    :vartype include_log_buffer_metrics: bool
+    :ivar include_saturation_metrics: 是否暴露运行时饱和度指标。
+    :vartype include_saturation_metrics: bool
     """
 
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["prometheus_metrics"] = PROMETHEUS_METRICS_DETAIL_KIND
-    schema_version: Literal["1.0"] = METRICS_RUNTIME_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = METRICS_RUNTIME_SCHEMA_VERSION
     metrics_path: str = Field(
         default=DEFAULT_METRICS_PATH,
         min_length=METRICS_PATH_MINIMUM_LENGTH,
     )
     include_http_metrics: bool = True
     include_runtime_metrics: bool = True
+    include_security_metrics: bool = True
+    include_task_metrics: bool = True
+    include_log_buffer_metrics: bool = True
+    include_saturation_metrics: bool = True
 
     @model_validator(mode="after")
     def validate_metrics_path(self) -> PrometheusMetricsRuntimeDetail:
@@ -87,7 +100,7 @@ class MetricsRuntimeEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     envelope_kind: Literal["metrics_runtime_envelope"] = METRICS_RUNTIME_ENVELOPE_KIND
-    schema_version: Literal["1.0"] = METRICS_RUNTIME_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = METRICS_RUNTIME_SCHEMA_VERSION
     header: MetricsRuntimeHeader
     detail: MetricsRuntimeDetail
 

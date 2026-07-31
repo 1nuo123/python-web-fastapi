@@ -13,6 +13,7 @@ from src.core.http_contract.security_runtime_contract import (
     DevelopmentSecurityRuntimeDetail,
     ProductionSecurityRuntimeDetail,
 )
+from src.core.stream_contract.stream_runtime_contract import RedisStreamRuntimeDetail
 from src.core.task_contract.task_registration_contract import FunboostTaskRegistrationDetail
 from src.core.task_contract.task_runtime_contract import (
     FUNBOOST_RABBITMQ_COMPLEX_ROUTING_BROKER_KIND,
@@ -65,6 +66,11 @@ PRODUCTION_OUTBOUND_METADATA_DENY_REQUIRED_MESSAGE = (
 PRODUCTION_OUTBOUND_HOST_ALLOWLIST_REQUIRED_MESSAGE = (
     "生产环境出站 URL 安全策略必须启用目的域名允许清单。"
 )
+PRODUCTION_STREAM_WILDCARD_ORIGIN_FORBIDDEN_MESSAGE = (
+    "生产环境流式 allowed_origins 禁止使用通配符。"
+)
+PRODUCTION_STREAM_REDIS_REQUIRED_MESSAGE = "生产环境流式恢复必须使用 Redis 后端。"
+PRODUCTION_STREAM_TICKET_REQUIRED_MESSAGE = "生产环境浏览器流式连接必须使用单次票据。"
 LOOPBACK_TRUSTED_PROXY_CIDR_BLOCKS = frozenset(
     {
         TRUSTED_LOOPBACK_IPV4_CIDR,
@@ -217,6 +223,7 @@ class SettingsSecurityValidator:
                 raise ValueError(PRODUCTION_CORS_WILDCARD_ORIGIN_FORBIDDEN_MESSAGE)
             self._validate_production_client_ip_trusted_proxies(security_detail)
             self._validate_production_outbound_url_safety(security_detail)
+            self._validate_production_stream_runtime(settings)
         elif not isinstance(security_detail, DevelopmentSecurityRuntimeDetail):
             raise ValueError("非生产环境必须使用 development_security 安全运行时扩展。")
 
@@ -234,6 +241,24 @@ class SettingsSecurityValidator:
             for cidr_block in trusted_proxy_cidr_blocks
         ):
             raise ValueError(PRODUCTION_LOOPBACK_TRUSTED_PROXY_FORBIDDEN_MESSAGE)
+
+    def _validate_production_stream_runtime(self, settings: ApplicationSettings) -> None:
+        """校验生产流式运行时安全组合。
+
+        :param settings: 已完成模型解析的应用配置。
+        :type settings: ApplicationSettings
+        :raises ValueError: 生产流式配置不满足安全约束时抛出。
+        """
+
+        stream_runtime = settings.runtime.stream
+        if not stream_runtime.header.enabled:
+            return
+        if not isinstance(stream_runtime.detail, RedisStreamRuntimeDetail):
+            raise ValueError(PRODUCTION_STREAM_REDIS_REQUIRED_MESSAGE)
+        if CORS_WILDCARD in stream_runtime.detail.allowed_origins:
+            raise ValueError(PRODUCTION_STREAM_WILDCARD_ORIGIN_FORBIDDEN_MESSAGE)
+        if not stream_runtime.detail.require_browser_ticket:
+            raise ValueError(PRODUCTION_STREAM_TICKET_REQUIRED_MESSAGE)
 
     def _validate_production_outbound_url_safety(
         self,

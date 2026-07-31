@@ -18,6 +18,9 @@ from src.core.task_contract.task_execution_record_contract import (
     TaskExecutionStatus,
 )
 from src.core.task_contract.task_runtime_contract import TaskBackend
+from src.infrastructure.observability.prometheus_metrics_registry import (
+    PrometheusMetricsRegistry,
+)
 from src.infrastructure.persistence.orm_model.task_execution_outbox_orm_model import (
     TaskExecutionOutboxOrmModel,
 )
@@ -73,9 +76,18 @@ class TaskExecutionStoreTestFactory:
     任务执行记录存储测试工厂。
     """
 
-    def create(self) -> TaskExecutionTestContext:
+    def create(
+        self,
+        *,
+        metrics_registry: PrometheusMetricsRegistry | None = None,
+    ) -> TaskExecutionTestContext:
         """
         创建测试上下文。
+
+        :param metrics_registry: Prometheus 指标注册器；``None`` 时不挂接任务执行指标。
+        :type metrics_registry: PrometheusMetricsRegistry | None
+        :returns: 任务执行记录测试上下文。
+        :rtype: TaskExecutionTestContext
         """
 
         temporary_directory = TemporaryDirectory()
@@ -88,7 +100,10 @@ class TaskExecutionStoreTestFactory:
         session_factory = SqlAlchemySessionFactory(engine)
         session_manager = SharedDbSessionManager(session_factory)
         return TaskExecutionTestContext(
-            store=TaskExecutionStore(session_manager=session_manager),
+            store=TaskExecutionStore(
+                session_manager=session_manager,
+                metrics_registry=metrics_registry,
+            ),
             session_manager=session_manager,
             session_factory=session_factory,
             temporary_directory=temporary_directory,

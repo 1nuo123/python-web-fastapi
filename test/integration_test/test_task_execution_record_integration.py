@@ -18,6 +18,9 @@ from src.core.task_contract.task_execution_record_contract import (
     TaskExecutionStatus,
 )
 from src.core.task_contract.task_runtime_contract import TaskBackend
+from src.infrastructure.observability.prometheus_metrics_registry import (
+    PrometheusMetricsRegistry,
+)
 from src.infrastructure.persistence.sqlalchemy_engine_factory import (
     SqlAlchemyEngineFactory,
 )
@@ -46,6 +49,20 @@ pytestmark = [
 
 
 TASK_EXECUTION_CONCURRENT_WORKERS = 4
+TASK_EXECUTION_SUCCESS_METRIC_SAMPLE = (
+    'fastapi_task_execution_total{outcome="success",task_name="demo_task"} 1.0'
+)
+TASK_EXECUTION_FAILED_METRIC_SAMPLE = (
+    'fastapi_task_execution_total{outcome="failed",task_name="demo_task"} 1.0'
+)
+TASK_EXECUTION_REJECTED_METRIC_SAMPLE = (
+    'fastapi_task_execution_total{outcome="rejected",task_name="demo_task"} 1.0'
+)
+TASK_EXECUTION_FAILED_AT_EPOCH = 100
+TASK_EXECUTION_FAILED_ERROR_TYPE = "RuntimeError"
+TASK_EXECUTION_FAILED_ERROR_MESSAGE = "执行失败。"
+TASK_EXECUTION_METRIC_DUPLICATE_RECORD_ID = "record-metric-duplicate"
+TASK_EXECUTION_METRIC_DUPLICATE_TASK_ID = "task-metric-duplicate"
 TASK_EXECUTION_CONCURRENT_RECORD_PREFIX = "record-concurrent"
 TASK_EXECUTION_CONCURRENT_TASK_PREFIX = "task-concurrent"
 TASK_EXECUTION_POSTGRES_RECORD_PREFIX = "record-postgres"
@@ -103,6 +120,49 @@ class TestTaskExecutionRecordIntegration:
             assert success_record.backend == TaskBackend.LOCAL.value
             assert success_record.queue_name == TEST_QUEUE_NAME
             assert success_record.stage == TaskExecutionStage.LOCAL_EXECUTION.value
+        finally:
+            test_context.close()
+
+    def test_task_execution_store_should_record_outcome_metrics(self) -> None:
+        """
+        验证任务执行记录链挂接成功、失败与拒绝三类指标样本。
+        """
+
+        metrics_registry = PrometheusMetricsRegistry()
+        test_context = TaskExecutionStoreTestFactory().create(metrics_registry=metrics_registry)
+        try:
+            store = test_context.store
+            store.reserve(record=TaskExecutionRecordBuilder().build())
+            store.reserve(
+                record=TaskExecutionRecordBuilder().build(
+                    record_id=TASK_EXECUTION_METRIC_DUPLICATE_RECORD_ID,
+                    task_id=TASK_EXECUTION_METRIC_DUPLICATE_TASK_ID,
+                )
+            )
+            store.mark_success(
+                job_kind="demo_task",
+                deduplication_key="demo-deduplication-key",
+                attempt_count=1,
+                backend=TaskBackend.LOCAL,
+                queue_name=TEST_QUEUE_NAME,
+                stage=TaskExecutionStage.LOCAL_EXECUTION,
+            )
+            store.mark_failed(
+                job_kind="demo_task",
+                deduplication_key="demo-deduplication-key",
+                attempt_count=2,
+                failed_at_epoch=TASK_EXECUTION_FAILED_AT_EPOCH,
+                last_error_type=TASK_EXECUTION_FAILED_ERROR_TYPE,
+                last_error_message=TASK_EXECUTION_FAILED_ERROR_MESSAGE,
+                backend=TaskBackend.LOCAL,
+                queue_name=TEST_QUEUE_NAME,
+                stage=TaskExecutionStage.LOCAL_EXECUTION,
+            )
+
+            metrics_text = metrics_registry.render().decode()
+            assert TASK_EXECUTION_SUCCESS_METRIC_SAMPLE in metrics_text
+            assert TASK_EXECUTION_FAILED_METRIC_SAMPLE in metrics_text
+            assert TASK_EXECUTION_REJECTED_METRIC_SAMPLE in metrics_text
         finally:
             test_context.close()
 

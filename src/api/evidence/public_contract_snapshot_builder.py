@@ -7,13 +7,30 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from http import HTTPStatus
 from pathlib import Path
-from typing import Final, Literal
+from typing import Annotated, Final, Literal
 
 import rtoml
 from alembic.script import ScriptDirectory
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 
 from src.api.testing.test_app_factory import TestAppFactory
+from src.core.stream_contract.stream_access_contract import StreamAccessTicketEnvelope
+from src.core.stream_contract.stream_control_contract import (
+    CancelControlDetail,
+    PingControlDetail,
+    ResumeControlDetail,
+    StreamClientControlEnvelope,
+    SubscribeControlDetail,
+)
+from src.core.stream_contract.stream_delivery_contract import (
+    StreamBatchEnvelope,
+    StreamOperationBindingEnvelope,
+)
+from src.core.stream_contract.stream_event_contract import (
+    StreamEventEnvelope,
+    StreamLifecycleDetail,
+)
+from src.core.stream_contract.stream_runtime_contract import StreamRuntimeEnvelope
 from src.infrastructure.evidence.code_baseline_calculator import CodeBaselineCalculator
 
 PUBLIC_CONTRACT_SNAPSHOT_SCHEMA_VERSION: Final = "1.0"
@@ -27,6 +44,25 @@ MIGRATION_SCRIPT_ROOT: Final = Path("src/infrastructure/persistence/alembic")
 TASK_CONTRACT_ROOT: Final = Path("src/core/task_contract")
 HTTP_METHODS_WITHOUT_CONTRACT: Final = frozenset({"HEAD", "OPTIONS"})
 SHA256_HEX_LENGTH: Final = 64
+PUBLIC_STREAM_COMMAND_KIND: Final[Literal["public_stream_command"]] = "public_stream_command"
+
+
+class PublicStreamCommand(BaseModel):
+    """公开控制 Schema 使用的最小强类型订阅命令。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["public_stream_command"] = PUBLIC_STREAM_COMMAND_KIND
+    schema_version: Literal["1.0"] = PUBLIC_CONTRACT_SNAPSHOT_SCHEMA_VERSION
+
+
+PublicStreamControlDetail = Annotated[
+    SubscribeControlDetail[PublicStreamCommand]
+    | ResumeControlDetail
+    | CancelControlDetail
+    | PingControlDetail,
+    Field(discriminator="kind"),
+]
 
 
 class HttpRouteSnapshot(BaseModel):
@@ -58,6 +94,16 @@ class TaskContractSnapshot(BaseModel):
     sha256: str = Field(min_length=SHA256_HEX_LENGTH, max_length=SHA256_HEX_LENGTH)
 
 
+class StreamContractSchemaSnapshot(BaseModel):
+    """流式公开契约 JSON Schema 快照。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    json_schema_document: str
+    sha256: str = Field(min_length=SHA256_HEX_LENGTH, max_length=SHA256_HEX_LENGTH)
+
+
 class PublicContractSnapshot(BaseModel):
     """机器可比对公开契约快照。"""
 
@@ -72,6 +118,7 @@ class PublicContractSnapshot(BaseModel):
     configuration: tuple[ConfigurationKeySnapshot, ...]
     migration_heads: tuple[str, ...]
     task_contracts: tuple[TaskContractSnapshot, ...]
+    stream_contracts: tuple[StreamContractSchemaSnapshot, ...] = ()
 
 
 class PublicContractComparison(BaseModel):
@@ -121,6 +168,7 @@ class PublicContractSnapshotBuilder:
                     for path in sorted(TASK_CONTRACT_ROOT.glob("*.py"))
                     if path.name != "__init__.py"
                 ),
+                stream_contracts=cls._build_stream_contract_snapshots(),
             )
         finally:
             app.state.container.resource_mount.shutdown()
@@ -145,6 +193,7 @@ class PublicContractSnapshotBuilder:
             "configuration": baseline.configuration == snapshot.configuration,
             "migration_heads": baseline.migration_heads == snapshot.migration_heads,
             "task_contracts": baseline.task_contracts == snapshot.task_contracts,
+            "stream_contracts": baseline.stream_contracts == snapshot.stream_contracts,
         }
         comparison = PublicContractComparison(
             baseline_path=PUBLIC_CONTRACT_BASELINE_PATH,
@@ -182,6 +231,41 @@ class PublicContractSnapshotBuilder:
             else:
                 keys.add(qualified_key)
         return keys
+
+    @classmethod
+    def _build_stream_contract_snapshots(cls) -> tuple[StreamContractSchemaSnapshot, ...]:
+        """生成流事件、控制、绑定和运行时 JSON Schema。"""
+
+        adapters = (
+            (
+                "stream_event",
+                TypeAdapter(StreamEventEnvelope[StreamLifecycleDetail]),
+            ),
+            (
+                "stream_client_control",
+                TypeAdapter(StreamClientControlEnvelope[PublicStreamControlDetail]),
+            ),
+            ("stream_operation_binding", TypeAdapter(StreamOperationBindingEnvelope)),
+            ("stream_batch", TypeAdapter(StreamBatchEnvelope[StreamLifecycleDetail])),
+            ("stream_access_ticket", TypeAdapter(StreamAccessTicketEnvelope)),
+            ("stream_runtime", TypeAdapter(StreamRuntimeEnvelope)),
+        )
+        snapshots: list[StreamContractSchemaSnapshot] = []
+        for name, adapter in adapters:
+            json_schema_document = json.dumps(
+                adapter.json_schema(),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            snapshots.append(
+                StreamContractSchemaSnapshot(
+                    name=name,
+                    json_schema_document=json_schema_document,
+                    sha256=sha256(json_schema_document.encode("utf-8")).hexdigest(),
+                )
+            )
+        return tuple(snapshots)
 
     @staticmethod
     def _build_route_snapshots(

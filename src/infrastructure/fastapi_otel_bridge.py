@@ -4,8 +4,9 @@ FastAPIOpenTelemetry桥接器基础设施模块。
 
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from starlette.requests import HTTPConnection
 
 from src.core.http_contract.runtime_resource_contract import TelemetryBridgeState
 from src.infrastructure.settings.application_settings import OtelRuntimeSettings
@@ -48,12 +49,12 @@ class FastApiOtelBridge:
         if self._runtime_settings.enabled:
             FastAPIInstrumentor.instrument_app(app)
 
-    def read_trace_id(self, request: Request) -> str | None:
+    def read_trace_id(self, request: HTTPConnection) -> str | None:
         """
         读取跟踪标识。
 
         :param request: 当前 HTTP 请求对象，用于读取状态、请求头和依赖。约束：需符合 ``Request`` 注解。
-        :type request: Request
+        :type request: HTTPConnection
         :returns: 返回读取到的对象或状态快照。
         :rtype: str | None
         """

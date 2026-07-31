@@ -43,4 +43,4 @@ EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 CMD python -c "import urllib.request; from src.infrastructure.settings.app_settings_loader import AppSettingsLoader; prefix = AppSettingsLoader().load().runtime.web.api_prefix.strip().rstrip('/'); path = f'{prefix}/health/ready' if prefix else '/health/ready'; response = urllib.request.urlopen(f'http://127.0.0.1:8000{path}', timeout=3); response.close()"
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "src.cli.run_web_server"]

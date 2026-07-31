@@ -65,6 +65,8 @@ class FailingStartupResourceMount:
     """
 
     startup_called: bool = False
+    streaming_startup_called: bool = False
+    streaming_shutdown_called: bool = False
     shutdown_called: bool = False
 
     def startup(self) -> None:
@@ -81,6 +83,16 @@ class FailingStartupResourceMount:
         """
 
         self.shutdown_called = True
+
+    async def startup_streaming(self) -> None:
+        """记录流资源启动调用。"""
+
+        self.streaming_startup_called = True
+
+    async def shutdown_streaming(self) -> None:
+        """记录流资源释放调用。"""
+
+        self.streaming_shutdown_called = True
 
 
 @dataclass(slots=True)
@@ -392,6 +404,8 @@ class TestResourceMountLifecycleUnit:
             await context.__aenter__()
 
         assert resource_mount.startup_called is True
+        assert resource_mount.streaming_startup_called is False
+        assert resource_mount.streaming_shutdown_called is True
         assert resource_mount.shutdown_called is True
         assert app.state.ready is False
 

@@ -20,6 +20,10 @@ from src.api.endpoint_admin_settings.route_admin_settings import (
     ADMIN_SETTINGS_RELOAD_PATH,
 )
 from src.api.testing.test_app_factory import TestAppFactory
+from src.application.ports.admin_audit_query_port import (
+    AdminAuditAction,
+    AdminAuditQuery,
+)
 from src.application.ports.admin_log_query_port import AdminSecurityEventFilter
 from src.core.http_contract.web_bundle_contract import ApplicationModuleName
 from src.core.logging_contract.log_writer_contract import LogWriteReason
@@ -47,6 +51,9 @@ SYSTEM_READ_SCOPE = "system:read"
 AUTH_ADMIN_ROLE = "admin"
 SYSTEM_READER_ROLE = "system_reader"
 AUTHZ_DENIED_SECURITY_EVENT_LIMIT = 20
+SETTINGS_RELOAD_AUDIT_PAGE_SIZE = 20
+SETTINGS_RELOAD_AUDIT_OFFSET = 0
+SETTINGS_RELOAD_AUDIT_TARGET_KIND = "settings"
 ADMIN_SETTINGS_DISABLED_ENABLED_MODULES = [
     ApplicationModuleName.HEALTH_PROBE.value,
     ApplicationModuleName.AUTH_ACCESS.value,
@@ -231,10 +238,28 @@ class TestAdminSettingsInterface:
                 headers=auth_header,
                 json=self._build_reload_request(),
             )
+            audit_page = app.state.container.resource_mount.list_admin_audit_events(
+                AdminAuditQuery(
+                    actor_subject_id=None,
+                    action=AdminAuditAction.SETTINGS_RELOADED,
+                    target_kind=None,
+                    target_id=None,
+                    occurred_from=None,
+                    occurred_to=None,
+                    page_size=SETTINGS_RELOAD_AUDIT_PAGE_SIZE,
+                    offset=SETTINGS_RELOAD_AUDIT_OFFSET,
+                )
+            )
 
         assert reload_response.status_code == HTTPStatus.OK
         assert reload_response.json()[DATA_FIELD][DETAIL_FIELD][SUCCESS_FIELD] is True
         assert invalid_response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert audit_page.total >= 1
+        assert any(
+            event.action == AdminAuditAction.SETTINGS_RELOADED
+            and event.target_kind == SETTINGS_RELOAD_AUDIT_TARGET_KIND
+            for event in audit_page.events
+        )
 
     def _issue_admin_token(self, client: TestClient) -> str:
         """

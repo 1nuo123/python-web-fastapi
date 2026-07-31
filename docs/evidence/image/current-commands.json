@@ -5,9 +5,9 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\docker-version.log",
-    "started_at": "2026-07-16T10:40:39.165308Z",
-    "finished_at": "2026-07-16T10:40:39.413080Z",
-    "duration_seconds": 0.24633019999600947
+    "started_at": "2026-07-31T01:55:13.729908Z",
+    "finished_at": "2026-07-31T01:55:13.861847Z",
+    "duration_seconds": 0.13164360000519082
   },
   {
     "command": "docker compose -p fastapi-prod-validation-current -f compose.yml -f compose.production.yml --profile task-worker build",
@@ -15,9 +15,9 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\production-build.log",
-    "started_at": "2026-07-16T10:40:39.414865Z",
-    "finished_at": "2026-07-16T10:40:44.057675Z",
-    "duration_seconds": 4.6428897000150755
+    "started_at": "2026-07-31T01:55:13.862976Z",
+    "finished_at": "2026-07-31T01:55:18.029821Z",
+    "duration_seconds": 4.167764799989527
   },
   {
     "command": "docker compose -p fastapi-prod-validation-current -f compose.yml -f compose.production.yml --profile task-worker up -d --wait",
@@ -25,9 +25,9 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\production-up.log",
-    "started_at": "2026-07-16T10:40:44.058981Z",
-    "finished_at": "2026-07-16T10:41:34.554983Z",
-    "duration_seconds": 50.49554600002011
+    "started_at": "2026-07-31T01:55:18.031776Z",
+    "finished_at": "2026-07-31T01:55:59.096185Z",
+    "duration_seconds": 41.064943400007905
   },
   {
     "command": "docker compose -p fastapi-prod-validation-current -f compose.yml -f compose.production.yml --profile task-worker ps --format json",
@@ -35,9 +35,9 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\production-status.log",
-    "started_at": "2026-07-16T10:41:34.556014Z",
-    "finished_at": "2026-07-16T10:41:35.175461Z",
-    "duration_seconds": 0.618980500032194
+    "started_at": "2026-07-31T01:55:59.097753Z",
+    "finished_at": "2026-07-31T01:55:59.462648Z",
+    "duration_seconds": 0.3661082000180613
   },
   {
     "command": "docker inspect fastapi-prod-validation-current-app-1",
@@ -45,9 +45,9 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\application-inspect.log",
-    "started_at": "2026-07-16T10:41:35.177160Z",
-    "finished_at": "2026-07-16T10:41:35.410732Z",
-    "duration_seconds": 0.23383049998665228
+    "started_at": "2026-07-31T01:55:59.465203Z",
+    "finished_at": "2026-07-31T01:55:59.607399Z",
+    "duration_seconds": 0.1425316000240855
   },
   {
     "command": "docker exec fastapi-prod-validation-current-app-1 sh -c \"test \\\"$(id -u)\\\" -ne 0 && if touch /readonly-check; then exit 1; else touch /tmp/write-check && rm /tmp/write-check; fi\"",
@@ -55,9 +55,9 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\application-permissions.log",
-    "started_at": "2026-07-16T10:41:35.412408Z",
-    "finished_at": "2026-07-16T10:41:35.791375Z",
-    "duration_seconds": 0.37896790000377223
+    "started_at": "2026-07-31T01:55:59.608422Z",
+    "finished_at": "2026-07-31T01:55:59.837670Z",
+    "duration_seconds": 0.2295489000098314
   },
   {
     "command": "docker stop --timeout 40 fastapi-prod-validation-current-app-1",
@@ -65,9 +65,9 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\application-sigterm.log",
-    "started_at": "2026-07-16T10:41:35.793340Z",
-    "finished_at": "2026-07-16T10:41:36.711242Z",
-    "duration_seconds": 0.9176506999647245
+    "started_at": "2026-07-31T01:55:59.838697Z",
+    "finished_at": "2026-07-31T01:56:00.605478Z",
+    "duration_seconds": 0.7666912999993656
   },
   {
     "command": "docker logs fastapi-prod-validation-current-app-1",
@@ -75,9 +75,9 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\application-shutdown-logs.log",
-    "started_at": "2026-07-16T10:41:36.712847Z",
-    "finished_at": "2026-07-16T10:41:36.892109Z",
-    "duration_seconds": 0.17958559998078272
+    "started_at": "2026-07-31T01:56:00.606823Z",
+    "finished_at": "2026-07-31T01:56:00.715442Z",
+    "duration_seconds": 0.1085196000058204
   },
   {
     "command": "docker start fastapi-prod-validation-current-app-1",
@@ -85,9 +85,9 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\application-restart.log",
-    "started_at": "2026-07-16T10:41:36.893868Z",
-    "finished_at": "2026-07-16T10:41:37.602762Z",
-    "duration_seconds": 0.7089719999930821
+    "started_at": "2026-07-31T01:56:00.716807Z",
+    "finished_at": "2026-07-31T01:56:01.170174Z",
+    "duration_seconds": 0.45348930000909604
   },
   {
     "command": "docker compose -p fastapi-prod-validation-current -f compose.yml -f compose.production.yml --profile task-worker up -d --wait",
@@ -95,9 +95,9 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\application-recovery.log",
-    "started_at": "2026-07-16T10:41:37.604536Z",
-    "finished_at": "2026-07-16T10:41:51.720990Z",
-    "duration_seconds": 14.116737599950284
+    "started_at": "2026-07-31T01:56:01.170717Z",
+    "finished_at": "2026-07-31T01:56:14.671922Z",
+    "duration_seconds": 13.501252799993381
   },
   {
     "command": "docker compose -p fastapi-prod-validation-current -f compose.yml -f compose.production.yml --profile task-worker down --volumes --remove-orphans",
@@ -105,8 +105,8 @@
     "exit_code": 0,
     "finding_count": 0,
     "evidence_path": "docs\\evidence\\image\\current\\production-cleanup.log",
-    "started_at": "2026-07-16T10:41:51.722695Z",
-    "finished_at": "2026-07-16T10:41:57.322353Z",
-    "duration_seconds": 5.600881999998819
+    "started_at": "2026-07-31T01:56:14.671922Z",
+    "finished_at": "2026-07-31T01:56:19.142285Z",
+    "duration_seconds": 4.470449500018731
   }
 ]

@@ -1,0 +1,93 @@
+# 告警规则基线（随代码版本化，由外部 Prometheus 挂载引用，应用不承载告警执行）。
+# 结构契约：src/core/observability_contract/alert_rule_contract.py（AlertRuleCatalogEnvelope）。
+header:
+  kind: alert_rule_catalog_header
+  schema_version: "1.0"
+  policy_name: fastapi_web_skeleton_baseline
+rules:
+  - header:
+      kind: alert_rule_header
+      schema_version: "1.0"
+      rule_name: http_5xx_error_rate_high
+      severity: critical
+      rule_kind: threshold_alert
+    detail:
+      kind: threshold_alert
+      schema_version: "1.0"
+      promql_expression: >-
+        sum(rate(fastapi_request_total{status_code=~"5.."}[5m]))
+        / sum(rate(fastapi_request_total[5m])) > 0.05
+      threshold: 0.05
+      for_duration_seconds: 300
+      summary: "HTTP 5xx 错误率超过 5%，持续 5 分钟。"
+  - header:
+      kind: alert_rule_header
+      schema_version: "1.0"
+      rule_name: http_p95_latency_high
+      severity: warning
+      rule_kind: threshold_alert
+    detail:
+      kind: threshold_alert
+      schema_version: "1.0"
+      promql_expression: >-
+        histogram_quantile(0.95,
+        sum(rate(fastapi_request_duration_seconds_bucket[5m])) by (le)) > 1
+      threshold: 1
+      for_duration_seconds: 300
+      summary: "HTTP P95 延迟超过 1 秒，持续 5 分钟。"
+  - header:
+      kind: alert_rule_header
+      schema_version: "1.0"
+      rule_name: runtime_ready_down
+      severity: critical
+      rule_kind: absence_alert
+    detail:
+      kind: absence_alert
+      schema_version: "1.0"
+      promql_expression: >-
+        absent(fastapi_runtime_ready) or fastapi_runtime_ready == 0
+      for_duration_seconds: 120
+      summary: "应用 ready 指标掉线或抓取缺失，持续 2 分钟。"
+  - header:
+      kind: alert_rule_header
+      schema_version: "1.0"
+      rule_name: log_buffer_flush_failure_growing
+      severity: warning
+      rule_kind: threshold_alert
+    detail:
+      kind: threshold_alert
+      schema_version: "1.0"
+      promql_expression: >-
+        sum(increase(fastapi_log_buffer_flush_total{failed="true"}[10m])) > 0
+      threshold: 0
+      for_duration_seconds: 0
+      summary: "日志缓冲写失败在 10 分钟窗口内出现增长。"
+  - header:
+      kind: alert_rule_header
+      schema_version: "1.0"
+      rule_name: audit_critical_write_failure
+      severity: critical
+      rule_kind: threshold_alert
+    detail:
+      kind: threshold_alert
+      schema_version: "1.0"
+      promql_expression: >-
+        sum(increase(fastapi_log_buffer_flush_total{reason="audit_critical",failed="true"}[5m])) > 0
+      threshold: 0
+      for_duration_seconds: 0
+      summary: "审计关键事件即时落库出现写失败，审计完整性受损。"
+  - header:
+      kind: alert_rule_header
+      schema_version: "1.0"
+      rule_name: task_execution_failure_rate_high
+      severity: warning
+      rule_kind: threshold_alert
+    detail:
+      kind: threshold_alert
+      schema_version: "1.0"
+      promql_expression: >-
+        sum(rate(fastapi_task_execution_total{outcome="failed"}[10m]))
+        / sum(rate(fastapi_task_execution_total[10m])) > 0.2
+      threshold: 0.2
+      for_duration_seconds: 600
+      summary: "任务执行失败率超过 20%，持续 10 分钟。"

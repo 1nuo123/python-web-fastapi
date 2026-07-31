@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from fastapi import Request
+from starlette.requests import HTTPConnection
 
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.http_contract.runtime_resource_contract import RuntimeResourceStatus
@@ -20,16 +20,19 @@ from src.core.logging_contract.log_event_contract import (
     LogEventHeader,
     LogEventKind,
     LogLevel,
+    LogPersistencePriority,
     RequestLogContext,
     ResourceLifecycleAction,
     ResourceLifecycleLogDetail,
     SecurityLogDetail,
+    StreamAccessLogDetail,
     TaskFailureLogDetail,
 )
 from src.core.security_contract.security_event_contract import (
     SecurityEventEnvelope,
     SecurityEventSeverity,
 )
+from src.core.stream_contract.stream_event_contract import StreamCloseReason, StreamTransport
 from src.infrastructure.logging.sensitive_text_redactor import SensitiveTextRedactor
 from src.infrastructure.security.client_ip_resolver import ClientIpResolver
 from src.infrastructure.task.failed_task_recorder import TaskFailureRecord
@@ -42,6 +45,7 @@ SOURCE_COMPONENT_SECURITY_PROTECTION = "security_protection"
 SOURCE_COMPONENT_TASK_RUNTIME = "task_runtime"
 SECURITY_EVENT_REDACTION_FAILED_MESSAGE = "安全事件脱敏后契约校验失败。"
 SECURITY_EVENT_LOG_MESSAGE = "安全事件：{event_type}"
+WEBSOCKET_REQUEST_METHOD = "WEBSOCKET"
 
 
 @dataclass(slots=True)
@@ -53,7 +57,7 @@ class LogEventBuilder:
     sensitive_text_redactor: SensitiveTextRedactor = field(default_factory=SensitiveTextRedactor)
     client_ip_resolver: ClientIpResolver = field(default_factory=ClientIpResolver)
 
-    def build_request_context(self, request: Request) -> RequestLogContext:
+    def build_request_context(self, request: HTTPConnection) -> RequestLogContext:
         """
         构建请求日志上下文。
         """
@@ -64,7 +68,7 @@ class LogEventBuilder:
             trace_id = None
             authenticated_subject_id = None
             request_path = request.url.path
-            request_method = request.method
+            request_method = str(request.scope.get("method", WEBSOCKET_REQUEST_METHOD))
         else:
             request_id = request_scope.request_id
             trace_id = request_scope.trace_id
@@ -109,6 +113,41 @@ class LogEventBuilder:
             kind=LogEventKind.ACCESS,
             message=f"请求完成：{request_context.request_method} {request_context.request_path}",
             request_context=request_context,
+            source_component=SOURCE_COMPONENT_ACCESS_LOG,
+            detail=detail,
+        )
+
+    def build_stream_access_event(
+        self,
+        *,
+        request_context: RequestLogContext,
+        status_code: int,
+        elapsed_milliseconds: float,
+        operation_name: str,
+        transport: StreamTransport,
+        event_count: int,
+        close_reason: StreamCloseReason,
+        subject_digest: str,
+    ) -> LogEventEnvelope:
+        """构建不含业务正文与主体原文的流访问日志事件。"""
+
+        detail = StreamAccessLogDetail(
+            request_path=request_context.request_path,
+            request_method=request_context.request_method,
+            status_code=status_code,
+            elapsed_milliseconds=elapsed_milliseconds,
+            operation_name=operation_name,
+            transport=transport,
+            event_count=event_count,
+            close_reason=close_reason,
+            subject_digest=subject_digest,
+        )
+        sanitized_context = request_context.model_copy(update={"authenticated_subject_id": None})
+        return self._build_event(
+            level=LogLevel.INFO,
+            kind=LogEventKind.STREAM_ACCESS,
+            message=f"流连接完成：{operation_name} {transport.value}",
+            request_context=sanitized_context,
             source_component=SOURCE_COMPONENT_ACCESS_LOG,
             detail=detail,
         )
@@ -223,9 +262,19 @@ class LogEventBuilder:
         self,
         *,
         security_event: SecurityEventEnvelope,
+        persistence_priority: LogPersistencePriority = LogPersistencePriority.STANDARD,
     ) -> LogEventEnvelope:
         """
         构建安全日志事件。
+
+        :param security_event: 安全事件信封。
+        :type security_event: SecurityEventEnvelope
+        :param persistence_priority: 日志持久化优先级；审计关键事件应传入
+            ``LogPersistencePriority.AUDIT_CRITICAL`` 以触发即时落库。
+        :type persistence_priority: LogPersistencePriority
+        :returns: 日志事件信封。
+        :rtype: LogEventEnvelope
+        :raises ValueError: 当安全事件脱敏后无法通过契约校验时抛出。
         """
 
         redacted_event_json = self.sensitive_text_redactor.redact(security_event.model_dump_json())
@@ -251,6 +300,7 @@ class LogEventBuilder:
             request_context=request_context,
             source_component=SOURCE_COMPONENT_SECURITY_PROTECTION,
             detail=detail,
+            persistence_priority=persistence_priority,
         )
 
     def _map_security_level(self, severity: SecurityEventSeverity) -> LogLevel:
@@ -273,10 +323,12 @@ class LogEventBuilder:
         request_context: RequestLogContext | None,
         source_component: str,
         detail: AccessLogDetail
+        | StreamAccessLogDetail
         | ExceptionLogDetail
         | ResourceLifecycleLogDetail
         | TaskFailureLogDetail
         | SecurityLogDetail,
+        persistence_priority: LogPersistencePriority = LogPersistencePriority.STANDARD,
     ) -> LogEventEnvelope:
         """
         构建统一日志事件信封。
@@ -288,6 +340,7 @@ class LogEventBuilder:
                 occurred_at=datetime.now(UTC),
                 level=level,
                 kind=kind,
+                persistence_priority=persistence_priority,
                 message=message,
                 request_id=None if request_context is None else request_context.request_id,
                 trace_id=None if request_context is None else request_context.trace_id,

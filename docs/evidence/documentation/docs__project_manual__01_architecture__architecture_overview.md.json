@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/01_architecture/architecture_overview.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "66dbff1e97561b4620af04de7930ef9e3fc7a8f786a33a35a318a9652a9dffc0",
-    "verified_at": "2026-07-19T02:31:56.758477Z"
+    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+    "verified_at": "2026-07-31T01:57:20.433190Z"
   },
   "kind": "architecture",
   "detail": {
@@ -13,7 +13,7 @@
     "evidence_path": "docs\\project_manual\\01_architecture\\architecture_overview.md",
     "status": "current",
     "replacement_path": null,
-    "content_sha256": "68faeaa5ffcdf1488bd99eef56f2893f691d077bcfb1e660afd16e3edb06a9d4",
+    "content_sha256": "6cbee41bb3c1afec3f2e0398c053ff172bca23143cc2793501ced701bdf9cf2e",
     "validation_status": "verified",
     "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
     "fact_evidence_paths": [

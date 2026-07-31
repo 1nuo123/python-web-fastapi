@@ -6,8 +6,11 @@ from __future__ import annotations
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import QueuePool
 
 from src.core.persistence_contract.unit_of_work_contract import PersistenceSession, UnitOfWork
+
+POOL_CHECKED_OUT_UNAVAILABLE_COUNT = 0
 
 
 class SqlAlchemyPersistenceSession(Session, PersistenceSession):
@@ -126,6 +129,19 @@ class SqlAlchemySessionFactory:
         """
 
         return SqlAlchemyUnitOfWork(self.create_session())
+
+    def read_checked_out_connections(self) -> int:
+        """
+        读取连接池当前借出连接数量。
+
+        :returns: 借出连接数量；连接池实现不支持统计时返回 0。
+        :rtype: int
+        """
+
+        pool = self._engine.pool
+        if isinstance(pool, QueuePool):
+            return pool.checkedout()
+        return POOL_CHECKED_OUT_UNAVAILABLE_COUNT
 
     def dispose_engine(self) -> None:
         """

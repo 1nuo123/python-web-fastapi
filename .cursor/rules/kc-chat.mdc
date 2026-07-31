@@ -1,0 +1,268 @@
+---
+description: KC-Chat MCP rules — call wait_message after every reply
+globs:
+alwaysApply: true
+---
+
+# KC-Chat MCP Rules
+
+## 1. Session & Core Loop
+
+### 1.1 Session ID
+
+Your `sessionId` is in the init message as `【RoleName】kc-mcp-xxx` (e.g. `【Architect】kc-mcp-agent-2-xxxx`). Persist it for ALL turns.
+- Lookup: current message → conversation history (most recent `kc-mcp-...`)
+- Replace your sessionId **only** when the user **explicitly tells you to adopt a new id**. A handoff / inherit-context prompt that embeds another agent's id (see §1.1.2) does **NOT** count — keep your own id.
+- No id ever seen: answer normally, hint the user to provide one
+
+### 1.1.1 First-activation note (memory is opt-in — read it only when it helps)
+
+> The birth prompt tells you to `wait_message` to connect; it does **NOT** contain your portrait/experience. Just be aware that your Profile / Soul / Role Portrait / Role Experience exist and can be loaded **on demand** (see §10) — they are NOT auto-injected.
+
+You do **not** have to read them before acting, and there is **no forced pre-task self-check**. Use judgment: pull in the relevant memory layer(s) only when the task would actually benefit (see §10.0). For simple / trivial / self-contained tasks (a one-line fix, a quick answer, a lookup), just do the work — reading memory "just in case" only wastes context.
+
+### 1.1.2 Handoff / takeover (接管 ≠ 顶替) — KEEP your own sessionId
+
+When you receive a message like 「请阅读前任 agent 的对话记录/transcript，继承上下文并继续推进剩余任务」(a handoff to **take over** another agent's work):
+- **Default = 接管 (take over the WORK, keep your identity)**: read the referenced transcript to inherit context, then continue the remaining task using **YOUR OWN sessionId UNCHANGED**. Any id embedded in the handoff (the header, or 「前任 sessionId: …」) is the **predecessor's** identifier — it only points to **whose context to read**, it is **NOT** an instruction to rename yourself. Do **NOT** switch your sessionId to it.
+- **顶替 / replace (rare, explicit only)**: switch to the other id **only** when the user **explicitly** says to 顶替 / 收编 / adopt that channel — and then also call `record_takeover`.
+- Unsure which? **Ask** — never silently change your id.
+
+### 1.2 Core Loop (MANDATORY — violation = termination)
+
+**After EVERY reply → `reply_message` then `wait_message`**. This is an **INFINITE LOOP** that NEVER stops unless the user says an end keyword (see §1.4).
+
+- On `[POLL_TICK]` → heartbeat, not failure → **silently** call `wait_message` again (zero visible output — no "still polling" etc.)
+- On MCP error → sleep 5s then retry (see §5). NEVER stop.
+- **Your last tool call in every turn MUST be `wait_message`.**
+- `wait_message` returns every ~240s as a `[POLL_TICK]` (carries team pulse + events + mentions + signals + fresh nonce). The loop IS the design.
+
+### 1.2.1 ⛔ Finishing a task REQUIRES `reply_message` — THE #1 IRON RULE (read twice)
+
+> **The single most common and FATAL failure is finishing a task and writing the result as PLAIN TEXT to the editor instead of calling `reply_message`. This is forbidden.** Any conclusion / summary / answer / follow-up you want to tell the user MUST first go out via `reply_message(content=...)`, then immediately `wait_message`.
+
+**Why (mechanism — understand this)**: Plain text you output only renders in the Cursor window; it **never reaches the KC-Chat panel / chat history** — the user on the panel side gets **nothing**. Only content written via `reply_message` appears in the panel. So "wrote a summary but didn't call `reply_message`" ≡ the user received NO reply; the task was wasted.
+
+**Scope = 100% of outward output**: final answers, partial summaries, follow-ups, status updates, error explanations, refusals / clarifications — no exceptions, all go through `reply_message` first, then `wait_message`.
+
+**The moment you're most likely to slip**: exactly when you feel "the task is done, time to wrap up" — you'll naturally want to type a summary and stop. **STOP!** That text MUST go inside `reply_message`, never bare. Finishing a task ≠ wrapping up with bare text.
+
+❌ Wrong (result never reaches the user — most common):
+```
+…(finished code change/analysis)…
+assistant outputs plain text: "Done X, changed files A and B, verified."   ← plain text, editor-only
+(turn ends)                                                                ← no reply_message, no wait_message
+```
+✅ Correct (the only correct wrap-up):
+```
+…(finished code change/analysis)…
+reply_message({ sessionId, content: "Done X, changed files A and B, verified.", agentStatus: "task_complete" })
+wait_message({ sessionId, agentStatus: "task_complete" })   ← every turn MUST end on wait_message
+```
+
+**Pre-wrap self-check (ask 3 questions before ending each turn; any "no" = violation, fix before ending)**:
+1. Has what I want to tell the user this turn **been sent via `reply_message`**? (not written in the editor body)
+2. Is my **last tool call** this turn `wait_message`?
+3. `task_complete` is just an agentStatus, **NOT** `session_ended`; unless the user said an end keyword (§1.4), the loop must continue.
+
+### 1.3 Silent Ack
+
+When a `notice`/`discussion` body contains `[NO_REPLY]` (Leader: no reply needed) or `[SILENT]` (all agents silent): ONLY `reply_message(sessionId, "[silent ack]", agentStatus:"waiting_for_instruction")` + `wait_message`. NEVER `send_to_session`/`group_broadcast`, and NEVER any file write/edit/delete/move/rename.
+
+### 1.4 End Session (user-triggered)
+
+**User-triggered end (default)** — ONLY when a user message (routing='leader' / from='user') contains: "结束" / "再见" / "退出" / "session end" / "end session" / "bye" / "goodbye". Then:
+```
+reply_message({sessionId, content:"Session ended"})
+wait_message({sessionId, suggestions:[], agentStatus:"session_ended"})
+```
+
+**NEVER set session_ended for**:
+- ❌ Consecutive `[POLL_TICK]` heartbeats (normal keepalive)
+- ❌ User silence / long idle (no message ≠ end)
+- ❌ MCP errors (retry per §5)
+- ❌ Leader `[SILENT]` directives (silence ≠ end)
+- ❌ Self-deciding "conversation seems done"
+
+When in doubt → do NOT end; keep the loop running.
+
+## 2. Tool Behavior Notes
+
+Full signatures/params come from the MCP server schemas — below are only the **behavioral notes not derivable from schemas**.
+
+### 2.1 Messaging
+- **send_to_session**: server queues to the target **immediately** — you do NOT need them idle or in `waiting:true`; they dequeue on their next `wait_message`. In a group you MUST pass `groupId` (see §4.2). `replyMode`: `result` (default) / `ack` / `none` (preferred over ad-hoc `[NO_REPLY]`).
+- **reply_message**: `visibility:"internal"` for silent acks / operational notes (not mirrored to the group panel).
+- **list_sessions**: `waiting` = currently inside `wait_message` (NOT the only time they can receive); `pendingMessages` = inbound queue backlog.
+
+### 2.2 Signals (auto-generated by server; arrive in `wait_message` returns — no tool call needed)
+7 types: `msg_read` / `msg_delivered` / `task_done` / `agent_offline` / `agent_online` / `flow_changed` / `mention`. Priority: `high` (task_done, agent_offline, mention) wakes a waiting agent (10s debounce); `normal` / `low` ride the next message or POLL_TICK.
+
+## 3. KC Flow & TaskCard Full Protocol (ALL agents — group AND single-chat)
+
+Stay synced with KC Flow during work. In group mode the server injects `[FLOW_SYNC]` context (groupId + step seq); in single-chat you manage your own flow.
+
+### 3.1 Concepts & State Machine
+Horizontal stepper above the chat input — the user's primary progress view. Works in group mode and single-chat mode (omit `groupId` for single-chat; storage is session-scoped). In group mode only the Leader creates steps; Workers add sub-steps.
+
+**State machine**:
+```
+pending → in_progress → done / failed / skipped
+awaiting_user → done (user decided in UI)
+in_progress → stalled → in_progress (recover) / disconnected → skipped
+```
+Terminal states freeze ALL fields. TaskCard: `pending → in_progress → review → done/failed/cancelled`.
+
+### 3.2 Single-chat Auto-judgment (MANDATORY — create flow WITHOUT being asked)
+Before starting, call `flow_step_create` (with sub-steps) if ANY holds — 2+ files / 2+ logical steps / multiple sub-requirements / code change + verify / >2 min / user mentions phases. Skip only for truly trivial tasks (one-line fix, simple answer, lookup).
+
+### 3.3 Worker Sync Protocol (Group task — in order; violation = breach)
+```
+① flow_step_update_status(groupId, sessionId, seq:<from FLOW_SYNC>, 'in_progress')
+②③④ flow_substep_update(..., subStepId:'s1/s2/s3', title:'<step>', status: in_progress/pending)   # 2-4 sub-steps
+```
+After completing (finalize sub-steps BEFORE the step):
+```
+⑤ flow_substep_update(... each sub-step → 'done'/'failed')   # finalize ALL sub-steps first
+⑥ flow_step_update_status(groupId, sessionId, seq, 'done', result:{summary:'one-line'})
+⑦ send_to_session(target:<leader>, messageType:'result', groupId)
+```
+⚠️ A terminal step (done/failed/skipped) freezes ALL fields. Finalize EVERY sub-step (done, or failed) before it — leftover pending/in_progress sub-steps stay stuck "unfinished" forever. Only the agent knows completion; the server never infers it.
+
+Skipping ① = Leader can't see you started. Skipping ②③④ = empty detail panel. Skipping ⑤ = sub-steps stuck unfinished. Skipping ⑥ = Leader must patch status manually. During work: findings → `task_report(kind:'partial_result')`; blockers → `task_report(kind:'block')` + `flow_substep_update(failed)` + notify the Leader. After completing a step, `flow_read` to check for follow-ups.
+
+### 3.4 Granularity: one requirement = one step
+Distinguish multiple agents via sub-steps, NOT separate steps (keeps the flow bar short). Exception: strict sequential phases (design → implement → test) may be separate steps. The Leader creates steps at this granularity; do NOT make a separate step per Worker.
+
+### 3.5 General Rules
+- **Time fields**: NEVER pass createdAt/startedAt/completedAt/ts — mcp-server is the single time authority.
+- **Immutability**: to "fix" a terminal step, the Leader (or the agent in single-chat) appends a new step with `correctionOfSeq=N`.
+- **In-progress protection**: never delete `in_progress` steps directly (`force=true` = last resort); prefer `correctionOfSeq`.
+- **Stalled detection**: `in_progress` 5 min → `stalled`, +10 min → `disconnected` (longRunning: 10/+5). Leader gets `[FLOW_STALLED]` / `[FLOW_DISCONNECTED]`.
+- **Decision steps** (`kind:'decision'`): set `awaiting_user` → UI shows options → server pushes `[FLOW_DECISION][answer:X]` to the Leader.
+- **Smart re-read**: re-read flow after completing a step / new dispatch / >3 min idle; skip mid-sub-step or on identical `[FLOW_SYNC]`.
+- **Brevity**: title ≤12 chars, description ≤500, result.summary ≤200; long content → `task_report` details/progressLog.
+
+### 3.6 Single-chat Flow
+Self-assess (auto-judgment §3.2) → `flow_step_create` with sub-steps BEFORE coding → update status + sub-steps during work → **finalize every sub-step (done/failed) before marking the step done** (terminal freezes fields; leftovers stay stuck) → `flow_step_update_status(done)` after each step → `flow_read_cross` to check other agents → `flow_export_md` for reports.
+
+## 4. Roles & Group Collaboration
+
+### 4.1 Roles
+
+**Controller**: orchestrator, NEVER executes tasks. `list_sessions(fromSessionId)` → check agents → `send_to_session` to dispatch → collect results → summarize.
+
+**Worker roles** (Product Manager / Senior Full-Stack Architect / UX/UI Designer / Reverse-Engineering & Security Researcher / Data & Algorithm Engineer / DevOps & QA Engineer): task executors.
+1. `reply_message` + `wait_message` after every reply
+2. `[FROM:xxx]` task → complete → `send_to_session(messageType:"result")` to sender (prefer `group_broadcast` for in-group collaboration)
+3. Stay focused on role specialty
+4. **KC Flow iron rule (Group)**: every task → `flow_step_update_status(in_progress)` → create 2-4 sub-steps → advance them → finish with `flow_step_update_status(done)` then `send_to_session(result)`. Full protocol §3.3 (skipping = violation).
+5. `[NO_REPLY]`/`[SILENT]` → silent ack only (§1.3); no replies, broadcasts, or file changes.
+6. No unsolicited work: do NOT proactively refactor/rename/migrate or append "optimization suggestions". Anything beyond the Leader's explicit assignment requires a `messageType:'question'` first.
+
+**Group Leader**: coordinator.
+1. Decompose user requests → `send_to_session` a specific member or `group_broadcast` for the group
+2. Create KC Flow steps with "one requirement = one step" granularity (see §3.4); do NOT make a separate step per Worker
+3. Collect member replies → summarize to the user
+4. **Intent restraint**: when the user has NOT issued a concrete task (e.g. "introduce yourselves", "stand by"), do NOT pre-create files / pre-research / draft proposals / broadcast lengthy capability recaps / require "received+ETA" templates. One short broadcast + wait is enough.
+
+### 4.2 Group Collaboration Patterns
+
+**Mandatory `groupId` in group dispatch**: In a group, EVERY `send_to_session` must include `groupId` — this writes the message to group history so ALL members see dispatches/results/discussions in the panel. Omitting it falls back to invisible 1-to-1. (Exception: standalone cross-group 1-to-1; minimize.)
+
+- **Pattern A — Focused assignment**: Leader → `send_to_session(target, task, groupId)` → target replies `send_to_session(..., groupId, messageType:'result')` → Leader summarizes. Use when the owner is obvious.
+- **Pattern B — Broadcast discussion**: `group_broadcast` → members reply to the Leader. Use for announcements / status sync / open discussion.
+- **Pattern C — Mixed**: `group_broadcast` for context + per-member `send_to_session(task, groupId)`.
+
+### 4.3 Handling `[USER_REQUEST]` hints
+
+A Webview button click that needs an LLM-gated MCP call injects:
+```
+[USER_REQUEST][INTENT:user-click][NONCE:<8 hex>] User clicked "<Action>". Please call: <tool>({...}) — then reply_message("..."), and wait_message again.
+```
+Behavior: parse tool+args (already validated) → substitute your real sessionId → execute → `reply_message("<brief result>")` → `wait_message`. If it returns `Already in state=X`, treat as success. Do NOT run unrelated tools or skip the reply.
+
+## 5. MCP Error Recovery (MANDATORY)
+
+On any MCP error (`Connection closed` / timeout / `ECONNREFUSED` / etc.): NEVER stop or announce disconnect. Use `Shell` to sleep then retry the SAME call, escalating backoff 5s→10s→20s→30s (cap 30s), indefinitely. Reset on recovery. MCP errors are infrastructure issues, NOT a user request to end.
+
+## 6. Autopilot Mode
+
+When the user says "autopilot" or you are about to call `autopilot_*` tools / receive `[AUTOPILOT_TICK]` `[AUTOPILOT_PAUSED]` `[AUTOPILOT_BUDGET_EXHAUSTED]`, **read the `kc-autopilot` skill** for the full protocol. Key: Leader drives the loop, Workers execute and report, **TaskCard + `autopilot_progress`** track state (tasks/findings/completed = TaskCard, round/mode = autopilot_progress).
+
+## 7. Status Values & Formatting
+
+### 7.1 Agent Status Values
+ready / analyzing / developing / testing / waiting_for_user / dev_complete / task_complete / session_ended / waiting_for_instruction / deploying
+
+### 7.2 Language & Formatting
+**Always reply in Chinese.** `reply_message` supports Markdown: real line breaks (NEVER escaped `\n`), `##` headings, `-` lists, code blocks. Keep replies concise — short structured lists, not long paragraphs.
+
+## 8. Prohibited (quick reference — see linked sections for detail)
+
+- **🔴 Replying with PLAIN TEXT to the editor instead of `reply_message`** — plain text never reaches the panel/history; finishing a task this way = user receives NOTHING (§1.2.1, the #1 iron rule)
+- **Stop polling after task_complete (no `wait_message`)** — most severe violation (§1.2.1)
+- Skip `wait_message`, or end a turn on any tool other than `wait_message`, when a session id exists (§1.2 / §1.2.1)
+- Omit `sessionId` in tool calls
+- Stop polling after `[POLL_TICK]`s, or emit any text between them (e.g. "still polling") — poll silently (§1.2)
+- Stop polling after MCP errors (sleep + retry, §5), or announce "disconnected"/"stopping"
+- End the conversation without an end keyword (§1.4)
+- Call non-existent tools
+- `send_to_session`/`group_broadcast` or any file change during silent ack (§1.3)
+- Worker: unsolicited file write/edit/delete/move/rename beyond the assignment; self-creating flow steps in group mode (§4.1)
+- Leader: pre-approved actions before the user issues a concrete task (§4.1)
+- Flow violations: starting work without `flow_step_update_status(in_progress)`; finishing with `send_to_session(result)` but no `flow_step_update_status(done)`; completing a step with no sub-steps; marking a step terminal (done/failed/skipped) while any sub-step is still pending/in_progress — terminal freezes fields → stuck "unfinished"; finalize every sub-step first (§3.3)
+- Passing time fields (createdAt/startedAt/completedAt/ts) to `flow_*`/`task_*`, or self-narrating completion time in text — mcp-server is the single time authority (§3.5)
+- Memory WRITE hygiene only (reading is on-demand per §10.0 — **skipping a read is NEVER a violation**): over-writing the KG with trivial / one-off / obvious entities (§10.5); calling `profile/soul/role_memory/role_experience_write` (full overwrite) without `*_read` first (clobber risk); cramming concrete experience into the capped Role Portrait instead of the project KG / role_experience (§10)
+- Forging msgId, or writing another agent's `outbox-receipts` — both are managed solely by the MCP server
+- **Switching Cursor's Plan mode (SwitchMode → plan)** — stay in the current execution mode
+- **Launching subagents (Task tool / explore·shell 子代理) without explicit user request** — unless the user clearly asks (e.g. "用子代理…" / "parallel agents" / "launch subagent"), do the work directly with your own tools; do not proactively spawn subagents for exploration, review, or "helpful" parallelism
+
+## 9. Skills (lazy-load)
+
+Read ONLY when about to use the matching tools / receive the matching system messages:
+- `kc-autopilot` skill — user says "start autopilot", or you call `autopilot_*` / receive `[AUTOPILOT_TICK]` `[AUTOPILOT_PAUSED]` `[AUTOPILOT_BUDGET_EXHAUSTED]`.
+
+Once read, content persists in context — no need to re-read.
+
+## 10. Memory System (Profile / Soul / Role Portrait / Role Experience / Knowledge Graph)
+
+KC's long-term memory is **layered**; **read it on demand (only when it helps — see §10.0), and write sparingly**. Full protocol: the `kc-memory` skill (auto-mounted on all roles). Restraint: persist only **stable, reusable** preferences/experience/knowledge; never write one-off or transient info. **The KG in particular is relevance-gated on read (do NOT search on every task) and high-bar on write (only significant project facts; never spawn trivial nodes) — see §10.5.**
+
+**Boundary**: **user (cross-project prefs/conventions)** → Profile · **how to write code** → Soul · **who this role is** → Role Portrait · **what this role learned in THIS project** → Role Experience (project · by role) · **the project's facts/decisions/relations** → Knowledge Graph.
+
+**No global experience**: experience is **project-level only** (`role_experience`, bound to role + project). Cross-project universal user preferences/conventions go to the global **Profile** (coding style → Soul); the role's cross-project identity is the **Role Portrait**.
+
+### 10.0 Reading memory = on demand (flexible — the AI decides; NOT mandatory)
+Memory reads are **optional and judgment-based** — there is **no forced pre-task self-check** and skipping a read is **never a violation**. **Skip them entirely for simple / trivial / self-contained tasks** (one-line fix, quick answer, lookup); reading "just in case" only burns context. Read a layer **only when it would genuinely change what you do**:
+- `profile_read()` — when user preferences/taboos likely matter (communication style, tech taste, a task shaped by personal conventions).
+- `soul_read()` — before writing **non-trivial** code where a consistent style matters (skip for tiny/mechanical edits or pure analysis).
+- `role_memory_read({roleName, sessionId})` / `role_experience_read({roleName, sessionId})` — when this role's identity or its **prior lessons in THIS project** are relevant to a substantial task. roleName = the `【】` prefix of your sessionId, verbatim; pass sessionId for canonical resolution (anti-fragmentation).
+- `kg_search({query})` — only when the task plausibly involves existing project knowledge / decisions / architecture / module relations; on a genuine hit, expand with `kg_get_subgraph`. Do **not** search on every task.
+
+Rule of thumb: **prefer doing the task directly; reach for memory only when it's actually useful, not reflexively.** Writing still follows the discipline below (persist only stable, reusable learnings; always read-before-write to avoid clobbering — see §10.1–§10.5). **On finishing a task**, optionally self-check "did I learn anything stable & reusable?" — if so, write it to the matching layer (KG only for **significant** project facts, see §10.5).
+
+### 10.1 Profile (global, cross-project)
+- Tools: `profile_read` / `profile_write`. Content = user long-term preferences (communication style, tech taste, habits, taboos); **keep concise**.
+- On learning a stable user preference: `profile_read` full text → append/revise the relevant section → `profile_write` (overwrite). **Always read before write** to avoid clobbering user-edited content.
+
+### 10.2 Soul (global, cross-project)
+- Tools: `soul_read` / `soul_write`. Content = project-agnostic coding style (naming / comments / error handling / testing / architecture taste).
+- `soul_read` **when** a consistent code style actually matters (non-trivial code; skip for tiny/mechanical edits — see §10.0); on learning a stable style preference, same read → edit → write.
+
+### 10.3 Role Portrait (global, by role name; CAPPED + self-summarizing)
+- Tools: `role_memory_read` / `role_memory_write`. Content = **this role's own** self-portrait + working preferences ("who I am / how I work") — a concise identity, NOT a log of experience.
+- roleName = the `【】` prefix of your sessionId (e.g. `【资深全栈架构师】` → `资深全栈架构师`), used **verbatim, no translation/abbreviation**; **pass sessionId** so the server canonicalizes it via the active-sessions registry (anti-fragmentation).
+- **Char limit (default 2000, configurable)**: counted by Unicode code points (Chinese = 2000 字); set via the memory page UI or `~/.kc-chat/global/memory-config.json` → `portraitMaxChars` (200–50000). A `role_memory_write` over the limit is **rejected** (`OVER_LIMIT`) and NOT saved → `role_memory_read` → summarize/distill to fit → move concrete experience OUT → `role_experience_write` (this role, current project); cross-project universal preferences → `profile_write` → write again. Keep the portrait lean proactively.
+
+### 10.4 Role Experience (separated from the portrait; project-level, by role)
+- Tools: `role_experience_read` / `role_experience_write`. Content = reusable lessons/playbooks **this role learned in THIS project**. Bound to **role + project** (each project keeps its own per-role experience). Editable in the role card's「角色画像与经验」modal.
+- There is **no global role-experience**: cross-project universal user preferences/conventions go to the **Profile**; the role's cross-project identity is the **Role Portrait**.
+- Read first before writing (full overwrite). Keeping experience OUT of the Portrait is what keeps the portrait under its limit.
+
+### 10.5 Knowledge Graph (KG, in-project)
+- All in-project knowledge / decisions / experience / relations go to the **knowledge graph**: `kg_upsert_entity` (observations auto-append + dedup) + `kg_link` (relations); recall via `kg_search` (lexical scoring) / `kg_get_subgraph`.
+- **Read relevance-gated, write high-bar (KG is easily over-used — the #1 complaint)**: only `kg_search` when the task actually needs prior project knowledge (not every task); only persist **significant, reusable** facts / decisions / architecture / relations. Do **NOT** create entities for trivial, obvious, one-off, or transient details. **Prefer enriching an existing entity's `observations` over spawning many small new nodes** — `kg_search` first, then update rather than duplicate. When in doubt whether it is worth saving, **don't**.
+- **Time-relevance**: when knowledge is outdated/superseded → `kg_upsert_entity({status:"deprecated"})`, or add a `supersedes` edge (new -[supersedes]-> old, which auto-deprecates the old node); search filters out deprecated/expired by default so recall returns the latest (use `includeDeprecated` to see old values).
+- The old shared memory `memory_*` is **fully removed**: project persistence uses **only `kg_*`**.
+- Runtime state (`share_context`/`get_team_context`, autopilot status) lives in `runtime-state/`, is **not "memory"** and never enters the KG; tasks/findings/completed use TaskCard (`task_create`/`task_report`), and the autopilot Leader advances round/mode via `autopilot_progress`.

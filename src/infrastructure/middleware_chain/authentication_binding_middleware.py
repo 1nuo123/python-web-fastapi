@@ -24,19 +24,15 @@ from src.core.http_contract.request_scope_contract import RequestScope
 from src.core.http_contract.response_envelope_contract import ResponseEnvelopeFactory
 from src.core.security_contract.token_binding_contract import TokenBindingMode
 from src.domain.auth.auth_error_code import AuthErrorCode
+from src.infrastructure.auth.authenticated_principal_resolver import (
+    AuthenticatedPrincipalResolver,
+)
 from src.infrastructure.auth.oauth2_scheme_provider import OAuth2SchemeProvider
 from src.infrastructure.orjson_document_response import OrjsonDocumentResponse
 
 if TYPE_CHECKING:
     from src.infrastructure.shared_resource_mount import SharedResourceMount
 
-ACCOUNT_DISABLED_MESSAGE = "账号已停用。"
-AUTH_SUBJECT_MISSING_MESSAGE = "访问主体不存在。"
-TOKEN_SESSION_REVOKED_MESSAGE = "访问令牌所属会话已吊销。"
-TOKEN_SESSION_MISSING_MESSAGE = "访问令牌所属会话不存在。"
-TOKEN_SESSION_SUBJECT_MISMATCH_MESSAGE = "访问令牌所属会话主体不匹配。"
-TOKEN_SESSION_EXPIRED_MESSAGE = "访问令牌所属会话已过期。"
-TOKEN_SESSION_INCONSISTENT_MESSAGE = "访问令牌所属会话状态不一致。"
 MIDDLEWARE_TRACE_NAME = "authentication_binding"
 AUTH_BINDING_REQUEST_EXECUTION_NAME = DEFAULT_SYNC_REQUEST_EXECUTION_NAME
 MISSING_REQUEST_SCOPE_ID = "request-scope-missing"
@@ -78,6 +74,7 @@ class AuthenticationBindingMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._oauth2_scheme_provider = oauth2_scheme_provider
         self._resource_mount = resource_mount
+        self._principal_resolver = AuthenticatedPrincipalResolver(resource_mount=resource_mount)
         self._logger = logger
 
     async def dispatch(
@@ -112,7 +109,7 @@ class AuthenticationBindingMiddleware(BaseHTTPMiddleware):
                     AuthenticatedPrincipal,
                     await self._resource_mount.get_request_execution_bridge().run_sync(
                         execution_name=AUTH_BINDING_REQUEST_EXECUTION_NAME,
-                        callable_object=self._bind_authenticated_principal,
+                        callable_object=self._principal_resolver.resolve,
                         token_payload=token_payload,
                     ),
                 )
@@ -182,81 +179,6 @@ class AuthenticationBindingMiddleware(BaseHTTPMiddleware):
             error_code=AuthErrorCode.TOKEN_INVALID,
             message=TOKEN_BINDING_MISMATCH_MESSAGE,
         )
-
-    def _bind_authenticated_principal(
-        self,
-        token_payload: TokenPayload,
-    ) -> AuthenticatedPrincipal:
-        """
-        绑定已认证主体。
-
-        :param token_payload: 已解码并完成基础校验的令牌载荷。约束：需符合 ``TokenPayload`` 注解。
-        :type token_payload: TokenPayload
-        :returns: 返回当前操作结果。
-        :rtype: AuthenticatedPrincipal
-        :raises HttpFaultException: 当业务校验失败、资源未就绪、配置错误或令牌状态异常时抛出。
-        """
-
-        unit_of_work = self._resource_mount.create_unit_of_work()
-        try:
-            # 访问令牌里的角色和作用域只作为快照展示，最终授权真值仍以数据库当前状态为准。
-            session = unit_of_work.get_session()
-            auth_identity_repository = self._resource_mount.create_auth_identity_repository(session)
-            refresh_token_repository = self._resource_mount.create_refresh_token_repository(session)
-            authorization_snapshot = (
-                auth_identity_repository.get_authorization_snapshot_by_subject_id(
-                    token_payload.subject_id
-                )
-            )
-            if authorization_snapshot is None:
-                raise HttpFaultException(
-                    status_code=HTTPStatus.UNAUTHORIZED,
-                    error_code=AuthErrorCode.TOKEN_INVALID,
-                    message=AUTH_SUBJECT_MISSING_MESSAGE,
-                )
-            if not authorization_snapshot.is_active:
-                raise HttpFaultException(
-                    status_code=HTTPStatus.FORBIDDEN,
-                    error_code=AuthErrorCode.ACCOUNT_DISABLED,
-                    message=ACCOUNT_DISABLED_MESSAGE,
-                )
-            token_session_status = refresh_token_repository.get_token_session_status(
-                token_payload.token_session_id
-            )
-            if token_session_status is None:
-                raise HttpFaultException(
-                    status_code=HTTPStatus.UNAUTHORIZED,
-                    error_code=AuthErrorCode.TOKEN_INVALID,
-                    message=TOKEN_SESSION_MISSING_MESSAGE,
-                )
-            if token_session_status.subject_id != authorization_snapshot.subject_id:
-                raise HttpFaultException(
-                    status_code=HTTPStatus.UNAUTHORIZED,
-                    error_code=AuthErrorCode.TOKEN_INVALID,
-                    message=TOKEN_SESSION_SUBJECT_MISMATCH_MESSAGE,
-                )
-            if token_session_status.is_inconsistent:
-                raise HttpFaultException(
-                    status_code=HTTPStatus.UNAUTHORIZED,
-                    error_code=AuthErrorCode.TOKEN_INVALID,
-                    message=TOKEN_SESSION_INCONSISTENT_MESSAGE,
-                )
-            if token_session_status.is_revoked:
-                raise HttpFaultException(
-                    status_code=HTTPStatus.UNAUTHORIZED,
-                    error_code=AuthErrorCode.TOKEN_REVOKED,
-                    message=TOKEN_SESSION_REVOKED_MESSAGE,
-                )
-            if token_session_status.is_expired:
-                raise HttpFaultException(
-                    status_code=HTTPStatus.UNAUTHORIZED,
-                    error_code=AuthErrorCode.TOKEN_EXPIRED,
-                    message=TOKEN_SESSION_EXPIRED_MESSAGE,
-                )
-            return AuthenticatedPrincipal.from_authorization_snapshot(authorization_snapshot)
-        finally:
-            # 中间件只读查询也显式释放工作单元，避免连接泄漏到长请求链。
-            unit_of_work.dispose()
 
     def _normalize_auth_fault(self, exc: HttpFaultException) -> HttpFaultException:
         """

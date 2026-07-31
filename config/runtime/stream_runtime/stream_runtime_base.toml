@@ -1,0 +1,35 @@
+[runtime]
+envelope_kind = "stream_runtime_envelope"
+schema_version = "1.0"
+
+[runtime.header]
+kind = "stream_runtime_header"
+schema_version = "1.0"
+mode = "local_stream_runtime"
+enabled = true
+
+[runtime.detail]
+kind = "local_stream_runtime"
+schema_version = "1.0"
+queue_capacity = 32
+send_timeout_seconds = 5.0
+max_duration_seconds = 300.0
+max_event_bytes = 262144
+collection_max_events = 1000
+collection_max_bytes = 8388608
+collection_timeout_seconds = 60.0
+max_sessions = 256
+max_sessions_per_subject = 8
+max_sessions_per_ip = 16
+max_sessions_per_operation = 64
+ticket_ttl_seconds = 30
+replay_ttl_seconds = 300
+replay_max_events = 1000
+sse_heartbeat_seconds = 15
+sse_retry_milliseconds = 3000
+websocket_max_message_bytes = 65536
+websocket_ping_interval_seconds = 20.0
+websocket_ping_timeout_seconds = 20.0
+shutdown_grace_seconds = 20.0
+allowed_origins = ["http://127.0.0.1:8000", "http://localhost:8000"]
+require_browser_ticket = false

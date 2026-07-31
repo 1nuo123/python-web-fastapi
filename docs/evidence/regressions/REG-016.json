@@ -17,7 +17,7 @@
   "rerun_scope": "full-suite",
   "evidence": {
     "source_path": "pyproject.toml",
-    "source_line": 32,
+    "source_line": 35,
     "trigger_condition": "执行依赖漏洞审计。",
     "affected_scope": "锁文件与运行环境依赖。",
     "reproduction_command": "pip-audit",
@@ -39,7 +39,7 @@
     },
     {
       "status": "fixed",
-      "changed_at": "2026-07-16T10:15:02.231019Z",
+      "changed_at": "2026-07-31T01:41:59.634483Z",
       "evidence_path": "docs\\evidence\\regression-support\\REG-016.json"
     }
   ],
