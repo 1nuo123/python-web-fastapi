@@ -2,39 +2,39 @@
   "header": {
     "schema_version": "1.0",
     "run_id": "phase3-final-security",
-    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+    "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
     "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
-    "started_at": "2026-07-31T01:51:15Z",
-    "command_entry": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-security.xml test/boundary_test/test_security_boundary.py test/interface_test/test_security_http_interface.py test/interface_test/test_security_event_http_interface.py test/interface_test/test_rate_limit_http_interface.py test/integration_test/test_security_production_integration.py test/integration_test/test_runtime_boundary_integration.py test/integration_test/test_distributed_lock_redis_integration.py"
+    "started_at": "2026-08-07T22:59:16.228644Z",
+    "command_entry": ".venv/Scripts/python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-security.xml test/boundary_test/test_security_boundary.py test/interface_test/test_security_http_interface.py test/interface_test/test_security_event_http_interface.py test/interface_test/test_rate_limit_http_interface.py test/integration_test/test_security_production_integration.py test/integration_test/test_runtime_boundary_integration.py test/integration_test/test_distributed_lock_redis_integration.py"
   },
   "kind": "security",
   "detail": {
     "schema_version": "1.0",
     "status": "passed",
-    "command": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-security.xml test/boundary_test/test_security_boundary.py test/interface_test/test_security_http_interface.py test/interface_test/test_security_event_http_interface.py test/interface_test/test_rate_limit_http_interface.py test/integration_test/test_security_production_integration.py test/integration_test/test_runtime_boundary_integration.py test/integration_test/test_distributed_lock_redis_integration.py",
+    "command": ".venv/Scripts/python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-security.xml test/boundary_test/test_security_boundary.py test/interface_test/test_security_http_interface.py test/interface_test/test_security_event_http_interface.py test/interface_test/test_rate_limit_http_interface.py test/integration_test/test_security_production_integration.py test/integration_test/test_runtime_boundary_integration.py test/integration_test/test_distributed_lock_redis_integration.py",
     "exit_code": 0,
     "test_count": 53,
-    "duration_seconds": 30.16,
+    "duration_seconds": 37.4438663,
     "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
     "failure_summary": null,
     "evidence_path": "docs\\evidence\\test-runs\\phase3-final-security.json",
     "commands": [
       {
-        "command": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-security.xml test/boundary_test/test_security_boundary.py test/interface_test/test_security_http_interface.py test/interface_test/test_security_event_http_interface.py test/interface_test/test_rate_limit_http_interface.py test/integration_test/test_security_production_integration.py test/integration_test/test_runtime_boundary_integration.py test/integration_test/test_distributed_lock_redis_integration.py",
+        "command": ".venv/Scripts/python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-security.xml test/boundary_test/test_security_boundary.py test/interface_test/test_security_http_interface.py test/interface_test/test_security_event_http_interface.py test/interface_test/test_rate_limit_http_interface.py test/integration_test/test_security_production_integration.py test/integration_test/test_runtime_boundary_integration.py test/integration_test/test_distributed_lock_redis_integration.py",
         "tool_version": "python-3.11.8",
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": "docs\\evidence\\test-artifacts\\phase3-final-security.xml",
-        "started_at": "2026-07-31T01:51:15Z",
-        "finished_at": "2026-07-31T01:51:45.160000Z",
-        "duration_seconds": 30.16
+        "started_at": "2026-08-07T22:59:16.228644Z",
+        "finished_at": "2026-08-07T22:59:53.672510Z",
+        "duration_seconds": 37.4438663
       }
     ],
     "artifacts": [
       {
         "kind": "junit",
         "path": "docs\\evidence\\test-artifacts\\phase3-final-security.xml",
-        "sha256": "f7cb85ea25b1209e61700e549613bee3821b61a1534342b9c573703c8d04f2fe",
+        "sha256": "c5f3d9c36c2219481cd451b81939cd6d4ff20cde8be50e2b2732af3688bde1d5",
         "command_index": null
       }
     ],

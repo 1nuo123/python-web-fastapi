@@ -341,17 +341,21 @@ class TestSecurityIpBlockIntegration:
         app = self._create_security_protection_app(
             overrides={
                 "runtime": {
+                    "redis_resource": {
+                        "header": {"enabled": True},
+                        "detail": {
+                            "url": REDIS_CACHE_URL,
+                            "connect_timeout_seconds": (REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS),
+                            "sync_max_connections": REDIS_INTEGRATION_MAX_CONNECTIONS,
+                            "async_max_connections": REDIS_INTEGRATION_MAX_CONNECTIONS,
+                        },
+                    },
                     "cache": {
                         "backend": "redis",
                         "key_prefix": key_prefix,
                         "backend_detail": {
                             "kind": "redis_cache_backend",
                             "schema_version": "1.0",
-                            "redis_url": REDIS_CACHE_URL,
-                            "socket_connect_timeout_seconds": (
-                                REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS
-                            ),
-                            "max_connections": REDIS_INTEGRATION_MAX_CONNECTIONS,
                         },
                     },
                     "security": {"detail": {"protection": {"ip_block": {"enabled": False}}}},
@@ -533,15 +537,21 @@ class TestSecurityIpBlockIntegration:
 
         return {
             "runtime": {
+                "redis_resource": {
+                    "header": {"enabled": True},
+                    "detail": {
+                        "url": REDIS_CACHE_URL,
+                        "connect_timeout_seconds": REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
+                        "sync_max_connections": REDIS_INTEGRATION_MAX_CONNECTIONS,
+                        "async_max_connections": REDIS_INTEGRATION_MAX_CONNECTIONS,
+                    },
+                },
                 "cache": {
                     "backend": "redis",
                     "key_prefix": key_prefix,
                     "backend_detail": {
                         "kind": "redis_cache_backend",
                         "schema_version": "1.0",
-                        "redis_url": REDIS_CACHE_URL,
-                        "socket_connect_timeout_seconds": (REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS),
-                        "max_connections": REDIS_INTEGRATION_MAX_CONNECTIONS,
                     },
                 },
                 "security": {"detail": {"protection": {"ip_block": {"enabled": False}}}},

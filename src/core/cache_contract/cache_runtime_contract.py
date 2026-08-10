@@ -76,9 +76,6 @@ class RedisCacheBackendDetail(BaseModel):
 
     kind: Literal["redis_cache_backend"] = REDIS_CACHE_BACKEND_KIND
     schema_version: Literal["1.0"] = CACHE_BACKEND_DETAIL_SCHEMA_VERSION
-    redis_url: str
-    socket_connect_timeout_seconds: int = Field(ge=REDIS_SOCKET_CONNECT_TIMEOUT_MINIMUM_SECONDS)
-    max_connections: int = Field(ge=REDIS_MAX_CONNECTIONS_MINIMUM)
 
 
 CacheBackendDetail = Annotated[
@@ -137,7 +134,4 @@ class CacheRuntimeSettings(BaseModel):
             raise ValueError(
                 "runtime.cache.backend 为 redis 时，backend_detail 必须是 Redis 缓存扩展配置。"
             )
-        if isinstance(self.backend_detail, RedisCacheBackendDetail):
-            if self.backend_detail.redis_url.strip() == "":
-                raise ValueError("runtime.cache.backend_detail.redis_url 不能为空。")
         return self

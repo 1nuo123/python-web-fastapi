@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-07-31T01:57:21.106080Z",
+  "generated_at": "2026-08-07T23:06:49.627222Z",
   "test_runs": [
     "docs\\evidence\\test-runs\\phase3-final-image.json",
     "docs\\evidence\\test-runs\\phase3-final-load.json",
@@ -62,6 +62,7 @@
     "docs\\evidence\\documentation\\docs__project_manual__03_application_domain__domain_model_and_constants.md.json",
     "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__authentication_and_authorization.md.json",
     "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__cache_runtime.md.json",
+    "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__codex_host_agent.md.json",
     "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__configuration_system.md.json",
     "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__distributed_lock.md.json",
     "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__logging_runtime.md.json",
@@ -156,7 +157,7 @@
   ],
   "verified_regressions": [],
   "rejected_regressions": [],
-  "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+  "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
   "current_test_runs": [
     "docs\\evidence\\test-runs\\phase3-final-image.json",
     "docs\\evidence\\test-runs\\phase3-final-load.json",

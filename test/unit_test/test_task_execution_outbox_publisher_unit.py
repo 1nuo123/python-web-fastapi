@@ -489,11 +489,11 @@ class TestTaskExecutionOutboxPublisherUnit:
                 background_limit=OUTBOX_TEST_LIMIT,
             )
 
-            assert publisher._worker_thread is not None  # noqa: SLF001
+            assert publisher._runner._worker is not None  # noqa: SLF001
 
             publisher.shutdown()
 
-            assert publisher._worker_thread is None  # noqa: SLF001
+            assert publisher._runner._worker is None  # noqa: SLF001
         finally:
             message_bus.close()
             test_context.close()

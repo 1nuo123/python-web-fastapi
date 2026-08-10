@@ -70,10 +70,11 @@ class TestCacheIntegration:
             redis_url=REDIS_CACHE_URL,
             timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
         )
-        redis_cache_store = RedisCacheStore(
+        redis_resource = RedisIntegrationAvailability.create_resource(
             redis_url=REDIS_CACHE_URL,
-            socket_connect_timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
+            timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
         )
+        redis_cache_store = RedisCacheStore(redis_resource.sync_client)
         cache_service = CacheService(
             cache_store=redis_cache_store,
             key_builder=CacheKeyBuilder(key_prefix=REDIS_CACHE_KEY_PREFIX),
@@ -122,7 +123,7 @@ class TestCacheIntegration:
                 == CacheFailureMode.FAIL_OPEN
             )
         finally:
-            redis_cache_store.close()
+            RedisIntegrationAvailability.close_resource(redis_resource)
 
     def test_auth_failure_throttle_with_redis_backend_should_lock_request(self) -> None:
         """
@@ -139,6 +140,15 @@ class TestCacheIntegration:
         app = TestAppFactory().create(
             overrides={
                 "runtime": {
+                    "redis_resource": {
+                        "header": {"enabled": True},
+                        "detail": {
+                            "url": REDIS_CACHE_URL,
+                            "connect_timeout_seconds": (REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS),
+                            "sync_max_connections": REDIS_INTEGRATION_MAX_CONNECTIONS,
+                            "async_max_connections": REDIS_INTEGRATION_MAX_CONNECTIONS,
+                        },
+                    },
                     "cache": {
                         "backend": "redis",
                         "key_prefix": REDIS_AUTH_THROTTLE_KEY_PREFIX_TEMPLATE.format(
@@ -147,13 +157,8 @@ class TestCacheIntegration:
                         "backend_detail": {
                             "kind": "redis_cache_backend",
                             "schema_version": "1.0",
-                            "redis_url": REDIS_CACHE_URL,
-                            "socket_connect_timeout_seconds": (
-                                REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS
-                            ),
-                            "max_connections": REDIS_INTEGRATION_MAX_CONNECTIONS,
                         },
-                    }
+                    },
                 }
             }
         )
@@ -190,10 +195,11 @@ class TestCacheIntegration:
             redis_url=REDIS_CACHE_URL,
             timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
         )
-        redis_cache_store = RedisCacheStore(
+        redis_resource = RedisIntegrationAvailability.create_resource(
             redis_url=REDIS_CACHE_URL,
-            socket_connect_timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
+            timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
         )
+        redis_cache_store = RedisCacheStore(redis_resource.sync_client)
         cache_service = CacheService(
             cache_store=redis_cache_store,
             key_builder=CacheKeyBuilder(key_prefix=REDIS_CACHE_KEY_PREFIX),
@@ -226,4 +232,4 @@ class TestCacheIntegration:
                     key_parts=cache_increment_request.key_parts,
                 )
             )
-            redis_cache_store.close()
+            RedisIntegrationAvailability.close_resource(redis_resource)

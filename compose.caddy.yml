@@ -1,0 +1,12 @@
+services:
+  app:
+    networks:
+      default: {}
+      edge:
+        aliases:
+          - app
+
+networks:
+  edge:
+    external: true
+    name: ${EDGE_NETWORK_NAME:-fastapi-web-edge}

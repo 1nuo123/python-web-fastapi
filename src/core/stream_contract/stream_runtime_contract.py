@@ -118,12 +118,7 @@ class RedisStreamRuntimeDetail(StreamRuntimeDetailBase):
     """Redis 流运行时扩展。"""
 
     kind: Literal["redis_stream_runtime"] = REDIS_STREAM_RUNTIME_KIND
-    redis_url: str = Field(min_length=STREAM_ORIGIN_MINIMUM_LENGTH)
     redis_key_prefix: str = Field(min_length=STREAM_ORIGIN_MINIMUM_LENGTH)
-    redis_socket_connect_timeout_seconds: float = Field(ge=STREAM_TIMEOUT_MINIMUM)
-    redis_max_connections: int = Field(
-        ge=STREAM_POSITIVE_MINIMUM, le=STREAM_REDIS_CONNECTIONS_MAXIMUM
-    )
 
 
 StreamRuntimeDetail = Annotated[

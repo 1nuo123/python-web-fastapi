@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from src.application.authorization_guard import AuthorizationGuard
 from src.application.ports.settings_reader_port import ApplicationSettingsSnapshot
 from src.core.cache_contract.cache_store_contract import CacheStore
+from src.core.distributed_state_contract.atomic_state_contract import AtomicStatePort
 from src.core.exception_contract.error_code_catalog_contract import CoreErrorCode
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.http_contract.runtime_resource_contract import (
@@ -49,14 +50,20 @@ from src.infrastructure.auth.bootstrap_admin_synchronizer import (
 from src.infrastructure.auth.jwt_token_service import JwtTokenService
 from src.infrastructure.auth.oauth2_scheme_provider import OAuth2SchemeProvider
 from src.infrastructure.auth.password_hasher import PasswordHasher
+from src.infrastructure.auth.public_registration_role_synchronizer import (
+    PublicRegistrationRoleSynchronizer,
+)
 from src.infrastructure.cache.cache_key_builder import CacheKeyBuilder
 from src.infrastructure.cache.cache_service import CacheService
+from src.infrastructure.codex.codex_control_runtime import CodexControlRuntime
 from src.infrastructure.concurrency.distributed_lock_provider import (
     DistributedLockProvider,
 )
 from src.infrastructure.context.request_context_manager_impl import (
     RequestContextManagerImpl,
 )
+from src.infrastructure.distributed_state.memory_atomic_state import MemoryAtomicState
+from src.infrastructure.distributed_state.redis_atomic_state import RedisAtomicState
 from src.infrastructure.fastapi_otel_bridge import FastApiOtelBridge
 from src.infrastructure.key_management.database_key_ring_store import DatabaseKeyRingStore
 from src.infrastructure.key_management.key_management_service import KeyManagementService
@@ -167,6 +174,7 @@ from src.infrastructure.resource_slot.shared_http_resource_manager import (
     SharedHttpResourceManager,
     SharedHttpResourceSet,
 )
+from src.infrastructure.resource_slot.shared_redis_resource import SharedRedisResource
 from src.infrastructure.security.client_ip_resolver import (
     ClientIpResolver,
     TrustedProxyPolicy,
@@ -356,6 +364,7 @@ class SharedResourceLifecycle:
         self._streaming_runtime_factory = StreamingRuntimeFactory()
         self._streaming_resources: StreamingRuntimeResourceSet | None = None
         self._pending_streaming_components: list[StreamingOperationComponentSet] = []
+        self._codex_control_runtime: CodexControlRuntime | None = None
         self._last_resource_release_result: RuntimeResourceReleaseEnvelope | None = None
         self._runtime_accessor_refresher = RuntimeAccessorRefresher()
         self._capacity_policy_resolver = RuntimeCapacityPolicyResolver()
@@ -389,6 +398,8 @@ class SharedResourceLifecycle:
         self._log_buffer_dispatcher: LogBufferDispatcher | None = None
         self._structured_log_handler: StructuredLogHandler | None = None
         self._cache_store: CacheStore | None = None
+        self._shared_redis_resource: SharedRedisResource | None = None
+        self._atomic_state: AtomicStatePort | None = None
         self._cache_service: CacheService | None = None
         self._distributed_lock_provider: DistributedLockProvider | None = None
         self._key_management_service: KeyManagementService | None = None
@@ -511,11 +522,18 @@ class SharedResourceLifecycle:
         self._streaming_resources = await self._streaming_runtime_factory.build(
             runtime,
             metrics_registry=self.get_metrics_registry(),
+            redis_client=(
+                self.get_shared_redis_resource().async_client
+                if self.read_runtime_bundle().settings.runtime.redis_resource.header.enabled
+                else None
+            ),
         )
         self._streaming_resources = replace(
             self._streaming_resources,
             operation_components=tuple(self._pending_streaming_components),
         )
+        if self._codex_control_runtime is not None:
+            await self._codex_control_runtime.start()
         self.mark_runtime_resource_ready(RESOURCE_STREAMING)
 
     async def shutdown_streaming(self) -> None:
@@ -525,13 +543,72 @@ class SharedResourceLifecycle:
         :rtype: None
         """
 
+        codex_runtime = self._codex_control_runtime
+        if codex_runtime is not None:
+            await codex_runtime.shutdown()
         resources = self._streaming_resources
         self._streaming_resources = None
         if resources is None:
+            await self.clear_shared_redis_resource()
             self.mark_runtime_resource_stopped(RESOURCE_STREAMING)
             return
         await self._streaming_runtime_factory.shutdown(resources)
+        await self.clear_shared_redis_resource()
         self.mark_runtime_resource_stopped(RESOURCE_STREAMING)
+
+    def install_shared_redis_resource(self, resource: SharedRedisResource) -> None:
+        """挂载进程唯一共享 Redis 资源。"""
+
+        if self._shared_redis_resource is not None:
+            raise RuntimeError("共享Redis资源重复挂载。")
+        self._shared_redis_resource = resource
+
+    def install_atomic_state(self, state: AtomicStatePort) -> None:
+        """挂载进程唯一通用原子状态能力。"""
+
+        if self._atomic_state is not None:
+            raise RuntimeError("通用原子状态重复挂载。")
+        self._atomic_state = state
+
+    def install_default_atomic_state(self) -> None:
+        """按共享 Redis 是否启用选择生产或本地状态实现。"""
+
+        settings = self.read_runtime_bundle().settings
+        if settings.runtime.redis_resource.header.enabled:
+            state: AtomicStatePort = RedisAtomicState(
+                client=self.get_shared_redis_resource().async_client,
+                key_prefix=settings.runtime.cache.key_prefix,
+            )
+        else:
+            state = MemoryAtomicState()
+        self.install_atomic_state(state)
+
+    def get_atomic_state(self) -> AtomicStatePort:
+        """读取已挂载的通用原子状态能力。"""
+
+        if self._atomic_state is None:
+            raise RuntimeError("通用原子状态尚未启动。")
+        return self._atomic_state
+
+    def get_shared_redis_resource(self) -> SharedRedisResource:
+        """读取已挂载的共享 Redis 资源。"""
+
+        if self._shared_redis_resource is None:
+            raise HttpFaultException(
+                status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+                error_code=CoreErrorCode.RESOURCE_NOT_READY,
+                message="共享Redis资源尚未启动。",
+            )
+        return self._shared_redis_resource
+
+    async def clear_shared_redis_resource(self) -> None:
+        """关闭并清理共享 Redis 资源。"""
+
+        resource = self._shared_redis_resource
+        self._shared_redis_resource = None
+        self._atomic_state = None
+        if resource is not None:
+            await resource.close()
 
     def get_streaming_resources(self) -> StreamingRuntimeResourceSet:
         """获取已启动的统一流式资源。
@@ -561,6 +638,20 @@ class SharedResourceLifecycle:
         """在 lifespan 启动前登记生产流绑定完整组件。"""
 
         self._pending_streaming_components.append(components)
+
+    def install_codex_control_runtime(self, runtime: CodexControlRuntime) -> None:
+        """在 lifespan 前登记唯一 Codex 长期连接运行时。"""
+
+        if self._codex_control_runtime is not None:
+            raise RuntimeError("Codex控制运行时不能重复安装。")
+        self._codex_control_runtime = runtime
+
+    def get_codex_control_runtime(self) -> CodexControlRuntime:
+        """读取已装配的 Codex 长期连接运行时。"""
+
+        if self._codex_control_runtime is None:
+            raise RuntimeError("Codex控制运行时尚未安装。")
+        return self._codex_control_runtime
 
     def apply_settings(self, settings: ApplicationSettings) -> SettingsApplyResultPayload:
         """
@@ -1063,7 +1154,7 @@ class SharedResourceLifecycle:
         if settings.runtime.database.auto_upgrade_on_startup:
             self._alembic_runner.upgrade_head(settings.runtime.database)
 
-    def bootstrap_admin_identity(self, settings: ApplicationSettings) -> None:
+    def bootstrap_auth_identity(self, settings: ApplicationSettings) -> None:
         """
         引导管理员身份。
 
@@ -1073,7 +1164,7 @@ class SharedResourceLifecycle:
         :rtype: None
         """
 
-        self._bootstrap_admin_identity(settings)
+        self._bootstrap_auth_identity(settings)
 
     def install_database_runtime(
         self,
@@ -1766,7 +1857,7 @@ class SharedResourceLifecycle:
             deep=True
         )
 
-    def _bootstrap_admin_identity(
+    def _bootstrap_auth_identity(
         self,
         settings: ApplicationSettings,
     ) -> None:
@@ -1775,9 +1866,7 @@ class SharedResourceLifecycle:
         """
 
         bootstrap_admin = settings.modules.auth.bootstrap_admin
-        if not bootstrap_admin.enabled:
-            return
-        if settings.app.environment == AppEnvironment.PRODUCTION:
+        if bootstrap_admin.enabled and settings.app.environment == AppEnvironment.PRODUCTION:
             self._logger.critical(PRODUCTION_BOOTSTRAP_ADMIN_BLOCKED_MESSAGE)
             raise HttpFaultException(
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -1787,10 +1876,16 @@ class SharedResourceLifecycle:
         unit_of_work = self.create_unit_of_work()
         try:
             session = unit_of_work.get_session()
-            self._bootstrap_admin_synchronizer.synchronize(
-                session=session,
-                bootstrap_admin=bootstrap_admin,
+            sqlalchemy_session = self._read_sqlalchemy_session(session)
+            PublicRegistrationRoleSynchronizer().synchronize(
+                session=sqlalchemy_session,
+                policy=settings.modules.auth.public_registration,
             )
+            if bootstrap_admin.enabled:
+                self._bootstrap_admin_synchronizer.synchronize(
+                    session=sqlalchemy_session,
+                    bootstrap_admin=bootstrap_admin,
+                )
             unit_of_work.commit()
         except Exception:
             unit_of_work.rollback()

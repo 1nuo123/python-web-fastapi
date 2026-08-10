@@ -58,10 +58,11 @@ class TestKeyManagementRedisIntegration:
             redis_url=redis_url,
             timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
         )
-        cache_store = RedisCacheStore(
-            redis_url,
-            socket_connect_timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
+        redis_resource = RedisIntegrationAvailability.create_resource(
+            redis_url=redis_url,
+            timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
         )
+        cache_store = RedisCacheStore(redis_resource.sync_client)
         key_builder = CacheKeyBuilder(key_prefix="integration_key")
         key_ring_key = key_builder.build(
             namespace=CacheNamespace.KEY_RING,
@@ -96,7 +97,7 @@ class TestKeyManagementRedisIntegration:
             assert previous_key.key_id == first_snapshot.current_key_id
         finally:
             cache_store.delete_value(key_ring_key)
-            cache_store.close()
+            RedisIntegrationAvailability.close_resource(redis_resource)
 
     def _build_key_family(self) -> ManagedKeyFamilyEnvelope:
         """

@@ -1,0 +1,7 @@
+[runtime.header]
+enabled = false
+
+[runtime.detail]
+url = "redis://127.0.0.1:6379/15"
+sync_max_connections = 8
+async_max_connections = 8

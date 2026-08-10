@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import cast
 
 from pydantic import BaseModel, ConfigDict
+from redis import Redis
 from sqlalchemy.orm import Session
 
 from src.core.cache_contract.cache_store_contract import CacheStore
@@ -294,9 +295,8 @@ class TestRuntimeContractInheritance:
         :rtype: None
         """
 
-        redis_cache_store = RedisCacheStore("redis://unit-test", 2)
         fake_redis_client = FakeRedisClient()
-        redis_cache_store._client = fake_redis_client  # noqa: SLF001
+        redis_cache_store = RedisCacheStore(cast(Redis, fake_redis_client))
         cache_store: CacheStore = redis_cache_store
         try:
             cache_store.set_value("token", "abc", 10)
@@ -305,6 +305,7 @@ class TestRuntimeContractInheritance:
             assert cache_store.get_value("token") is None
         finally:
             cache_store.close()
+            fake_redis_client.close()
         assert fake_redis_client.closed is True
 
     def test_local_message_bus_should_preserve_message_bus_contract(self) -> None:

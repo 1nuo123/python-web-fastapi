@@ -1,0 +1,24 @@
+{
+  "header": {
+    "schema_version": "1.0",
+    "topic": "docs/project_manual/04_infrastructure/codex_host_agent.md",
+    "applicable_version": "2026.07.15",
+    "code_baseline": "7af319ab66256a541aff90dc73d59885f7364a05ce43939884a8f84785255e59",
+    "verified_at": "2026-08-08T11:49:34.198026Z"
+  },
+  "kind": "architecture",
+  "detail": {
+    "schema_version": "1.0",
+    "truth_source": "source",
+    "evidence_path": "docs\\project_manual\\04_infrastructure\\codex_host_agent.md",
+    "status": "current",
+    "replacement_path": null,
+    "content_sha256": "b86cdb8b04d999af288cd672d8853883fb8e7440548b9e403774604694cb1916",
+    "validation_status": "verified",
+    "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
+    "fact_evidence_paths": [
+      "src"
+    ],
+    "kind": "architecture"
+  }
+}

@@ -47,6 +47,7 @@ from src.infrastructure.persistence.sqlalchemy_session_factory import (
 from src.infrastructure.resource_slot.shared_db_session_manager import (
     SharedDbSessionManager,
 )
+from src.infrastructure.resource_slot.shared_redis_resource import SharedRedisResource
 from src.infrastructure.task.failed_task_recorder import TaskFailureRecord
 from src.infrastructure.task.local_message_bus import LocalMessageBus
 from src.infrastructure.task.rabbitmq_message_bus import RabbitMqMessageBus
@@ -237,7 +238,7 @@ class RuntimeResourceBootstrapper:
             task_execution_store=task_execution_store,
         )
         mount.upgrade_database_schema_if_enabled(settings)
-        mount.bootstrap_admin_identity(settings)
+        mount.bootstrap_auth_identity(settings)
         mount.mark_runtime_resource_ready(RESOURCE_DATABASE)
         mount.emit_runtime_lifecycle_log(
             resource_name=RESOURCE_DATABASE,
@@ -346,6 +347,12 @@ class RuntimeResourceBootstrapper:
                 message=PRODUCTION_MEMORY_CACHE_BLOCKED_MESSAGE,
             )
         cache_store: CacheStore
+        redis_runtime = settings.runtime.redis_resource
+        if redis_runtime.header.enabled:
+            shared_redis_resource = SharedRedisResource(redis_runtime.detail)
+            shared_redis_resource.assert_sync_available()
+            mount.install_shared_redis_resource(shared_redis_resource)
+        mount.install_default_atomic_state()
         if settings.runtime.cache.backend == CacheBackend.MEMORY:
             detail = settings.runtime.cache.backend_detail
             if not isinstance(detail, MemoryCacheBackendDetail):
@@ -364,9 +371,7 @@ class RuntimeResourceBootstrapper:
                     message=REDIS_CACHE_CONFIG_INVALID_MESSAGE,
                 )
             redis_cache = RedisCacheStore(
-                redis_url=detail.redis_url,
-                socket_connect_timeout_seconds=detail.socket_connect_timeout_seconds,
-                max_connections=detail.max_connections,
+                client=mount.get_shared_redis_resource().sync_client,
             )
             redis_cache.assert_available()
             cache_store = redis_cache

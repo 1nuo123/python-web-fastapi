@@ -52,6 +52,9 @@ from src.infrastructure.settings.application_settings import (
     BACKEND_FIELD_KEY,
     BOOTSTRAP_ADMIN_SECTION_KEY,
     CACHE_RUNTIME_SECTION_KEY,
+    CODEX_CONTROL_MODULE_SECTION_KEY,
+    CODEX_CONTROL_RUNTIME_DIRECTORY_NAME,
+    CODEX_CONTROL_RUNTIME_SECTION_KEY,
     DATABASE_RUNTIME_SECTION_KEY,
     DATABASE_URL_ENVIRONMENT_VARIABLE,
     DISTRIBUTED_LOCK_RUNTIME_DIRECTORY_NAME,
@@ -70,8 +73,9 @@ from src.infrastructure.settings.application_settings import (
     PASSWORD_PLAIN_FIELD_KEY,
     RABBITMQ_URL_ENVIRONMENT_VARIABLE,
     RABBITMQ_URL_FIELD_KEY,
+    REDIS_RESOURCE_RUNTIME_DIRECTORY_NAME,
+    REDIS_RESOURCE_RUNTIME_SECTION_KEY,
     REDIS_URL_ENVIRONMENT_VARIABLE,
-    REDIS_URL_FIELD_KEY,
     RUNTIME_SECTION_KEY,
     RUNTIME_WEB_API_PREFIX_ENVIRONMENT_VARIABLE,
     SECURITY_RUNTIME_SECTION_KEY,
@@ -194,6 +198,7 @@ class AppSettingsLoader:
             SYSTEM_MODULE_SECTION_KEY: {},
             AUTH_MODULE_SECTION_KEY: {},
             TASK_MODULE_SECTION_KEY: {},
+            CODEX_CONTROL_MODULE_SECTION_KEY: {},
             RUNTIME_SECTION_KEY: {
                 WEB_RUNTIME_SECTION_KEY: {},
                 SECURITY_RUNTIME_SECTION_KEY: {},
@@ -208,6 +213,7 @@ class AppSettingsLoader:
                 METRICS_RUNTIME_SECTION_KEY: {},
                 LOGGING_RUNTIME_SECTION_KEY: {},
                 STREAM_RUNTIME_SECTION_KEY: {},
+                CODEX_CONTROL_RUNTIME_SECTION_KEY: {},
             },
         }
         # 文件按“基础层 -> 环境层”的顺序依次覆盖，后读到的配置拥有更高优先级。
@@ -244,6 +250,14 @@ class AppSettingsLoader:
             self._config_root / "modules" / "auth_module" / f"auth_module_{environment_name}.toml",
             self._config_root / "modules" / "task_module" / "task_module_base.toml",
             self._config_root / "modules" / "task_module" / f"task_module_{environment_name}.toml",
+            self._config_root
+            / "modules"
+            / "codex_control_module"
+            / "codex_control_module_base.toml",
+            self._config_root
+            / "modules"
+            / "codex_control_module"
+            / f"codex_control_module_{environment_name}.toml",
             self._config_root / "runtime" / "web_runtime" / "web_runtime_base.toml",
             self._config_root / "runtime" / "web_runtime" / f"web_runtime_{environment_name}.toml",
             self._config_root / "runtime" / "security_runtime" / "security_runtime_base.toml",
@@ -321,6 +335,22 @@ class AppSettingsLoader:
             / "runtime"
             / STREAM_RUNTIME_DIRECTORY_NAME
             / f"stream_runtime_{environment_name}.toml",
+            self._config_root
+            / "runtime"
+            / REDIS_RESOURCE_RUNTIME_DIRECTORY_NAME
+            / "redis_resource_runtime_base.toml",
+            self._config_root
+            / "runtime"
+            / REDIS_RESOURCE_RUNTIME_DIRECTORY_NAME
+            / f"redis_resource_runtime_{environment_name}.toml",
+            self._config_root
+            / "runtime"
+            / CODEX_CONTROL_RUNTIME_DIRECTORY_NAME
+            / "codex_control_runtime_base.toml",
+            self._config_root
+            / "runtime"
+            / CODEX_CONTROL_RUNTIME_DIRECTORY_NAME
+            / f"codex_control_runtime_{environment_name}.toml",
         ]
 
     def _read_toml(self, file_path: Path) -> RawTomlContent:
@@ -459,25 +489,12 @@ class AppSettingsLoader:
                 override_tree,
                 {RUNTIME_SECTION_KEY: {DATABASE_RUNTIME_SECTION_KEY: {"url": database_url}}},
             )
-        if redis_url is not None and self._should_apply_cache_url_override(
-            raw_settings,
-        ):
+        if redis_url is not None:
             override_tree = self._merge_mapping(
                 override_tree,
                 {
                     RUNTIME_SECTION_KEY: {
-                        CACHE_RUNTIME_SECTION_KEY: {
-                            BACKEND_DETAIL_FIELD_KEY: {REDIS_URL_FIELD_KEY: redis_url}
-                        }
-                    }
-                },
-            )
-        if redis_url is not None and self._should_apply_stream_url_override(raw_settings):
-            override_tree = self._merge_mapping(
-                override_tree,
-                {
-                    RUNTIME_SECTION_KEY: {
-                        STREAM_RUNTIME_SECTION_KEY: {"detail": {REDIS_URL_FIELD_KEY: redis_url}}
+                        REDIS_RESOURCE_RUNTIME_SECTION_KEY: {"detail": {"url": redis_url}}
                     }
                 },
             )
@@ -607,6 +624,10 @@ class AppSettingsLoader:
                         "system": raw_settings.get(SYSTEM_MODULE_SECTION_KEY, {}),
                         "auth": raw_settings.get(AUTH_MODULE_SECTION_KEY, {}),
                         "task": raw_settings.get(TASK_MODULE_SECTION_KEY, {}),
+                        "codex_control": raw_settings.get(
+                            CODEX_CONTROL_MODULE_SECTION_KEY,
+                            {},
+                        ),
                     },
                     RUNTIME_SECTION_KEY: raw_settings.get(RUNTIME_SECTION_KEY, {}),
                 }

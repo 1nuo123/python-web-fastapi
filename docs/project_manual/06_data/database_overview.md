@@ -21,8 +21,8 @@
 | `config/runtime/database_runtime` | 数据库配置。 |
 
 ## 4. 核心结论
-- 当前持久化表共 11 张：身份/RBAC 6 张，以及 `app_log_record`、`task_execution_record`、`task_execution_outbox`、`security_ip_block_record`、`key_ring_snapshot`。
-- Alembic 版本链从 `202605151600` 到 `202607051000`。
+- 当前持久化表共 20 张：基础身份、日志、任务、安全与密钥环 11 张，Codex 控制面 9 张。
+- Alembic 版本链从 `202605151600` 到 `202608081000`。
 - 事务边界通过 `SqlAlchemyUnitOfWork` 控制。
 
 ## 5. 结构说明
@@ -80,6 +80,15 @@ flowchart TD
 | `task_execution_outbox` | `TaskExecutionOutboxOrmModel` | `202607021200_add_task_execution_published_at.py` |
 | `security_ip_block_record` | `SecurityIpBlockRecordOrmModel` | `202605260859_create_security_ip_block_record.py` |
 | `key_ring_snapshot` | `KeyRingSnapshotOrmModel` | `202607051000_create_key_ring_snapshot.py` |
+| `codex_host` | `CodexHostOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608081000_add_codex_host_compatibility.py` |
+| `codex_agent_credential` | `CodexAgentCredentialOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_workspace` | `CodexWorkspaceOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608071400_add_codex_workspace_worktree_policy.py` |
+| `codex_thread_index` | `CodexThreadIndexOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_control_operation` | `CodexControlOperationOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_approval_audit` | `CodexApprovalAuditOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_host_device_key` | `CodexHostDeviceKeyOrmModel` | `202608071200_add_codex_device_identity.py` |
+| `codex_device_authorization_audit` | `CodexDeviceAuthorizationAuditOrmModel` | `202608071200_add_codex_device_identity.py` |
+| `codex_command_outbox` | `CodexCommandOutboxOrmModel` | `202608071300_add_codex_command_outbox.py` |
 
 ### 当前代码核对补充
 
@@ -87,7 +96,8 @@ flowchart TD
 - `database.schema` 只接受单个合法 PostgreSQL identifier，格式为字母或下划线开头、后续字母/数字/下划线且长度不超过 63；大小写按配置值保留，不支持带空格、分号、点号或引号的动态 schema 表达式。
 - `SqlAlchemyEngineFactory` 使用运行时 URL 创建 engine，并通过 `connect_args.options = -csearch_path=<schema>` 指定 schema；同时启用 `pool_pre_ping`、`pool_size`、`max_overflow`、`pool_recycle_seconds` 和 `connect_timeout_seconds`。
 - `AlembicRunner.upgrade_head` 将脚本目录、数据库 URL、schema、连接超时写入 Alembic `Config` 后升级到 `head`；迁移环境的在线模式使用 `NullPool`、显式创建目标 schema、设置 `version_table_schema`，并在成功或异常路径都 dispose online engine。
-- 当前持久化表共 11 张：身份/RBAC 6 张、日志 1 张、任务执行记录 1 张、任务 Outbox 1 张、安全 IP 封禁 1 张、密钥环快照 1 张。运行态探活还包括 `RuntimeStateRepositoryImpl.ping()` 的 `SELECT 1`，不对应独立业务表。
+- 当前持久化表共 20 张：基础表 11 张，Codex host、旧迁移凭据、workspace、thread index、operation、approval audit、device key、device authorization audit、加密 command outbox 共 9 张。运行态探活还包括 `RuntimeStateRepositoryImpl.ping()` 的 `SELECT 1`，不对应独立业务表。
+- Codex 审批决定与稳定 operation、AES-GCM 加密 command outbox 在同一 `SqlAlchemyUnitOfWork` 中提交；Redis 只承载通知、presence、短期票据和有界事件流，不承担命令事实源。
 - 测试覆盖除任务记录外，还包括 `test/unit_test/test_auth_persistence_unit.py`、`test/integration_test/admin_identity/test_admin_identity_rbac_integration.py`、`test/integration_test/test_security_ip_block_integration.py`、`test/integration_test/test_database_logging_integration.py` 和 `test/integration_test/test_migration_job_integration.py`。
 
 ## 12. 相关文档

@@ -105,6 +105,17 @@ from src.application.admin.security_protection.manage_admin_security_ip_blocks_u
     ListAdminSecurityIpBlocksUsecase,
     ReleaseAdminSecurityIpBlockUsecase,
 )
+from src.application.codex.execute_thread_command_usecase import (
+    ExecuteCodexThreadCommandUsecase,
+)
+from src.application.codex.list_hosts_usecase import ListCodexHostsUsecase
+from src.application.codex.list_workspaces_usecase import ListCodexWorkspacesUsecase
+from src.application.codex.manage_approval_usecase import ManageCodexApprovalUsecase
+from src.application.codex.query_threads_usecase import QueryCodexThreadsUsecase
+from src.application.codex.read_thread_snapshot_usecase import (
+    ReadCodexThreadSnapshotUsecase,
+)
+from src.application.codex.update_workspace_usecase import UpdateCodexWorkspaceUsecase
 from src.application.dispatch_background_job_usecase import DispatchBackgroundJobUsecase
 from src.application.health_probe_usecase import HealthProbeUsecase
 from src.application.issue_access_token_usecase import IssueAccessTokenUsecase
@@ -114,12 +125,30 @@ from src.application.system_overview_usecase import SystemOverviewUsecase
 from src.core.http_contract.response_envelope_contract import ResponseEnvelopeFactory
 from src.core.http_contract.web_bundle_contract import ApplicationModuleName
 from src.infrastructure.admin_settings_reload_adapter import AdminSettingsReloadAdapter
+from src.infrastructure.codex.codex_agent_credential_service import (
+    CodexAgentCredentialService,
+)
+from src.infrastructure.codex.codex_command_payload_cipher_adapter import (
+    CodexCommandPayloadCipherAdapter,
+)
+from src.infrastructure.codex.codex_control_runtime import CodexControlRuntime
+from src.infrastructure.codex.codex_runtime_facade import CodexRuntimeFacade
+from src.infrastructure.cryptography.deferred_aead_envelope_cipher import (
+    DeferredAeadEnvelopeCipher,
+)
+from src.infrastructure.cryptography.ed25519_signature_verifier import (
+    Ed25519SignatureVerifier,
+)
+from src.infrastructure.distributed_state.deferred_atomic_state import DeferredAtomicState
 from src.infrastructure.fastapi_exception_presenter import FastApiExceptionPresenter
 from src.infrastructure.fastapi_lifespan_orchestrator import FastApiLifespanOrchestrator
 from src.infrastructure.fastapi_middleware_plan import FastApiMiddlewarePlan
 from src.infrastructure.fastapi_openapi_surface import FastApiOpenApiSurface
 from src.infrastructure.fastapi_otel_bridge import FastApiOtelBridge
 from src.infrastructure.fastapi_route_composer import FastApiRouteComposer
+from src.infrastructure.key_management.deferred_sensitive_digest_service import (
+    DeferredSensitiveDigestService,
+)
 from src.infrastructure.logging.app_logger_factory import AppLoggerFactory
 from src.infrastructure.observability.prometheus_metrics_registry import (
     PrometheusMetricsRegistry,
@@ -147,6 +176,10 @@ from src.infrastructure.settings.settings_snapshot_store import (
     SettingsStateHolder,
 )
 from src.infrastructure.shared_resource_mount import SharedResourceMount
+from src.infrastructure.streaming.deferred_stream_resources import (
+    DeferredFencedLeaseStore,
+    DeferredStreamStateStore,
+)
 from src.infrastructure.task.task_registration_registry import (
     BaseModelTaskBinding,
     TaskRegistrationRegistry,
@@ -238,6 +271,13 @@ class ApplicationContainer:
     reset_admin_user_password_usecase: ResetAdminUserPasswordUsecase
     replace_admin_user_roles_usecase: ReplaceAdminUserRolesUsecase
     delete_admin_user_usecase: DeleteAdminUserUsecase
+    list_codex_hosts_usecase: ListCodexHostsUsecase
+    list_codex_workspaces_usecase: ListCodexWorkspacesUsecase
+    update_codex_workspace_usecase: UpdateCodexWorkspaceUsecase
+    query_codex_threads_usecase: QueryCodexThreadsUsecase
+    execute_codex_thread_command_usecase: ExecuteCodexThreadCommandUsecase
+    read_codex_thread_snapshot_usecase: ReadCodexThreadSnapshotUsecase
+    manage_codex_approval_usecase: ManageCodexApprovalUsecase
 
 
 class FastApiAppAssembler:
@@ -289,6 +329,29 @@ class FastApiAppAssembler:
             task_bindings=task_bindings,
             task_binding_provider=task_binding_provider,
             database_engine_factory=database_engine_factory,
+        )
+        resource_mount.install_codex_control_runtime(
+            CodexControlRuntime.build(
+                settings=settings.runtime.codex_control,
+                credential_service=CodexAgentCredentialService(resource_mount),
+                control_port=resource_mount,
+                atomic_state=DeferredAtomicState(
+                    state_provider=resource_mount.get_atomic_state,
+                ),
+                fenced_lease_store=DeferredFencedLeaseStore(
+                    resources_provider=resource_mount.get_streaming_resources,
+                ),
+                stream_state_store=DeferredStreamStateStore(
+                    resources_provider=resource_mount.get_streaming_resources,
+                ),
+                sensitive_digest_service=DeferredSensitiveDigestService(
+                    service_provider=resource_mount.get_sensitive_digest_service,
+                ),
+                signature_verifier=Ed25519SignatureVerifier(),
+                command_payload_cipher=CodexCommandPayloadCipherAdapter(
+                    DeferredAeadEnvelopeCipher(resource_mount.get_key_management_service)
+                ),
+            )
         )
         reload_coordinator = self._build_reload_coordinator(
             settings_loader=settings_loader,
@@ -619,6 +682,45 @@ class FastApiAppAssembler:
             ),
             delete_admin_user_usecase=DeleteAdminUserUsecase(
                 admin_identity_port=resource_mount,
+            ),
+            list_codex_hosts_usecase=ListCodexHostsUsecase(control_port=resource_mount),
+            list_codex_workspaces_usecase=ListCodexWorkspacesUsecase(control_port=resource_mount),
+            update_codex_workspace_usecase=UpdateCodexWorkspaceUsecase(control_port=resource_mount),
+            query_codex_threads_usecase=QueryCodexThreadsUsecase(control_port=resource_mount),
+            execute_codex_thread_command_usecase=ExecuteCodexThreadCommandUsecase(
+                control_port=resource_mount,
+                dispatch_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
+                payload_cipher=CodexCommandPayloadCipherAdapter(
+                    DeferredAeadEnvelopeCipher(resource_mount.get_key_management_service)
+                ),
+                ack_timeout_seconds=(
+                    resource_mount.read_codex_runtime_settings().agent_rpc_ack_timeout_seconds
+                ),
+                outbox_ttl_seconds=(
+                    resource_mount.read_codex_runtime_settings().operation_idempotency_ttl_seconds
+                ),
+            ),
+            read_codex_thread_snapshot_usecase=ReadCodexThreadSnapshotUsecase(
+                control_port=resource_mount,
+                dispatch_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
+                timeout_seconds=(
+                    resource_mount.read_codex_runtime_settings().agent_rpc_ack_timeout_seconds
+                ),
+            ),
+            manage_codex_approval_usecase=ManageCodexApprovalUsecase(
+                control_port=resource_mount,
+                dispatch_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
+                payload_cipher=CodexCommandPayloadCipherAdapter(
+                    DeferredAeadEnvelopeCipher(resource_mount.get_key_management_service)
+                ),
+                event_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
+                step_up_port=(resource_mount.get_codex_control_runtime().step_up_grant_service),
+                ack_timeout_seconds=(
+                    resource_mount.read_codex_runtime_settings().agent_rpc_ack_timeout_seconds
+                ),
+                outbox_ttl_seconds=(
+                    resource_mount.read_codex_runtime_settings().operation_idempotency_ttl_seconds
+                ),
             ),
         )
 

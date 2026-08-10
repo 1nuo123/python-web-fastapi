@@ -10,6 +10,7 @@ from typing import NoReturn, cast
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict
+from redis import Redis
 from redis.exceptions import ConnectionError as RedisConnectionError
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -56,7 +57,6 @@ BEARER_PREFIX = "Bearer"
 DATA_FIELD = "data"
 ERROR_CODE_FIELD = "error_code"
 DATABASE_CONNECTION_FAILURE_MESSAGE = "模拟数据库连接失败。"
-REDIS_EXCEPTION_MAX_CONNECTIONS = 8
 REDIS_UNAVAILABLE_MESSAGE = "模拟 Redis 不可用。"
 
 
@@ -238,8 +238,8 @@ class TestRuntimeException:
         :rtype: None
         """
 
-        cache_store = RedisCacheStore("redis://127.0.0.1:1/0")
-        monkeypatch.setattr(cache_store, "_get_client", UnavailableRedisClient())
+        unavailable_client = cast(Redis, UnavailableRedisClient())
+        cache_store = RedisCacheStore(unavailable_client)
         with pytest.raises(HttpFaultException) as fault:
             cache_store.assert_available()
         assert fault.value.error_code == "system.cache.unavailable"
@@ -258,20 +258,21 @@ class TestRuntimeException:
                 environment=AppEnvironment.TEST,
                 overrides={
                     "runtime": {
+                        "redis_resource": {
+                            "header": {"enabled": True},
+                            "detail": {"connect_timeout_seconds": 0},
+                        },
                         "cache": {
                             "backend": "redis",
                             "backend_detail": {
                                 "kind": "redis_cache_backend",
                                 "schema_version": "1.0",
-                                "redis_url": "redis://127.0.0.1:6379/0",
-                                "socket_connect_timeout_seconds": 0,
-                                "max_connections": REDIS_EXCEPTION_MAX_CONNECTIONS,
                             },
-                        }
+                        },
                     }
                 },
             )
-        assert "socket_connect_timeout_seconds" in str(fault.value.detail)
+        assert "connect_timeout_seconds" in str(fault.value.detail)
 
     def test_cache_service_when_payload_corrupted_should_clear_and_return_miss(self) -> None:
         """

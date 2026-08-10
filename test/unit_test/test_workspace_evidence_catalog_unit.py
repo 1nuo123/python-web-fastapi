@@ -58,8 +58,42 @@ class TestWorkspaceEvidenceCatalogUnit:
 
         assert snapshot.routes
         assert snapshot.configuration
-        assert snapshot.migration_heads == ("202607051000",)
+        assert snapshot.migration_heads == ("202608081000",)
         assert snapshot.task_contracts
+        assert comparison.compatible is True
+        assert comparison.changed_sections == ()
+
+    def test_public_contract_snapshot_should_require_explicit_baseline_promotion(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """验证显式晋升能够替换已经存在但不可解析的旧基线。"""
+
+        current_path = tmp_path / "current.json"
+        baseline_path = tmp_path / "baseline.json"
+        comparison_path = tmp_path / "comparison.json"
+        baseline_path.write_text("{}", encoding="utf-8")
+        monkeypatch.setattr(
+            public_contract_snapshot_builder,
+            "PUBLIC_CONTRACT_BASELINE_PATH",
+            baseline_path,
+        )
+        monkeypatch.setattr(
+            public_contract_snapshot_builder,
+            "PUBLIC_CONTRACT_COMPARISON_PATH",
+            comparison_path,
+        )
+
+        PublicContractSnapshotBuilder.save(current_path, promote_baseline=True)
+        baseline = PublicContractSnapshot.model_validate_json(
+            baseline_path.read_text(encoding="utf-8")
+        )
+        comparison = PublicContractComparison.model_validate_json(
+            comparison_path.read_text(encoding="utf-8")
+        )
+
+        assert baseline.migration_heads == ("202608081000",)
         assert comparison.compatible is True
         assert comparison.changed_sections == ()
 

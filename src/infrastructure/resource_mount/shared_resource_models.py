@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.application.authorization_guard import AuthorizationGuard
+from src.core.codex_contract.codex_runtime_contract import CodexRuntimeSettings
 from src.core.concurrency_contract.runtime_capacity_contract import RuntimeCapacityPolicy
 from src.core.logging_contract.log_event_contract import (
     LogEventEnvelope,
@@ -91,6 +92,13 @@ class TaskRuntimeAccessor:
 
 
 @dataclass(frozen=True, slots=True)
+class CodexRuntimeAccessor:
+    """Codex 运行时配置稳定访问器。"""
+
+    settings: CodexRuntimeSettings
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeBundle:
     """
     运行时不可变快照包。
@@ -102,6 +110,7 @@ class RuntimeBundle:
     runtime_dependencies: RuntimeDependencySet
     capacity_policy: RuntimeCapacityPolicy
     generation: int
+    codex_accessor: CodexRuntimeAccessor | None = None
 
 
 @dataclass(slots=True)

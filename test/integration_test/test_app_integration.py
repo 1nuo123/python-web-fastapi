@@ -295,6 +295,8 @@ class TestAppIntegration:
                     ApplicationModuleName.ADMIN_LOG.value,
                     ApplicationModuleName.ADMIN_IDENTITY.value,
                     ApplicationModuleName.ADMIN_AUDIT.value,
+                    ApplicationModuleName.CODEX_CONTROL.value,
+                    ApplicationModuleName.CODEX_AGENT_GATEWAY.value,
                 ]
             )
 

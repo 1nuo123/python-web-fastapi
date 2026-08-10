@@ -51,7 +51,11 @@ class TestDistributedLockRedisIntegration:
             redis_url=redis_url,
             timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
         )
-        cache_store = RedisCacheStore(redis_url)
+        redis_resource = RedisIntegrationAvailability.create_resource(
+            redis_url=redis_url,
+            timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
+        )
+        cache_store = RedisCacheStore(redis_resource.sync_client)
         provider = DistributedLockProvider(
             cache_store=cache_store,
             key_builder=CacheKeyBuilder(key_prefix="integration_lock"),
@@ -67,11 +71,12 @@ class TestDistributedLockRedisIntegration:
             refreshed_lease = provider.refresh(lease)
             time.sleep(LOCK_SLEEP_SECONDS)
             next_lease = provider.acquire(second_request)
+            unavailable_resource = RedisIntegrationAvailability.create_resource(
+                redis_url=REDIS_UNAVAILABLE_URL,
+                timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
+            )
             unavailable_provider = DistributedLockProvider(
-                cache_store=RedisCacheStore(
-                    REDIS_UNAVAILABLE_URL,
-                    socket_connect_timeout_seconds=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
-                ),
+                cache_store=RedisCacheStore(unavailable_resource.sync_client),
                 key_builder=CacheKeyBuilder(key_prefix="integration_lock"),
             )
 
@@ -82,7 +87,9 @@ class TestDistributedLockRedisIntegration:
                 unavailable_provider.acquire(request)
         finally:
             cache_store.delete_value(lease.lock_key)
-            cache_store.close()
+            RedisIntegrationAvailability.close_resource(redis_resource)
+            if "unavailable_resource" in locals():
+                RedisIntegrationAvailability.close_resource(unavailable_resource)
 
     def _build_request(
         self,

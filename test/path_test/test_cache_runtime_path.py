@@ -31,7 +31,6 @@ from src.infrastructure.testing.fake_clock import FakeClock
 
 DEFAULT_CACHE_TTL_SECONDS = 30
 TEST_CACHE_KEY_PREFIX = "path_cache"
-TEST_REDIS_MAX_CONNECTIONS = 10
 
 
 class TestCacheRuntimePath:
@@ -59,9 +58,6 @@ class TestCacheRuntimePath:
                             "backend_detail": {
                                 "kind": "redis_cache_backend",
                                 "schema_version": "1.0",
-                                "redis_url": "redis://127.0.0.1:6379/0",
-                                "socket_connect_timeout_seconds": 2,
-                                "max_connections": TEST_REDIS_MAX_CONNECTIONS,
                             },
                         }
                     }

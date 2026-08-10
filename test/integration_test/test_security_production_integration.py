@@ -11,6 +11,10 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, ConfigDict
 
+from src.core.cache_contract.cache_runtime_contract import (
+    REDIS_CACHE_BACKEND_KIND,
+    CacheBackend,
+)
 from src.infrastructure.settings.app_settings_loader import (
     AppSettingsLoader,
 )
@@ -102,7 +106,7 @@ class TestSecurityProductionIntegration:
 
     def test_production_loader_should_use_external_secret_and_redis(
         self,
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         验证生产配置加载应使用外部密钥与 Redis 节流。
@@ -116,8 +120,9 @@ class TestSecurityProductionIntegration:
         settings = AppSettingsLoader().load_for_environment(AppEnvironment.PRODUCTION)
 
         assert settings.runtime.auth.jwt_secret.get_secret_value() == PRODUCTION_JWT_SECRET
-        assert settings.runtime.cache.backend.value == "redis"
-        assert settings.runtime.cache.backend_detail.redis_url == PRODUCTION_REDIS_URL
+        assert settings.runtime.cache.backend is CacheBackend.REDIS
+        assert settings.runtime.cache.backend_detail.kind == REDIS_CACHE_BACKEND_KIND
+        assert settings.runtime.redis_resource.detail.url == PRODUCTION_REDIS_URL
 
     def test_production_compose_config_should_not_publish_internal_ports(self) -> None:
         """

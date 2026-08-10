@@ -7,7 +7,7 @@
 
 **文档状态**：`current`。82 份项目手册的强类型 `DocumentationRecord` 位于 `docs/evidence/documentation/`，统一索引为 `docs/evidence/phase_evidence_index.json`。
 
-**最终回归**：真实依赖全量回归 797 passed、225 warnings，无 skip/xfail；总体覆盖率 90.7986%，四个关键域均不低于 90%。阶段总览见 [生产级代码全量审查与整改硬迁移总览](../2026_7_13_生产级代码全量审查与整改硬迁移拆解/生产级代码全量审查与整改硬迁移总览.md)。
+**最终回归**：当前 Codex 基线真实依赖全量回归 1077 passed、241 warnings，无 skip/xfail；离线回归 926 passed、5 warnings；总体覆盖率 85.35257049984318%，四个关键域均不低于 90%。阶段总览见 [Codex-first 远程控制产品化执行方案](../design_docs/codex_remote_codex_first_execution_plan.md)。
 
 **finding 状态**：`REGRESSION_STATUS_COUNTS: open=0;fixed=26;verified=0;rejected=0`。当前代码基线重新生成证据后，26 项均保持 `fixed`；根因修复、当前定向测试和同基线全量回归均已通过。这是证据成熟度差异，不是未关闭 P1。当前允许进入业务开发，发布阶段仍需执行 [生产级整改最终收口结论与执行清单](10_maintenance/production_closure_checklist.md)。
 

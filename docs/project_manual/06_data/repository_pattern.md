@@ -21,8 +21,8 @@
 | `config/runtime/database_runtime` | 数据库配置。 |
 
 ## 4. 核心结论
-- 当前持久化表共 11 张：身份/RBAC 6 张，以及 `app_log_record`、`task_execution_record`、`task_execution_outbox`、`security_ip_block_record`、`key_ring_snapshot`。
-- Alembic 版本链从 `202605151600` 到 `202607051000`。
+- 当前持久化表共 20 张：基础身份、日志、任务、安全与密钥环 11 张，Codex 控制面 9 张。
+- Alembic 版本链从 `202605151600` 到 `202608081000`。
 - 事务边界通过 `SqlAlchemyUnitOfWork` 控制。
 
 ## 5. 结构说明
@@ -80,6 +80,15 @@ flowchart TD
 | `task_execution_outbox` | `TaskExecutionOutboxOrmModel` | `202607021200_add_task_execution_published_at.py` |
 | `security_ip_block_record` | `SecurityIpBlockRecordOrmModel` | `202605260859_create_security_ip_block_record.py` |
 | `key_ring_snapshot` | `KeyRingSnapshotOrmModel` | `202607051000_create_key_ring_snapshot.py` |
+| `codex_host` | `CodexHostOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608081000_add_codex_host_compatibility.py` |
+| `codex_agent_credential` | `CodexAgentCredentialOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_workspace` | `CodexWorkspaceOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608071400_add_codex_workspace_worktree_policy.py` |
+| `codex_thread_index` | `CodexThreadIndexOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_control_operation` | `CodexControlOperationOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_approval_audit` | `CodexApprovalAuditOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_host_device_key` | `CodexHostDeviceKeyOrmModel` | `202608071200_add_codex_device_identity.py` |
+| `codex_device_authorization_audit` | `CodexDeviceAuthorizationAuditOrmModel` | `202608071200_add_codex_device_identity.py` |
+| `codex_command_outbox` | `CodexCommandOutboxOrmModel` | `202608071300_add_codex_command_outbox.py` |
 
 ### 当前仓储实现核对
 
@@ -92,6 +101,7 @@ flowchart TD
 | `LogRecordRepositoryImpl` | `app_log_record` | 批量写入日志，支持按 level、event_kind、request/trace、时间范围和 JSONB 内安全事件字段过滤。 |
 | `SecurityIpBlockRepository` | `security_ip_block_record` | 查询有效封禁、创建封禁、释放封禁；方法内只 flush/execute，不负责最终提交。 |
 | `RuntimeStateRepositoryImpl` | 无业务表 | 仅通过 `SELECT 1` 探活。 |
+| Codex repository implementations | 9 张 Codex 表 | host/workspace/thread/operation/approval/device/outbox 按 owner 与稳定 ID 读写；只 flush，不自行提交，claim 使用行锁或 `SKIP LOCKED`。 |
 
 ### 仓储边界约定
 
@@ -99,6 +109,7 @@ flowchart TD
 - 仓储接收外部传入的 `PersistenceSession` 协议对象，由 `SharedResourceMount` 或 `SharedDbSessionManager` 根据 `UnitOfWork.get_session()` 注入；当前基础设施实现可在协议背后使用 SQLAlchemy 会话，但 core 契约不暴露 ORM Session。
 - 仓储方法可以 `add()`、`flush()`、`execute()` 或 `expire_all()`，但不拥有顶层事务的 commit/rollback，也不在仓储内部开启 nested transaction；提交与回滚由用例、任务存储、日志写入器或安全防护流程的 UnitOfWork 统一处理。
 - `TaskExecutionRecordRepositoryImpl` 只吞掉 `uq_task_execution_record_job_kind_deduplication_key` 对应的幂等冲突；`uq_task_execution_record_record_id` 等其他完整性异常会向外抛出。
+- Codex command outbox claim、审批 claim 和设备授权审计都由调用方持有 UnitOfWork；repository 不发布 Redis 通知、不解密 payload，也不关闭共享连接。
 
 ## 12. 相关文档
 - [项目文档总览](../README.md)

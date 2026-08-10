@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/06_data/database_overview.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
-    "verified_at": "2026-07-31T01:57:20.433190Z"
+    "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
+    "verified_at": "2026-08-07T23:06:48.601713Z"
   },
   "kind": "migration",
   "detail": {
@@ -13,7 +13,7 @@
     "evidence_path": "docs\\project_manual\\06_data\\database_overview.md",
     "status": "current",
     "replacement_path": null,
-    "content_sha256": "81feb08d54fc3e105fa11868eee96e482f316eee80da67b5e7f9260ce269b0ae",
+    "content_sha256": "9e268267e50e2a10df787d5747649fb8b4357554664601aaea2aff769eb63765",
     "validation_status": "verified",
     "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
     "fact_evidence_paths": [

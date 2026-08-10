@@ -16,8 +16,6 @@ from src.core.exception_contract.http_fault_contract import HttpFaultException
 
 REDIS_CACHE_UNAVAILABLE_MESSAGE = "Redis 缓存不可用。"
 REDIS_TEXT_ENCODING = "utf-8"
-DEFAULT_REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS = 2
-DEFAULT_REDIS_MAX_CONNECTIONS = 32
 INCREMENT_WITH_EXPIRE_SCRIPT = """
 local current_value = redis.call('INCR', KEYS[1])
 if current_value == 1 then
@@ -60,9 +58,7 @@ class RedisCacheStore(CacheStore):
 
     def __init__(
         self,
-        redis_url: str,
-        socket_connect_timeout_seconds: int = DEFAULT_REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
-        max_connections: int = DEFAULT_REDIS_MAX_CONNECTIONS,
+        client: Redis,
     ) -> None:
         """
         初始化Redis缓存存储。
@@ -75,10 +71,7 @@ class RedisCacheStore(CacheStore):
         :rtype: None
         """
 
-        self._redis_url = redis_url
-        self._socket_connect_timeout_seconds = socket_connect_timeout_seconds
-        self._max_connections = max_connections
-        self._client: Redis | None = None
+        self._client = client
 
     def get_value(self, key: str) -> str | None:
         """
@@ -278,9 +271,7 @@ class RedisCacheStore(CacheStore):
         :rtype: None
         """
 
-        if self._client is not None:
-            self._client.close()
-            self._client = None
+        return None
 
     def assert_available(self) -> None:
         """
@@ -304,14 +295,6 @@ class RedisCacheStore(CacheStore):
         :rtype: Redis
         """
 
-        if self._client is None:
-            self._client = Redis.from_url(
-                self._redis_url,
-                decode_responses=True,
-                encoding=REDIS_TEXT_ENCODING,
-                socket_connect_timeout=self._socket_connect_timeout_seconds,
-                max_connections=self._max_connections,
-            )
         return self._client
 
     def _execute_read(self, key: str) -> str | bytes | None:

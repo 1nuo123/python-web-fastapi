@@ -57,7 +57,7 @@ class RuntimeCapacityPolicyResolver:
         if isinstance(cache_detail, MemoryCacheBackendDetail):
             cache_connection_limit = cache_detail.max_entries
         elif isinstance(cache_detail, RedisCacheBackendDetail):
-            cache_connection_limit = cache_detail.max_connections
+            cache_connection_limit = settings.runtime.redis_resource.detail.sync_max_connections
         else:
             raise TypeError("不支持的缓存容量配置。")
 

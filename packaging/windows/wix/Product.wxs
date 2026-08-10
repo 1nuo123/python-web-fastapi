@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Codex Remote Agent" Manufacturer="Codex Remote" Version="1.0.0.0" UpgradeCode="8A0A4D2E-ED6E-4C7D-BF9A-5F03C80A15E6" Scope="perUser">
+    <MajorUpgrade DowngradeErrorMessage="不允许安装更低版本。" />
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="CodexRemoteAgent" />
+    </StandardDirectory>
+    <Feature Id="MainFeature" Title="Codex Remote Agent" Level="1">
+      <ComponentGroupRef Id="AgentFiles" />
+    </Feature>
+  </Package>
+  <Fragment>
+    <ComponentGroup Id="AgentFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.AgentSource)\**" />
+    </ComponentGroup>
+  </Fragment>
+</Wix>

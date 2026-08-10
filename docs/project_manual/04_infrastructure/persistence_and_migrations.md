@@ -35,7 +35,7 @@
 | CLI | `python -m src.cli.run_database_migrations` | 加载当前环境配置 → upgrade head → 输出强类型 `MigrationJobResult`，退出码 0/1 |
 | compose `migration` 服务 | `docker compose up` 默认链路 | 一次性容器跑 CLI，`app` 服务 `depends_on: service_completed_successfully`——迁移失败应用不启动 |
 
-迁移脚本位于 `src/infrastructure/persistence/alembic/versions/`（命名 `YYYYMMDDHHMM_描述.py`，当前 head `202607051000_create_key_ring_snapshot`）。完整版本谱系见 [Alembic 迁移](../06_data/alembic_migrations.md)。
+迁移脚本位于 `src/infrastructure/persistence/alembic/versions/`（命名 `YYYYMMDDHHMM_描述.py`，当前 head `202608081000_add_codex_host_compatibility`）。完整版本谱系见 [Alembic 迁移](../06_data/alembic_migrations.md)。
 
 ## 5. 配置（runtime.database）
 

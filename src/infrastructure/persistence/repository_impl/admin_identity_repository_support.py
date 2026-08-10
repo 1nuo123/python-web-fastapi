@@ -97,6 +97,10 @@ ADMIN_GRANT_SCOPE_CODE = AuthScopeCode.AUTH_GRANT_ADMIN.value
 
 ADMIN_ROLE_KEY = AuthRoleKey.ADMIN.value
 
+REGISTERED_USER_ROLE_KEY = AuthRoleKey.REGISTERED_USER.value
+
+REGISTERED_USER_ROLE_CHANGE_BLOCKED_MESSAGE = "普通注册用户角色不允许修改或删除。"
+
 ADMIN_ROLE_SCOPE_CODES: tuple[str, ...] = tuple(scope.value for scope in AuthScopeCode)
 
 

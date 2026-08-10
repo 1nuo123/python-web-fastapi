@@ -5,6 +5,35 @@ from __future__ import annotations
 from typing import TypedDict
 
 
+class RawRedisResourceHeaderMapping(TypedDict, total=False):
+    """原始共享 Redis 资源公共头。"""
+
+    kind: str
+    schema_version: str
+    enabled: bool
+
+
+class RawRedisResourceDetailMapping(TypedDict, total=False):
+    """原始共享 Redis 资源强类型扩展字段。"""
+
+    kind: str
+    schema_version: str
+    url: str
+    connect_timeout_seconds: float
+    operation_timeout_seconds: float
+    sync_max_connections: int
+    async_max_connections: int
+    health_probe_timeout_seconds: float
+    require_tls_in_production: bool
+
+
+class RawRedisResourceRuntimeMapping(TypedDict, total=False):
+    """原始共享 Redis 资源信封。"""
+
+    header: RawRedisResourceHeaderMapping
+    detail: RawRedisResourceDetailMapping
+
+
 class RawApplicationModuleSwitchMapping(TypedDict, total=False):
     """
     原始应用模块开关映射TypedDict 映射，用于描述结构化字典输入。
@@ -99,6 +128,13 @@ class RawBootstrapRoleBindingMapping(TypedDict, total=False):
     scope_codes: list[str]
 
 
+class RawPublicRegistrationMapping(TypedDict, total=False):
+    """原始公开注册策略映射。"""
+
+    enabled: bool
+    default_role_key: str
+
+
 class RawSystemModuleMapping(TypedDict, total=False):
     """
     原始系统模块映射TypedDict 映射，用于描述结构化字典输入。
@@ -122,6 +158,7 @@ class RawAuthModuleMapping(TypedDict, total=False):
     """
 
     bootstrap_admin: RawBootstrapAdminMapping
+    public_registration: RawPublicRegistrationMapping
 
 
 class RawTaskModuleMapping(TypedDict, total=False):
@@ -137,6 +174,12 @@ class RawTaskModuleMapping(TypedDict, total=False):
     default_retry_limit: int
     default_job_kind: str
     registrations: list[RawTaskRegistrationEnvelopeMapping]
+
+
+class RawCodexControlModuleMapping(TypedDict, total=False):
+    """原始 Codex 控制面模块配置。"""
+
+    personal_mvp_only: bool
 
 
 class RawTaskRegistrationHeaderMapping(TypedDict, total=False):
@@ -1142,6 +1185,31 @@ class RawKeyManagementRuntimeMapping(TypedDict, total=False):
     detail: RawKeyManagementRuntimeDetailMapping
 
 
+class RawCodexControlRuntimeMapping(TypedDict, total=False):
+    """原始 Codex 控制面运行时配置。"""
+
+    enabled: bool
+    agent_heartbeat_seconds: int
+    agent_offline_after_seconds: int
+    agent_rpc_ack_timeout_seconds: int
+    agent_reconnect_min_seconds: int
+    agent_reconnect_max_seconds: int
+    max_connected_agents: int
+    max_active_turns_per_host: int
+    max_active_write_turns_per_workspace: int
+    agent_outgoing_queue_size: int
+    browser_event_queue_size: int
+    agent_event_replay_buffer_size: int
+    max_agent_frame_bytes: int
+    max_browser_frame_bytes: int
+    realtime_ticket_ttl_seconds: int
+    pairing_code_ttl_seconds: int
+    step_up_grant_ttl_seconds: int
+    operation_idempotency_ttl_seconds: int
+    allow_experimental_app_server_api: bool
+    allowed_codex_versions: list[str]
+
+
 class RawRuntimeRootMapping(TypedDict, total=False):
     """
     原始运行时根映射TypedDict 映射，用于描述结构化字典输入。
@@ -1167,6 +1235,7 @@ class RawRuntimeRootMapping(TypedDict, total=False):
     auth: RawAuthRuntimeMapping
     database: RawDatabaseRuntimeMapping
     cache: RawCacheRuntimeMapping
+    redis_resource: RawRedisResourceRuntimeMapping
     message: RawMessageRuntimeMapping
     task: RawTaskRuntimeMapping
     otel: RawOtelRuntimeMapping
@@ -1175,6 +1244,7 @@ class RawRuntimeRootMapping(TypedDict, total=False):
     distributed_lock: RawDistributedLockRuntimeMapping
     key_management: RawKeyManagementRuntimeMapping
     stream: RawStreamRuntimeMapping
+    codex_control: RawCodexControlRuntimeMapping
 
 
 class RawSettingsMapping(TypedDict, total=False):
@@ -1197,6 +1267,7 @@ class RawSettingsMapping(TypedDict, total=False):
     system_module: RawSystemModuleMapping
     auth_module: RawAuthModuleMapping
     task_module: RawTaskModuleMapping
+    codex_control_module: RawCodexControlModuleMapping
     runtime: RawRuntimeRootMapping
 
 
@@ -1227,7 +1298,12 @@ class RawModuleTomlContent(TypedDict, total=False):
     :vartype module: RawSystemModuleMapping | RawAuthModuleMapping | RawTaskModuleMapping
     """
 
-    module: RawSystemModuleMapping | RawAuthModuleMapping | RawTaskModuleMapping
+    module: (
+        RawSystemModuleMapping
+        | RawAuthModuleMapping
+        | RawTaskModuleMapping
+        | RawCodexControlModuleMapping
+    )
 
 
 class RawRuntimeTomlContent(TypedDict, total=False):
@@ -1246,6 +1322,7 @@ class RawRuntimeTomlContent(TypedDict, total=False):
         | RawMessageRuntimeMapping
         | RawTaskRuntimeMapping
         | RawOtelRuntimeMapping
+        | RawCodexControlRuntimeMapping
         | RawMetricsRuntimeMapping
         | RawLoggingRuntimeMapping
         | RawStreamRuntimeMapping

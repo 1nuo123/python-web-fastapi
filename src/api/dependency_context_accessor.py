@@ -98,6 +98,17 @@ from src.application.admin.security_protection.manage_admin_security_ip_blocks_u
     ReleaseAdminSecurityIpBlockUsecase,
 )
 from src.application.authorization_guard import AuthorizationGuard
+from src.application.codex.execute_thread_command_usecase import (
+    ExecuteCodexThreadCommandUsecase,
+)
+from src.application.codex.list_hosts_usecase import ListCodexHostsUsecase
+from src.application.codex.list_workspaces_usecase import ListCodexWorkspacesUsecase
+from src.application.codex.manage_approval_usecase import ManageCodexApprovalUsecase
+from src.application.codex.query_threads_usecase import QueryCodexThreadsUsecase
+from src.application.codex.read_thread_snapshot_usecase import (
+    ReadCodexThreadSnapshotUsecase,
+)
+from src.application.codex.update_workspace_usecase import UpdateCodexWorkspaceUsecase
 from src.application.health_probe_usecase import HealthProbeUsecase
 from src.application.issue_access_token_usecase import IssueAccessTokenUsecase
 from src.application.refresh_access_token_usecase import RefreshAccessTokenUsecase
@@ -168,6 +179,13 @@ class RouteDependencyContext:
     reset_admin_user_password_usecase: ResetAdminUserPasswordUsecase
     replace_admin_user_roles_usecase: ReplaceAdminUserRolesUsecase
     delete_admin_user_usecase: DeleteAdminUserUsecase
+    list_codex_hosts_usecase: ListCodexHostsUsecase
+    list_codex_workspaces_usecase: ListCodexWorkspacesUsecase
+    update_codex_workspace_usecase: UpdateCodexWorkspaceUsecase
+    query_codex_threads_usecase: QueryCodexThreadsUsecase
+    execute_codex_thread_command_usecase: ExecuteCodexThreadCommandUsecase
+    read_codex_thread_snapshot_usecase: ReadCodexThreadSnapshotUsecase
+    manage_codex_approval_usecase: ManageCodexApprovalUsecase
 
 
 class DependencyContextAccessor:
@@ -238,6 +256,13 @@ class DependencyContextAccessor:
             reset_admin_user_password_usecase=(container.reset_admin_user_password_usecase),
             replace_admin_user_roles_usecase=(container.replace_admin_user_roles_usecase),
             delete_admin_user_usecase=container.delete_admin_user_usecase,
+            list_codex_hosts_usecase=container.list_codex_hosts_usecase,
+            list_codex_workspaces_usecase=container.list_codex_workspaces_usecase,
+            update_codex_workspace_usecase=container.update_codex_workspace_usecase,
+            query_codex_threads_usecase=container.query_codex_threads_usecase,
+            execute_codex_thread_command_usecase=(container.execute_codex_thread_command_usecase),
+            read_codex_thread_snapshot_usecase=(container.read_codex_thread_snapshot_usecase),
+            manage_codex_approval_usecase=container.manage_codex_approval_usecase,
         )
 
     def read_request_scope(self, request: Request) -> RequestScope:
@@ -702,6 +727,56 @@ class DependencyContextAccessor:
         """
 
         return self.read_route_context(request).delete_admin_user_usecase
+
+    def read_list_codex_hosts_usecase(self, request: Request) -> ListCodexHostsUsecase:
+        """读取 Codex 主机列表用例。"""
+
+        return self.read_route_context(request).list_codex_hosts_usecase
+
+    def read_list_codex_workspaces_usecase(
+        self,
+        request: Request,
+    ) -> ListCodexWorkspacesUsecase:
+        """读取 Codex 工作区列表用例。"""
+
+        return self.read_route_context(request).list_codex_workspaces_usecase
+
+    def read_update_codex_workspace_usecase(
+        self,
+        request: Request,
+    ) -> UpdateCodexWorkspaceUsecase:
+        """读取 Codex 工作区更新用例。"""
+
+        return self.read_route_context(request).update_codex_workspace_usecase
+
+    def read_query_codex_threads_usecase(self, request: Request) -> QueryCodexThreadsUsecase:
+        """读取 Codex 线程索引查询用例。"""
+
+        return self.read_route_context(request).query_codex_threads_usecase
+
+    def read_execute_codex_thread_command_usecase(
+        self,
+        request: Request,
+    ) -> ExecuteCodexThreadCommandUsecase:
+        """读取 Codex thread/turn 命令受理用例。"""
+
+        return self.read_route_context(request).execute_codex_thread_command_usecase
+
+    def read_codex_thread_snapshot_usecase(
+        self,
+        request: Request,
+    ) -> ReadCodexThreadSnapshotUsecase:
+        """读取 Codex thread 权威 snapshot 用例。"""
+
+        return self.read_route_context(request).read_codex_thread_snapshot_usecase
+
+    def read_manage_codex_approval_usecase(
+        self,
+        request: Request,
+    ) -> ManageCodexApprovalUsecase:
+        """读取 Codex 审批状态机用例。"""
+
+        return self.read_route_context(request).manage_codex_approval_usecase
 
     def read_authenticated_principal(self, request: Request) -> AuthenticatedPrincipal:
         """

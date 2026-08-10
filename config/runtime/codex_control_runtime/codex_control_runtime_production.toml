@@ -1,0 +1,3 @@
+[runtime]
+max_connected_agents = 1
+max_active_turns_per_host = 1

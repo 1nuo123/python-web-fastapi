@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from pydantic import BaseModel
+from redis.asyncio import Redis
 
 from src.application.ports.stream_state_store_port import StreamStateStorePort
 from src.application.streaming.stream_access_ticket_service import StreamAccessTicketService
@@ -12,11 +13,14 @@ from src.application.streaming.stream_execution_orchestrator import (
     StreamExecutionOrchestrator,
     StreamExecutionPolicy,
 )
+from src.core.concurrency_contract.fenced_lease_contract import FencedLeasePort
 from src.core.stream_contract.stream_delivery_contract import StreamCollectionLimit
 from src.core.stream_contract.stream_runtime_contract import (
     RedisStreamRuntimeDetail,
     StreamRuntimeEnvelope,
 )
+from src.infrastructure.concurrency.memory_fenced_lease_store import MemoryFencedLeaseStore
+from src.infrastructure.concurrency.redis_fenced_lease_store import RedisFencedLeaseStore
 from src.infrastructure.observability.prometheus_metrics_registry import PrometheusMetricsRegistry
 from src.infrastructure.streaming.memory_stream_state_store import MemoryStreamStateStore
 from src.infrastructure.streaming.redis_stream_state_store import RedisStreamStateStore
@@ -65,6 +69,7 @@ class StreamingRuntimeResourceSet:
 
     session_registry: StreamSessionRegistry
     state_store: StreamStateStorePort
+    fenced_lease_store: FencedLeasePort
     ticket_service: StreamAccessTicketService
     shutdown_policy: StreamShutdownPolicy
     execution_policy: StreamExecutionPolicy
@@ -81,6 +86,7 @@ class StreamingRuntimeFactory:
         runtime: StreamRuntimeEnvelope,
         *,
         metrics_registry: PrometheusMetricsRegistry | None = None,
+        redis_client: Redis | None = None,
     ) -> StreamingRuntimeResourceSet:
         """构建并打开流运行时资源。
 
@@ -93,14 +99,19 @@ class StreamingRuntimeFactory:
         detail = runtime.detail
         state_store: StreamStateStorePort
         if isinstance(detail, RedisStreamRuntimeDetail):
+            if redis_client is None:
+                raise RuntimeError("Redis流运行时缺少共享异步Redis client。")
             state_store = RedisStreamStateStore(
-                redis_url=detail.redis_url,
+                client=redis_client,
                 key_prefix=detail.redis_key_prefix,
-                socket_connect_timeout_seconds=detail.redis_socket_connect_timeout_seconds,
-                max_connections=detail.redis_max_connections,
+            )
+            fenced_lease_store: FencedLeasePort = RedisFencedLeaseStore(
+                client=redis_client,
+                key_prefix=detail.redis_key_prefix,
             )
         else:
             state_store = MemoryStreamStateStore()
+            fenced_lease_store = MemoryFencedLeaseStore()
         await state_store.open()
         registry = StreamSessionRegistry(
             quota=StreamSessionQuota(
@@ -114,6 +125,7 @@ class StreamingRuntimeFactory:
         return StreamingRuntimeResourceSet(
             session_registry=registry,
             state_store=state_store,
+            fenced_lease_store=fenced_lease_store,
             ticket_service=StreamAccessTicketService(
                 state_store=state_store,
                 ttl_seconds=detail.ticket_ttl_seconds,

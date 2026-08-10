@@ -26,9 +26,13 @@ from src.infrastructure.resource_mount.admin_identity_resource_facade import (
 from src.infrastructure.resource_mount.admin_security_resource_facade import (
     AdminSecurityResourceFacade,
 )
+from src.infrastructure.resource_mount.codex_resource_facade import CodexResourceFacade
 from src.infrastructure.resource_mount.logging_resource_facade import LoggingResourceFacade
 from src.infrastructure.resource_mount.shared_resource_accessor import SharedResourceAccessor
 from src.infrastructure.resource_mount.task_resource_facade import TaskResourceFacade
+from src.infrastructure.resource_mount.user_registration_resource_facade import (
+    UserRegistrationResourceFacade,
+)
 from src.infrastructure.settings.app_settings_loader import AppSettingsLoader
 from src.infrastructure.shared_resource_mount import SharedResourceMount
 
@@ -67,6 +71,8 @@ class TestHardMigrationModuleBoundary:
             AdminSecurityResourceFacade,
             TaskResourceFacade,
             LoggingResourceFacade,
+            CodexResourceFacade,
+            UserRegistrationResourceFacade,
         )
         assert set(SharedResourceMount.__dict__) == {
             "__module__",

@@ -16,3 +16,4 @@ class AuthRoleKey(StrEnum):
     """
 
     ADMIN = "admin"
+    REGISTERED_USER = "registered_user"

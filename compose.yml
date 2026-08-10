@@ -106,7 +106,7 @@ services:
       AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${AUTH_BOOTSTRAP_ADMIN_PASSWORD:?AUTH_BOOTSTRAP_ADMIN_PASSWORD is required}
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-fastapi_dev}:${RABBITMQ_DEFAULT_PASS:-local-dev-rabbitmq-password}@rabbitmq:5672/${RABBITMQ_VHOST_ENCODED:-%2F}
     ports:
-      - "${APP_HOST_PORT:-8000}:8000"
+      - "127.0.0.1:${APP_HOST_PORT:-8000}:8000"
 
   task-worker:
     profiles: ["task-worker"]

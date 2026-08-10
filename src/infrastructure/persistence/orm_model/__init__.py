@@ -11,6 +11,31 @@ from src.infrastructure.persistence.orm_model.auth_role_scope_orm_model import A
 from src.infrastructure.persistence.orm_model.auth_scope_orm_model import AuthScopeOrmModel
 from src.infrastructure.persistence.orm_model.auth_user_orm_model import AuthUserOrmModel
 from src.infrastructure.persistence.orm_model.auth_user_role_orm_model import AuthUserRoleOrmModel
+from src.infrastructure.persistence.orm_model.codex_agent_credential_orm_model import (
+    CodexAgentCredentialOrmModel,
+)
+from src.infrastructure.persistence.orm_model.codex_approval_audit_orm_model import (
+    CodexApprovalAuditOrmModel,
+)
+from src.infrastructure.persistence.orm_model.codex_command_outbox_orm_model import (
+    CodexCommandOutboxOrmModel,
+)
+from src.infrastructure.persistence.orm_model.codex_control_operation_orm_model import (
+    CodexControlOperationOrmModel,
+)
+from src.infrastructure.persistence.orm_model.codex_device_authorization_audit_orm_model import (
+    CodexDeviceAuthorizationAuditOrmModel,
+)
+from src.infrastructure.persistence.orm_model.codex_host_device_key_orm_model import (
+    CodexHostDeviceKeyOrmModel,
+)
+from src.infrastructure.persistence.orm_model.codex_host_orm_model import CodexHostOrmModel
+from src.infrastructure.persistence.orm_model.codex_thread_index_orm_model import (
+    CodexThreadIndexOrmModel,
+)
+from src.infrastructure.persistence.orm_model.codex_workspace_orm_model import (
+    CodexWorkspaceOrmModel,
+)
 from src.infrastructure.persistence.orm_model.key_ring_snapshot_orm_model import (
     KeyRingSnapshotOrmModel,
 )
@@ -36,4 +61,13 @@ __all__ = [
     "TaskExecutionOutboxOrmModel",
     "KeyRingSnapshotOrmModel",
     "SecurityIpBlockRecordOrmModel",
+    "CodexHostOrmModel",
+    "CodexAgentCredentialOrmModel",
+    "CodexHostDeviceKeyOrmModel",
+    "CodexDeviceAuthorizationAuditOrmModel",
+    "CodexWorkspaceOrmModel",
+    "CodexThreadIndexOrmModel",
+    "CodexControlOperationOrmModel",
+    "CodexCommandOutboxOrmModel",
+    "CodexApprovalAuditOrmModel",
 ]

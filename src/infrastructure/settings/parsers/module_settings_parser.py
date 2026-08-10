@@ -14,6 +14,7 @@ AUTH_MODULE_SECTION_KEY: Final = "auth_module"
 MODULE_SECTION_KEY: Final = "module"
 SYSTEM_MODULE_SECTION_KEY: Final = "system_module"
 TASK_MODULE_SECTION_KEY: Final = "task_module"
+CODEX_CONTROL_MODULE_SECTION_KEY: Final = "codex_control_module"
 SETTINGS_SECTION_SCHEMA_VERSION: Final = "1.0"
 SETTINGS_SECTION_HEADER_KIND: Final = "settings_section_header"
 MODULE_SETTINGS_SECTION_DETAIL_KIND: Final = "module_settings_section_detail"
@@ -54,7 +55,12 @@ class ModuleSettingsSectionDetail(BaseModel):
 
     kind: Literal["module_settings_section_detail"] = MODULE_SETTINGS_SECTION_DETAIL_KIND
     schema_version: Literal["1.0"] = SETTINGS_SECTION_SCHEMA_VERSION
-    target_key: Literal["system_module", "auth_module", "task_module"]
+    target_key: Literal[
+        "system_module",
+        "auth_module",
+        "task_module",
+        "codex_control_module",
+    ]
     section_value: dict[str, object]
 
 
@@ -122,6 +128,12 @@ class ModuleSettingsParser:
                 target_key=TASK_MODULE_SECTION_KEY,
                 file_content=file_content,
             )
+        if CODEX_CONTROL_MODULE_SECTION_KEY in file_path.parts:
+            return self._build_module_envelope(
+                file_path=file_path,
+                target_key=CODEX_CONTROL_MODULE_SECTION_KEY,
+                file_content=file_content,
+            )
         return None
 
     def extract_mapping(
@@ -176,7 +188,12 @@ class ModuleSettingsParser:
         self,
         *,
         file_path: Path,
-        target_key: Literal["system_module", "auth_module", "task_module"],
+        target_key: Literal[
+            "system_module",
+            "auth_module",
+            "task_module",
+            "codex_control_module",
+        ],
         file_content: dict[str, object],
     ) -> SettingsSectionEnvelope:
         """

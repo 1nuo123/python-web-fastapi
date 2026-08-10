@@ -1,0 +1,15 @@
+[runtime.header]
+kind = "redis_resource_runtime"
+schema_version = "1.0"
+enabled = false
+
+[runtime.detail]
+kind = "redis_resource_runtime"
+schema_version = "1.0"
+url = "redis://127.0.0.1:6379/0"
+connect_timeout_seconds = 2.0
+operation_timeout_seconds = 5.0
+sync_max_connections = 32
+async_max_connections = 32
+health_probe_timeout_seconds = 2.0
+require_tls_in_production = true

@@ -26,7 +26,4 @@ websocket_ping_timeout_seconds = 20.0
 shutdown_grace_seconds = 20.0
 allowed_origins = ["https://console.example.com"]
 require_browser_ticket = true
-redis_url = "redis://:required@redis:6379/0"
 redis_key_prefix = "fastapi-stream"
-redis_socket_connect_timeout_seconds = 2.0
-redis_max_connections = 64

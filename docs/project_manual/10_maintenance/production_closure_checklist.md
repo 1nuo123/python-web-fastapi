@@ -1,5 +1,7 @@
 # 生产级整改最终收口结论与执行清单
 
+> 历史证据说明：本文冻结 2026-07-19 基础设施收口基线；历史测试计数和迁移版本保留在归档语境中。2026-08-08 Codex 增量的当前 migration head、测试证据与外部待验收项见 `docs/design_docs/codex_remote_codex_first_execution_plan.md`。
+
 ## 1. 最终结论
 
 - 收口日期：2026-07-19。
@@ -19,9 +21,9 @@
 | finding 状态 | `open=0;fixed=14;verified=12;rejected=0` | 无开放 P0/P1 |
 | 13 个 P1 `fixed` | 根因修复、定向回归、同基线全量回归通过；旧版失败历史不可用 | 当前风险关闭，历史证据不补造 |
 | 远端 CI | REG-023，P3 `fixed` | 发布治理项，不阻断业务开发 |
-| 全量回归 | 797 passed，225 warnings，0 skip/xfail/error | 通过 |
-| 离线回归 | 669 passed，1 deselected，5 warnings | 通过 |
-| 覆盖率 | 总体 90.7986%；四个关键域均超过 90% | 通过 |
+| 全量回归 | 1077 passed，241 warnings，0 skip/xfail/error | 通过 |
+| 离线回归 | 926 passed，5 warnings，0 skip/xfail/error | 通过 |
+| 覆盖率 | 总体 85.35257049984318%；auth/security/task/persistence 均超过 90% | 通过 |
 | 静态与架构 | Ruff、compileall、Mypy 363 文件、import-linter 4/4 | 通过 |
 | 安全与供应链 | Bandit 中高危 0，pip-audit 0 已知漏洞，锁文件有效 | 通过 |
 | 真实依赖 | PostgreSQL、Redis、RabbitMQ、迁移、安全和任务链路通过 | 通过 |
@@ -56,7 +58,7 @@
 - [x] 已冻结 `src/`、`test/`、`config/`、workflow、Compose、Dockerfile、依赖和锁文件摘要。
 - [x] 当前计算摘要与 static/offline/regression/security/migration/image/load TestRun 的 `code_baseline` 一致。
 - [x] 公开契约快照无未声明变化。
-- [x] Alembic head 固定为 `202607051000`。
+- [x] Alembic head 固定为 `202608081000`。
 - [x] 当前没有 Git 元数据的事实已记录；现有只读基线目录和内容摘要可用于本轮追溯。
 
 复核命令：
@@ -111,11 +113,11 @@ uv run nox -s regression
 ### 4.5 文档回归
 
 - [x] 最终报告、发现清单、真实失败记录和硬迁移总览使用同一状态口径。
-- [x] 766 项旧计数已替换为最终 797 项事实。
+- [x] 历史基础设施计数保留在归档证据；当前 Codex 基线计数已更新为全量 1077、离线 926。
 - [x] 覆盖率、Mypy 文件数、镜像摘要、性能数据和 autotuner 轮次已同步最终证据。
 - [x] API 文档以当前 OpenAPI 实现为事实源。
 - [x] 配置文档以 `config/`、Compose 和环境变量解析实现为事实源。
-- [x] 数据文档声明迁移 head `202607051000`。
+- [x] 数据文档声明迁移 head `202608081000`。
 - [x] 测试文档明确真实依赖缺失为 failed/blocked，不允许 skip/xfail 伪绿。
 - [x] 安全、运维、部署和性能文档均保留真实限制与 P3 剩余风险。
 - [x] 项目手册 README 已加入本清单入口。

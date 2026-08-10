@@ -174,12 +174,17 @@ class PublicContractSnapshotBuilder:
             app.state.container.resource_mount.shutdown()
 
     @classmethod
-    def save(cls, path: Path = PUBLIC_CONTRACT_SNAPSHOT_PATH) -> tuple[Path, Path, Path]:
+    def save(
+        cls,
+        path: Path = PUBLIC_CONTRACT_SNAPSHOT_PATH,
+        *,
+        promote_baseline: bool = False,
+    ) -> tuple[Path, Path, Path]:
         """保存当前快照、冻结基线和机器差异结果。"""
 
         snapshot = cls.build()
         cls._save_model(path, snapshot.model_dump_json(indent=2))
-        if not PUBLIC_CONTRACT_BASELINE_PATH.is_file():
+        if promote_baseline or not PUBLIC_CONTRACT_BASELINE_PATH.is_file():
             cls._save_model(
                 PUBLIC_CONTRACT_BASELINE_PATH,
                 snapshot.model_dump_json(indent=2),

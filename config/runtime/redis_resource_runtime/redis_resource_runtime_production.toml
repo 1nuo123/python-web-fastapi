@@ -1,0 +1,11 @@
+[runtime.header]
+enabled = true
+
+[runtime.detail]
+url = "redis://:required@redis:6379/0"
+connect_timeout_seconds = 5.0
+operation_timeout_seconds = 10.0
+sync_max_connections = 64
+async_max_connections = 64
+health_probe_timeout_seconds = 5.0
+require_tls_in_production = false

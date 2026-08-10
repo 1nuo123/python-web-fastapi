@@ -1,0 +1,355 @@
+{
+  "$defs": {
+    "AppServerApprovalResponseRequirement": {
+      "additionalProperties": false,
+      "description": "审批响应 schema 的必填字段。",
+      "properties": {
+        "schema_filename": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Schema Filename",
+          "type": "string"
+        },
+        "required_fields": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Required Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_filename",
+        "required_fields"
+      ],
+      "title": "AppServerApprovalResponseRequirement",
+      "type": "object"
+    },
+    "AppServerCapabilityCode": {
+      "description": "Agent 与控制面共同理解的封闭 capability 集合。",
+      "enum": [
+        "model.list",
+        "thread.list",
+        "thread.read",
+        "thread.start",
+        "thread.resume",
+        "thread.delete",
+        "thread.compact",
+        "turn.start",
+        "turn.steer",
+        "turn.interrupt",
+        "approval.command",
+        "approval.file_change",
+        "approval.permissions",
+        "event.replay",
+        "snapshot.pagination"
+      ],
+      "title": "AppServerCapabilityCode",
+      "type": "string"
+    },
+    "AppServerCapabilityDetail": {
+      "additionalProperties": false,
+      "description": "带版本的 Agent capability 明细。",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/AppServerCapabilityCode"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code",
+        "version"
+      ],
+      "title": "AppServerCapabilityDetail",
+      "type": "object"
+    },
+    "AppServerMethodEffect": {
+      "description": "App Server 方法的副作用分类。",
+      "enum": [
+        "read",
+        "mutation",
+        "server_request"
+      ],
+      "title": "AppServerMethodEffect",
+      "type": "string"
+    },
+    "AppServerMethodName": {
+      "description": "产品允许调用或回复的 App Server 方法。",
+      "enum": [
+        "initialize",
+        "model/list",
+        "thread/list",
+        "thread/read",
+        "thread/start",
+        "thread/resume",
+        "thread/delete",
+        "thread/compact/start",
+        "turn/start",
+        "turn/steer",
+        "turn/interrupt",
+        "item/commandExecution/requestApproval",
+        "item/fileChange/requestApproval",
+        "item/permissions/requestApproval"
+      ],
+      "title": "AppServerMethodName",
+      "type": "string"
+    },
+    "AppServerMethodPolicy": {
+      "additionalProperties": false,
+      "description": "单个受支持方法的调用与重试策略。",
+      "properties": {
+        "method": {
+          "$ref": "#/$defs/AppServerMethodName"
+        },
+        "effect": {
+          "$ref": "#/$defs/AppServerMethodEffect"
+        },
+        "idempotent": {
+          "title": "Idempotent",
+          "type": "boolean"
+        },
+        "retry_on_overload": {
+          "title": "Retry On Overload",
+          "type": "boolean"
+        },
+        "ordering_barrier": {
+          "title": "Ordering Barrier",
+          "type": "boolean"
+        },
+        "required_capability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppServerCapabilityCode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "method",
+        "effect",
+        "idempotent",
+        "retry_on_overload",
+        "ordering_barrier"
+      ],
+      "title": "AppServerMethodPolicy",
+      "type": "object"
+    },
+    "AppServerSchemaManifestHeader": {
+      "additionalProperties": false,
+      "description": "schema manifest 公共头字段。\n\n:ivar kind: 契约种类。\n:vartype kind: Literal[\"app_server_schema_manifest\"]\n:ivar schema_version: manifest 契约版本。\n:vartype schema_version: Literal[\"1.0\"]\n:ivar codex_version: 精确 Codex CLI 版本，不允许通配符。\n:vartype codex_version: str\n:ivar review_status: 快照审核状态。\n:vartype review_status: AppServerSchemaReviewStatus",
+      "properties": {
+        "kind": {
+          "const": "app_server_schema_manifest",
+          "default": "app_server_schema_manifest",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "codex_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Codex Version",
+          "type": "string"
+        },
+        "review_status": {
+          "$ref": "#/$defs/AppServerSchemaReviewStatus"
+        }
+      },
+      "required": [
+        "codex_version",
+        "review_status"
+      ],
+      "title": "AppServerSchemaManifestHeader",
+      "type": "object"
+    },
+    "AppServerSchemaReviewStatus": {
+      "description": "schema 快照的审核状态。",
+      "enum": [
+        "approved",
+        "deprecated",
+        "blocked"
+      ],
+      "title": "AppServerSchemaReviewStatus",
+      "type": "string"
+    },
+    "AppServerSchemaSnapshotDetail": {
+      "additionalProperties": false,
+      "description": "已审核官方生成物的强类型扩展字段。",
+      "properties": {
+        "kind": {
+          "const": "app_server_schema_snapshot",
+          "default": "app_server_schema_snapshot",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "target_platform": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Target Platform",
+          "type": "string"
+        },
+        "generator_commands": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Generator Commands",
+          "type": "array"
+        },
+        "json_schema_file_count": {
+          "exclusiveMinimum": 0,
+          "title": "Json Schema File Count",
+          "type": "integer"
+        },
+        "json_schema_bundle_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Json Schema Bundle Sha256",
+          "type": "string"
+        },
+        "typescript_file_count": {
+          "minimum": 0,
+          "title": "Typescript File Count",
+          "type": "integer"
+        },
+        "typescript_bundle_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typescript Bundle Sha256"
+        },
+        "approval_schema_digest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Approval Schema Digest Sha256",
+          "type": "string"
+        },
+        "approval_server_request_methods": {
+          "items": {
+            "$ref": "#/$defs/AppServerMethodName"
+          },
+          "minItems": 1,
+          "title": "Approval Server Request Methods",
+          "type": "array"
+        },
+        "approval_response_requirements": {
+          "items": {
+            "$ref": "#/$defs/AppServerApprovalResponseRequirement"
+          },
+          "minItems": 1,
+          "title": "Approval Response Requirements",
+          "type": "array"
+        },
+        "confirmation_response_expected": {
+          "title": "Confirmation Response Expected",
+          "type": "boolean"
+        },
+        "supported_agent_protocol_versions": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Supported Agent Protocol Versions",
+          "type": "array"
+        },
+        "capabilities": {
+          "items": {
+            "$ref": "#/$defs/AppServerCapabilityDetail"
+          },
+          "minItems": 1,
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "method_catalog": {
+          "items": {
+            "$ref": "#/$defs/AppServerMethodPolicy"
+          },
+          "minItems": 1,
+          "title": "Method Catalog",
+          "type": "array"
+        },
+        "license_notice_path": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "License Notice Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "generated_at",
+        "target_platform",
+        "generator_commands",
+        "json_schema_file_count",
+        "json_schema_bundle_sha256",
+        "typescript_file_count",
+        "approval_schema_digest_sha256",
+        "approval_server_request_methods",
+        "approval_response_requirements",
+        "confirmation_response_expected",
+        "supported_agent_protocol_versions",
+        "capabilities",
+        "method_catalog",
+        "license_notice_path"
+      ],
+      "title": "AppServerSchemaSnapshotDetail",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "schema manifest 公共头与强类型扩展字段信封。",
+  "properties": {
+    "header": {
+      "$ref": "#/$defs/AppServerSchemaManifestHeader"
+    },
+    "detail": {
+      "discriminator": {
+        "mapping": {
+          "app_server_schema_snapshot": "#/$defs/AppServerSchemaSnapshotDetail"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AppServerSchemaSnapshotDetail"
+        }
+      ],
+      "title": "Detail"
+    }
+  },
+  "required": [
+    "header",
+    "detail"
+  ],
+  "title": "AppServerSchemaManifestEnvelope",
+  "type": "object"
+}

@@ -31,6 +31,8 @@ class ApplicationModuleName(StrEnum):
     ADMIN_LOG = "admin_log"
     ADMIN_IDENTITY = "admin_identity"
     ADMIN_AUDIT = "admin_audit"
+    CODEX_CONTROL = "codex_control"
+    CODEX_AGENT_GATEWAY = "codex_agent_gateway"
 
 
 @dataclass(slots=True)

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import re
 from enum import StrEnum
-from typing import Final
+from typing import Final, Literal
 
 from pydantic import (
     BaseModel,
@@ -20,6 +20,7 @@ from src.core.auth_contract.bootstrap_role_binding_contract import (
     BootstrapRoleBinding,
 )
 from src.core.cache_contract.cache_runtime_contract import CacheRuntimeSettings
+from src.core.codex_contract.codex_runtime_contract import CodexRuntimeSettings
 from src.core.concurrency_contract.distributed_lock_contract import (
     DistributedLockRuntimeEnvelope,
 )
@@ -43,6 +44,9 @@ from src.core.logging_contract.log_runtime_contract import (
 from src.core.observability_contract.metrics_runtime_contract import (
     MetricsRuntimeEnvelope,
 )
+from src.core.redis_resource_contract.redis_resource_runtime_contract import (
+    RedisResourceRuntimeEnvelope,
+)
 from src.core.stream_contract.stream_runtime_contract import StreamRuntimeEnvelope
 from src.core.task_contract.task_registration_contract import (
     FunboostTaskRegistrationDetail,
@@ -55,6 +59,7 @@ from src.core.task_contract.task_runtime_contract import (
     TaskBackend,
     TaskBackendDetailUnion,
 )
+from src.domain.auth.auth_role_key import AuthRoleKey
 
 SETTINGS_LOGGER_NAME = "fastapi_web_skeleton.settings"
 APP_ENVIRONMENT_VARIABLE = "APP_ENV"
@@ -70,6 +75,7 @@ RUNTIME_SECTION_KEY: Final = "runtime"
 SYSTEM_MODULE_SECTION_KEY: Final = "system_module"
 AUTH_MODULE_SECTION_KEY: Final = "auth_module"
 TASK_MODULE_SECTION_KEY: Final = "task_module"
+CODEX_CONTROL_MODULE_SECTION_KEY: Final = "codex_control_module"
 WEB_RUNTIME_SECTION_KEY: Final = "web"
 AUTH_RUNTIME_SECTION_KEY: Final = "auth"
 DATABASE_RUNTIME_SECTION_KEY: Final = "database"
@@ -80,10 +86,14 @@ OTEL_RUNTIME_SECTION_KEY: Final = "otel"
 METRICS_RUNTIME_SECTION_KEY: Final = "metrics"
 LOGGING_RUNTIME_SECTION_KEY: Final = "logging"
 STREAM_RUNTIME_SECTION_KEY: Final = "stream"
+REDIS_RESOURCE_RUNTIME_SECTION_KEY: Final = "redis_resource"
+CODEX_CONTROL_RUNTIME_SECTION_KEY: Final = "codex_control"
 METRICS_RUNTIME_DIRECTORY_NAME: Final = "metrics_runtime"
 OTEL_RUNTIME_DIRECTORY_NAME: Final = "otel_runtime"
 LOGGING_RUNTIME_DIRECTORY_NAME: Final = "logging_runtime"
 STREAM_RUNTIME_DIRECTORY_NAME: Final = "stream_runtime"
+REDIS_RESOURCE_RUNTIME_DIRECTORY_NAME: Final = "redis_resource_runtime"
+CODEX_CONTROL_RUNTIME_DIRECTORY_NAME: Final = "codex_control_runtime"
 SECURITY_RUNTIME_SECTION_KEY: Final = "security"
 DISTRIBUTED_LOCK_RUNTIME_SECTION_KEY: Final = "distributed_lock"
 KEY_MANAGEMENT_RUNTIME_SECTION_KEY: Final = "key_management"
@@ -315,6 +325,15 @@ class BootstrapAdminSettings(BaseModel):
         return self
 
 
+class PublicRegistrationSettings(BaseModel):
+    """公开注册策略。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    default_role_key: Literal["registered_user"] = AuthRoleKey.REGISTERED_USER.value
+
+
 class AuthModuleSettings(BaseModel):
     """
     鉴权模块Pydantic 模型，用于承载并校验结构化数据。
@@ -328,6 +347,9 @@ class AuthModuleSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     bootstrap_admin: BootstrapAdminSettings = Field(default_factory=BootstrapAdminSettings)
+    public_registration: PublicRegistrationSettings = Field(
+        default_factory=PublicRegistrationSettings
+    )
 
 
 class TaskModuleSettings(BaseModel):
@@ -378,6 +400,14 @@ class TaskModuleSettings(BaseModel):
         return self
 
 
+class CodexControlModuleSettings(BaseModel):
+    """Codex 控制面模块配置。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    personal_mvp_only: bool = True
+
+
 class ModuleSettings(BaseModel):
     """
     模块Pydantic 模型，用于承载并校验结构化数据。
@@ -397,6 +427,7 @@ class ModuleSettings(BaseModel):
     system: SystemModuleSettings
     auth: AuthModuleSettings
     task: TaskModuleSettings
+    codex_control: CodexControlModuleSettings
 
 
 class RuntimeCorsSettings(BaseModel):
@@ -808,12 +839,14 @@ class RuntimeSettings(BaseModel):
     auth: AuthRuntimeSettings
     database: DatabaseRuntimeSettings
     cache: CacheRuntimeSettings
+    redis_resource: RedisResourceRuntimeEnvelope
     message: MessageRuntimeSettings
     task: TaskRuntimeSettings
     otel: OtelRuntimeSettings
     metrics: MetricsRuntimeModel
     logging: LoggingRuntimeModel
     stream: StreamRuntimeEnvelope
+    codex_control: CodexRuntimeSettings
 
 
 class ApplicationSettings(BaseModel):
@@ -835,3 +868,17 @@ class ApplicationSettings(BaseModel):
     app: ApplicationMetaSettings
     modules: ModuleSettings
     runtime: RuntimeSettings
+
+    @model_validator(mode="after")
+    def validate_shared_redis_security(self) -> ApplicationSettings:
+        """生产环境按显式策略校验共享 Redis TLS。"""
+
+        redis_resource = self.runtime.redis_resource
+        if (
+            self.app.environment == AppEnvironment.PRODUCTION
+            and redis_resource.header.enabled
+            and redis_resource.detail.require_tls_in_production
+            and not redis_resource.detail.url.startswith("rediss://")
+        ):
+            raise ValueError("生产环境共享Redis资源必须使用rediss://。")
+        return self

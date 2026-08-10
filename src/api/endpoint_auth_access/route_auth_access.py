@@ -6,14 +6,19 @@ from __future__ import annotations
 
 from http import HTTPStatus
 
-from fastapi import APIRouter, Depends, Request, Security
+from fastapi import APIRouter, Depends, Request, Response, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.api.dependency_context_accessor import DependencyContextAccessor
 from src.api.endpoint_auth_access.contract_auth_access import (
+    BrowserTokenIssuePayload,
+    StepUpGrantPayload,
+    StepUpGrantRequest,
     TokenIssueRequest,
     TokenRefreshRequest,
     TokenRevokeRequest,
+    UserRegistrationPayload,
+    UserRegistrationRequest,
 )
 from src.api.web_bundle_catalog import (
     WebBundleProvider,
@@ -22,7 +27,13 @@ from src.api.web_bundle_catalog import (
     WebBundleProviderHeader,
 )
 from src.application.issue_access_token_usecase import CredentialInput
+from src.application.issue_step_up_grant_usecase import IssueStepUpGrantUsecase
 from src.application.refresh_access_token_usecase import RefreshTokenInput
+from src.application.register_user_usecase import (
+    RegisterUserUsecase,
+    UserRegistrationCommand,
+    UserRegistrationPolicy,
+)
 from src.application.revoke_access_token_usecase import RevokeTokenInput
 from src.core.auth_contract.authenticated_principal_contract import AuthenticatedPrincipal
 from src.core.auth_contract.token_payload_contract import (
@@ -38,12 +49,31 @@ from src.core.http_contract.response_envelope_contract import ResponseEnvelope
 from src.core.http_contract.web_bundle_contract import ApplicationModuleName, WebBundle
 from src.core.security_contract.security_event_contract import SecurityEventType
 from src.domain.auth.auth_error_code import AuthErrorCode
+from src.infrastructure.security.client_ip_resolver import ClientIpResolutionKind
+from src.infrastructure.settings.application_settings import AppEnvironment
 
 AUTH_ROUTE_TAG = "auth"
 AUTH_TOKEN_PATH = "/auth/token"
 AUTH_REFRESH_PATH = "/auth/refresh"
 AUTH_REVOKE_PATH = "/auth/revoke"
 AUTH_ME_PATH = "/auth/me"
+AUTH_REGISTER_PATH = "/auth/register"
+AUTH_BROWSER_TOKEN_PATH = "/auth/browser/token"
+AUTH_BROWSER_REFRESH_PATH = "/auth/browser/refresh"
+AUTH_BROWSER_REVOKE_PATH = "/auth/browser/revoke"
+AUTH_BROWSER_REFRESH_COOKIE_NAME = "codex_refresh_token"
+AUTH_BROWSER_COOKIE_PATH = "/auth/browser"
+AUTH_STEP_UP_PATH = "/auth/step-up"
+ORIGIN_HEADER_NAME = "origin"
+FORWARDED_HEADER_NAME = "forwarded"
+FORWARDED_HOST_HEADER_NAME = "x-forwarded-host"
+FORWARDED_PROTO_HEADER_NAME = "x-forwarded-proto"
+FORWARDED_HOST_KEY = "host"
+FORWARDED_PROTO_KEY = "proto"
+FORWARDED_PAIR_SEPARATOR = ";"
+FORWARDED_VALUE_SEPARATOR = ","
+FORWARDED_KEY_VALUE_SEPARATOR = "="
+SUPPORTED_BROWSER_ORIGIN_SCHEMES = frozenset({"http", "https"})
 AUTH_REQUEST_EXECUTION_NAME = DEFAULT_SYNC_REQUEST_EXECUTION_NAME
 AUTH_BEARER_SCHEME = HTTPBearer(auto_error=False)
 USER_AGENT_HEADER_NAME = "user-agent"
@@ -65,6 +95,13 @@ class AuthAccessRouteCatalog:
         self._accessor = DependencyContextAccessor()
         self.router = APIRouter(tags=[AUTH_ROUTE_TAG])
         self.router.add_api_route(
+            AUTH_REGISTER_PATH,
+            self.post_register,
+            methods=["POST"],
+            response_model=ResponseEnvelope[UserRegistrationPayload],
+            status_code=HTTPStatus.CREATED,
+        )
+        self.router.add_api_route(
             AUTH_TOKEN_PATH,
             self.post_token,
             methods=["POST"],
@@ -83,11 +120,68 @@ class AuthAccessRouteCatalog:
             response_model=ResponseEnvelope[TokenRevokePayload],
         )
         self.router.add_api_route(
+            AUTH_STEP_UP_PATH,
+            self.post_step_up,
+            methods=["POST"],
+            response_model=ResponseEnvelope[StepUpGrantPayload],
+            dependencies=[Depends(self.require_auth_me)],
+        )
+        self.router.add_api_route(
             AUTH_ME_PATH,
             self.get_me,
             methods=["GET"],
             response_model=ResponseEnvelope[AuthenticatedPrincipal],
             dependencies=[Depends(self.require_auth_me)],
+        )
+        self.router.add_api_route(
+            AUTH_BROWSER_TOKEN_PATH,
+            self.post_browser_token,
+            methods=["POST"],
+            response_model=ResponseEnvelope[BrowserTokenIssuePayload],
+        )
+        self.router.add_api_route(
+            AUTH_BROWSER_REFRESH_PATH,
+            self.post_browser_refresh,
+            methods=["POST"],
+            response_model=ResponseEnvelope[BrowserTokenIssuePayload],
+        )
+        self.router.add_api_route(
+            AUTH_BROWSER_REVOKE_PATH,
+            self.post_browser_revoke,
+            methods=["POST"],
+            response_model=ResponseEnvelope[TokenRevokePayload],
+        )
+
+    async def post_register(
+        self,
+        request: Request,
+        command: UserRegistrationRequest,
+    ) -> ResponseEnvelope[UserRegistrationPayload]:
+        """注册普通用户，角色完全由服务端策略决定。"""
+
+        self._validate_browser_origin(request)
+        resource_mount = self._accessor.read_resource_mount(request)
+        policy = resource_mount.read_runtime_bundle().settings.modules.auth.public_registration
+        snapshot = await self._accessor.read_request_execution_bridge(request).run_sync(
+            execution_name=AUTH_REQUEST_EXECUTION_NAME,
+            callable_object=RegisterUserUsecase(registration_port=resource_mount).execute,
+            command=UserRegistrationCommand(
+                username=command.username,
+                password_plain=command.password.get_secret_value(),
+            ),
+            policy=UserRegistrationPolicy(
+                enabled=policy.enabled,
+                default_role_key=policy.default_role_key,
+            ),
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="注册成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=UserRegistrationPayload(
+                subject_id=snapshot.subject_id,
+                username=snapshot.username,
+            ),
         )
 
     async def require_auth_me(
@@ -235,6 +329,259 @@ class AuthAccessRouteCatalog:
             request_scope=self._accessor.read_request_scope(request),
             data=principal,
         )
+
+    async def post_browser_token(
+        self,
+        request: Request,
+        response: Response,
+        command: TokenIssueRequest,
+    ) -> ResponseEnvelope[BrowserTokenIssuePayload]:
+        """签发浏览器 access token，并通过 HttpOnly Cookie 下发 refresh token。"""
+
+        self._validate_browser_origin(request)
+        try:
+            token_bundle = await self._accessor.read_request_execution_bridge(request).run_sync(
+                execution_name=AUTH_REQUEST_EXECUTION_NAME,
+                callable_object=self._accessor.read_issue_access_token_usecase(request).execute,
+                credential_input=CredentialInput(
+                    username=command.username,
+                    password_plain=command.password,
+                ),
+            )
+        except HttpFaultException as exc:
+            self._record_token_issue_failure(
+                request=request,
+                username=command.username,
+                fault=exc,
+            )
+            raise
+        self._set_browser_refresh_cookie(request, response, token_bundle)
+        return self._build_browser_token_response(request, token_bundle)
+
+    async def post_browser_refresh(
+        self,
+        request: Request,
+        response: Response,
+    ) -> ResponseEnvelope[BrowserTokenIssuePayload]:
+        """从 HttpOnly Cookie 轮换 refresh token，不接收正文令牌。"""
+
+        self._validate_browser_origin(request)
+        refresh_token = self._read_browser_refresh_cookie(request)
+        try:
+            token_bundle = await self._accessor.read_request_execution_bridge(request).run_sync(
+                execution_name=AUTH_REQUEST_EXECUTION_NAME,
+                callable_object=self._accessor.read_refresh_access_token_usecase(request).execute,
+                refresh_token_input=RefreshTokenInput(
+                    refresh_token=refresh_token,
+                    client_ip=self._resolve_client_ip(request),
+                ),
+            )
+        except HttpFaultException as exc:
+            self._record_refresh_failure(
+                request=request,
+                refresh_token=refresh_token,
+                fault=exc,
+            )
+            raise
+        self._set_browser_refresh_cookie(request, response, token_bundle)
+        return self._build_browser_token_response(request, token_bundle)
+
+    async def post_browser_revoke(
+        self,
+        request: Request,
+        response: Response,
+    ) -> ResponseEnvelope[TokenRevokePayload]:
+        """吊销 Cookie 对应令牌会话并清除浏览器 Cookie。"""
+
+        self._validate_browser_origin(request)
+        refresh_token = self._read_browser_refresh_cookie(request)
+        payload = await self._accessor.read_request_execution_bridge(request).run_sync(
+            execution_name=AUTH_REQUEST_EXECUTION_NAME,
+            callable_object=self._accessor.read_revoke_access_token_usecase(request).execute,
+            revoke_token_input=RevokeTokenInput(refresh_token=refresh_token),
+        )
+        response.delete_cookie(
+            key=AUTH_BROWSER_REFRESH_COOKIE_NAME,
+            path=AUTH_BROWSER_COOKIE_PATH,
+            secure=self._is_production(request),
+            httponly=True,
+            samesite="strict",
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="浏览器令牌吊销成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=payload,
+        )
+
+    async def post_step_up(
+        self,
+        request: Request,
+        command: StepUpGrantRequest,
+    ) -> ResponseEnvelope[StepUpGrantPayload]:
+        """密码再验证后签发不持久化的一次性增强授权。"""
+
+        self._validate_browser_origin(request)
+        principal = self._accessor.read_authenticated_principal(request)
+        resource_mount = self._accessor.read_resource_mount(request)
+        issue = await IssueStepUpGrantUsecase(
+            runtime_port=resource_mount,
+            grant_port=resource_mount.get_codex_control_runtime().step_up_grant_service,
+        ).execute(
+            subject_id=principal.subject_id,
+            password_plain=command.password,
+            purpose=command.purpose,
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="增强验证已通过。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=StepUpGrantPayload(
+                grant_token=issue.token,
+                expires_at=issue.expires_at,
+            ),
+        )
+
+    def _validate_browser_origin(self, request: Request) -> None:
+        """严格校验浏览器写接口 Origin。"""
+
+        origin = request.headers.get(ORIGIN_HEADER_NAME)
+        web_settings = (
+            self._accessor.read_resource_mount(request).read_runtime_bundle().settings.runtime.web
+        )
+        allowed_origins = {
+            self._direct_request_origin(request),
+            *web_settings.cors.allow_origins,
+            *self._trusted_forwarded_origins(request),
+        }
+        if origin is None or origin.rstrip("/") not in {
+            allowed.rstrip("/") for allowed in allowed_origins
+        }:
+            raise HttpFaultException(
+                status_code=HTTPStatus.FORBIDDEN,
+                error_code=AuthErrorCode.BROWSER_ORIGIN_FORBIDDEN,
+                message="浏览器请求来源不允许。",
+            )
+
+    def _direct_request_origin(self, request: Request) -> str:
+        """读取当前 ASGI 请求自身的 origin。"""
+
+        return f"{request.url.scheme}://{request.url.netloc}"
+
+    def _trusted_forwarded_origins(self, request: Request) -> set[str]:
+        """从可信代理头读取外部浏览器 origin。"""
+
+        resolution = (
+            self._accessor.read_resource_mount(request).get_client_ip_resolver().resolve(request)
+        )
+        if resolution.header.source != ClientIpResolutionKind.TRUSTED_PROXY_FORWARDED:
+            return set()
+
+        proto = self._read_forwarded_proto(request)
+        host = self._read_forwarded_host(request)
+        if proto is None or host is None:
+            return set()
+        return {f"{proto}://{host}"}
+
+    def _read_forwarded_proto(self, request: Request) -> str | None:
+        """读取并校验可信代理传入的外部协议。"""
+
+        proto = self._read_forwarded_pair(request, FORWARDED_PROTO_KEY)
+        if proto is None:
+            proto = request.headers.get(FORWARDED_PROTO_HEADER_NAME)
+        if proto is None:
+            return None
+
+        candidate = proto.split(FORWARDED_VALUE_SEPARATOR, maxsplit=1)[0].strip().strip('"').lower()
+        if candidate not in SUPPORTED_BROWSER_ORIGIN_SCHEMES:
+            return None
+        return candidate
+
+    def _read_forwarded_host(self, request: Request) -> str | None:
+        """读取并校验可信代理传入的外部 Host。"""
+
+        host = self._read_forwarded_pair(request, FORWARDED_HOST_KEY)
+        if host is None:
+            host = request.headers.get(FORWARDED_HOST_HEADER_NAME)
+        if host is None:
+            return None
+
+        candidate = host.split(FORWARDED_VALUE_SEPARATOR, maxsplit=1)[0].strip().strip('"')
+        if (
+            candidate == ""
+            or any(character.isspace() for character in candidate)
+            or "/" in candidate
+            or "\\" in candidate
+        ):
+            return None
+        return candidate
+
+    def _read_forwarded_pair(self, request: Request, key: str) -> str | None:
+        """从 RFC 7239 Forwarded 头中读取单个键。"""
+
+        header_value = request.headers.get(FORWARDED_HEADER_NAME)
+        if header_value is None:
+            return None
+        first_forwarded = header_value.split(FORWARDED_VALUE_SEPARATOR, maxsplit=1)[0]
+        for part in first_forwarded.split(FORWARDED_PAIR_SEPARATOR):
+            candidate_key, separator, value = part.partition(FORWARDED_KEY_VALUE_SEPARATOR)
+            if separator == "" or candidate_key.strip().lower() != key:
+                continue
+            return value
+        return None
+
+    def _read_browser_refresh_cookie(self, request: Request) -> str:
+        """读取仅由浏览器自动携带的 refresh Cookie。"""
+
+        refresh_token = request.cookies.get(AUTH_BROWSER_REFRESH_COOKIE_NAME)
+        if refresh_token is None or refresh_token == "":
+            raise HttpFaultException(
+                status_code=HTTPStatus.UNAUTHORIZED,
+                error_code=AuthErrorCode.BROWSER_REFRESH_COOKIE_MISSING,
+                message="浏览器刷新凭据缺失。",
+            )
+        return refresh_token
+
+    def _set_browser_refresh_cookie(
+        self,
+        request: Request,
+        response: Response,
+        token_bundle: TokenIssuePayload,
+    ) -> None:
+        """按冻结安全属性写入 refresh Cookie。"""
+
+        response.set_cookie(
+            key=AUTH_BROWSER_REFRESH_COOKIE_NAME,
+            value=token_bundle.refresh_token,
+            max_age=token_bundle.refresh_expires_in_seconds,
+            path=AUTH_BROWSER_COOKIE_PATH,
+            secure=self._is_production(request),
+            httponly=True,
+            samesite="strict",
+        )
+
+    def _build_browser_token_response(
+        self,
+        request: Request,
+        token_bundle: TokenIssuePayload,
+    ) -> ResponseEnvelope[BrowserTokenIssuePayload]:
+        """丢弃 refresh token 后构造浏览器响应。"""
+
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="浏览器令牌签发成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=BrowserTokenIssuePayload(
+                access_token=token_bundle.access_token,
+                expires_in_seconds=token_bundle.expires_in_seconds,
+            ),
+        )
+
+    def _is_production(self, request: Request) -> bool:
+        """读取当前环境是否要求 Secure Cookie。"""
+
+        settings = self._accessor.read_resource_mount(request).read_runtime_bundle().settings
+        return settings.app.environment == AppEnvironment.PRODUCTION
 
     def _record_token_issue_failure(
         self,

@@ -314,7 +314,9 @@ class TestSettingsSecurityUnit:
         assert settings.app.enable_openapi is False
         assert settings.runtime.security.detail.expose_openapi is False
         assert settings.runtime.security.detail.require_external_jwt_secret is True
-        assert settings.runtime.security.detail.protection.client_ip.trusted_proxy_cidr_blocks == []
+        assert settings.runtime.security.detail.protection.client_ip.trusted_proxy_cidr_blocks == [
+            "172.30.0.0/24"
+        ]
         assert (
             settings.runtime.security.detail.protection.outbound_url_safety.enforce_allowed_hostnames
             is True

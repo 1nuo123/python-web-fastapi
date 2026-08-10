@@ -43,6 +43,12 @@ ADMIN_IDENTITY_PROVIDER_IMPORT_PATH = (
 ADMIN_AUDIT_PROVIDER_IMPORT_PATH = (
     "src.api.endpoint_admin_audit.route_admin_audit.AdminAuditBundleProvider"
 )
+CODEX_CONTROL_PROVIDER_IMPORT_PATH = (
+    "src.api.endpoint_codex_control.route_codex_host.CodexControlBundleProvider"
+)
+CODEX_AGENT_GATEWAY_PROVIDER_IMPORT_PATH = (
+    "src.api.endpoint_codex_agent.route_codex_agent_connect.CodexAgentGatewayBundleProvider"
+)
 HEALTH_ROUTE_TAG = "health"
 AUTH_ROUTE_TAG = "auth"
 SYSTEM_ROUTE_TAG = "system"
@@ -52,6 +58,8 @@ ADMIN_SETTINGS_ROUTE_TAG = "admin_settings"
 ADMIN_LOG_ROUTE_TAG = "admin_log"
 ADMIN_IDENTITY_ROUTE_TAG = "admin_identity"
 ADMIN_AUDIT_ROUTE_TAG = "admin_audit"
+CODEX_CONTROL_ROUTE_TAG = "codex"
+CODEX_AGENT_GATEWAY_ROUTE_TAG = "codex_agent_gateway"
 ADMIN_BOUNDARY_POLICY_MISMATCH_MESSAGE = "Web 模块清单的后台边界策略与集中授权要求不一致。"
 
 
@@ -63,6 +71,15 @@ class AdminBoundaryPolicy(StrEnum):
     PUBLIC = "public"
     BUSINESS_ADMIN = "business_admin"
     OPS_ONLY = "ops_only"
+    AUTHENTICATED_USER = "authenticated_user"
+
+
+class AuthenticationMode(StrEnum):
+    """Web 模块入口使用的认证链。"""
+
+    NONE = "none"
+    USER_BEARER = "user_bearer"
+    AGENT_DEVICE = "agent_device"
 
 
 BUSINESS_ADMIN_MODULE_NAMES: tuple[str, ...] = (
@@ -103,6 +120,7 @@ class RouterProviderDetail(BaseModel):
     provider_import_path: str
     route_tags: list[str]
     admin_boundary_policy: AdminBoundaryPolicy = AdminBoundaryPolicy.PUBLIC
+    authentication_mode: AuthenticationMode = AuthenticationMode.NONE
 
 
 WebModuleManifestDetail = Annotated[
@@ -162,6 +180,24 @@ class WebModuleManifestRegistry:
                 detail=RouterProviderDetail(
                     provider_import_path=HEALTH_PROVIDER_IMPORT_PATH,
                     route_tags=[HEALTH_ROUTE_TAG],
+                ),
+            ),
+            WebModuleManifestEnvelope(
+                header=WebModuleHeader(module_name=ApplicationModuleName.CODEX_CONTROL.value),
+                detail=RouterProviderDetail(
+                    provider_import_path=CODEX_CONTROL_PROVIDER_IMPORT_PATH,
+                    route_tags=[CODEX_CONTROL_ROUTE_TAG],
+                    admin_boundary_policy=AdminBoundaryPolicy.AUTHENTICATED_USER,
+                    authentication_mode=AuthenticationMode.USER_BEARER,
+                ),
+            ),
+            WebModuleManifestEnvelope(
+                header=WebModuleHeader(module_name=ApplicationModuleName.CODEX_AGENT_GATEWAY.value),
+                detail=RouterProviderDetail(
+                    provider_import_path=CODEX_AGENT_GATEWAY_PROVIDER_IMPORT_PATH,
+                    route_tags=[CODEX_AGENT_GATEWAY_ROUTE_TAG],
+                    admin_boundary_policy=AdminBoundaryPolicy.PUBLIC,
+                    authentication_mode=AuthenticationMode.AGENT_DEVICE,
                 ),
             ),
             WebModuleManifestEnvelope(

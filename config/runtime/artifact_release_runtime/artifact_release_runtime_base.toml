@@ -1,0 +1,12 @@
+[runtime]
+enabled = true
+trusted_root_path = "C:/ProgramData/CodexRemoteAgent/tuf/root.json"
+repository_url = "https://updates.example.invalid/codex"
+repository_host_allowlist = ["updates.example.invalid"]
+max_download_bytes = 536870912
+request_timeout_seconds = 60
+staging_root = "C:/Users/Default/AppData/Local/CodexRemoteAgent/versions"
+retained_versions = 2
+health_timeout_seconds = 60
+rollback_budget = 3
+minimum_security_version = ""

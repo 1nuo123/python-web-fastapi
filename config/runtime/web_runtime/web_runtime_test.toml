@@ -1,9 +1,9 @@
 # 测试环境沿用同步主干与线程池桥接，使用更短超时便于尽快暴露阻塞回归。
 [runtime.cors]
 enabled = true
-allow_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+allow_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3310", "http://127.0.0.1:3310"]
 allow_methods = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
-allow_headers = ["Authorization", "Content-Type"]
+allow_headers = ["Authorization", "Content-Type", "Idempotency-Key", "X-Step-Up-Token"]
 allow_credentials = true
 
 [runtime.request_execution]

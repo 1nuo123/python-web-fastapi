@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 AUTH_RUNTIME_SECTION_KEY: Final = "auth"
 CACHE_RUNTIME_SECTION_KEY: Final = "cache"
+CODEX_CONTROL_RUNTIME_SECTION_KEY: Final = "codex_control"
 DATABASE_RUNTIME_SECTION_KEY: Final = "database"
 DISTRIBUTED_LOCK_RUNTIME_SECTION_KEY: Final = "distributed_lock"
 KEY_MANAGEMENT_RUNTIME_SECTION_KEY: Final = "key_management"
@@ -21,10 +22,12 @@ OTEL_RUNTIME_SECTION_KEY: Final = "otel"
 RUNTIME_SECTION_KEY: Final = "runtime"
 TASK_RUNTIME_SECTION_KEY: Final = "task"
 STREAM_RUNTIME_SECTION_KEY: Final = "stream"
+REDIS_RESOURCE_RUNTIME_SECTION_KEY: Final = "redis_resource"
 WEB_RUNTIME_SECTION_KEY: Final = "web"
 SECURITY_RUNTIME_SECTION_KEY: Final = "security"
 AUTH_RUNTIME_DIRECTORY_NAME = "auth_runtime"
 CACHE_RUNTIME_DIRECTORY_NAME = "cache_runtime"
+CODEX_CONTROL_RUNTIME_DIRECTORY_NAME = "codex_control_runtime"
 DATABASE_RUNTIME_DIRECTORY_NAME = "database_runtime"
 DISTRIBUTED_LOCK_RUNTIME_DIRECTORY_NAME = "distributed_lock_runtime"
 KEY_MANAGEMENT_RUNTIME_DIRECTORY_NAME = "key_management_runtime"
@@ -35,6 +38,7 @@ OTEL_RUNTIME_DIRECTORY_NAME = "otel_runtime"
 SECURITY_RUNTIME_DIRECTORY_NAME = "security_runtime"
 TASK_RUNTIME_DIRECTORY_NAME = "task_runtime"
 STREAM_RUNTIME_DIRECTORY_NAME = "stream_runtime"
+REDIS_RESOURCE_RUNTIME_DIRECTORY_NAME = "redis_resource_runtime"
 WEB_RUNTIME_DIRECTORY_NAME = "web_runtime"
 SETTINGS_SECTION_SCHEMA_VERSION: Final = "1.0"
 SETTINGS_SECTION_HEADER_KIND: Final = "settings_section_header"
@@ -77,6 +81,8 @@ class RuntimeSettingsSectionDetail(BaseModel):
         "logging",
         "metrics",
         "stream",
+        "redis_resource",
+        "codex_control",
     ]
     section_value: dict[str, object]
 
@@ -162,6 +168,12 @@ class RuntimeSettingsParser:
                 runtime_key=CACHE_RUNTIME_SECTION_KEY,
                 file_content=file_content,
             )
+        if CODEX_CONTROL_RUNTIME_DIRECTORY_NAME in file_path.parts:
+            return self._build_runtime_section(
+                file_path=file_path,
+                runtime_key=CODEX_CONTROL_RUNTIME_SECTION_KEY,
+                file_content=file_content,
+            )
         if MESSAGE_RUNTIME_DIRECTORY_NAME in file_path.parts:
             return self._build_runtime_section(
                 file_path=file_path,
@@ -198,6 +210,12 @@ class RuntimeSettingsParser:
                 runtime_key=STREAM_RUNTIME_SECTION_KEY,
                 file_content=file_content,
             )
+        if REDIS_RESOURCE_RUNTIME_DIRECTORY_NAME in file_path.parts:
+            return self._build_runtime_section(
+                file_path=file_path,
+                runtime_key=REDIS_RESOURCE_RUNTIME_SECTION_KEY,
+                file_content=file_content,
+            )
         return None
 
     def _build_runtime_section(
@@ -218,6 +236,8 @@ class RuntimeSettingsParser:
             "logging",
             "metrics",
             "stream",
+            "redis_resource",
+            "codex_control",
         ],
         file_content: dict[str, object],
     ) -> SettingsSectionEnvelope:

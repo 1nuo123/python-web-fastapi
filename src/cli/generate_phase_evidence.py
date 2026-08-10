@@ -32,10 +32,17 @@ class PhaseEvidenceCli:
         """执行证据目录生成和索引校验。"""
 
         parser = argparse.ArgumentParser(description="生成生产整改阶段证据索引。")
-        parser.parse_args()
+        parser.add_argument(
+            "--accept-public-contract-baseline",
+            action="store_true",
+            help="显式接受当前公开契约并更新冻结基线。",
+        )
+        arguments = parser.parse_args()
         baseline = CodeBaselineCalculator.calculate()
         store = PhaseEvidenceStore()
-        PublicContractSnapshotBuilder.save()
+        PublicContractSnapshotBuilder.save(
+            promote_baseline=arguments.accept_public_contract_baseline
+        )
         contract_comparison = PublicContractComparison.model_validate_json(
             PUBLIC_CONTRACT_COMPARISON_PATH.read_text(encoding="utf-8")
         )

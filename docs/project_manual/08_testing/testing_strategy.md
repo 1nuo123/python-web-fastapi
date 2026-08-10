@@ -27,7 +27,7 @@
 - PostgreSQL、Redis、RabbitMQ、Docker 通过显式 marker 声明。PostgreSQL 还必须显式使用 `integration_database`；真实依赖不可达时测试失败，阶段证据记为 `blocked`，不得以 skip/xfail 形成绿色 regression。
 - fake/test support 只用于测试，不应进入生产装配。
 - 当前项目固定全量入口为 `.\.venv\Scripts\python.exe -m pytest -q`；离线统一入口为 `uv run nox -s offline`，质量入口为 `uv run nox -s static`。
-- Nox regression 执行 pytest-cov 总体 line/branch 85% 门禁及四域 90% 门禁；最终总体组合覆盖率为 90.7986%，auth/security/task/persistence 分别为 93.9494%、91.1565%、91.8718%、90.8869%。
+- Nox regression 执行 pytest-cov 总体 line/branch 85% 门禁及四域 90% 门禁；当前总体组合覆盖率为 85.35257049984318%，auth/security/task/persistence 分别为 93.3333%、91.1565%、92.3467%、91.0800%。
 - `Dockerfile` 当前 `COPY src ./src` 会把 `src/infrastructure/testing` 一起放入镜像文件系统；已确认生产装配路径不直接引用 `TestAppFactory` 等测试工厂，但待确认镜像安全策略是否要求从运行镜像排除测试 support。
 
 ## 5. 结构说明
@@ -111,4 +111,4 @@ flowchart TD
 | `test/convention_usage_test` | 1 | 端到端用法约定链路。 |
 | `test/class_inheritance_test` | 1 | runtime contract inheritance。 |
 
-Redis 与 RabbitMQ/Funboost 集成测试始终执行真实可达性检查，不再由启用开关静默跳过；可用 `RABBITMQ_TEST_URL` 覆盖连接串。物理停服后的离线入口为 669 passed、1 deselected、5 warnings；最终真实依赖全量回归为 797 passed、225 warnings，无 skip/xfail。仓库当前没有 `ad_hoc_test`、`human_generated` 或 `llm_generated` 目录；若未来新增，`ad_hoc_test` 仅用于未晋升探索，`human_generated`/`llm_generated` 仅标记来源，均不得替代风险分层。
+Redis 与 RabbitMQ/Funboost 集成测试始终执行真实可达性检查，不再由启用开关静默跳过；可用 `RABBITMQ_TEST_URL` 覆盖连接串。当前基线离线入口为 926 passed、5 warnings；真实依赖全量回归为 1077 passed、241 warnings，无 skip/xfail。仓库当前没有 `ad_hoc_test`、`human_generated` 或 `llm_generated` 目录；若未来新增，`ad_hoc_test` 仅用于未晋升探索，`human_generated`/`llm_generated` 仅标记来源，均不得替代风险分层。

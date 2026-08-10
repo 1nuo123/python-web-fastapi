@@ -42,6 +42,44 @@ block_seconds = 900
 kind = "rate_limit_policy_header"
 schema_version = "1.0"
 detail_kind = "rate_limit_policy"
+policy_name = "auth_browser_token"
+enabled = true
+
+[runtime.detail.protection.flow_control.policies.detail]
+kind = "rate_limit_policy"
+schema_version = "1.0"
+path = "/auth/browser/token"
+method = "POST"
+limit = 10
+window_seconds = 300
+key_dimensions = ["ip_digest", "path_method"]
+block_when_exceeded = true
+block_seconds = 900
+
+[[runtime.detail.protection.flow_control.policies]]
+[runtime.detail.protection.flow_control.policies.header]
+kind = "rate_limit_policy_header"
+schema_version = "1.0"
+detail_kind = "rate_limit_policy"
+policy_name = "auth_register"
+enabled = true
+
+[runtime.detail.protection.flow_control.policies.detail]
+kind = "rate_limit_policy"
+schema_version = "1.0"
+path = "/auth/register"
+method = "POST"
+limit = 5
+window_seconds = 600
+key_dimensions = ["ip_digest", "path_method"]
+block_when_exceeded = true
+block_seconds = 900
+
+[[runtime.detail.protection.flow_control.policies]]
+[runtime.detail.protection.flow_control.policies.header]
+kind = "rate_limit_policy_header"
+schema_version = "1.0"
+detail_kind = "rate_limit_policy"
 policy_name = "auth_refresh"
 enabled = true
 
@@ -62,7 +100,7 @@ password_spray_limit = 10
 password_spray_window_seconds = 300
 
 [runtime.detail.protection.client_ip]
-trusted_proxy_cidr_blocks = []
+trusted_proxy_cidr_blocks = ["172.30.0.0/24"]
 
 [runtime.detail.protection.ip_block]
 enabled = true

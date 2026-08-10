@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-07-31T01:57:14.813976Z",
-  "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
-  "openapi_sha256": "37a4dba635c36bc9e398557c53d43879fe3f098856efb2fae2024d40c651adf7",
+  "generated_at": "2026-08-07T23:06:40.022063Z",
+  "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
+  "openapi_sha256": "ad7e60904b7fb589b2317fb0cd97672966d04525d40327efa9f3e12c72e45e68",
   "openapi_document": {
     "openapi": "3.1.0",
     "info": {
@@ -48,6 +48,1400 @@
                 "application/json": {
                   "schema": {
                     "$ref": "#/components/schemas/ResponseEnvelope_HealthProbePayload_"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts": {
+        "get": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Get Hosts",
+          "description": "读取当前主体拥有的主机。",
+          "operationId": "get_hosts_codex_hosts_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexHostCollection_"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/codex/hosts/{host_id}": {
+        "patch": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Rename Host",
+          "operationId": "rename_host_codex_hosts__host_id__patch",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "If-Match",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "If-Match"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexHostRenameRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexHostSnapshot_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/revoke": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Revoke Host",
+          "operationId": "revoke_host_codex_hosts__host_id__revoke_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "If-Match",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "If-Match"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexHostRevokeRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexHostSnapshot_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/pairing-codes": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Create Pairing Code",
+          "operationId": "create_pairing_code_codex_hosts_pairing_codes_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexPairingCodeRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexPairingCodeResponse_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/codex/hosts/{host_id}/workspaces": {
+        "get": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Get Workspaces",
+          "description": "读取当前主体拥有的指定主机工作区。",
+          "operationId": "get_workspaces_codex_hosts__host_id__workspaces_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexWorkspaceCollection_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/workspaces/{workspace_id}": {
+        "patch": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Update Workspace",
+          "description": "更新当前主体拥有的工作区隔离策略。",
+          "operationId": "update_workspace_codex_hosts__host_id__workspaces__workspace_id__patch",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "workspace_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Workspace Id"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexWorkspaceUpdateRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexWorkspaceSnapshot_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/threads": {
+        "get": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Get Threads",
+          "description": "读取当前主体拥有的主机线程索引。",
+          "operationId": "get_threads_codex_hosts__host_id__threads_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexThreadIndexCollection_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Create Thread",
+          "description": "提交 thread/start 并只等待 App Server 接受。",
+          "operationId": "create_thread_codex_hosts__host_id__threads_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "title": "Idempotency-Key"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexThreadCreateRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "202": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexOperationAccepted_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/threads/{thread_id}/turns": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Start Turn",
+          "description": "提交 turn/start 并返回固定 operation/command 身份。",
+          "operationId": "start_turn_codex_hosts__host_id__threads__thread_id__turns_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "thread_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Thread Id"
+              }
+            },
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "title": "Idempotency-Key"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexTurnStartRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "202": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexOperationAccepted_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/threads/{thread_id}": {
+        "get": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Get Thread",
+          "description": "从 Agent/App Server 读取 thread 正文权威 snapshot。",
+          "operationId": "get_thread_codex_hosts__host_id__threads__thread_id__get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "thread_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Thread Id"
+              }
+            },
+            {
+              "name": "include_history",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "boolean",
+                "default": false,
+                "title": "Include History"
+              }
+            },
+            {
+              "name": "history_cursor",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "History Cursor"
+              }
+            },
+            {
+              "name": "history_limit",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "default": 100,
+                "title": "History Limit"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexThreadAuthoritySnapshot_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/threads/{thread_id}/resume": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Resume Thread",
+          "description": "恢复已持久化 thread。",
+          "operationId": "resume_thread_codex_hosts__host_id__threads__thread_id__resume_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "thread_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Thread Id"
+              }
+            },
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "title": "Idempotency-Key"
+              }
+            }
+          ],
+          "responses": {
+            "202": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexOperationAccepted_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/threads/{thread_id}/steer": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Steer Turn",
+          "description": "向 active turn 发送 steer。",
+          "operationId": "steer_turn_codex_hosts__host_id__threads__thread_id__steer_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "thread_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Thread Id"
+              }
+            },
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "title": "Idempotency-Key"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexTurnStartRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "202": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexOperationAccepted_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/threads/{thread_id}/interrupt": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Interrupt Turn",
+          "description": "中断 active turn，重复请求复用同一 operation/command。",
+          "operationId": "interrupt_turn_codex_hosts__host_id__threads__thread_id__interrupt_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "thread_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Thread Id"
+              }
+            },
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "title": "Idempotency-Key"
+              }
+            }
+          ],
+          "responses": {
+            "202": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexOperationAccepted_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/threads/{thread_id}/compact": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Compact Thread",
+          "description": "启动 thread compact 并返回稳定 operation。",
+          "operationId": "compact_thread_codex_hosts__host_id__threads__thread_id__compact_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "thread_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Thread Id"
+              }
+            },
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "title": "Idempotency-Key"
+              }
+            }
+          ],
+          "responses": {
+            "202": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexOperationAccepted_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/realtime-tickets": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Issue Ticket",
+          "description": "签发绑定主体与客户端地址的高熵一次性票据。",
+          "operationId": "issue_ticket_codex_realtime_tickets_post",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexRealtimeTicket_"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/codex/approvals": {
+        "get": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Get Approvals",
+          "operationId": "get_approvals_codex_approvals_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexApprovalCollection_"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/codex/approvals/{approval_id}/decision": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Decide Approval",
+          "operationId": "decide_approval_codex_approvals__approval_id__decision_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "approval_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Approval Id"
+              }
+            },
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "title": "Idempotency-Key"
+              }
+            },
+            {
+              "name": "X-Step-Up-Token",
+              "in": "header",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "X-Step-Up-Token"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexApprovalDecisionRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "202": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexOperationAccepted_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/internal/codex-agents/device-authorizations": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Create Authorization",
+          "operationId": "create_authorization_internal_codex_agents_device_authorizations_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceAuthorizationCreateRequestEnvelope"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/DeviceAuthorizationEnvelope"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/internal/codex-agents/device-authorizations/poll": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Poll Authorization",
+          "operationId": "poll_authorization_internal_codex_agents_device_authorizations_poll_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceAuthorizationPollRequestEnvelope"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/DeviceAuthorizationEnvelope"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/internal/codex-agents/device-challenges": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Issue Challenge",
+          "operationId": "issue_challenge_internal_codex_agents_device_challenges_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceChallengeIssueRequestEnvelope"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/DeviceChallengeIssue"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/internal/codex-agents/connection-tickets": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Verify Challenge",
+          "operationId": "verify_challenge_internal_codex_agents_connection_tickets_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceChallengeProofRequestEnvelope"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/AgentConnectionTicketResponse"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/internal/codex-agents/device-key-rotations": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Start Key Rotation",
+          "operationId": "start_key_rotation_internal_codex_agents_device_key_rotations_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceKeyRotationStartRequestEnvelope"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/DeviceAuthorizationEnvelope"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/device-authorizations/{user_code}": {
+        "get": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Read Authorization",
+          "operationId": "read_authorization_codex_device_authorizations__user_code__get",
+          "parameters": [
+            {
+              "name": "user_code",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 6,
+                "maxLength": 16,
+                "title": "User Code"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_DeviceAuthorizationEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/device-authorizations/decisions": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Decide Authorization",
+          "operationId": "decide_authorization_codex_device_authorizations_decisions_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceAuthorizationDecideRequestEnvelope"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_DeviceAuthorizationEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/internal/codex-agents/enroll": {
+        "post": {
+          "tags": [
+            "codex_agent_gateway"
+          ],
+          "summary": "Enroll",
+          "description": "用一次性配对码兑换设备凭据；响应中的 token 只出现一次。",
+          "operationId": "enroll_internal_codex_agents_enroll_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexAgentEnrollRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/CodexAgentCredentialResponse"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/internal/codex-agents/rotate-credential": {
+        "post": {
+          "tags": [
+            "codex_agent_gateway"
+          ],
+          "summary": "Rotate Credential",
+          "description": "只接受独立 CodexAgent scheme 的设备凭据轮换。",
+          "operationId": "rotate_credential_internal_codex_agents_rotate_credential_post",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/CodexAgentCredentialResponse"
                   }
                 }
               }
@@ -181,6 +1575,53 @@
           }
         }
       },
+      "/auth/step-up": {
+        "post": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Post Step Up",
+          "description": "密码再验证后签发不持久化的一次性增强授权。",
+          "operationId": "post_step_up_auth_step_up_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepUpGrantRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_StepUpGrantPayload_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
       "/auth/me": {
         "get": {
           "tags": [
@@ -206,6 +1647,92 @@
               "HTTPBearer": []
             }
           ]
+        }
+      },
+      "/auth/browser/token": {
+        "post": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Post Browser Token",
+          "description": "签发浏览器 access token，并通过 HttpOnly Cookie 下发 refresh token。",
+          "operationId": "post_browser_token_auth_browser_token_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenIssueRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_BrowserTokenIssuePayload_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/browser/refresh": {
+        "post": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Post Browser Refresh",
+          "description": "从 HttpOnly Cookie 轮换 refresh token，不接收正文令牌。",
+          "operationId": "post_browser_refresh_auth_browser_refresh_post",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_BrowserTokenIssuePayload_"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/browser/revoke": {
+        "post": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Post Browser Revoke",
+          "description": "吊销 Cookie 对应令牌会话并清除浏览器 Cookie。",
+          "operationId": "post_browser_revoke_auth_browser_revoke_post",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_TokenRevokePayload_"
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "/admin/scopes": {
@@ -2989,6 +4516,71 @@
           "title": "AdminUserUpdateRequest",
           "description": "管理员用户更新请求。"
         },
+        "AgentConnectionTicketResponse": {
+          "properties": {
+            "ticket": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 32,
+              "title": "Ticket"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Expires At"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "ticket",
+            "expires_at"
+          ],
+          "title": "AgentConnectionTicketResponse",
+          "description": "一次性短期 Agent WSS ticket。"
+        },
+        "AppServerCapabilityCode": {
+          "type": "string",
+          "enum": [
+            "model.list",
+            "thread.list",
+            "thread.read",
+            "thread.start",
+            "thread.resume",
+            "thread.delete",
+            "thread.compact",
+            "turn.start",
+            "turn.steer",
+            "turn.interrupt",
+            "approval.command",
+            "approval.file_change",
+            "approval.permissions",
+            "event.replay",
+            "snapshot.pagination"
+          ],
+          "title": "AppServerCapabilityCode",
+          "description": "Agent 与控制面共同理解的封闭 capability 集合。"
+        },
+        "AppServerCapabilityDetail": {
+          "properties": {
+            "code": {
+              "$ref": "#/components/schemas/AppServerCapabilityCode"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1.0,
+              "title": "Version"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "code",
+            "version"
+          ],
+          "title": "AppServerCapabilityDetail",
+          "description": "带版本的 Agent capability 明细。"
+        },
         "AuthenticatedPrincipal": {
           "properties": {
             "kind": {
@@ -3042,6 +4634,45 @@
           "title": "AuthenticatedPrincipal",
           "description": "已认证主体Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar kind: 结构版本的具体类型标识。约束：需符合 ``Literal[AUTHENTICATED_PRINCIPAL_KIND]`` 注解；取值固定为 ``AUTHENTICATED_PRINCIPAL_KIND``。默认值：`AUTHENTICATED_PRINCIPAL_KIND`。取值语义：用于承载当前对象中的业务状态。\n:vartype kind: Literal[AUTHENTICATED_PRINCIPAL_KIND]\n:ivar schema_version: 结构模式版本。约束：需符合 ``Literal[AUTH_PRINCIPAL_SCHEMA_VERSION]`` 注解；取值固定为 ``AUTH_PRINCIPAL_SCHEMA_VERSION``。默认值：`AUTH_PRINCIPAL_SCHEMA_VERSION`。取值语义：用于承载当前对象中的业务状态。\n:vartype schema_version: Literal[AUTH_PRINCIPAL_SCHEMA_VERSION]\n:ivar subject_id: 认证主体标识。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于唯一标识对应实体。\n:vartype subject_id: str\n:ivar username: 登录用户名。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype username: str\n:ivar roles: 角色键列表。约束：需符合 ``list[str]`` 注解；按实现使用有序列表承载。默认值：无，必须显式提供。取值语义：用于描述角色标识或角色关联关系。\n:vartype roles: list[str]\n:ivar scopes: 作用域编码列表。约束：需符合 ``list[str]`` 注解；按实现使用有序列表承载。默认值：无，必须显式提供。取值语义：用于声明授权作用域或请求作用域。\n:vartype scopes: list[str]"
         },
+        "BrowserTokenIssuePayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "browser_token_issue",
+              "title": "Kind",
+              "default": "browser_token_issue"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "access_token": {
+              "type": "string",
+              "title": "Access Token"
+            },
+            "token_type": {
+              "type": "string",
+              "const": "Bearer",
+              "title": "Token Type",
+              "default": "Bearer"
+            },
+            "expires_in_seconds": {
+              "type": "integer",
+              "exclusiveMinimum": 0.0,
+              "title": "Expires In Seconds"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "access_token",
+            "expires_in_seconds"
+          ],
+          "title": "BrowserTokenIssuePayload",
+          "description": "浏览器令牌响应，只暴露内存使用的 access token。"
+        },
         "BusinessAdminRoleKey": {
           "type": "string",
           "enum": [
@@ -3050,6 +4681,2587 @@
           ],
           "title": "BusinessAdminRoleKey",
           "description": "预定义业务角色键枚举。"
+        },
+        "CodexAgentCredentialResponse": {
+          "properties": {
+            "credential_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Credential Id"
+            },
+            "device_token": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 32,
+              "title": "Device Token"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "credential_id",
+            "device_token"
+          ],
+          "title": "CodexAgentCredentialResponse"
+        },
+        "CodexAgentEnrollRequest": {
+          "properties": {
+            "host_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Host Id"
+            },
+            "pairing_code": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 32,
+              "title": "Pairing Code"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "host_id",
+            "pairing_code"
+          ],
+          "title": "CodexAgentEnrollRequest"
+        },
+        "CodexApprovalAuditSnapshot": {
+          "properties": {
+            "approval_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Approval Id"
+            },
+            "owner_subject_id": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Owner Subject Id"
+            },
+            "host_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Host Id"
+            },
+            "workspace_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workspace Id"
+            },
+            "thread_id": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Thread Id"
+            },
+            "turn_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Turn Id"
+            },
+            "item_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Item Id"
+            },
+            "approval_kind": {
+              "$ref": "#/components/schemas/CodexApprovalKind"
+            },
+            "risk_level": {
+              "$ref": "#/components/schemas/CodexApprovalRiskLevel"
+            },
+            "payload_digest": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 64,
+              "title": "Payload Digest"
+            },
+            "display_summary": {
+              "$ref": "#/components/schemas/CodexApprovalDisplaySummary"
+            },
+            "state": {
+              "$ref": "#/components/schemas/CodexApprovalState"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1.0,
+              "title": "Version"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expires At"
+            },
+            "decided_by": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Decided By"
+            },
+            "decision": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CodexApprovalDecision"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "decided_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Decided At"
+            },
+            "applied_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Applied At"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Created At"
+            },
+            "updated_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Updated At"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "approval_id",
+            "owner_subject_id",
+            "host_id",
+            "thread_id",
+            "approval_kind",
+            "risk_level",
+            "payload_digest",
+            "display_summary",
+            "state",
+            "version",
+            "created_at",
+            "updated_at"
+          ],
+          "title": "CodexApprovalAuditSnapshot",
+          "description": "仅包含脱敏展示摘要的审批审计记录。"
+        },
+        "CodexApprovalCollection": {
+          "properties": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/CodexApprovalAuditSnapshot"
+              },
+              "type": "array",
+              "title": "Items"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "items"
+          ],
+          "title": "CodexApprovalCollection",
+          "description": "当前主体可见的审批摘要集合。"
+        },
+        "CodexApprovalDecision": {
+          "type": "string",
+          "enum": [
+            "accept",
+            "decline",
+            "cancel"
+          ],
+          "title": "CodexApprovalDecision",
+          "description": "一次性审批决定。"
+        },
+        "CodexApprovalDecisionRequest": {
+          "properties": {
+            "decision": {
+              "$ref": "#/components/schemas/CodexApprovalDecision"
+            },
+            "approval_version": {
+              "type": "integer",
+              "minimum": 1.0,
+              "title": "Approval Version"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "decision",
+            "approval_version"
+          ],
+          "title": "CodexApprovalDecisionRequest",
+          "description": "基础一次性审批决定；会话级和额外权限不在此契约。"
+        },
+        "CodexApprovalDisplaySummary": {
+          "properties": {
+            "title": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Title"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Reason"
+            },
+            "workspace_name": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workspace Name"
+            },
+            "risk_level": {
+              "$ref": "#/components/schemas/CodexApprovalRiskLevel"
+            },
+            "command_summary": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Command Summary"
+            },
+            "file_scope": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "maxItems": 64,
+              "title": "File Scope",
+              "default": []
+            },
+            "permission_names": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "maxItems": 64,
+              "title": "Permission Names",
+              "default": []
+            },
+            "network_requested": {
+              "type": "boolean",
+              "title": "Network Requested",
+              "default": false
+            },
+            "extra_root_requested": {
+              "type": "boolean",
+              "title": "Extra Root Requested",
+              "default": false
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "title",
+            "reason",
+            "risk_level"
+          ],
+          "title": "CodexApprovalDisplaySummary",
+          "description": "Agent 清洗后的审批展示字段，禁止包含原始 JSON 或绝对路径。"
+        },
+        "CodexApprovalKind": {
+          "type": "string",
+          "enum": [
+            "command",
+            "file_change",
+            "permissions"
+          ],
+          "title": "CodexApprovalKind",
+          "description": "产品支持的审批类型。"
+        },
+        "CodexApprovalPolicy": {
+          "type": "string",
+          "enum": [
+            "untrusted",
+            "on-request",
+            "never"
+          ],
+          "title": "CodexApprovalPolicy",
+          "description": "允许展示的 App Server 审批策略。"
+        },
+        "CodexApprovalRiskLevel": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "high"
+          ],
+          "title": "CodexApprovalRiskLevel",
+          "description": "审批的增强验证等级。"
+        },
+        "CodexApprovalState": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "claimed",
+            "applied",
+            "delivery_failed",
+            "expired",
+            "cancelled"
+          ],
+          "title": "CodexApprovalState",
+          "description": "审批审计状态。"
+        },
+        "CodexDiffChangeKind": {
+          "type": "string",
+          "enum": [
+            "added",
+            "modified",
+            "deleted",
+            "renamed"
+          ],
+          "title": "CodexDiffChangeKind",
+          "description": "文件变更类型。"
+        },
+        "CodexDiffFileSnapshot": {
+          "properties": {
+            "path": {
+              "type": "string",
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Path"
+            },
+            "old_path": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Old Path"
+            },
+            "change_kind": {
+              "$ref": "#/components/schemas/CodexDiffChangeKind"
+            },
+            "binary": {
+              "type": "boolean",
+              "title": "Binary"
+            },
+            "large": {
+              "type": "boolean",
+              "title": "Large"
+            },
+            "truncated": {
+              "type": "boolean",
+              "title": "Truncated"
+            },
+            "hunks": {
+              "items": {
+                "$ref": "#/components/schemas/CodexDiffHunkSnapshot"
+              },
+              "type": "array",
+              "title": "Hunks"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "path",
+            "change_kind",
+            "binary",
+            "large",
+            "truncated",
+            "hunks"
+          ],
+          "title": "CodexDiffFileSnapshot",
+          "description": "单文件结构化 Diff。"
+        },
+        "CodexDiffHunkSnapshot": {
+          "properties": {
+            "header": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Header"
+            },
+            "old_start": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "Old Start"
+            },
+            "new_start": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "New Start"
+            },
+            "lines": {
+              "items": {
+                "$ref": "#/components/schemas/CodexDiffLineSnapshot"
+              },
+              "type": "array",
+              "title": "Lines"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "old_start",
+            "new_start",
+            "lines"
+          ],
+          "title": "CodexDiffHunkSnapshot",
+          "description": "一个可独立虚拟化的 Diff hunk。"
+        },
+        "CodexDiffLineKind": {
+          "type": "string",
+          "enum": [
+            "context",
+            "addition",
+            "deletion"
+          ],
+          "title": "CodexDiffLineKind",
+          "description": "Diff 行类型。"
+        },
+        "CodexDiffLineSnapshot": {
+          "properties": {
+            "kind": {
+              "$ref": "#/components/schemas/CodexDiffLineKind"
+            },
+            "content": {
+              "type": "string",
+              "maxLength": 4096,
+              "title": "Content"
+            },
+            "old_line_number": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Old Line Number"
+            },
+            "new_line_number": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "New Line Number"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "content"
+          ],
+          "title": "CodexDiffLineSnapshot",
+          "description": "携带旧、新行号的单行 Diff。"
+        },
+        "CodexDiffSnapshot": {
+          "properties": {
+            "files": {
+              "items": {
+                "$ref": "#/components/schemas/CodexDiffFileSnapshot"
+              },
+              "type": "array",
+              "title": "Files"
+            },
+            "total_characters": {
+              "type": "integer",
+              "minimum": 0.0,
+              "title": "Total Characters"
+            },
+            "truncated": {
+              "type": "boolean",
+              "title": "Truncated"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "files",
+            "total_characters",
+            "truncated"
+          ],
+          "title": "CodexDiffSnapshot",
+          "description": "一次 turn 的结构化文件变更集合。"
+        },
+        "CodexExecutionOptions": {
+          "properties": {
+            "model": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128,
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model"
+            },
+            "reasoning_effort": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64,
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reasoning Effort"
+            },
+            "sandbox_mode": {
+              "$ref": "#/components/schemas/CodexSandboxMode",
+              "default": "workspace-write"
+            },
+            "approval_policy": {
+              "$ref": "#/components/schemas/CodexApprovalPolicy",
+              "default": "untrusted"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "CodexExecutionOptions",
+          "description": "由 Agent capability 限定的执行选项。"
+        },
+        "CodexHostCapabilities": {
+          "properties": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/AppServerCapabilityDetail"
+              },
+              "type": "array",
+              "title": "Items",
+              "default": []
+            },
+            "model_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Model Ids",
+              "default": []
+            },
+            "reasoning_efforts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Reasoning Efforts",
+              "default": []
+            },
+            "sandbox_modes": {
+              "items": {
+                "$ref": "#/components/schemas/CodexSandboxMode"
+              },
+              "type": "array",
+              "title": "Sandbox Modes",
+              "default": [
+                "workspace-write"
+              ]
+            },
+            "approval_policies": {
+              "items": {
+                "$ref": "#/components/schemas/CodexApprovalPolicy"
+              },
+              "type": "array",
+              "title": "Approval Policies",
+              "default": [
+                "untrusted"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "CodexHostCapabilities",
+          "description": "主机已协商的封闭 capability 明细。"
+        },
+        "CodexHostCollection": {
+          "properties": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/CodexHostSnapshot"
+              },
+              "type": "array",
+              "title": "Items"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "items"
+          ],
+          "title": "CodexHostCollection",
+          "description": "当前主体可见的主机集合。"
+        },
+        "CodexHostCompatibilityDetail": {
+          "properties": {
+            "state": {
+              "$ref": "#/components/schemas/CodexHostCompatibilityState",
+              "default": "unknown"
+            },
+            "reason_code": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason Code"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "CodexHostCompatibilityDetail",
+          "description": "主机兼容性强类型摘要。"
+        },
+        "CodexHostCompatibilityState": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "compatible",
+            "read_only",
+            "upgrade_required",
+            "blocked"
+          ],
+          "title": "CodexHostCompatibilityState",
+          "description": "主机兼容性展示状态。"
+        },
+        "CodexHostDoctorDetail": {
+          "properties": {
+            "state": {
+              "$ref": "#/components/schemas/CodexHostDoctorState",
+              "default": "unknown"
+            },
+            "checked_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Checked At"
+            },
+            "issue_codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Issue Codes",
+              "default": []
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "CodexHostDoctorDetail",
+          "description": "Agent doctor 脱敏摘要。"
+        },
+        "CodexHostDoctorState": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "healthy",
+            "degraded",
+            "blocked"
+          ],
+          "title": "CodexHostDoctorState",
+          "description": "最近一次 Agent doctor 结果状态。"
+        },
+        "CodexHostRenameRequest": {
+          "properties": {
+            "display_name": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Display Name"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "display_name"
+          ],
+          "title": "CodexHostRenameRequest",
+          "description": "主机重命名强类型请求。"
+        },
+        "CodexHostRevokeRequest": {
+          "properties": {
+            "step_up_token": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 32,
+              "title": "Step Up Token"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "step_up_token"
+          ],
+          "title": "CodexHostRevokeRequest",
+          "description": "主机撤销的增强授权请求。"
+        },
+        "CodexHostSnapshot": {
+          "properties": {
+            "host_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Host Id"
+            },
+            "owner_subject_id": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Owner Subject Id"
+            },
+            "display_name": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Display Name"
+            },
+            "platform": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Platform"
+            },
+            "agent_version": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent Version"
+            },
+            "codex_version": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Codex Version"
+            },
+            "agent_protocol_version": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent Protocol Version"
+            },
+            "app_server_schema_digest": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "App Server Schema Digest"
+            },
+            "status": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1,
+              "title": "Status"
+            },
+            "capabilities": {
+              "$ref": "#/components/schemas/CodexHostCapabilities"
+            },
+            "compatibility": {
+              "$ref": "#/components/schemas/CodexHostCompatibilityDetail"
+            },
+            "update": {
+              "$ref": "#/components/schemas/CodexHostUpdateDetail"
+            },
+            "doctor": {
+              "$ref": "#/components/schemas/CodexHostDoctorDetail"
+            },
+            "last_seen_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Seen At"
+            },
+            "revoked_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revoked At"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Created At"
+            },
+            "updated_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Updated At"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1.0,
+              "title": "Version"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "host_id",
+            "owner_subject_id",
+            "display_name",
+            "platform",
+            "status",
+            "created_at",
+            "updated_at",
+            "version"
+          ],
+          "title": "CodexHostSnapshot",
+          "description": "控制面持久化的主机脱敏快照。"
+        },
+        "CodexHostUpdateDetail": {
+          "properties": {
+            "state": {
+              "$ref": "#/components/schemas/CodexHostUpdateState",
+              "default": "unknown"
+            },
+            "channel": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1,
+              "title": "Channel",
+              "default": "stable"
+            },
+            "current_version": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Current Version"
+            },
+            "target_version": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Version"
+            },
+            "last_checked_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Checked At"
+            },
+            "last_result": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Result"
+            },
+            "security_deadline": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Security Deadline"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "CodexHostUpdateDetail",
+          "description": "Agent/Codex bundle 更新摘要。"
+        },
+        "CodexHostUpdateState": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "current",
+            "available",
+            "updating",
+            "failed"
+          ],
+          "title": "CodexHostUpdateState",
+          "description": "主机更新展示状态。"
+        },
+        "CodexOperationAccepted": {
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            },
+            "command_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Command Id"
+            },
+            "status": {
+              "type": "string",
+              "title": "Status"
+            },
+            "replayed": {
+              "type": "boolean",
+              "title": "Replayed",
+              "default": false
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "operation_id",
+            "command_id",
+            "status"
+          ],
+          "title": "CodexOperationAccepted",
+          "description": "HTTP 202 返回的稳定 operation 身份。"
+        },
+        "CodexPairingCodeRequest": {
+          "properties": {
+            "display_name": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Display Name"
+            },
+            "platform": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Platform"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "display_name",
+            "platform"
+          ],
+          "title": "CodexPairingCodeRequest"
+        },
+        "CodexPairingCodeResponse": {
+          "properties": {
+            "host_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Host Id"
+            },
+            "pairing_code": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 32,
+              "title": "Pairing Code"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Expires At"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "host_id",
+            "pairing_code",
+            "expires_at"
+          ],
+          "title": "CodexPairingCodeResponse"
+        },
+        "CodexPlanStepSnapshot": {
+          "properties": {
+            "step": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "Step"
+            },
+            "status": {
+              "$ref": "#/components/schemas/CodexPlanStepStatus"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "step",
+            "status"
+          ],
+          "title": "CodexPlanStepSnapshot",
+          "description": "浏览器可直接渲染的计划步骤。"
+        },
+        "CodexPlanStepStatus": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "in_progress",
+            "completed"
+          ],
+          "title": "CodexPlanStepStatus",
+          "description": "结构化计划步骤状态。"
+        },
+        "CodexRealtimeTicket": {
+          "properties": {
+            "ticket": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 32,
+              "title": "Ticket"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Expires At"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "ticket",
+            "expires_at"
+          ],
+          "title": "CodexRealtimeTicket",
+          "description": "只在签发响应中出现一次的浏览器 WebSocket 票据。"
+        },
+        "CodexSandboxMode": {
+          "type": "string",
+          "enum": [
+            "read-only",
+            "workspace-write",
+            "danger-full-access"
+          ],
+          "title": "CodexSandboxMode",
+          "description": "允许展示的 App Server 沙箱模式。"
+        },
+        "CodexThreadAuthoritySnapshot": {
+          "properties": {
+            "thread": {
+              "$ref": "#/components/schemas/CodexThreadIndexSnapshot"
+            },
+            "turns": {
+              "items": {
+                "$ref": "#/components/schemas/CodexTurnSnapshot"
+              },
+              "type": "array",
+              "title": "Turns"
+            },
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/CodexTimelineItemSnapshot"
+              },
+              "type": "array",
+              "title": "Items"
+            },
+            "history_status": {
+              "type": "string",
+              "enum": [
+                "complete",
+                "not_requested",
+                "omitted_too_large",
+                "not_available_yet"
+              ],
+              "title": "History Status",
+              "default": "complete"
+            },
+            "next_history_cursor": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Next History Cursor"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "thread",
+            "turns",
+            "items"
+          ],
+          "title": "CodexThreadAuthoritySnapshot",
+          "description": "App Server thread/read 正文与 PostgreSQL 所有权索引的组合响应。"
+        },
+        "CodexThreadCreateRequest": {
+          "properties": {
+            "workspace_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            },
+            "execution": {
+              "$ref": "#/components/schemas/CodexExecutionOptions"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "workspace_id"
+          ],
+          "title": "CodexThreadCreateRequest",
+          "description": "创建本地持久 thread 的产品请求。"
+        },
+        "CodexThreadIndexCollection": {
+          "properties": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/CodexThreadIndexSnapshot"
+              },
+              "type": "array",
+              "title": "Items"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "items"
+          ],
+          "title": "CodexThreadIndexCollection",
+          "description": "线程索引集合响应。"
+        },
+        "CodexThreadIndexSnapshot": {
+          "properties": {
+            "thread_index_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Thread Index Id"
+            },
+            "host_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Host Id"
+            },
+            "workspace_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            },
+            "owner_subject_id": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Owner Subject Id"
+            },
+            "upstream_thread_id": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Upstream Thread Id"
+            },
+            "display_name": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Display Name"
+            },
+            "model": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model"
+            },
+            "reasoning_effort": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reasoning Effort"
+            },
+            "status": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1,
+              "title": "Status"
+            },
+            "active_turn_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Active Turn Id"
+            },
+            "archived": {
+              "type": "boolean",
+              "title": "Archived"
+            },
+            "source_kind": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Kind"
+            },
+            "created_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created At"
+            },
+            "updated_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Updated At"
+            },
+            "last_synced_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Last Synced At"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "thread_index_id",
+            "host_id",
+            "workspace_id",
+            "owner_subject_id",
+            "upstream_thread_id",
+            "status",
+            "archived",
+            "updated_at",
+            "last_synced_at"
+          ],
+          "title": "CodexThreadIndexSnapshot",
+          "description": "控制面线程索引；不包含消息、代码或 Diff 正文。"
+        },
+        "CodexTimelineItemSnapshot": {
+          "properties": {
+            "item_id": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Item Id"
+            },
+            "thread_id": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Thread Id"
+            },
+            "turn_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Turn Id"
+            },
+            "kind": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Kind"
+            },
+            "status": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1,
+              "title": "Status"
+            },
+            "created_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created At"
+            },
+            "text": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Text"
+            },
+            "explanation": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Explanation"
+            },
+            "steps": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/CodexPlanStepSnapshot"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Steps"
+            },
+            "command": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Command"
+            },
+            "output": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Output"
+            },
+            "exit_code": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exit Code"
+            },
+            "diff": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CodexDiffSnapshot"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Label"
+            },
+            "detail": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Detail"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "item_id",
+            "thread_id",
+            "kind",
+            "status"
+          ],
+          "title": "CodexTimelineItemSnapshot",
+          "description": "稳定浏览器时间线条目，类型专用字段保持显式可空。"
+        },
+        "CodexTurnSnapshot": {
+          "properties": {
+            "turn_id": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Turn Id"
+            },
+            "thread_id": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Thread Id"
+            },
+            "status": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1,
+              "title": "Status"
+            },
+            "started_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Started At"
+            },
+            "completed_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Completed At"
+            },
+            "error_message": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error Message"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "turn_id",
+            "thread_id",
+            "status"
+          ],
+          "title": "CodexTurnSnapshot",
+          "description": "浏览器权威 thread snapshot 中的 turn。"
+        },
+        "CodexTurnStartRequest": {
+          "properties": {
+            "message": {
+              "type": "string",
+              "maxLength": 200000,
+              "minLength": 1,
+              "title": "Message"
+            },
+            "execution": {
+              "$ref": "#/components/schemas/CodexExecutionOptions"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "message"
+          ],
+          "title": "CodexTurnStartRequest",
+          "description": "向已有 thread 发起文本 turn 的产品请求。"
+        },
+        "CodexWorkspaceCollection": {
+          "properties": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/CodexWorkspaceSnapshot"
+              },
+              "type": "array",
+              "title": "Items"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "items"
+          ],
+          "title": "CodexWorkspaceCollection",
+          "description": "当前主体在指定主机下可见的工作区集合。"
+        },
+        "CodexWorkspaceSnapshot": {
+          "properties": {
+            "workspace_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            },
+            "host_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Host Id"
+            },
+            "owner_subject_id": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Owner Subject Id"
+            },
+            "agent_workspace_key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Agent Workspace Key"
+            },
+            "display_name": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Display Name"
+            },
+            "repo_fingerprint": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Repo Fingerprint"
+            },
+            "default_branch": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Default Branch"
+            },
+            "worktree_policy": {
+              "$ref": "#/components/schemas/GitWorktreePolicy"
+            },
+            "enabled": {
+              "type": "boolean",
+              "title": "Enabled"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Created At"
+            },
+            "updated_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Updated At"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1.0,
+              "title": "Version"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "workspace_id",
+            "host_id",
+            "owner_subject_id",
+            "agent_workspace_key",
+            "display_name",
+            "enabled",
+            "created_at",
+            "updated_at",
+            "version"
+          ],
+          "title": "CodexWorkspaceSnapshot",
+          "description": "不暴露本机绝对路径的工作区快照。"
+        },
+        "CodexWorkspaceUpdateRequest": {
+          "properties": {
+            "display_name": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128,
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Display Name"
+            },
+            "enabled": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Enabled"
+            },
+            "worktree_policy": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CodexWorkspaceWorktreePolicyUpdate"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "CodexWorkspaceUpdateRequest",
+          "description": "工作区名称、启用状态与隔离策略的更新请求。"
+        },
+        "CodexWorkspaceWorktreePolicyUpdate": {
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "title": "Enabled",
+              "default": false
+            },
+            "base_branch": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Base Branch",
+              "default": "HEAD"
+            },
+            "max_active": {
+              "type": "integer",
+              "maximum": 128.0,
+              "minimum": 1.0,
+              "title": "Max Active",
+              "default": 4
+            },
+            "retention_seconds": {
+              "type": "integer",
+              "maximum": 31536000.0,
+              "exclusiveMinimum": 0.0,
+              "title": "Retention Seconds",
+              "default": 604800
+            },
+            "disk_watermark_percent": {
+              "type": "integer",
+              "maximum": 99.0,
+              "minimum": 1.0,
+              "title": "Disk Watermark Percent",
+              "default": 85
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "CodexWorkspaceWorktreePolicyUpdate",
+          "description": "浏览器可修改的 worktree 策略字段。"
+        },
+        "DeviceAuthorizationCreateDetail": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "create",
+              "title": "Kind",
+              "default": "create"
+            },
+            "key_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key Id"
+            },
+            "display_name": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Display Name"
+            },
+            "platform": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Platform"
+            },
+            "public_key_base64": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 43,
+              "title": "Public Key Base64"
+            },
+            "nonce": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 32,
+              "title": "Nonce"
+            },
+            "nonce_signature_base64": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 86,
+              "title": "Nonce Signature Base64"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "key_id",
+            "display_name",
+            "platform",
+            "public_key_base64",
+            "nonce",
+            "nonce_signature_base64"
+          ],
+          "title": "DeviceAuthorizationCreateDetail",
+          "description": "Agent 创建设备授权的输入。"
+        },
+        "DeviceAuthorizationCreateRequestEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/DeviceAuthorizationRequestHeader"
+            },
+            "detail": {
+              "$ref": "#/components/schemas/DeviceAuthorizationCreateDetail"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "DeviceAuthorizationCreateRequestEnvelope",
+          "description": "Agent 创建设备授权的公共头与强类型扩展字段。"
+        },
+        "DeviceAuthorizationDecideRequest": {
+          "properties": {
+            "enrollment_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            },
+            "user_code": {
+              "type": "string",
+              "maxLength": 16,
+              "minLength": 6,
+              "title": "User Code"
+            },
+            "decision": {
+              "$ref": "#/components/schemas/DeviceAuthorizationDecision"
+            },
+            "idempotency_key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency Key"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "enrollment_id",
+            "user_code",
+            "decision",
+            "idempotency_key"
+          ],
+          "title": "DeviceAuthorizationDecideRequest",
+          "description": "浏览器批准或拒绝设备。"
+        },
+        "DeviceAuthorizationDecideRequestEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/DeviceAuthorizationRequestHeader"
+            },
+            "detail": {
+              "$ref": "#/components/schemas/DeviceAuthorizationDecideRequest"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "DeviceAuthorizationDecideRequestEnvelope",
+          "description": "浏览器决定设备授权的公共头与强类型扩展字段。"
+        },
+        "DeviceAuthorizationDecision": {
+          "type": "string",
+          "enum": [
+            "approve",
+            "deny"
+          ],
+          "title": "DeviceAuthorizationDecision",
+          "description": "浏览器对设备请求的决定。"
+        },
+        "DeviceAuthorizationEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/DeviceAuthorizationHeader"
+            },
+            "detail": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DeviceAuthorizationCreateDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/DeviceAuthorizationIssuedDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/DeviceAuthorizationStatusDetail"
+                }
+              ],
+              "title": "Detail",
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "create": "#/components/schemas/DeviceAuthorizationCreateDetail",
+                  "issued": "#/components/schemas/DeviceAuthorizationIssuedDetail",
+                  "status": "#/components/schemas/DeviceAuthorizationStatusDetail"
+                }
+              }
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "DeviceAuthorizationEnvelope",
+          "description": "设备授权公共头与强类型扩展字段信封。"
+        },
+        "DeviceAuthorizationHeader": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "codex_device_authorization",
+              "title": "Kind",
+              "default": "codex_device_authorization"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "enrollment_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "enrollment_id"
+          ],
+          "title": "DeviceAuthorizationHeader",
+          "description": "所有设备授权消息的公共头。"
+        },
+        "DeviceAuthorizationIssuedDetail": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "issued",
+              "title": "Kind",
+              "default": "issued"
+            },
+            "device_code": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 32,
+              "title": "Device Code"
+            },
+            "user_code": {
+              "type": "string",
+              "maxLength": 16,
+              "minLength": 6,
+              "title": "User Code"
+            },
+            "verification_uri": {
+              "type": "string",
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Verification Uri"
+            },
+            "interval_seconds": {
+              "type": "integer",
+              "maximum": 60.0,
+              "minimum": 1.0,
+              "title": "Interval Seconds"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Expires At"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "device_code",
+            "user_code",
+            "verification_uri",
+            "interval_seconds",
+            "expires_at"
+          ],
+          "title": "DeviceAuthorizationIssuedDetail",
+          "description": "仅创建响应中返回一次的 device code 与 user code。"
+        },
+        "DeviceAuthorizationPollRequest": {
+          "properties": {
+            "enrollment_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            },
+            "device_code": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 32,
+              "title": "Device Code"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "enrollment_id",
+            "device_code"
+          ],
+          "title": "DeviceAuthorizationPollRequest",
+          "description": "Agent 使用 device code 轮询。"
+        },
+        "DeviceAuthorizationPollRequestEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/DeviceAuthorizationRequestHeader"
+            },
+            "detail": {
+              "$ref": "#/components/schemas/DeviceAuthorizationPollRequest"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "DeviceAuthorizationPollRequestEnvelope",
+          "description": "Agent 轮询设备授权的公共头与强类型扩展字段。"
+        },
+        "DeviceAuthorizationRequestHeader": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "codex_device_authorization",
+              "title": "Kind",
+              "default": "codex_device_authorization"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "request_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "request_id"
+          ],
+          "title": "DeviceAuthorizationRequestHeader",
+          "description": "设备授权 HTTP 请求的公共头。"
+        },
+        "DeviceAuthorizationState": {
+          "type": "string",
+          "enum": [
+            "pending_user",
+            "approving",
+            "approved",
+            "denied",
+            "expired",
+            "cancelled",
+            "consumed"
+          ],
+          "title": "DeviceAuthorizationState",
+          "description": "设备授权状态封闭集合。"
+        },
+        "DeviceAuthorizationStatusDetail": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "status",
+              "title": "Kind",
+              "default": "status"
+            },
+            "state": {
+              "$ref": "#/components/schemas/DeviceAuthorizationState"
+            },
+            "display_name": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Display Name"
+            },
+            "platform": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Platform"
+            },
+            "public_key_fingerprint": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 64,
+              "title": "Public Key Fingerprint"
+            },
+            "interval_seconds": {
+              "type": "integer",
+              "maximum": 60.0,
+              "minimum": 1.0,
+              "title": "Interval Seconds"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Expires At"
+            },
+            "host_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Host Id"
+            },
+            "key_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Key Id"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "state",
+            "display_name",
+            "platform",
+            "public_key_fingerprint",
+            "interval_seconds",
+            "expires_at"
+          ],
+          "title": "DeviceAuthorizationStatusDetail",
+          "description": "Agent 轮询或浏览器读取的脱敏状态。"
+        },
+        "DeviceChallengeIssue": {
+          "properties": {
+            "challenge_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Challenge Id"
+            },
+            "host_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Host Id"
+            },
+            "key_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key Id"
+            },
+            "nonce": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 32,
+              "title": "Nonce"
+            },
+            "audience": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Audience"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Issued At"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Expires At"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "challenge_id",
+            "host_id",
+            "key_id",
+            "nonce",
+            "audience",
+            "issued_at",
+            "expires_at"
+          ],
+          "title": "DeviceChallengeIssue",
+          "description": "服务端签名挑战。"
+        },
+        "DeviceChallengeIssueRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "challenge.issue",
+              "title": "Kind",
+              "default": "challenge.issue"
+            },
+            "host_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Host Id"
+            },
+            "key_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key Id"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "host_id",
+            "key_id"
+          ],
+          "title": "DeviceChallengeIssueRequest",
+          "description": "Agent 申请挑战的强类型扩展字段。"
+        },
+        "DeviceChallengeIssueRequestEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/DeviceChallengeRequestHeader"
+            },
+            "detail": {
+              "$ref": "#/components/schemas/DeviceChallengeIssueRequest"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "DeviceChallengeIssueRequestEnvelope",
+          "description": "挑战签发请求信封。"
+        },
+        "DeviceChallengeProof": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "challenge.proof",
+              "title": "Kind",
+              "default": "challenge.proof"
+            },
+            "challenge_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Challenge Id"
+            },
+            "host_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Host Id"
+            },
+            "key_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key Id"
+            },
+            "signature_base64": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 86,
+              "title": "Signature Base64"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "challenge_id",
+            "host_id",
+            "key_id",
+            "signature_base64"
+          ],
+          "title": "DeviceChallengeProof",
+          "description": "Agent 对 canonical challenge bytes 的签名证明。"
+        },
+        "DeviceChallengeProofRequestEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/DeviceChallengeRequestHeader"
+            },
+            "detail": {
+              "$ref": "#/components/schemas/DeviceChallengeProof"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "DeviceChallengeProofRequestEnvelope",
+          "description": "挑战证明请求信封。"
+        },
+        "DeviceChallengeRequestHeader": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "codex_device_challenge",
+              "title": "Kind",
+              "default": "codex_device_challenge"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "request_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "request_id"
+          ],
+          "title": "DeviceChallengeRequestHeader",
+          "description": "设备挑战 HTTP 请求公共头。"
+        },
+        "DeviceKeyRotationStartDetail": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "key_rotation.start",
+              "title": "Kind",
+              "default": "key_rotation.start"
+            },
+            "proof": {
+              "$ref": "#/components/schemas/DeviceChallengeProof"
+            },
+            "new_key_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "New Key Id"
+            },
+            "display_name": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Display Name"
+            },
+            "platform": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Platform"
+            },
+            "public_key_base64": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 43,
+              "title": "Public Key Base64"
+            },
+            "nonce": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 32,
+              "title": "Nonce"
+            },
+            "nonce_signature_base64": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 86,
+              "title": "Nonce Signature Base64"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "proof",
+            "new_key_id",
+            "display_name",
+            "platform",
+            "public_key_base64",
+            "nonce",
+            "nonce_signature_base64"
+          ],
+          "title": "DeviceKeyRotationStartDetail",
+          "description": "旧 key 证明通过后登记新公钥的请求扩展。"
+        },
+        "DeviceKeyRotationStartRequestEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/DeviceChallengeRequestHeader"
+            },
+            "detail": {
+              "$ref": "#/components/schemas/DeviceKeyRotationStartDetail"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "DeviceKeyRotationStartRequestEnvelope",
+          "description": "设备 key rotation 公共头与强类型扩展字段。"
+        },
+        "GitWorktreePolicy": {
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "title": "Enabled",
+              "default": false
+            },
+            "managed_root": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "path"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Managed Root"
+            },
+            "base_branch": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Base Branch",
+              "default": "HEAD"
+            },
+            "max_active": {
+              "type": "integer",
+              "maximum": 128.0,
+              "minimum": 1.0,
+              "title": "Max Active",
+              "default": 4
+            },
+            "retention_seconds": {
+              "type": "integer",
+              "maximum": 31536000.0,
+              "exclusiveMinimum": 0.0,
+              "title": "Retention Seconds",
+              "default": 604800
+            },
+            "disk_watermark_percent": {
+              "type": "integer",
+              "maximum": 99.0,
+              "minimum": 1.0,
+              "title": "Disk Watermark Percent",
+              "default": 85
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "GitWorktreePolicy",
+          "description": "工作区隔离策略，默认关闭。"
         },
         "HTTPValidationError": {
           "properties": {
@@ -3145,6 +7357,210 @@
           ],
           "title": "ResponseEnvelope[AuthenticatedPrincipal]"
         },
+        "ResponseEnvelope_BrowserTokenIssuePayload_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/BrowserTokenIssuePayload"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[BrowserTokenIssuePayload]"
+        },
+        "ResponseEnvelope_CodexApprovalCollection_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexApprovalCollection"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexApprovalCollection]"
+        },
+        "ResponseEnvelope_CodexHostCollection_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexHostCollection"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexHostCollection]"
+        },
+        "ResponseEnvelope_CodexHostSnapshot_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexHostSnapshot"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexHostSnapshot]"
+        },
+        "ResponseEnvelope_CodexOperationAccepted_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexOperationAccepted"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexOperationAccepted]"
+        },
+        "ResponseEnvelope_CodexPairingCodeResponse_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexPairingCodeResponse"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexPairingCodeResponse]"
+        },
+        "ResponseEnvelope_CodexRealtimeTicket_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexRealtimeTicket"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexRealtimeTicket]"
+        },
+        "ResponseEnvelope_CodexThreadAuthoritySnapshot_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexThreadAuthoritySnapshot"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexThreadAuthoritySnapshot]"
+        },
+        "ResponseEnvelope_CodexThreadIndexCollection_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexThreadIndexCollection"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexThreadIndexCollection]"
+        },
+        "ResponseEnvelope_CodexWorkspaceCollection_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexWorkspaceCollection"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexWorkspaceCollection]"
+        },
+        "ResponseEnvelope_CodexWorkspaceSnapshot_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexWorkspaceSnapshot"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexWorkspaceSnapshot]"
+        },
+        "ResponseEnvelope_DeviceAuthorizationEnvelope_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/DeviceAuthorizationEnvelope"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[DeviceAuthorizationEnvelope]"
+        },
         "ResponseEnvelope_HealthProbePayload_": {
           "properties": {
             "header": {
@@ -3161,6 +7577,23 @@
             "data"
           ],
           "title": "ResponseEnvelope[HealthProbePayload]"
+        },
+        "ResponseEnvelope_StepUpGrantPayload_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/StepUpGrantPayload"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[StepUpGrantPayload]"
         },
         "ResponseEnvelope_TokenIssuePayload_": {
           "properties": {
@@ -3232,6 +7665,52 @@
           ],
           "title": "ResponseHeader",
           "description": "响应头Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar code: 统一响应码。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype code: str\n:ivar message: 消息文本。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于承载当前对象中的业务状态。\n:vartype message: str\n:ivar request_id: 请求唯一标识。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于唯一标识对应实体。\n:vartype request_id: str\n:ivar trace_id: 链路追踪标识。约束：需符合 ``str | None`` 注解；允许为空值。默认值：无，必须显式提供。取值语义：用于唯一标识对应实体。\n:vartype trace_id: str | None"
+        },
+        "StepUpGrantPayload": {
+          "properties": {
+            "grant_token": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 32,
+              "title": "Grant Token"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Expires At"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "grant_token",
+            "expires_at"
+          ],
+          "title": "StepUpGrantPayload",
+          "description": "短时一次性增强授权 grant。"
+        },
+        "StepUpGrantRequest": {
+          "properties": {
+            "password": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Password"
+            },
+            "purpose": {
+              "type": "string",
+              "const": "codex.high_risk_approval",
+              "title": "Purpose"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "password",
+            "purpose"
+          ],
+          "title": "StepUpGrantRequest",
+          "description": "增强验证请求；密码只在当前请求内使用。"
         },
         "StreamAccessTicketEnvelope": {
           "properties": {
@@ -3785,6 +8264,31 @@
       "operation_id": "replace_user_roles_admin_users__subject_id__roles_post"
     },
     {
+      "path": "/auth/browser/refresh",
+      "method": "POST",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "post_browser_refresh_auth_browser_refresh_post"
+    },
+    {
+      "path": "/auth/browser/revoke",
+      "method": "POST",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "post_browser_revoke_auth_browser_revoke_post"
+    },
+    {
+      "path": "/auth/browser/token",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "post_browser_token_auth_browser_token_post"
+    },
+    {
       "path": "/auth/me",
       "method": "GET",
       "status_codes": [
@@ -3811,6 +8315,15 @@
       "operation_id": "post_revoke_auth_revoke_post"
     },
     {
+      "path": "/auth/step-up",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "post_step_up_auth_step_up_post"
+    },
+    {
       "path": "/auth/token",
       "method": "POST",
       "status_codes": [
@@ -3818,6 +8331,174 @@
         422
       ],
       "operation_id": "post_token_auth_token_post"
+    },
+    {
+      "path": "/codex/approvals",
+      "method": "GET",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "get_approvals_codex_approvals_get"
+    },
+    {
+      "path": "/codex/approvals/{approval_id}/decision",
+      "method": "POST",
+      "status_codes": [
+        202,
+        422
+      ],
+      "operation_id": "decide_approval_codex_approvals__approval_id__decision_post"
+    },
+    {
+      "path": "/codex/device-authorizations/decisions",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "decide_authorization_codex_device_authorizations_decisions_post"
+    },
+    {
+      "path": "/codex/device-authorizations/{user_code}",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "read_authorization_codex_device_authorizations__user_code__get"
+    },
+    {
+      "path": "/codex/hosts",
+      "method": "GET",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "get_hosts_codex_hosts_get"
+    },
+    {
+      "path": "/codex/hosts/pairing-codes",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "create_pairing_code_codex_hosts_pairing_codes_post"
+    },
+    {
+      "path": "/codex/hosts/{host_id}",
+      "method": "PATCH",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "rename_host_codex_hosts__host_id__patch"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/revoke",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "revoke_host_codex_hosts__host_id__revoke_post"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "get_threads_codex_hosts__host_id__threads_get"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads",
+      "method": "POST",
+      "status_codes": [
+        202,
+        422
+      ],
+      "operation_id": "create_thread_codex_hosts__host_id__threads_post"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads/{thread_id}",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "get_thread_codex_hosts__host_id__threads__thread_id__get"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads/{thread_id}/compact",
+      "method": "POST",
+      "status_codes": [
+        202,
+        422
+      ],
+      "operation_id": "compact_thread_codex_hosts__host_id__threads__thread_id__compact_post"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads/{thread_id}/interrupt",
+      "method": "POST",
+      "status_codes": [
+        202,
+        422
+      ],
+      "operation_id": "interrupt_turn_codex_hosts__host_id__threads__thread_id__interrupt_post"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads/{thread_id}/resume",
+      "method": "POST",
+      "status_codes": [
+        202,
+        422
+      ],
+      "operation_id": "resume_thread_codex_hosts__host_id__threads__thread_id__resume_post"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads/{thread_id}/steer",
+      "method": "POST",
+      "status_codes": [
+        202,
+        422
+      ],
+      "operation_id": "steer_turn_codex_hosts__host_id__threads__thread_id__steer_post"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads/{thread_id}/turns",
+      "method": "POST",
+      "status_codes": [
+        202,
+        422
+      ],
+      "operation_id": "start_turn_codex_hosts__host_id__threads__thread_id__turns_post"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/workspaces",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "get_workspaces_codex_hosts__host_id__workspaces_get"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/workspaces/{workspace_id}",
+      "method": "PATCH",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "update_workspace_codex_hosts__host_id__workspaces__workspace_id__patch"
+    },
+    {
+      "path": "/codex/realtime-tickets",
+      "method": "POST",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "issue_ticket_codex_realtime_tickets_post"
     },
     {
       "path": "/health/live",
@@ -3834,6 +8515,68 @@
         200
       ],
       "operation_id": "get_ready_health_ready_get"
+    },
+    {
+      "path": "/internal/codex-agents/connection-tickets",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "verify_challenge_internal_codex_agents_connection_tickets_post"
+    },
+    {
+      "path": "/internal/codex-agents/device-authorizations",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "create_authorization_internal_codex_agents_device_authorizations_post"
+    },
+    {
+      "path": "/internal/codex-agents/device-authorizations/poll",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "poll_authorization_internal_codex_agents_device_authorizations_poll_post"
+    },
+    {
+      "path": "/internal/codex-agents/device-challenges",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "issue_challenge_internal_codex_agents_device_challenges_post"
+    },
+    {
+      "path": "/internal/codex-agents/device-key-rotations",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "start_key_rotation_internal_codex_agents_device_key_rotations_post"
+    },
+    {
+      "path": "/internal/codex-agents/enroll",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "enroll_internal_codex_agents_enroll_post"
+    },
+    {
+      "path": "/internal/codex-agents/rotate-credential",
+      "method": "POST",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "rotate_credential_internal_codex_agents_rotate_credential_post"
     },
     {
       "path": "/testing/stream/batch",
@@ -3928,6 +8671,24 @@
       ]
     },
     {
+      "path": "config\\modules\\codex_control_module\\codex_control_module_base.toml",
+      "keys": [
+        "module.personal_mvp_only"
+      ]
+    },
+    {
+      "path": "config\\modules\\codex_control_module\\codex_control_module_development.toml",
+      "keys": []
+    },
+    {
+      "path": "config\\modules\\codex_control_module\\codex_control_module_production.toml",
+      "keys": []
+    },
+    {
+      "path": "config\\modules\\codex_control_module\\codex_control_module_test.toml",
+      "keys": []
+    },
+    {
       "path": "config\\modules\\system_module\\system_module_base.toml",
       "keys": [
         "module.overview_title",
@@ -3964,6 +8725,22 @@
         "module.default_job_kind",
         "module.default_retry_limit",
         "module.registrations"
+      ]
+    },
+    {
+      "path": "config\\runtime\\artifact_release_runtime\\artifact_release_runtime_base.toml",
+      "keys": [
+        "runtime.enabled",
+        "runtime.health_timeout_seconds",
+        "runtime.max_download_bytes",
+        "runtime.minimum_security_version",
+        "runtime.repository_host_allowlist",
+        "runtime.repository_url",
+        "runtime.request_timeout_seconds",
+        "runtime.retained_versions",
+        "runtime.rollback_budget",
+        "runtime.staging_root",
+        "runtime.trusted_root_path"
       ]
     },
     {
@@ -4012,10 +8789,7 @@
       "keys": [
         "runtime.backend",
         "runtime.backend_detail.kind",
-        "runtime.backend_detail.max_connections",
-        "runtime.backend_detail.redis_url",
         "runtime.backend_detail.schema_version",
-        "runtime.backend_detail.socket_connect_timeout_seconds",
         "runtime.default_ttl_seconds",
         "runtime.key_prefix",
         "runtime.namespace_policies"
@@ -4029,6 +8803,70 @@
         "runtime.backend_detail.schema_version",
         "runtime.key_prefix",
         "runtime.namespace_policies"
+      ]
+    },
+    {
+      "path": "config\\runtime\\codex_control_runtime\\codex_control_runtime_base.toml",
+      "keys": [
+        "runtime.agent_event_replay_buffer_size",
+        "runtime.agent_heartbeat_seconds",
+        "runtime.agent_offline_after_seconds",
+        "runtime.agent_outgoing_queue_size",
+        "runtime.agent_reconnect_max_seconds",
+        "runtime.agent_reconnect_min_seconds",
+        "runtime.agent_rpc_ack_timeout_seconds",
+        "runtime.allow_experimental_app_server_api",
+        "runtime.allow_legacy_agent_bearer",
+        "runtime.allowed_codex_versions",
+        "runtime.browser_event_queue_size",
+        "runtime.browser_event_replay_max_events",
+        "runtime.browser_event_replay_ttl_seconds",
+        "runtime.browser_replay_read_limit",
+        "runtime.command_outbox_batch_size",
+        "runtime.command_outbox_completed_retention_seconds",
+        "runtime.command_outbox_retry_seconds",
+        "runtime.command_outbox_scan_interval_seconds",
+        "runtime.device_authorization_create_attempts",
+        "runtime.device_authorization_max_poll_attempts",
+        "runtime.device_authorization_poll_interval_seconds",
+        "runtime.device_authorization_ttl_seconds",
+        "runtime.device_challenge_ttl_seconds",
+        "runtime.device_key_rotation_grace_seconds",
+        "runtime.device_security_block_seconds",
+        "runtime.device_security_ip_block_ttl_seconds",
+        "runtime.device_security_rate_limit",
+        "runtime.device_security_rate_window_seconds",
+        "runtime.enabled",
+        "runtime.instance_control_read_limit",
+        "runtime.instance_control_stream_max_events",
+        "runtime.instance_control_stream_ttl_seconds",
+        "runtime.max_active_turns_per_host",
+        "runtime.max_active_write_turns_per_workspace",
+        "runtime.max_agent_frame_bytes",
+        "runtime.max_browser_frame_bytes",
+        "runtime.max_connected_agents",
+        "runtime.operation_idempotency_ttl_seconds",
+        "runtime.pairing_code_ttl_seconds",
+        "runtime.realtime_ticket_ttl_seconds",
+        "runtime.step_up_grant_ttl_seconds"
+      ]
+    },
+    {
+      "path": "config\\runtime\\codex_control_runtime\\codex_control_runtime_development.toml",
+      "keys": []
+    },
+    {
+      "path": "config\\runtime\\codex_control_runtime\\codex_control_runtime_production.toml",
+      "keys": [
+        "runtime.max_active_turns_per_host",
+        "runtime.max_connected_agents"
+      ]
+    },
+    {
+      "path": "config\\runtime\\codex_control_runtime\\codex_control_runtime_test.toml",
+      "keys": [
+        "runtime.max_active_turns_per_host",
+        "runtime.max_connected_agents"
       ]
     },
     {
@@ -4253,6 +9091,45 @@
       ]
     },
     {
+      "path": "config\\runtime\\redis_resource_runtime\\redis_resource_runtime_base.toml",
+      "keys": [
+        "runtime.detail.async_max_connections",
+        "runtime.detail.connect_timeout_seconds",
+        "runtime.detail.health_probe_timeout_seconds",
+        "runtime.detail.kind",
+        "runtime.detail.operation_timeout_seconds",
+        "runtime.detail.require_tls_in_production",
+        "runtime.detail.schema_version",
+        "runtime.detail.sync_max_connections",
+        "runtime.detail.url",
+        "runtime.header.enabled",
+        "runtime.header.kind",
+        "runtime.header.schema_version"
+      ]
+    },
+    {
+      "path": "config\\runtime\\redis_resource_runtime\\redis_resource_runtime_production.toml",
+      "keys": [
+        "runtime.detail.async_max_connections",
+        "runtime.detail.connect_timeout_seconds",
+        "runtime.detail.health_probe_timeout_seconds",
+        "runtime.detail.operation_timeout_seconds",
+        "runtime.detail.require_tls_in_production",
+        "runtime.detail.sync_max_connections",
+        "runtime.detail.url",
+        "runtime.header.enabled"
+      ]
+    },
+    {
+      "path": "config\\runtime\\redis_resource_runtime\\redis_resource_runtime_test.toml",
+      "keys": [
+        "runtime.detail.async_max_connections",
+        "runtime.detail.sync_max_connections",
+        "runtime.detail.url",
+        "runtime.header.enabled"
+      ]
+    },
+    {
       "path": "config\\runtime\\security_runtime\\security_runtime_base.toml",
       "keys": [
         "runtime.detail.enable_csp",
@@ -4427,9 +9304,6 @@
         "runtime.detail.max_sessions_per_subject",
         "runtime.detail.queue_capacity",
         "runtime.detail.redis_key_prefix",
-        "runtime.detail.redis_max_connections",
-        "runtime.detail.redis_socket_connect_timeout_seconds",
-        "runtime.detail.redis_url",
         "runtime.detail.replay_max_events",
         "runtime.detail.replay_ttl_seconds",
         "runtime.detail.require_browser_ticket",
@@ -4601,7 +9475,7 @@
     }
   ],
   "migration_heads": [
-    "202607051000"
+    "202608081000"
   ],
   "task_contracts": [
     {
@@ -4665,8 +9539,8 @@
     },
     {
       "name": "stream_runtime",
-      "json_schema_document": "{\"$defs\":{\"LocalStreamRuntimeDetail\":{\"additionalProperties\":false,\"description\":\"本地流运行时扩展。\",\"properties\":{\"allowed_origins\":{\"items\":{\"type\":\"string\"},\"minItems\":1,\"title\":\"Allowed Origins\",\"type\":\"array\"},\"collection_max_bytes\":{\"maximum\":104857600,\"minimum\":1,\"title\":\"Collection Max Bytes\",\"type\":\"integer\"},\"collection_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Collection Max Events\",\"type\":\"integer\"},\"collection_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Collection Timeout Seconds\",\"type\":\"number\"},\"kind\":{\"const\":\"local_stream_runtime\",\"default\":\"local_stream_runtime\",\"title\":\"Kind\",\"type\":\"string\"},\"max_duration_seconds\":{\"maximum\":86400,\"minimum\":0.01,\"title\":\"Max Duration Seconds\",\"type\":\"number\"},\"max_event_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Max Event Bytes\",\"type\":\"integer\"},\"max_sessions\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions\",\"type\":\"integer\"},\"max_sessions_per_ip\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Ip\",\"type\":\"integer\"},\"max_sessions_per_operation\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Operation\",\"type\":\"integer\"},\"max_sessions_per_subject\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Subject\",\"type\":\"integer\"},\"queue_capacity\":{\"maximum\":10000,\"minimum\":1,\"title\":\"Queue Capacity\",\"type\":\"integer\"},\"replay_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Replay Max Events\",\"type\":\"integer\"},\"replay_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Replay Ttl Seconds\",\"type\":\"integer\"},\"require_browser_ticket\":{\"title\":\"Require Browser Ticket\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"send_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Send Timeout Seconds\",\"type\":\"number\"},\"shutdown_grace_seconds\":{\"minimum\":0.01,\"title\":\"Shutdown Grace Seconds\",\"type\":\"number\"},\"sse_heartbeat_seconds\":{\"minimum\":1,\"title\":\"Sse Heartbeat Seconds\",\"type\":\"integer\"},\"sse_retry_milliseconds\":{\"minimum\":1,\"title\":\"Sse Retry Milliseconds\",\"type\":\"integer\"},\"ticket_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Ticket Ttl Seconds\",\"type\":\"integer\"},\"websocket_max_message_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Websocket Max Message Bytes\",\"type\":\"integer\"},\"websocket_ping_interval_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Interval Seconds\",\"type\":\"number\"},\"websocket_ping_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Timeout Seconds\",\"type\":\"number\"}},\"required\":[\"queue_capacity\",\"send_timeout_seconds\",\"max_duration_seconds\",\"max_event_bytes\",\"collection_max_events\",\"collection_max_bytes\",\"collection_timeout_seconds\",\"max_sessions\",\"max_sessions_per_subject\",\"max_sessions_per_ip\",\"max_sessions_per_operation\",\"ticket_ttl_seconds\",\"replay_ttl_seconds\",\"replay_max_events\",\"sse_heartbeat_seconds\",\"sse_retry_milliseconds\",\"websocket_max_message_bytes\",\"websocket_ping_interval_seconds\",\"websocket_ping_timeout_seconds\",\"shutdown_grace_seconds\",\"allowed_origins\",\"require_browser_ticket\"],\"title\":\"LocalStreamRuntimeDetail\",\"type\":\"object\"},\"RedisStreamRuntimeDetail\":{\"additionalProperties\":false,\"description\":\"Redis 流运行时扩展。\",\"properties\":{\"allowed_origins\":{\"items\":{\"type\":\"string\"},\"minItems\":1,\"title\":\"Allowed Origins\",\"type\":\"array\"},\"collection_max_bytes\":{\"maximum\":104857600,\"minimum\":1,\"title\":\"Collection Max Bytes\",\"type\":\"integer\"},\"collection_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Collection Max Events\",\"type\":\"integer\"},\"collection_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Collection Timeout Seconds\",\"type\":\"number\"},\"kind\":{\"const\":\"redis_stream_runtime\",\"default\":\"redis_stream_runtime\",\"title\":\"Kind\",\"type\":\"string\"},\"max_duration_seconds\":{\"maximum\":86400,\"minimum\":0.01,\"title\":\"Max Duration Seconds\",\"type\":\"number\"},\"max_event_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Max Event Bytes\",\"type\":\"integer\"},\"max_sessions\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions\",\"type\":\"integer\"},\"max_sessions_per_ip\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Ip\",\"type\":\"integer\"},\"max_sessions_per_operation\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Operation\",\"type\":\"integer\"},\"max_sessions_per_subject\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Subject\",\"type\":\"integer\"},\"queue_capacity\":{\"maximum\":10000,\"minimum\":1,\"title\":\"Queue Capacity\",\"type\":\"integer\"},\"redis_key_prefix\":{\"minLength\":1,\"title\":\"Redis Key Prefix\",\"type\":\"string\"},\"redis_max_connections\":{\"maximum\":10000,\"minimum\":1,\"title\":\"Redis Max Connections\",\"type\":\"integer\"},\"redis_socket_connect_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Redis Socket Connect Timeout Seconds\",\"type\":\"number\"},\"redis_url\":{\"minLength\":1,\"title\":\"Redis Url\",\"type\":\"string\"},\"replay_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Replay Max Events\",\"type\":\"integer\"},\"replay_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Replay Ttl Seconds\",\"type\":\"integer\"},\"require_browser_ticket\":{\"title\":\"Require Browser Ticket\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"send_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Send Timeout Seconds\",\"type\":\"number\"},\"shutdown_grace_seconds\":{\"minimum\":0.01,\"title\":\"Shutdown Grace Seconds\",\"type\":\"number\"},\"sse_heartbeat_seconds\":{\"minimum\":1,\"title\":\"Sse Heartbeat Seconds\",\"type\":\"integer\"},\"sse_retry_milliseconds\":{\"minimum\":1,\"title\":\"Sse Retry Milliseconds\",\"type\":\"integer\"},\"ticket_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Ticket Ttl Seconds\",\"type\":\"integer\"},\"websocket_max_message_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Websocket Max Message Bytes\",\"type\":\"integer\"},\"websocket_ping_interval_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Interval Seconds\",\"type\":\"number\"},\"websocket_ping_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Timeout Seconds\",\"type\":\"number\"}},\"required\":[\"queue_capacity\",\"send_timeout_seconds\",\"max_duration_seconds\",\"max_event_bytes\",\"collection_max_events\",\"collection_max_bytes\",\"collection_timeout_seconds\",\"max_sessions\",\"max_sessions_per_subject\",\"max_sessions_per_ip\",\"max_sessions_per_operation\",\"ticket_ttl_seconds\",\"replay_ttl_seconds\",\"replay_max_events\",\"sse_heartbeat_seconds\",\"sse_retry_milliseconds\",\"websocket_max_message_bytes\",\"websocket_ping_interval_seconds\",\"websocket_ping_timeout_seconds\",\"shutdown_grace_seconds\",\"allowed_origins\",\"require_browser_ticket\",\"redis_url\",\"redis_key_prefix\",\"redis_socket_connect_timeout_seconds\",\"redis_max_connections\"],\"title\":\"RedisStreamRuntimeDetail\",\"type\":\"object\"},\"StreamRuntimeHeader\":{\"additionalProperties\":false,\"description\":\"流运行时公共头。\",\"properties\":{\"enabled\":{\"title\":\"Enabled\",\"type\":\"boolean\"},\"kind\":{\"const\":\"stream_runtime_header\",\"default\":\"stream_runtime_header\",\"title\":\"Kind\",\"type\":\"string\"},\"mode\":{\"$ref\":\"#/$defs/StreamRuntimeMode\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"mode\",\"enabled\"],\"title\":\"StreamRuntimeHeader\",\"type\":\"object\"},\"StreamRuntimeMode\":{\"description\":\"流状态后端模式。\",\"enum\":[\"local_stream_runtime\",\"redis_stream_runtime\"],\"title\":\"StreamRuntimeMode\",\"type\":\"string\"}},\"additionalProperties\":false,\"description\":\"流运行时信封。\",\"properties\":{\"detail\":{\"discriminator\":{\"mapping\":{\"local_stream_runtime\":\"#/$defs/LocalStreamRuntimeDetail\",\"redis_stream_runtime\":\"#/$defs/RedisStreamRuntimeDetail\"},\"propertyName\":\"kind\"},\"oneOf\":[{\"$ref\":\"#/$defs/LocalStreamRuntimeDetail\"},{\"$ref\":\"#/$defs/RedisStreamRuntimeDetail\"}],\"title\":\"Detail\"},\"envelope_kind\":{\"const\":\"stream_runtime_envelope\",\"default\":\"stream_runtime_envelope\",\"title\":\"Envelope Kind\",\"type\":\"string\"},\"header\":{\"$ref\":\"#/$defs/StreamRuntimeHeader\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"header\",\"detail\"],\"title\":\"StreamRuntimeEnvelope\",\"type\":\"object\"}",
-      "sha256": "f50ac2da653a10cc437909428965c9332a5cc8586f0325cc4ffed8a909a93e61"
+      "json_schema_document": "{\"$defs\":{\"LocalStreamRuntimeDetail\":{\"additionalProperties\":false,\"description\":\"本地流运行时扩展。\",\"properties\":{\"allowed_origins\":{\"items\":{\"type\":\"string\"},\"minItems\":1,\"title\":\"Allowed Origins\",\"type\":\"array\"},\"collection_max_bytes\":{\"maximum\":104857600,\"minimum\":1,\"title\":\"Collection Max Bytes\",\"type\":\"integer\"},\"collection_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Collection Max Events\",\"type\":\"integer\"},\"collection_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Collection Timeout Seconds\",\"type\":\"number\"},\"kind\":{\"const\":\"local_stream_runtime\",\"default\":\"local_stream_runtime\",\"title\":\"Kind\",\"type\":\"string\"},\"max_duration_seconds\":{\"maximum\":86400,\"minimum\":0.01,\"title\":\"Max Duration Seconds\",\"type\":\"number\"},\"max_event_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Max Event Bytes\",\"type\":\"integer\"},\"max_sessions\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions\",\"type\":\"integer\"},\"max_sessions_per_ip\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Ip\",\"type\":\"integer\"},\"max_sessions_per_operation\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Operation\",\"type\":\"integer\"},\"max_sessions_per_subject\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Subject\",\"type\":\"integer\"},\"queue_capacity\":{\"maximum\":10000,\"minimum\":1,\"title\":\"Queue Capacity\",\"type\":\"integer\"},\"replay_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Replay Max Events\",\"type\":\"integer\"},\"replay_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Replay Ttl Seconds\",\"type\":\"integer\"},\"require_browser_ticket\":{\"title\":\"Require Browser Ticket\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"send_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Send Timeout Seconds\",\"type\":\"number\"},\"shutdown_grace_seconds\":{\"minimum\":0.01,\"title\":\"Shutdown Grace Seconds\",\"type\":\"number\"},\"sse_heartbeat_seconds\":{\"minimum\":1,\"title\":\"Sse Heartbeat Seconds\",\"type\":\"integer\"},\"sse_retry_milliseconds\":{\"minimum\":1,\"title\":\"Sse Retry Milliseconds\",\"type\":\"integer\"},\"ticket_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Ticket Ttl Seconds\",\"type\":\"integer\"},\"websocket_max_message_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Websocket Max Message Bytes\",\"type\":\"integer\"},\"websocket_ping_interval_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Interval Seconds\",\"type\":\"number\"},\"websocket_ping_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Timeout Seconds\",\"type\":\"number\"}},\"required\":[\"queue_capacity\",\"send_timeout_seconds\",\"max_duration_seconds\",\"max_event_bytes\",\"collection_max_events\",\"collection_max_bytes\",\"collection_timeout_seconds\",\"max_sessions\",\"max_sessions_per_subject\",\"max_sessions_per_ip\",\"max_sessions_per_operation\",\"ticket_ttl_seconds\",\"replay_ttl_seconds\",\"replay_max_events\",\"sse_heartbeat_seconds\",\"sse_retry_milliseconds\",\"websocket_max_message_bytes\",\"websocket_ping_interval_seconds\",\"websocket_ping_timeout_seconds\",\"shutdown_grace_seconds\",\"allowed_origins\",\"require_browser_ticket\"],\"title\":\"LocalStreamRuntimeDetail\",\"type\":\"object\"},\"RedisStreamRuntimeDetail\":{\"additionalProperties\":false,\"description\":\"Redis 流运行时扩展。\",\"properties\":{\"allowed_origins\":{\"items\":{\"type\":\"string\"},\"minItems\":1,\"title\":\"Allowed Origins\",\"type\":\"array\"},\"collection_max_bytes\":{\"maximum\":104857600,\"minimum\":1,\"title\":\"Collection Max Bytes\",\"type\":\"integer\"},\"collection_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Collection Max Events\",\"type\":\"integer\"},\"collection_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Collection Timeout Seconds\",\"type\":\"number\"},\"kind\":{\"const\":\"redis_stream_runtime\",\"default\":\"redis_stream_runtime\",\"title\":\"Kind\",\"type\":\"string\"},\"max_duration_seconds\":{\"maximum\":86400,\"minimum\":0.01,\"title\":\"Max Duration Seconds\",\"type\":\"number\"},\"max_event_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Max Event Bytes\",\"type\":\"integer\"},\"max_sessions\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions\",\"type\":\"integer\"},\"max_sessions_per_ip\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Ip\",\"type\":\"integer\"},\"max_sessions_per_operation\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Operation\",\"type\":\"integer\"},\"max_sessions_per_subject\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Max Sessions Per Subject\",\"type\":\"integer\"},\"queue_capacity\":{\"maximum\":10000,\"minimum\":1,\"title\":\"Queue Capacity\",\"type\":\"integer\"},\"redis_key_prefix\":{\"minLength\":1,\"title\":\"Redis Key Prefix\",\"type\":\"string\"},\"replay_max_events\":{\"maximum\":100000,\"minimum\":1,\"title\":\"Replay Max Events\",\"type\":\"integer\"},\"replay_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Replay Ttl Seconds\",\"type\":\"integer\"},\"require_browser_ticket\":{\"title\":\"Require Browser Ticket\",\"type\":\"boolean\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"},\"send_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Send Timeout Seconds\",\"type\":\"number\"},\"shutdown_grace_seconds\":{\"minimum\":0.01,\"title\":\"Shutdown Grace Seconds\",\"type\":\"number\"},\"sse_heartbeat_seconds\":{\"minimum\":1,\"title\":\"Sse Heartbeat Seconds\",\"type\":\"integer\"},\"sse_retry_milliseconds\":{\"minimum\":1,\"title\":\"Sse Retry Milliseconds\",\"type\":\"integer\"},\"ticket_ttl_seconds\":{\"maximum\":86400,\"minimum\":1,\"title\":\"Ticket Ttl Seconds\",\"type\":\"integer\"},\"websocket_max_message_bytes\":{\"maximum\":10485760,\"minimum\":1,\"title\":\"Websocket Max Message Bytes\",\"type\":\"integer\"},\"websocket_ping_interval_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Interval Seconds\",\"type\":\"number\"},\"websocket_ping_timeout_seconds\":{\"minimum\":0.01,\"title\":\"Websocket Ping Timeout Seconds\",\"type\":\"number\"}},\"required\":[\"queue_capacity\",\"send_timeout_seconds\",\"max_duration_seconds\",\"max_event_bytes\",\"collection_max_events\",\"collection_max_bytes\",\"collection_timeout_seconds\",\"max_sessions\",\"max_sessions_per_subject\",\"max_sessions_per_ip\",\"max_sessions_per_operation\",\"ticket_ttl_seconds\",\"replay_ttl_seconds\",\"replay_max_events\",\"sse_heartbeat_seconds\",\"sse_retry_milliseconds\",\"websocket_max_message_bytes\",\"websocket_ping_interval_seconds\",\"websocket_ping_timeout_seconds\",\"shutdown_grace_seconds\",\"allowed_origins\",\"require_browser_ticket\",\"redis_key_prefix\"],\"title\":\"RedisStreamRuntimeDetail\",\"type\":\"object\"},\"StreamRuntimeHeader\":{\"additionalProperties\":false,\"description\":\"流运行时公共头。\",\"properties\":{\"enabled\":{\"title\":\"Enabled\",\"type\":\"boolean\"},\"kind\":{\"const\":\"stream_runtime_header\",\"default\":\"stream_runtime_header\",\"title\":\"Kind\",\"type\":\"string\"},\"mode\":{\"$ref\":\"#/$defs/StreamRuntimeMode\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"mode\",\"enabled\"],\"title\":\"StreamRuntimeHeader\",\"type\":\"object\"},\"StreamRuntimeMode\":{\"description\":\"流状态后端模式。\",\"enum\":[\"local_stream_runtime\",\"redis_stream_runtime\"],\"title\":\"StreamRuntimeMode\",\"type\":\"string\"}},\"additionalProperties\":false,\"description\":\"流运行时信封。\",\"properties\":{\"detail\":{\"discriminator\":{\"mapping\":{\"local_stream_runtime\":\"#/$defs/LocalStreamRuntimeDetail\",\"redis_stream_runtime\":\"#/$defs/RedisStreamRuntimeDetail\"},\"propertyName\":\"kind\"},\"oneOf\":[{\"$ref\":\"#/$defs/LocalStreamRuntimeDetail\"},{\"$ref\":\"#/$defs/RedisStreamRuntimeDetail\"}],\"title\":\"Detail\"},\"envelope_kind\":{\"const\":\"stream_runtime_envelope\",\"default\":\"stream_runtime_envelope\",\"title\":\"Envelope Kind\",\"type\":\"string\"},\"header\":{\"$ref\":\"#/$defs/StreamRuntimeHeader\"},\"schema_version\":{\"const\":\"1.0\",\"default\":\"1.0\",\"title\":\"Schema Version\",\"type\":\"string\"}},\"required\":[\"header\",\"detail\"],\"title\":\"StreamRuntimeEnvelope\",\"type\":\"object\"}",
+      "sha256": "7fcfef82d364b06a37ddb596e0d22925222affe0877970dfeb3cbcded0a80fe1"
     }
   ]
 }

@@ -21,8 +21,8 @@
 | `config/runtime/database_runtime` | 数据库配置。 |
 
 ## 4. 核心结论
-- 当前持久化表共 11 张：身份/RBAC 6 张，以及 `app_log_record`、`task_execution_record`、`task_execution_outbox`、`security_ip_block_record`、`key_ring_snapshot`。
-- Alembic 版本链从 `202605151600` 到 `202607051000`。
+- 当前持久化表共 20 张：基础身份、日志、任务、安全与密钥环 11 张，Codex 控制面 9 张。
+- Alembic 版本链从 `202605151600` 到 `202608081000`。
 - 事务边界通过 `SqlAlchemyUnitOfWork` 控制。
 
 ## 5. 结构说明
@@ -80,6 +80,15 @@ flowchart TD
 | `task_execution_outbox` | `TaskExecutionOutboxOrmModel` | `202607021200_add_task_execution_published_at.py` |
 | `security_ip_block_record` | `SecurityIpBlockRecordOrmModel` | `202605260859_create_security_ip_block_record.py` |
 | `key_ring_snapshot` | `KeyRingSnapshotOrmModel` | `202607051000_create_key_ring_snapshot.py` |
+| `codex_host` | `CodexHostOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608081000_add_codex_host_compatibility.py` |
+| `codex_agent_credential` | `CodexAgentCredentialOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_workspace` | `CodexWorkspaceOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608071400_add_codex_workspace_worktree_policy.py` |
+| `codex_thread_index` | `CodexThreadIndexOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_control_operation` | `CodexControlOperationOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_approval_audit` | `CodexApprovalAuditOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_host_device_key` | `CodexHostDeviceKeyOrmModel` | `202608071200_add_codex_device_identity.py` |
+| `codex_device_authorization_audit` | `CodexDeviceAuthorizationAuditOrmModel` | `202608071200_add_codex_device_identity.py` |
+| `codex_command_outbox` | `CodexCommandOutboxOrmModel` | `202608071300_add_codex_command_outbox.py` |
 
 ### ORM 字段与约束核对
 
@@ -93,6 +102,9 @@ flowchart TD
 - `TaskExecutionRecordOrmModel` 同时约束 `job_kind + deduplication_key` 唯一和 `record_id` 唯一，并索引 `job_kind`、`deduplication_key`、`status`、`backend`、`request_id`、`trace_id`、`queue_name`。
 - `AppLogRecordOrmModel.detail_json` 使用 PostgreSQL `JSONB`；`event_id` 唯一，并按 `occurred_at`、`event_kind`、`request_id`、`trace_id`、`level` 建索引。
 - `SecurityIpBlockRecordOrmModel` 以 `record_id` 为 UUID 主键，按 `ip_digest`、`status`、`blocked_until_epoch` 建索引。
+- Codex host、workspace、thread、operation 与 approval 模型都保存 `owner_subject_id` 并由仓储查询再次约束 owner；host 另保存 compatibility state/reason，workspace 保存强类型 worktree policy。
+- `CodexHostDeviceKeyOrmModel` 只保存 Ed25519 公钥、fingerprint、版本与撤销状态；私钥由 Windows current-user DPAPI 留在 Agent 本地。
+- `CodexCommandOutboxOrmModel` 只保存 AES-GCM envelope、AAD digest、路由 epoch、重试与终态字段；不保存 prompt、命令或 diff 明文。
 
 ## 12. 相关文档
 - [项目文档总览](../README.md)

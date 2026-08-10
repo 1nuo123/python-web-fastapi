@@ -3,3 +3,7 @@ enabled = false
 username = ""
 subject_id = ""
 role_bindings = []
+
+[module.public_registration]
+enabled = false
+default_role_key = "registered_user"

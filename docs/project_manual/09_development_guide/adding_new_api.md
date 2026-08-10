@@ -58,6 +58,7 @@ flowchart TD
 4. 新模块要补 `ApplicationModuleName`、`WebModuleManifestRegistry` provider 导入路径、route tag 和后台边界策略；已有模块新增接口通常不需要新增 manifest。
 5. 检查 `config/app_*.toml` 的 `app.modules.enabled` 是否需要加入模块，并验证 `runtime.web.api_prefix` 下接口路径仍正确。
 6. 运行相关测试后，同步更新 `/docs/project_manual` 中面向调用方的 API 文档。
+7. 公开契约变更评审通过后，显式运行 `uv run python -m src.cli.generate_phase_evidence --accept-public-contract-baseline` 更新冻结基线；普通文档回归只运行不带该参数的命令，未声明差异必须继续阻断。
 
 ## 9. 测试覆盖
 | 测试类型 | 文件 | 验证内容 |

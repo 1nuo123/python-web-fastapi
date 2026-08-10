@@ -21,8 +21,8 @@
 | `config/runtime/database_runtime` | 数据库配置。 |
 
 ## 4. 核心结论
-- 当前持久化表共 11 张：身份/RBAC 6 张，以及 `app_log_record`、`task_execution_record`、`task_execution_outbox`、`security_ip_block_record`、`key_ring_snapshot`。
-- Alembic 版本链从 `202605151600` 到 `202607051000`。
+- 当前持久化表共 20 张：基础身份、日志、任务、安全与密钥环 11 张，Codex 控制面 9 张。
+- Alembic 版本链从 `202605151600` 到 `202608081000`。
 - 事务边界通过 `SqlAlchemyUnitOfWork` 控制。
 
 ## 5. 结构说明
@@ -80,6 +80,15 @@ flowchart TD
 | `task_execution_outbox` | `TaskExecutionOutboxOrmModel` | `202607021200_add_task_execution_published_at.py` |
 | `security_ip_block_record` | `SecurityIpBlockRecordOrmModel` | `202605260859_create_security_ip_block_record.py` |
 | `key_ring_snapshot` | `KeyRingSnapshotOrmModel` | `202607051000_create_key_ring_snapshot.py` |
+| `codex_host` | `CodexHostOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608081000_add_codex_host_compatibility.py` |
+| `codex_agent_credential` | `CodexAgentCredentialOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_workspace` | `CodexWorkspaceOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608071400_add_codex_workspace_worktree_policy.py` |
+| `codex_thread_index` | `CodexThreadIndexOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_control_operation` | `CodexControlOperationOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_approval_audit` | `CodexApprovalAuditOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_host_device_key` | `CodexHostDeviceKeyOrmModel` | `202608071200_add_codex_device_identity.py` |
+| `codex_device_authorization_audit` | `CodexDeviceAuthorizationAuditOrmModel` | `202608071200_add_codex_device_identity.py` |
+| `codex_command_outbox` | `CodexCommandOutboxOrmModel` | `202608071300_add_codex_command_outbox.py` |
 
 ### 事务边界核对
 
@@ -90,6 +99,8 @@ flowchart TD
 - 基础设施流程也各自管理事务：`DatabaseLogWriter` 写库日志后 commit/异常 rollback，`TaskExecutionStore` 在预占和状态变更时提交，`IpBlockGuard` 在封禁/释放流程中提交或回滚。
 - 仓储层不拥有顶层事务，也不再在仓储内部开启 `session.begin_nested()`；任务去重唯一键冲突由 `TaskExecutionStore` 在 UnitOfWork 边界捕获 `IntegrityError` 后开启新的读取流程回查既有记录。
 - 管理员身份仓储在会影响管理员可用性的变更前锁定 `auth_user` 表，并在同一 UnitOfWork 内检查 active admin + `auth:manage` 不变量。
+- `ManageCodexApprovalUsecase` 在同一 UnitOfWork 内 claim approval、创建稳定 operation 并写入加密 command outbox；任一写入失败都会 rollback，提交后才触发 Agent dispatch。
+- Agent v2 的 `executing` ACK 表示审批副作用已经由 Agent 应用，因此审批和 operation 可进入 applied/completed；其他命令仍按自身 ACK 状态机处理，不能把该语义泛化为所有任务完成。
 
 ### 事务测试核对
 

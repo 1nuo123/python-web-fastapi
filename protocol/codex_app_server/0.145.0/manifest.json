@@ -1,0 +1,78 @@
+{
+  "header": {
+    "kind": "app_server_schema_manifest",
+    "schema_version": "1.0",
+    "codex_version": "0.145.0",
+    "review_status": "approved"
+  },
+  "detail": {
+    "kind": "app_server_schema_snapshot",
+    "schema_version": "1.0",
+    "generated_at": "2026-07-31T00:00:00Z",
+    "target_platform": "windows-amd64",
+    "generator_commands": [
+      "codex app-server generate-json-schema",
+      "codex app-server generate-ts"
+    ],
+    "json_schema_file_count": 273,
+    "json_schema_bundle_sha256": "86501505d7a626582cd7ded6eee36ab6bbaae30fd5d5c1021c0330e3f99d8109",
+    "typescript_file_count": 617,
+    "typescript_bundle_sha256": "125dea8051ad1d8ae9c9c527e30d1d6aada2965fd1e77771f7c18806c77a6724",
+    "approval_schema_digest_sha256": "8d105abcf752cc043509651d78f3d1b6d89a71779a353066e0dcaaa363b041bf",
+    "approval_server_request_methods": [
+      "item/commandExecution/requestApproval",
+      "item/fileChange/requestApproval",
+      "item/permissions/requestApproval"
+    ],
+    "approval_response_requirements": [
+      {
+        "schema_filename": "CommandExecutionRequestApprovalResponse.json",
+        "required_fields": ["decision"]
+      },
+      {
+        "schema_filename": "FileChangeRequestApprovalResponse.json",
+        "required_fields": ["decision"]
+      },
+      {
+        "schema_filename": "PermissionsRequestApprovalResponse.json",
+        "required_fields": ["permissions"]
+      }
+    ],
+    "confirmation_response_expected": false,
+    "supported_agent_protocol_versions": ["1.0", "2.0"],
+    "capabilities": [
+      {"code": "model.list", "version": 1},
+      {"code": "thread.list", "version": 1},
+      {"code": "thread.read", "version": 1},
+      {"code": "thread.start", "version": 1},
+      {"code": "thread.resume", "version": 1},
+      {"code": "thread.delete", "version": 1},
+      {"code": "thread.compact", "version": 1},
+      {"code": "turn.start", "version": 1},
+      {"code": "turn.steer", "version": 1},
+      {"code": "turn.interrupt", "version": 1},
+      {"code": "approval.command", "version": 1},
+      {"code": "approval.file_change", "version": 1},
+      {"code": "approval.permissions", "version": 1},
+      {"code": "event.replay", "version": 1},
+      {"code": "snapshot.pagination", "version": 1}
+    ],
+    "method_catalog": [
+      {"method": "initialize", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": null},
+      {"method": "model/list", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": "model.list"},
+      {"method": "thread/list", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": "thread.list"},
+      {"method": "thread/read", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": "thread.read"},
+      {"method": "thread/start", "effect": "mutation", "idempotent": false, "retry_on_overload": false, "ordering_barrier": true, "required_capability": "thread.start"},
+      {"method": "thread/resume", "effect": "mutation", "idempotent": false, "retry_on_overload": false, "ordering_barrier": true, "required_capability": "thread.resume"},
+      {"method": "thread/delete", "effect": "mutation", "idempotent": true, "retry_on_overload": true, "ordering_barrier": true, "required_capability": "thread.delete"},
+      {"method": "thread/compact/start", "effect": "mutation", "idempotent": false, "retry_on_overload": false, "ordering_barrier": true, "required_capability": "thread.compact"},
+      {"method": "turn/start", "effect": "mutation", "idempotent": false, "retry_on_overload": false, "ordering_barrier": true, "required_capability": "turn.start"},
+      {"method": "turn/steer", "effect": "mutation", "idempotent": false, "retry_on_overload": false, "ordering_barrier": true, "required_capability": "turn.steer"},
+      {"method": "turn/interrupt", "effect": "mutation", "idempotent": true, "retry_on_overload": true, "ordering_barrier": true, "required_capability": "turn.interrupt"},
+      {"method": "item/commandExecution/requestApproval", "effect": "server_request", "idempotent": false, "retry_on_overload": false, "ordering_barrier": true, "required_capability": "approval.command"},
+      {"method": "item/fileChange/requestApproval", "effect": "server_request", "idempotent": false, "retry_on_overload": false, "ordering_barrier": true, "required_capability": "approval.file_change"},
+      {"method": "item/permissions/requestApproval", "effect": "server_request", "idempotent": false, "retry_on_overload": false, "ordering_barrier": true, "required_capability": "approval.permissions"}
+    ],
+    "license_notice_path": "../THIRD_PARTY_NOTICES.md"
+  }
+}

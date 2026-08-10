@@ -358,6 +358,33 @@ class TestAdminRoleInterface:
         assert invalid_confirmation_response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         assert delete_response.status_code == HTTPStatus.OK
 
+    def test_registered_user_role_should_reject_privilege_or_lifecycle_changes(self) -> None:
+        """验证公开注册固定角色不可改名、授权或删除。"""
+
+        role_key = AuthRoleKey.REGISTERED_USER.value
+        app = TestAppFactory().create()
+        with TestClient(app) as client:
+            access_token = self._issue_admin_token(client)
+            auth_header = self._build_auth_header(access_token)
+            update_response = client.patch(
+                ADMIN_ROLE_DETAIL_PATH.format(role_key=role_key),
+                headers=auth_header,
+                json=self._build_raw_role_update_body(),
+            )
+            replace_response = client.put(
+                ADMIN_ROLE_SCOPES_PATH.format(role_key=role_key),
+                headers=auth_header,
+                json=self._build_raw_role_scope_replace_body(),
+            )
+            delete_response = client.delete(
+                ADMIN_ROLE_DETAIL_PATH.format(role_key=role_key),
+                headers=auth_header,
+            )
+
+        assert update_response.status_code == HTTPStatus.CONFLICT
+        assert replace_response.status_code == HTTPStatus.CONFLICT
+        assert delete_response.status_code == HTTPStatus.CONFLICT
+
     def _build_role_key(self, suffix: str) -> str:
         """
         构建角色键。

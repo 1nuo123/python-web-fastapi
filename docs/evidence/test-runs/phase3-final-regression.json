@@ -2,9 +2,9 @@
   "header": {
     "schema_version": "1.0",
     "run_id": "phase3-final-regression",
-    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+    "code_baseline": "76aa9c2fe796fff5ff28117fe53180e018b0b879730ace50794384d347a460f2",
     "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
-    "started_at": "2026-07-31T01:25:47.287731Z",
+    "started_at": "2026-08-08T10:00:43.955852Z",
     "command_entry": "nox -s regression"
   },
   "kind": "integration",
@@ -13,8 +13,8 @@
     "status": "passed",
     "command": "nox -s regression",
     "exit_code": 0,
-    "test_count": 921,
-    "duration_seconds": 491.4855380999943,
+    "test_count": 1137,
+    "duration_seconds": 784.7833769000026,
     "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
     "failure_summary": null,
     "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json",
@@ -25,22 +25,22 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": "docs\\evidence\\test-runs\\phase3-final-regression.json",
-        "started_at": "2026-07-31T01:25:47.287731Z",
-        "finished_at": "2026-07-31T01:33:58.773269Z",
-        "duration_seconds": 491.4855380999943
+        "started_at": "2026-08-08T10:00:43.955852Z",
+        "finished_at": "2026-08-08T10:13:48.739229Z",
+        "duration_seconds": 784.7833769000026
       }
     ],
     "artifacts": [
       {
         "kind": "junit",
         "path": "docs\\evidence\\test-artifacts\\phase3-final-regression.xml",
-        "sha256": "bfa43fb4255d41d7d736c029b5e4c75adfa7297a67ba2c3eeacd53155faee569",
+        "sha256": "34b2ce6e44ee902dcde19d7d5d1be8473e44f58549ea52886c0e2011f4fe50fd",
         "command_index": 0
       },
       {
         "kind": "coverage",
         "path": "docs\\evidence\\test-artifacts\\phase3-final-coverage.json",
-        "sha256": "2ec13cd58b9912a71bceee1e0e588974b8ae997501d6ac6ce81ab6969fd2ea41",
+        "sha256": "6aa2a94cc30a0d8258a6b732e1d95cb9fe539f87f87b48b35328f28066e1bc8f",
         "command_index": 0
       }
     ],
@@ -48,11 +48,11 @@
     "skipped_count": 0,
     "xfailed_count": 0,
     "coverage": {
-      "total_percent": 90.07048184759962,
-      "auth_percent": 93.04979253112033,
+      "total_percent": 85.72830230993496,
+      "auth_percent": 93.36734693877551,
       "security_percent": 91.15646258503402,
-      "task_percent": 92.2237380627558,
-      "persistence_percent": 90.82969432314411,
+      "task_percent": 92.25449515905947,
+      "persistence_percent": 91.15370438628824,
       "report_path": "docs\\evidence\\test-artifacts\\phase3-final-coverage.json"
     },
     "kind": "integration"

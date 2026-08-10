@@ -21,8 +21,8 @@
 | `config/runtime/database_runtime` | 数据库配置。 |
 
 ## 4. 核心结论
-- 当前持久化表共 11 张：身份/RBAC 6 张，以及 `app_log_record`、`task_execution_record`、`task_execution_outbox`、`security_ip_block_record`、`key_ring_snapshot`。
-- Alembic 版本链从 `202605151600` 到 `202607051000`。
+- 当前持久化表共 20 张：基础身份、日志、任务、安全与密钥环 11 张，Codex 控制面 9 张。
+- Alembic 版本链从 `202605151600` 到 `202608081000`。
 - 事务边界通过 `SqlAlchemyUnitOfWork` 控制。
 
 ## 5. 结构说明
@@ -80,6 +80,15 @@ flowchart TD
 | `task_execution_outbox` | `TaskExecutionOutboxOrmModel` | `202607021200_add_task_execution_published_at.py` |
 | `security_ip_block_record` | `SecurityIpBlockRecordOrmModel` | `202605260859_create_security_ip_block_record.py` |
 | `key_ring_snapshot` | `KeyRingSnapshotOrmModel` | `202607051000_create_key_ring_snapshot.py` |
+| `codex_host` | `CodexHostOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608081000_add_codex_host_compatibility.py` |
+| `codex_agent_credential` | `CodexAgentCredentialOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_workspace` | `CodexWorkspaceOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608071400_add_codex_workspace_worktree_policy.py` |
+| `codex_thread_index` | `CodexThreadIndexOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_control_operation` | `CodexControlOperationOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_approval_audit` | `CodexApprovalAuditOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_host_device_key` | `CodexHostDeviceKeyOrmModel` | `202608071200_add_codex_device_identity.py` |
+| `codex_device_authorization_audit` | `CodexDeviceAuthorizationAuditOrmModel` | `202608071200_add_codex_device_identity.py` |
+| `codex_command_outbox` | `CodexCommandOutboxOrmModel` | `202608071300_add_codex_command_outbox.py` |
 
 ### 当前迁移链核对
 
@@ -95,12 +104,18 @@ flowchart TD
 | `202605291041` | `202605271330` | 回填缺失 scope 目录行，给 `auth_role_scope.scope_code` 增加外键，规范重复 `task_execution_record.record_id` 后加唯一约束，并把 `app_log_record.detail_json` 对齐为 JSONB、`schema_version` 对齐为 64 长度。 |
 | `202607021200` | `202605291041` | 为 `task_execution_record` 增加 `published_at_epoch`，并创建事务 Outbox 表 `task_execution_outbox`。 |
 | `202607051000` | `202607021200` | 创建数据库权威密钥环快照表 `key_ring_snapshot` 及唯一约束和查询索引。 |
+| `202607311200` | `202607051000` | 创建 6 张 Codex 控制面基础表并登记 Codex RBAC scopes。 |
+| `202608071200` | `202607311200` | 规范 host capability 结构，创建设备公钥和设备授权审计表。 |
+| `202608071300` | `202608071200` | 创建只保存 AEAD envelope 的 `codex_command_outbox`。 |
+| `202608071400` | `202608071300` | 为 workspace 增加强类型 worktree policy JSONB。 |
+| `202608081000` | `202608071400` | 为 host 增加 compatibility state 与 reason code。 |
 
 ### 迁移执行与测试核对
 
 - `src/infrastructure/persistence/alembic/env.py` 导入 `src.infrastructure.persistence.orm_model` 注册全部 ORM，并以 `ORM_MODEL_METADATA` 作为 `target_metadata`。
 - 在线迁移使用 `create_engine(..., poolclass=NullPool)`，从 Alembic 配置读取数据库 URL、schema 和连接超时；离线迁移开启 `compare_type=True` 和 `compare_server_default=True`。
 - `test/integration_test/test_migration_job_integration.py` 已覆盖升级到测试库、迁移失败返回、compose migration gate、最新漂移迁移后的外键/唯一约束/JSONB 类型，以及脏数据升级时的 scope 回填和重复 `record_id` 规范化。
+- `test/integration_test/test_codex_phase1_persistence_integration.py` 与 Codex enrollment、approval、turn-control 集成测试覆盖 `202608081000` head、owner 隔离、事务 operation/outbox 和强类型状态恢复。
 
 ## 12. 相关文档
 - [项目文档总览](../README.md)

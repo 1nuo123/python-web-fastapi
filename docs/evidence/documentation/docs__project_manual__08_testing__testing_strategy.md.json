@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/08_testing/testing_strategy.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
-    "verified_at": "2026-07-31T01:57:20.433190Z"
+    "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
+    "verified_at": "2026-08-07T23:06:48.601713Z"
   },
   "kind": "testing",
   "detail": {
@@ -13,7 +13,7 @@
     "evidence_path": "docs\\project_manual\\08_testing\\testing_strategy.md",
     "status": "current",
     "replacement_path": null,
-    "content_sha256": "5bbfed21c5d528814d9612dd9555f0a750941d7af58dc5b490cf9847a153a4fd",
+    "content_sha256": "44ce2959cac2938a0b6ceb8155975dad4283069d673e8b42cc10e542e8772f3f",
     "validation_status": "verified",
     "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
     "fact_evidence_paths": [

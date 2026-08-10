@@ -37,3 +37,7 @@ class AuthErrorCode(StrEnum):
     TOKEN_REUSED = "auth.token.reused"
     PERMISSION_DENIED = "auth.authorization.permission_denied"
     REQUEST_THROTTLED = "auth.request.throttled"
+    BROWSER_ORIGIN_FORBIDDEN = "auth.browser.origin_forbidden"
+    BROWSER_REFRESH_COOKIE_MISSING = "auth.browser.refresh_cookie_missing"
+    REGISTRATION_DISABLED = "auth.registration.disabled"
+    REGISTRATION_USERNAME_CONFLICT = "auth.registration.username_conflict"

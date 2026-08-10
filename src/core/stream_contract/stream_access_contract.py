@@ -114,6 +114,17 @@ class StreamTicketConsumptionRequest(BaseModel):
     consumed_at: datetime
 
 
+class StreamTicketLookupRequest(BaseModel):
+    """不信任 URL 主体时按摘要原子取出票据绑定主体。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ticket_digest: str = Field(min_length=STREAM_TICKET_TEXT_MINIMUM_LENGTH)
+    operation_name: str = Field(min_length=STREAM_TICKET_TEXT_MINIMUM_LENGTH)
+    client_ip: str | None
+    consumed_at: datetime
+
+
 class StreamResumeRequest(BaseModel):
     """有限窗口恢复请求。"""
 

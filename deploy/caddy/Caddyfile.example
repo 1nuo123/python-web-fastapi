@@ -1,0 +1,43 @@
+{
+	admin 127.0.0.1:2019
+}
+
+{$CADDY_SITE_ADDRESS:http://localhost} {
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
+	log {
+		output stdout
+		format json
+	}
+
+	route {
+		@codex_events path /codex/events
+		reverse_proxy @codex_events app:8000 {
+			flush_interval -1
+			health_uri /health/ready
+			health_interval 30s
+			health_timeout 5s
+		}
+
+		@backend path /auth/* /health/* /internal/* /codex/realtime-tickets /codex/hosts* /codex/approvals* /openapi.json
+		reverse_proxy @backend app:8000 {
+			health_uri /health/ready
+			health_interval 30s
+			health_timeout 5s
+		}
+
+		reverse_proxy frontend:3000 {
+			health_uri /
+			health_interval 30s
+			health_timeout 5s
+		}
+	}
+}

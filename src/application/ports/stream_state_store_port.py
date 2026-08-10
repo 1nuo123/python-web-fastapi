@@ -4,12 +4,19 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from src.core.stream_contract.cursor_stream_contract import (
+    CursorStreamAppendRequest,
+    CursorStreamAppendResult,
+    CursorStreamReadRequest,
+    CursorStreamWindow,
+)
 from src.core.stream_contract.stream_access_contract import (
     StreamAccessTicketRecord,
     StreamReplayEventRecord,
     StreamReplayWindow,
     StreamResumeRequest,
     StreamTicketConsumptionRequest,
+    StreamTicketLookupRequest,
 )
 
 
@@ -46,6 +53,14 @@ class StreamStateStorePort(Protocol):
 
         ...
 
+    async def consume_ticket_record(
+        self,
+        request: StreamTicketLookupRequest,
+    ) -> StreamAccessTicketRecord | None:
+        """原子消费票据并返回服务端绑定记录。"""
+
+        ...
+
     async def append_event(
         self,
         record: StreamReplayEventRecord,
@@ -79,5 +94,21 @@ class StreamStateStorePort(Protocol):
         :returns: 清理记录数。
         :rtype: int
         """
+
+        ...
+
+    async def append_cursor_event(
+        self,
+        request: CursorStreamAppendRequest,
+    ) -> CursorStreamAppendResult:
+        """向 versioned cursor 流追加事件。"""
+
+        ...
+
+    async def read_cursor_window(
+        self,
+        request: CursorStreamReadRequest,
+    ) -> CursorStreamWindow:
+        """按所有者和 opaque cursor 读取有限窗口。"""
 
         ...

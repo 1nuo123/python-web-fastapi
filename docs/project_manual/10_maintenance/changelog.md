@@ -70,7 +70,8 @@ flowchart TD
 
 ### 当前说明书变更记录
 
-- 2026-07-16：完成当前基线复核。生产任务硬迁移为 `task_execution_probe`；CI 增加 PostgreSQL、带认证 Redis、RabbitMQ 健康服务；TestRun/Regression/Documentation 接入内容级真实证据存储与索引；autotuner 三轮结论维持 rejected；production Compose 完成隔离验证。最终真实依赖回归 797 passed、225 warnings，总体组合覆盖率 90.7986%。
+- 2026-07-16：完成基础设施基线复核。生产任务硬迁移为 `task_execution_probe`；CI 增加 PostgreSQL、带认证 Redis、RabbitMQ 健康服务；TestRun/Regression/Documentation 接入内容级真实证据存储与索引；autotuner 三轮结论维持 rejected；production Compose 完成隔离验证。历史基线数据保留在归档证据中。
+- 2026-08-08：完成 Codex-first 当前基线回归。全量回归 1077 passed、241 warnings，离线回归 926 passed、5 warnings，覆盖率 85.35257049984318%；Docker app/PostgreSQL/Redis/RabbitMQ healthy，迁移、镜像、security、load 证据已按当前代码基线重录。
 - 2026-07-13：完成生产级全量审查硬迁移。真实依赖全量回归 722 passed，总体 line/branch 组合覆盖率 92.05%，四个关键域均不低于 90%；生产镜像、迁移、最小权限、停机恢复和稳定/突发/过载/退化/多实例场景通过。修复只读镜像入口配置、RabbitMQ 监听就绪竞态和 Redis 退化 500；autotuner 无稳定晋升项，保持冻结容量配置。
 - 2026-06-22：审查 `10_maintenance` 六篇维护文档，对齐 `SettingsSecurityValidator`、`RuntimeResourceBootstrapper`、日志缓冲/脱敏、Prometheus 指标、任务运行时、SQLAlchemy/Alembic、Docker/Compose 和相关测试；补充生产安全基线、RabbitMQ/Redis/ready 探针、日志和性能维护说明。
 - 2026-06-21：基于当前代码生成 `/docs/project_manual` 项目说明书首版。

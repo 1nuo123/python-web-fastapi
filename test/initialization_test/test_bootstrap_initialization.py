@@ -12,6 +12,8 @@ from fastapi.testclient import TestClient
 from src.api.testing.test_app_factory import TestAppFactory
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.http_contract.runtime_resource_contract import RuntimeResourceStatus
+from src.domain.auth.auth_role_key import AuthRoleKey
+from src.infrastructure.persistence.orm_model.auth_role_orm_model import AuthRoleOrmModel
 from src.infrastructure.resource_mount.shared_resource_constants import (
     RESOURCE_CACHE,
     RESOURCE_DATABASE,
@@ -106,6 +108,26 @@ class TestBootstrapInitialization:
                 assert auth_identity is not None
                 assert auth_identity.subject_id == "user-admin"
                 assert auth_identity.roles == ["admin"]
+            finally:
+                unit_of_work.dispose()
+
+    def test_startup_should_prepare_public_registration_role(self) -> None:
+        """验证启动期准备无授权 scope 的普通注册角色。"""
+
+        app = TestAppFactory().create()
+        with TestClient(app):
+            resource_mount = app.state.container.resource_mount
+            unit_of_work = resource_mount.create_unit_of_work()
+            try:
+                session = resource_mount._read_sqlalchemy_session(  # noqa: SLF001
+                    unit_of_work.get_session()
+                )
+                role = (
+                    session.query(AuthRoleOrmModel)
+                    .filter_by(role_key=AuthRoleKey.REGISTERED_USER.value)
+                    .one()
+                )
+                assert role.role_scopes == []
             finally:
                 unit_of_work.dispose()
 

@@ -4,15 +4,27 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+
+from src.core.auth_contract.step_up_grant_contract import StepUpGrantPurpose
 
 AUTH_USERNAME_MIN_LENGTH = 1
 AUTH_USERNAME_MAX_LENGTH = 128
 AUTH_PASSWORD_MIN_LENGTH = 1
 AUTH_PASSWORD_MAX_LENGTH = 256
+AUTH_REGISTRATION_USERNAME_MIN_LENGTH = 3
+AUTH_REGISTRATION_USERNAME_MAX_LENGTH = 64
+AUTH_REGISTRATION_USERNAME_PATTERN = r"^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$"
+AUTH_REGISTRATION_PASSWORD_MIN_LENGTH = 12
+AUTH_REGISTRATION_PASSWORD_MAX_LENGTH = 128
 AUTH_REFRESH_TOKEN_MIN_LENGTH = 16
 AUTH_REFRESH_TOKEN_MAX_LENGTH = 4096
 AUTH_TOKEN_PATTERN = r"^[A-Za-z0-9._~+/=-]+$"
+BROWSER_TOKEN_ISSUE_KIND = "browser_token_issue"
+BROWSER_TOKEN_SCHEMA_VERSION = "1.0"
 
 
 class TokenIssueRequest(BaseModel):
@@ -93,3 +105,67 @@ class TokenRevokeRequest(BaseModel):
         max_length=AUTH_REFRESH_TOKEN_MAX_LENGTH,
         pattern=AUTH_TOKEN_PATTERN,
     )
+
+
+class UserRegistrationRequest(BaseModel):
+    """普通用户注册请求。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(
+        min_length=AUTH_REGISTRATION_USERNAME_MIN_LENGTH,
+        max_length=AUTH_REGISTRATION_USERNAME_MAX_LENGTH,
+        pattern=AUTH_REGISTRATION_USERNAME_PATTERN,
+    )
+    password: SecretStr = Field(
+        min_length=AUTH_REGISTRATION_PASSWORD_MIN_LENGTH,
+        max_length=AUTH_REGISTRATION_PASSWORD_MAX_LENGTH,
+    )
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def normalize_username(cls, value: object) -> object:
+        """去除用户名首尾空白。"""
+
+        return value.strip() if isinstance(value, str) else value
+
+
+class UserRegistrationPayload(BaseModel):
+    """普通用户注册响应。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["user_registration"] = "user_registration"
+    schema_version: Literal["1.0"] = "1.0"
+    subject_id: str
+    username: str
+
+
+class BrowserTokenIssuePayload(BaseModel):
+    """浏览器令牌响应，只暴露内存使用的 access token。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["browser_token_issue"] = "browser_token_issue"
+    schema_version: Literal["1.0"] = "1.0"
+    access_token: str
+    token_type: Literal["Bearer"] = "Bearer"
+    expires_in_seconds: int = Field(gt=0)
+
+
+class StepUpGrantRequest(BaseModel):
+    """增强验证请求；密码只在当前请求内使用。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    password: str = Field(min_length=AUTH_PASSWORD_MIN_LENGTH, max_length=AUTH_PASSWORD_MAX_LENGTH)
+    purpose: StepUpGrantPurpose
+
+
+class StepUpGrantPayload(BaseModel):
+    """短时一次性增强授权 grant。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    grant_token: str = Field(min_length=32, max_length=512)
+    expires_at: datetime

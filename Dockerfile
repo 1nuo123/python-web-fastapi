@@ -34,6 +34,7 @@ COPY --chown=app:app pyproject.toml uv.lock ./
 COPY --chown=app:app funboost_config.py nb_log_config.py ./
 COPY --chown=app:app src ./src
 COPY --chown=app:app config ./config
+COPY --chown=app:app protocol ./protocol
 
 USER app
 

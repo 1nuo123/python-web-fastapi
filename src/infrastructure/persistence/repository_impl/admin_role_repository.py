@@ -27,6 +27,8 @@ from src.infrastructure.persistence.repository_impl.admin_identity_repository_su
     BUILTIN_ADMIN_ROLE_DELETE_BLOCKED_MESSAGE,
     BUSINESS_ADMIN_ROLE_KEYS,
     DELETE_ACCEPTED_REASON,
+    REGISTERED_USER_ROLE_CHANGE_BLOCKED_MESSAGE,
+    REGISTERED_USER_ROLE_KEY,
     ROLE_ALREADY_EXISTS_MESSAGE,
     ROLE_CREATE_PROTECTED_SCOPE_BLOCKED_MESSAGE,
     ROLE_NOT_FOUND_MESSAGE,
@@ -102,6 +104,8 @@ class AdminRoleRepository(AdminIdentityRepositorySupport):
         role = self._get_role_row(command.role_key)
         if role is None:
             self._raise_not_found(ROLE_NOT_FOUND_MESSAGE)
+        if command.role_key == REGISTERED_USER_ROLE_KEY:
+            self._raise_conflict(REGISTERED_USER_ROLE_CHANGE_BLOCKED_MESSAGE)
         role.role_name = command.role_name
         self._session.flush()
         return self.get_role(command.role_key)
@@ -117,6 +121,8 @@ class AdminRoleRepository(AdminIdentityRepositorySupport):
         role = self._get_role_row(command.role_key)
         if role is None:
             self._raise_not_found(ROLE_NOT_FOUND_MESSAGE)
+        if command.role_key == REGISTERED_USER_ROLE_KEY:
+            self._raise_conflict(REGISTERED_USER_ROLE_CHANGE_BLOCKED_MESSAGE)
         scope_codes = self._normalize_unique_values(command.scope_codes)
         self._validate_scope_codes_enabled(scope_codes)
         self._validate_actor_after_role_scope_change(
@@ -140,6 +146,8 @@ class AdminRoleRepository(AdminIdentityRepositorySupport):
             self._raise_not_found(ROLE_NOT_FOUND_MESSAGE)
         if command.role_key == ADMIN_ROLE_KEY:
             self._raise_conflict(BUILTIN_ADMIN_ROLE_DELETE_BLOCKED_MESSAGE)
+        if command.role_key == REGISTERED_USER_ROLE_KEY:
+            self._raise_conflict(REGISTERED_USER_ROLE_CHANGE_BLOCKED_MESSAGE)
         if len(role.user_roles) > 0:
             self._raise_conflict(BOUND_ROLE_DELETE_BLOCKED_MESSAGE)
         self._session.delete(role)

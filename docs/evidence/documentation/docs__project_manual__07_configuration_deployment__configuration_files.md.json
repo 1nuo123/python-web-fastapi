@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/07_configuration_deployment/configuration_files.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
-    "verified_at": "2026-07-31T01:57:20.433190Z"
+    "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
+    "verified_at": "2026-08-07T23:06:48.601713Z"
   },
   "kind": "configuration",
   "detail": {

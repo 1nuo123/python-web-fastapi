@@ -2,39 +2,39 @@
   "header": {
     "schema_version": "1.0",
     "run_id": "phase3-final-migration",
-    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+    "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
     "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
-    "started_at": "2026-07-31T01:50:50Z",
-    "command_entry": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-migration.xml test/integration_test/test_migration_job_integration.py"
+    "started_at": "2026-08-07T22:58:50.441729Z",
+    "command_entry": ".venv/Scripts/python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-migration.xml test/integration_test/test_migration_job_integration.py"
   },
   "kind": "migration",
   "detail": {
     "schema_version": "1.0",
     "status": "passed",
-    "command": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-migration.xml test/integration_test/test_migration_job_integration.py",
+    "command": ".venv/Scripts/python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-migration.xml test/integration_test/test_migration_job_integration.py",
     "exit_code": 0,
     "test_count": 12,
-    "duration_seconds": 7.39,
+    "duration_seconds": 6.7215862,
     "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
     "failure_summary": null,
     "evidence_path": "docs\\evidence\\test-runs\\phase3-final-migration.json",
     "commands": [
       {
-        "command": ".\\.venv\\Scripts\\python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-migration.xml test/integration_test/test_migration_job_integration.py",
+        "command": ".venv/Scripts/python.exe -m pytest -q --junitxml=docs/evidence/test-artifacts/phase3-final-migration.xml test/integration_test/test_migration_job_integration.py",
         "tool_version": "python-3.11.8",
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": "docs\\evidence\\test-artifacts\\phase3-final-migration.xml",
-        "started_at": "2026-07-31T01:50:50Z",
-        "finished_at": "2026-07-31T01:50:57.390000Z",
-        "duration_seconds": 7.39
+        "started_at": "2026-08-07T22:58:50.441729Z",
+        "finished_at": "2026-08-07T22:58:57.163315Z",
+        "duration_seconds": 6.7215862
       }
     ],
     "artifacts": [
       {
         "kind": "junit",
         "path": "docs\\evidence\\test-artifacts\\phase3-final-migration.xml",
-        "sha256": "f45ea5727214af090c105ac5c20a964927cbfeaad82859c128fa0682ac93ec25",
+        "sha256": "455ff9b6267508af12f3a26ed22de01c565bc1ab8b5b2e946fcfc67026036c84",
         "command_index": null
       }
     ],

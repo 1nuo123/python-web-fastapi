@@ -16,3 +16,18 @@ enabled = true
 rotation_interval_seconds = 3600
 active_key_count = 2
 compatibility_window_seconds = 3600
+
+[[runtime.detail.key_families]]
+kind = "managed_key_family"
+schema_version = "1.0"
+family_name = "codex_command_payload"
+usage = "codex_command_payload_encryption"
+enabled = true
+
+[runtime.detail.key_families.rotation_policy]
+kind = "key_rotation_policy"
+schema_version = "1.0"
+enabled = true
+rotation_interval_seconds = 3600
+active_key_count = 3
+compatibility_window_seconds = 7200

@@ -14,6 +14,7 @@ from src.core.stream_contract.stream_access_contract import (
     StreamAccessTicketRecord,
     StreamAccessTicketResultKind,
     StreamTicketConsumptionRequest,
+    StreamTicketLookupRequest,
 )
 
 STREAM_TICKET_RANDOM_BYTES = 32
@@ -111,6 +112,25 @@ class StreamAccessTicketService:
             StreamTicketConsumptionRequest(
                 ticket_digest=self.digest(ticket),
                 subject_id=subject_id,
+                operation_name=operation_name,
+                client_ip=client_ip,
+                consumed_at=current_time or datetime.now(UTC),
+            )
+        )
+
+    async def consume_record(
+        self,
+        *,
+        ticket: str,
+        operation_name: str,
+        client_ip: str | None,
+        current_time: datetime | None = None,
+    ) -> StreamAccessTicketRecord | None:
+        """原子消费票据并返回受信主体与操作绑定记录。"""
+
+        return await self._state_store.consume_ticket_record(
+            StreamTicketLookupRequest(
+                ticket_digest=self.digest(ticket),
                 operation_name=operation_name,
                 client_ip=client_ip,
                 consumed_at=current_time or datetime.now(UTC),

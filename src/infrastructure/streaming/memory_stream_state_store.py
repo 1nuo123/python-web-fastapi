@@ -6,12 +6,21 @@ import asyncio
 from datetime import UTC, datetime
 
 from src.application.ports.stream_state_store_port import StreamStateStorePort
+from src.core.stream_contract.cursor_stream_contract import (
+    CursorStreamAppendRequest,
+    CursorStreamAppendResult,
+    CursorStreamEvent,
+    CursorStreamReadRequest,
+    CursorStreamWindow,
+    OpaqueStreamCursorCodec,
+)
 from src.core.stream_contract.stream_access_contract import (
     StreamAccessTicketRecord,
     StreamReplayEventRecord,
     StreamReplayWindow,
     StreamResumeRequest,
     StreamTicketConsumptionRequest,
+    StreamTicketLookupRequest,
 )
 
 
@@ -23,6 +32,8 @@ class MemoryStreamStateStore(StreamStateStorePort):
 
         self._tickets: dict[str, StreamAccessTicketRecord] = {}
         self._events: dict[str, list[StreamReplayEventRecord]] = {}
+        self._cursor_events: dict[str, list[tuple[int, CursorStreamEvent]]] = {}
+        self._cursor_sequences: dict[str, int] = {}
         self._lock = asyncio.Lock()
         self._opened = opened
 
@@ -37,6 +48,8 @@ class MemoryStreamStateStore(StreamStateStorePort):
         async with self._lock:
             self._tickets.clear()
             self._events.clear()
+            self._cursor_events.clear()
+            self._cursor_sequences.clear()
             self._opened = False
 
     async def store_ticket(self, record: StreamAccessTicketRecord) -> None:
@@ -75,6 +88,27 @@ class MemoryStreamStateStore(StreamStateStorePort):
                 return False
             self._tickets.pop(request.ticket_digest, None)
             return True
+
+    async def consume_ticket_record(
+        self,
+        request: StreamTicketLookupRequest,
+    ) -> StreamAccessTicketRecord | None:
+        """按摘要、操作与客户端地址原子消费并返回绑定主体。"""
+
+        self._assert_opened()
+        async with self._lock:
+            record = self._tickets.get(request.ticket_digest)
+            if record is None:
+                return None
+            if request.consumed_at >= record.expires_at:
+                self._tickets.pop(request.ticket_digest, None)
+                return None
+            if record.operation_name != request.operation_name:
+                return None
+            if record.client_ip is not None and record.client_ip != request.client_ip:
+                return None
+            self._tickets.pop(request.ticket_digest, None)
+            return record
 
     async def append_event(
         self,
@@ -193,6 +227,69 @@ class MemoryStreamStateStore(StreamStateStorePort):
                 else:
                     self._events.pop(stream_id, None)
             return len(expired_tickets) + expired_events
+
+    async def append_cursor_event(
+        self,
+        request: CursorStreamAppendRequest,
+    ) -> CursorStreamAppendResult:
+        self._assert_opened()
+        async with self._lock:
+            sequence = self._cursor_sequences.get(request.event.stream_key, 0) + 1
+            self._cursor_sequences[request.event.stream_key] = sequence
+            records = self._cursor_events.setdefault(request.event.stream_key, [])
+            if records and records[-1][1].owner_subject_id != request.event.owner_subject_id:
+                raise PermissionError("同一cursor流的owner不得变化。")
+            records.append((sequence, request.event))
+            if len(records) > request.max_events:
+                del records[: len(records) - request.max_events]
+            return CursorStreamAppendResult(
+                stream_key=request.event.stream_key,
+                event_id=request.event.event_id,
+                cursor=OpaqueStreamCursorCodec.encode(f"{sequence}-0"),
+            )
+
+    async def read_cursor_window(
+        self,
+        request: CursorStreamReadRequest,
+    ) -> CursorStreamWindow:
+        self._assert_opened()
+        now = datetime.now(UTC)
+        async with self._lock:
+            records = [
+                item
+                for item in self._cursor_events.get(request.stream_key, [])
+                if item[1].expires_at > now
+            ]
+            self._cursor_events[request.stream_key] = records
+            if not records:
+                return CursorStreamWindow(stream_key=request.stream_key, events=(), cursors=())
+            if any(item[1].owner_subject_id != request.owner_subject_id for item in records):
+                raise PermissionError("cursor流owner校验失败。")
+            after_sequence = 0
+            if request.after_cursor is not None:
+                raw = OpaqueStreamCursorCodec.decode(request.after_cursor)
+                try:
+                    after_sequence = int(raw.split("-", maxsplit=1)[0])
+                except ValueError as exc:
+                    raise ValueError("内存cursor结构无效。") from exc
+                if after_sequence < records[0][0]:
+                    return CursorStreamWindow(
+                        stream_key=request.stream_key,
+                        events=(),
+                        cursors=(),
+                        gap=True,
+                        snapshot_required=True,
+                    )
+            selected = [item for item in records if item[0] > after_sequence][: request.limit]
+            cursors = tuple(
+                OpaqueStreamCursorCodec.encode(f"{sequence}-0") for sequence, _event in selected
+            )
+            return CursorStreamWindow(
+                stream_key=request.stream_key,
+                events=tuple(event for _sequence, event in selected),
+                cursors=cursors,
+                next_cursor=cursors[-1] if cursors else request.after_cursor,
+            )
 
     def _assert_opened(self) -> None:
         """断言状态存储已打开。

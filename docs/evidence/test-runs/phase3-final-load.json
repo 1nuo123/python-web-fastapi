@@ -2,36 +2,36 @@
   "header": {
     "schema_version": "1.0",
     "run_id": "phase3-final-load",
-    "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+    "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
     "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
-    "started_at": "2026-07-31T01:34:10Z",
-    "command_entry": ".\\.venv\\Scripts\\python.exe -m pytest -q -m performance test\\performance\\test_streaming_capacity.py"
+    "started_at": "2026-08-07T23:00:05.982164Z",
+    "command_entry": ".venv/Scripts/python.exe -m pytest -q -m performance test/performance/test_streaming_capacity.py"
   },
   "kind": "load",
   "detail": {
     "schema_version": "1.0",
     "status": "passed",
-    "command": ".\\.venv\\Scripts\\python.exe -m pytest -q -m performance test\\performance\\test_streaming_capacity.py",
+    "command": ".venv/Scripts/python.exe -m pytest -q -m performance test/performance/test_streaming_capacity.py",
     "exit_code": 0,
     "test_count": 2,
-    "duration_seconds": 22.87,
+    "duration_seconds": 21.1347647,
     "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
     "failure_summary": null,
     "evidence_path": "docs\\evidence\\test-runs\\phase3-final-load.json",
     "commands": [
       {
-        "command": ".\\.venv\\Scripts\\python.exe -m pytest -q -m performance test\\performance\\test_streaming_capacity.py",
+        "command": ".venv/Scripts/python.exe -m pytest -q -m performance test/performance/test_streaming_capacity.py",
         "tool_version": "python-3.11.8",
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": "docs\\evidence\\test-runs\\phase3-final-load.json",
-        "started_at": "2026-07-31T01:34:10Z",
-        "finished_at": "2026-07-31T01:34:32.870000Z",
-        "duration_seconds": 22.87
+        "started_at": "2026-08-07T23:00:05.982164Z",
+        "finished_at": "2026-08-07T23:00:27.116929Z",
+        "duration_seconds": 21.1347647
       }
     ],
     "artifacts": [],
-    "warning_count": 16,
+    "warning_count": 0,
     "skipped_count": 0,
     "xfailed_count": 0,
     "coverage": null,

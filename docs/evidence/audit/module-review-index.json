@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-07-31T01:57:15.491564Z",
-  "code_baseline": "ee13807988dd7cc5dc162fb70c0940d3b43621012ece81b92cc96cc02e20a3b4",
+  "generated_at": "2026-08-07T23:06:40.795341Z",
+  "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
   "modules": [
     {
       "path": "src\\api\\__init__.py",
@@ -785,6 +785,292 @@
     },
     {
       "path": "src\\api\\endpoint_auth_access\\route_auth_access.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_agent\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_agent\\route_codex_agent_connect.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_control\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_control\\codex_security_rate_limit.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_control\\contract_codex_control.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_control\\route_codex_approval.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_control\\route_codex_device_authorization.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_control\\route_codex_host.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_control\\route_codex_realtime.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_control\\route_codex_thread.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\api\\endpoint_codex_control\\route_codex_workspace.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -2474,7 +2760,397 @@
       ]
     },
     {
+      "path": "src\\application\\artifact_release_orchestrator.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\application\\authorization_guard.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\codex_protocol_mapper.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\execute_thread_command_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\list_hosts_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\list_workspaces_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\manage_approval_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\manage_device_authorization_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\manage_device_challenge_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\manage_host_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\query_threads_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\read_thread_snapshot_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\start_device_key_rotation_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\sync_agent_state_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\codex\\update_workspace_usecase.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -2553,6 +3229,32 @@
     },
     {
       "path": "src\\application\\issue_access_token_usecase.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\issue_step_up_grant_usecase.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -2734,7 +3436,85 @@
       ]
     },
     {
+      "path": "src\\application\\ports\\agent_connection_ticket_provider_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\agent_device_key_store_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\application\\ports\\application_port_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\artifact_release_port.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -2786,7 +3566,579 @@
       ]
     },
     {
+      "path": "src\\application\\ports\\codex_agent_command_dispatch_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_agent_credential_repository_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_agent_revocation_signal_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_app_server_compatibility_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_approval_repository_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_command_outbox_repository_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_command_payload_cipher_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_control_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_device_authorization_audit_repository_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_device_authorization_store_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_device_challenge_store_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_device_key_repository_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_host_repository_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_operation_repository_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_realtime_event_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_realtime_ticket_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_thread_repository_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\codex_workspace_repository_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\git_worktree_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\sensitive_digest_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\application\\ports\\settings_reader_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\signature_verifier_port.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\application\\ports\\step_up_grant_port.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -3332,7 +4684,345 @@
       ]
     },
     {
+      "path": "src\\domain\\codex\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\domain\\codex\\agent_command_policy.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\domain\\codex\\approval_state_policy.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\domain\\codex\\codex_authorization_policy.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\domain\\codex\\codex_compatibility_policy.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\domain\\codex\\codex_error_code.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\domain\\codex\\host_status.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\domain\\codex\\operation_state_policy.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\domain\\codex\\production_rollout_policy.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\domain\\codex\\workspace_access_policy.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\core\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\artifact_release_contract\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\artifact_release_contract\\artifact_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\artifact_release_contract\\runtime_contract.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -3774,6 +5464,734 @@
       ]
     },
     {
+      "path": "src\\core\\codex_contract\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\agent_command_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\agent_device_auth_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\agent_enrollment_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\agent_protocol_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\agent_protocol_v2_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\agent_runtime_health_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\app_server_approval_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\app_server_jsonrpc_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\app_server_product_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\app_server_schema_manifest_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\approval_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\codex_runtime_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\command_outbox_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\connection_session_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\device_authorization_audit_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\device_authorization_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\device_key_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\host_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\instance_control_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\operation_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\presence_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\product_command_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\production_hardening_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\realtime_event_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\thread_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\turn_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\codex_contract\\workspace_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\core\\concurrency_contract\\__init__.py",
       "dimensions": [
         "correctness",
@@ -3826,6 +6244,32 @@
       ]
     },
     {
+      "path": "src\\core\\concurrency_contract\\fenced_lease_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\core\\concurrency_contract\\runtime_capacity_contract.py",
       "dimensions": [
         "correctness",
@@ -3853,6 +6297,136 @@
     },
     {
       "path": "src\\core\\contract_header.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\cryptography_contract\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\cryptography_contract\\aead_envelope_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\cryptography_contract\\signature_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\distributed_state_contract\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\distributed_state_contract\\atomic_state_contract.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -4450,6 +7024,58 @@
       ]
     },
     {
+      "path": "src\\core\\outbox_contract\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\outbox_contract\\reliable_outbox_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\core\\persistence_contract\\__init__.py",
       "dimensions": [
         "correctness",
@@ -4581,6 +7207,58 @@
     },
     {
       "path": "src\\core\\phase_evidence_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\redis_resource_contract\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\redis_resource_contract\\redis_resource_runtime_contract.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -4789,6 +7467,32 @@
     },
     {
       "path": "src\\core\\stream_contract\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\stream_contract\\cursor_stream_contract.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -5178,6 +7882,58 @@
       ]
     },
     {
+      "path": "src\\core\\worktree_contract\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\core\\worktree_contract\\worktree_contract.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\infrastructure\\__init__.py",
       "dimensions": [
         "correctness",
@@ -5205,6 +7961,266 @@
     },
     {
       "path": "src\\infrastructure\\admin_settings_reload_adapter.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\artifact_release\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\artifact_release\\composite_verifier.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\artifact_release\\digest_verifier.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\artifact_release\\rollout_policy.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\artifact_release\\safe_downloader.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\artifact_release\\settings_loader.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\artifact_release\\signed_activation.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\artifact_release\\staging_store.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\artifact_release\\tuf_catalog_adapter.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\artifact_release\\windows_authenticode_verifier.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -5594,6 +8610,1176 @@
       ]
     },
     {
+      "path": "src\\infrastructure\\codex\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\agent_device_authentication.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\agent_protocol_codec.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_agent_credential_service.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_agent_event_buffer.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_agent_gateway.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_agent_revocation_signal.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_browser_event_hub.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_command_outbox_dispatcher.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_command_payload_cipher_adapter.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_connection_registry.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_connection_session.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_control_runtime.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_device_authorization_store.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_device_challenge_store.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_host_actor.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_host_presence_adapter.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_instance_control_signal_adapter.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_pairing_service.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_protocol_mapper.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_realtime_stream_adapter.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_runtime_facade.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex\\codex_step_up_grant_service.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_command_executor.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_command_journal.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_configuration.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_connection_ticket_provider.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_control_channel.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_doctor.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_event_batcher.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_event_replay_buffer.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_release_runtime.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_secret_store.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_setup.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_snapshot_builder.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_thread_history_capacity_registry.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\agent_workspace_registry.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\app_server_approval_protocol_probe.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\app_server_jsonrpc_client.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\app_server_manifest_registry.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\app_server_process_supervisor.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\app_server_protocol_adapter.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\codex_agent_update_coordinator.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\codex_agent\\windows_dpapi_device_key_store.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\infrastructure\\concurrency\\__init__.py",
       "dimensions": [
         "correctness",
@@ -5646,7 +9832,59 @@
       ]
     },
     {
+      "path": "src\\infrastructure\\concurrency\\memory_fenced_lease_store.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\infrastructure\\concurrency\\redis_distributed_lock_adapter.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\concurrency\\redis_fenced_lease_store.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -5699,6 +9937,214 @@
     },
     {
       "path": "src\\infrastructure\\context\\request_context_manager_impl.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\cryptography\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\cryptography\\aes_gcm_envelope_cipher.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\cryptography\\deferred_aead_envelope_cipher.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\cryptography\\ed25519_signature_verifier.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\distributed_state\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\distributed_state\\deferred_atomic_state.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\distributed_state\\memory_atomic_state.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\distributed_state\\redis_atomic_state.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -6063,6 +10509,32 @@
     },
     {
       "path": "src\\infrastructure\\key_management\\database_key_ring_store.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\key_management\\deferred_sensitive_digest_service.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -6764,6 +11236,58 @@
       ]
     },
     {
+      "path": "src\\infrastructure\\outbox\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\outbox\\reliable_outbox_runner.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\infrastructure\\persistence\\__init__.py",
       "dimensions": [
         "correctness",
@@ -7128,6 +11652,136 @@
       ]
     },
     {
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202607311200_create_codex_control_phase1.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608071200_add_codex_device_identity.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608071300_add_codex_command_outbox.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608071400_add_codex_workspace_worktree_policy.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608081000_add_codex_host_compatibility.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\infrastructure\\persistence\\alembic_runner.py",
       "dimensions": [
         "correctness",
@@ -7414,6 +12068,240 @@
       ]
     },
     {
+      "path": "src\\infrastructure\\persistence\\orm_model\\codex_agent_credential_orm_model.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\orm_model\\codex_approval_audit_orm_model.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\orm_model\\codex_command_outbox_orm_model.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\orm_model\\codex_control_operation_orm_model.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\orm_model\\codex_device_authorization_audit_orm_model.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\orm_model\\codex_host_device_key_orm_model.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\orm_model\\codex_host_orm_model.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\orm_model\\codex_thread_index_orm_model.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\orm_model\\codex_workspace_orm_model.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\infrastructure\\persistence\\orm_model\\key_ring_snapshot_orm_model.py",
       "dimensions": [
         "correctness",
@@ -7675,6 +12563,32 @@
     },
     {
       "path": "src\\infrastructure\\persistence\\repository_impl\\auth_identity_repository_impl.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\persistence\\repository_impl\\codex_repository_impl.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -8013,6 +12927,32 @@
     },
     {
       "path": "src\\infrastructure\\resource_mount\\admin_security_resource_facade.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\resource_mount\\codex_resource_facade.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -8403,6 +13343,32 @@
     },
     {
       "path": "src\\infrastructure\\resource_slot\\shared_http_resource_manager.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\resource_slot\\shared_redis_resource.py",
       "dimensions": [
         "correctness",
         "readability",
@@ -9390,6 +14356,32 @@
       ]
     },
     {
+      "path": "src\\infrastructure\\streaming\\stream_step_up_grant_adapter.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
       "path": "src\\infrastructure\\streaming\\streaming_runtime_factory.py",
       "dimensions": [
         "correctness",
@@ -10041,6 +15033,84 @@
     },
     {
       "path": "src\\infrastructure\\testing\\task_execution_test_support.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\worktree\\__init__.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\worktree\\git_worktree_adapter.py",
+      "dimensions": [
+        "correctness",
+        "readability",
+        "extensibility",
+        "maintainability",
+        "stability",
+        "security",
+        "performance_infrastructure",
+        "data_consistency",
+        "deployment",
+        "supply_chain",
+        "exception_handling",
+        "transactions",
+        "concurrency",
+        "resource_release",
+        "log_redaction",
+        "failure_degradation"
+      ],
+      "conclusion": "已纳入编译、类型、分层、安全与全量回归审查；发现项由统一 finding 目录承接。",
+      "evidence_paths": [
+        ".tmp\\static-results\\commands.json",
+        "docs\\evidence\\regressions"
+      ]
+    },
+    {
+      "path": "src\\infrastructure\\worktree\\worktree_cleanup_reconciler.py",
       "dimensions": [
         "correctness",
         "readability",
