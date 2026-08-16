@@ -78,11 +78,8 @@ junit*.xml
 *.swp
 *.swo
 
-# Cursor/KC-Chat local runtime data
-.cursor/mcp.json
-.cursor/kc-mcp/
-.cursor/kc-mcp-messages/
-.cursor/kc-chat-exports/
+# Local Cursor state
+.cursor/
 
 # Operating systems
 .DS_Store
