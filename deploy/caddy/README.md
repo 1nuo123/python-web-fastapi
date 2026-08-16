@@ -1,57 +1,57 @@
 # Caddy Docker Gateway
 
-This directory contains the production gateway for the FastAPI and Nuxt
-containers. Caddy terminates TLS, forwards WebSocket upgrades, adds a small
-set of security headers, and writes structured access logs to Docker stdout.
+This gateway is the only public container in production. FastAPI, Nuxt,
+PostgreSQL, Redis, and RabbitMQ remain on Docker networks without published
+ports.
 
-The gateway uses the fixed internal network `fastapi-web-edge` with subnet
-`172.30.0.0/24`. The backend trusts forwarded client headers only from this
-network. Do not attach unrelated containers to it, and keep the subnet in sync
-if the network is intentionally changed.
+The trusted edge boundary is fixed to `172.30.0.0/24`. It must match
+`config/runtime/security_runtime/security_runtime_production.toml` so FastAPI
+accepts forwarded client IP and Origin metadata only from the gateway network.
+The startup script runs `docker network create` when this external network does
+not already exist and rejects an existing network with a different subnet.
 
-## Local acceptance without a domain
+## Temporary IP production acceptance
 
-Run these commands from the backend workspace root:
+The current temporary public entry is `http://47.113.177.140`. Clone the two
+repositories as siblings on the server:
 
-```powershell
-docker network create --driver bridge --internal --subnet 172.30.0.0/24 fastapi-web-edge
-docker compose -f compose.yml -f compose.caddy.yml up -d --no-build --no-deps app
-docker compose -f ..\typescript-web-nuxt\compose.yml -f ..\typescript-web-nuxt\compose.caddy.yml up -d --no-build --no-deps frontend
-docker compose -f deploy\caddy\compose.yml up -d
+```bash
+install -d -m 755 /opt/web
+cd /opt/web
+git clone git@github-backend:1nuo123/python-web-fastapi.git
+git clone git@github-frontend:1nuo123/typescript-web-nuxt.git
 ```
 
-The local gateway is available at `http://localhost:8080`. The default
-`8443` mapping is reserved for later HTTPS verification; no certificate is
-requested while `CADDY_SITE_ADDRESS` is `http://localhost`.
+Generate untracked production secrets and start the complete stack:
 
-## Production with a domain
-
-Set the following values in a deployment-only environment file, then run the
-same Compose files with the production overlays. Caddy will serve
-`https://example.com` after DNS points to the host:
-
-```dotenv
-EDGE_NETWORK_NAME=fastapi-web-edge
-CADDY_SITE_ADDRESS=example.com
-CADDY_BIND_ADDRESS=0.0.0.0
-CADDY_HTTP_PORT=80
-CADDY_HTTPS_PORT=443
+```bash
+cd /opt/web/python-web-fastapi
+bash deploy/prepare-production-env.sh ../typescript-web-nuxt
+bash deploy/run-production-ip.sh ../typescript-web-nuxt
 ```
 
-```powershell
-docker compose -f compose.yml -f compose.production.yml -f compose.caddy.yml up -d --no-build --no-deps app
-docker compose -f ..\typescript-web-nuxt\compose.yml -f ..\typescript-web-nuxt\compose.production.yml -f ..\typescript-web-nuxt\compose.caddy.yml up -d --no-build --no-deps frontend
-docker compose -f deploy\caddy\compose.yml up -d
-```
+The environment generator creates three mode-`600` files:
 
-Only Caddy publishes public ports in production. PostgreSQL, Redis, RabbitMQ,
-FastAPI, and Nuxt stay on Docker networks. Caddy's `caddy_data` volume stores
-certificates and must be backed up; it is separate from the existing database
-volume and this setup never uses `down -v`.
+- backend runtime secrets: `.env.production.local`
+- one-time administrator bootstrap data: `.env.initial-admin.local`
+- frontend runtime configuration: `../typescript-web-nuxt/.env.production.local`
 
-The browser keeps one origin: `/api/*` is handled by Nuxt's backend proxy so
-refresh-cookie path rewriting remains intact. Caddy sends only explicit API
-and WebSocket paths directly to FastAPI; `/codex/tasks` and other page routes
-remain Nuxt routes. WebSocket and HTTPS acceptance must be repeated after a
-real domain is available, including a mobile network switch, reconnection,
-and snapshot recovery.
+Record the generated `admin` password securely and remove
+`.env.initial-admin.local` after the administrator is created.
+
+Plain HTTP is only a temporary server acceptance path. Production refresh
+cookies remain `Secure`, so persistent browser sessions and Windows Agent WSS
+must be accepted again after a real HTTPS domain is available.
+
+## Domain production
+
+After DNS and ICP filing are ready, change `CADDY_SITE_ADDRESS` in the backend
+production environment file to the domain, replace the production stream
+allowed Origin with `https://<domain>`, and restart the backend and gateway.
+Caddy will obtain and renew the public certificate automatically.
+
+The `caddy_data` volume stores certificates and must be backed up. Never use
+`docker compose down -v` during routine deployment or rollback.
+
+Final HTTPS acceptance must cover login refresh, WebSocket reconnection, a
+mobile network switch, and snapshot recovery.

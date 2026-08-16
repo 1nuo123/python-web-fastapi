@@ -56,9 +56,7 @@ class AgentProtocolWarningDiagnosticDetail(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    kind: Literal["agent.app_server.protocol_warning"] = (
-        "agent.app_server.protocol_warning"
-    )
+    kind: Literal["agent.app_server.protocol_warning"] = "agent.app_server.protocol_warning"
     schema_version: Literal["1.0"] = AGENT_DIAGNOSTIC_SCHEMA_VERSION
     byte_count: int = Field(ge=0)
     digest: str = Field(pattern=AGENT_DIAGNOSTIC_DIGEST_PATTERN)
@@ -69,9 +67,7 @@ class AgentProcessExitDiagnosticDetail(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    kind: Literal["agent.app_server.exit_non_zero"] = (
-        "agent.app_server.exit_non_zero"
-    )
+    kind: Literal["agent.app_server.exit_non_zero"] = "agent.app_server.exit_non_zero"
     schema_version: Literal["1.0"] = AGENT_DIAGNOSTIC_SCHEMA_VERSION
     exit_code: int
 

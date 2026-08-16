@@ -49,17 +49,13 @@ class TestCodexThreadTitlePolicyUnit:
 
     def test_long_title_should_truncate_at_word_boundary(self) -> None:
         prefix = "a" * (CODEX_THREAD_TITLE_MAX_LENGTH - 8)
-        normalized = CodexThreadTitlePolicy().normalize(
-            f"{prefix} boundary trailing-content"
-        )
+        normalized = CodexThreadTitlePolicy().normalize(f"{prefix} boundary trailing-content")
 
         assert normalized == prefix
         assert len(normalized) <= CODEX_THREAD_TITLE_MAX_LENGTH
 
     def test_long_unbroken_title_should_use_hard_limit(self) -> None:
-        normalized = CodexThreadTitlePolicy().normalize(
-            "长" * (CODEX_THREAD_TITLE_MAX_LENGTH + 20)
-        )
+        normalized = CodexThreadTitlePolicy().normalize("长" * (CODEX_THREAD_TITLE_MAX_LENGTH + 20))
 
         assert normalized == "长" * CODEX_THREAD_TITLE_MAX_LENGTH
 

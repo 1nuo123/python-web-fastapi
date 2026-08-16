@@ -43,9 +43,7 @@ class TestExecutionRootBindingContract:
                 workspace_key="workspace",
                 execution_root=tmp_path,
                 root_kind=RootKind.WORKSPACE,
-                extension=IsolatedWorktreeExecutionRootExtension(
-                    worktree_id="worktree-1"
-                ),
+                extension=IsolatedWorktreeExecutionRootExtension(worktree_id="worktree-1"),
             )
 
     def test_extension_should_use_discriminator_and_forbid_extra_fields(self) -> None:

@@ -100,7 +100,7 @@ password_spray_limit = 10
 password_spray_window_seconds = 300
 
 [runtime.detail.protection.client_ip]
-trusted_proxy_cidr_blocks = ["172.31.0.0/24"]
+trusted_proxy_cidr_blocks = ["172.30.0.0/24"]
 
 [runtime.detail.protection.ip_block]
 enabled = true

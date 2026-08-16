@@ -45,11 +45,7 @@ class TestCodexAppServerSchemaDriftContract:
             PROTOCOL_ROOT / FROZEN_CODEX_VERSION / "typescript" / "ClientRequest.ts"
         ).read_text(encoding="utf-8")
         list_source = (
-            PROTOCOL_ROOT
-            / FROZEN_CODEX_VERSION
-            / "typescript"
-            / "v2"
-            / "ThreadListParams.ts"
+            PROTOCOL_ROOT / FROZEN_CODEX_VERSION / "typescript" / "v2" / "ThreadListParams.ts"
         ).read_text(encoding="utf-8")
 
         assert "recencyAt" in thread_source

@@ -323,9 +323,7 @@ class AgentLocalBootstrapConnectionSettings(BaseModel):
             actual_path = parsed.path.rstrip("/")
             if actual_path != expected_path or parsed.query:
                 raise ValueError(f"Agent本地{endpoint_name}入口路径或查询参数不符合发布契约。")
-        authorities = {
-            _resolve_local_authority(endpoint_url) for _, endpoint_url, _ in endpoints
-        }
+        authorities = {_resolve_local_authority(endpoint_url) for _, endpoint_url, _ in endpoints}
         if len(authorities) != 1:
             raise ValueError("Agent所有本地入口必须属于同一回环origin。")
         return self
@@ -353,9 +351,9 @@ class AgentBootstrapSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     deployment_state: Literal["configured", "local", "unconfigured"]
-    connection: (
-        AgentBootstrapConnectionSettings | AgentLocalBootstrapConnectionSettings | None
-    ) = None
+    connection: AgentBootstrapConnectionSettings | AgentLocalBootstrapConnectionSettings | None = (
+        None
+    )
     agent_version: str = Field(min_length=1, max_length=64)
     expected_codex_version: str = Field(min_length=1, max_length=64)
     app_server_schema_digest: str = Field(min_length=64, max_length=128)

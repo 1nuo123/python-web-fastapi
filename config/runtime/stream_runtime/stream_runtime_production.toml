@@ -25,10 +25,7 @@ websocket_ping_interval_seconds = 20.0
 websocket_ping_timeout_seconds = 20.0
 shutdown_grace_seconds = 20.0
 allowed_origins = [
-  "http://127.0.0.1:8080",
-  "http://localhost:8080",
   "http://47.113.177.140",
-  "http://47.113.177.140:8080",
 ]
 require_browser_ticket = true
 redis_key_prefix = "fastapi-stream"

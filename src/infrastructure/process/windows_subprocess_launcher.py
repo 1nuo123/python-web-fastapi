@@ -91,7 +91,7 @@ class WindowsSubprocessPolicy(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    shell: bool = False
+    shell: Literal[False] = False
     creation_flags: int = 0
 
     @classmethod
@@ -147,7 +147,7 @@ class WindowsSubprocessLauncher:
             encoding=WINDOWS_SUBPROCESS_OUTPUT_ENCODING,
             errors=WINDOWS_SUBPROCESS_OUTPUT_ERROR_POLICY,
             timeout=request.timeout_seconds,
-            shell=self._policy.shell,
+            shell=False,
             startupinfo=self._policy.startup_info(),
             creationflags=self._policy.creation_flags,
         )
@@ -202,10 +202,14 @@ class WindowsSubprocessLauncher:
             raise
         return WindowsSubprocessResult(
             return_code=process.returncode if process.returncode is not None else -1,
-            stdout=stdout.decode(WINDOWS_SUBPROCESS_OUTPUT_ENCODING, errors=WINDOWS_SUBPROCESS_OUTPUT_ERROR_POLICY)
+            stdout=stdout.decode(
+                WINDOWS_SUBPROCESS_OUTPUT_ENCODING, errors=WINDOWS_SUBPROCESS_OUTPUT_ERROR_POLICY
+            )
             if isinstance(stdout, bytes)
             else str(stdout or ""),
-            stderr=stderr.decode(WINDOWS_SUBPROCESS_OUTPUT_ENCODING, errors=WINDOWS_SUBPROCESS_OUTPUT_ERROR_POLICY)
+            stderr=stderr.decode(
+                WINDOWS_SUBPROCESS_OUTPUT_ENCODING, errors=WINDOWS_SUBPROCESS_OUTPUT_ERROR_POLICY
+            )
             if isinstance(stderr, bytes)
             else str(stderr or ""),
             elapsed_seconds=max(time.monotonic() - started_at, 0.0),

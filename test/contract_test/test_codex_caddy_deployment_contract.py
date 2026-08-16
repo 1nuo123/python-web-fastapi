@@ -38,3 +38,25 @@ def test_caddy_operations_document_should_require_https_acceptance() -> None:
     assert "https://" in content
     assert "network switch" in content
     assert "snapshot" in content
+
+
+def test_ip_production_scripts_should_keep_gateway_and_secrets_consistent() -> None:
+    project_root = Path(__file__).parents[2]
+    prepare_script = (project_root / "deploy/prepare-production-env.sh").read_text(encoding="utf-8")
+    run_script = (project_root / "deploy/run-production-ip.sh").read_text(encoding="utf-8")
+    security_config = (
+        project_root / "config/runtime/security_runtime/security_runtime_production.toml"
+    ).read_text(encoding="utf-8")
+    stream_config = (
+        project_root / "config/runtime/stream_runtime/stream_runtime_production.toml"
+    ).read_text(encoding="utf-8")
+
+    assert "openssl rand -hex" in prepare_script
+    assert ".env.initial-admin.local" in prepare_script
+    assert "INITIAL_ADMIN_USERNAME=admin" in prepare_script
+    assert 'EDGE_NETWORK_SUBNET="172.30.0.0/24"' in run_script
+    assert "--env-from-file" in run_script
+    assert "task-worker" not in run_script
+    assert 'trusted_proxy_cidr_blocks = ["172.30.0.0/24"]' in security_config
+    assert '"http://47.113.177.140"' in stream_config
+    assert "localhost" not in stream_config

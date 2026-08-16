@@ -104,9 +104,7 @@ class CodexBrowserEventHub:
                 event=realtime_event,
             )
             realtime_event = realtime_event.model_copy(
-                update={
-                    "header": realtime_event.header.model_copy(update={"cursor": cursor})
-                }
+                update={"header": realtime_event.header.model_copy(update={"cursor": cursor})}
             )
         for subscription in subscriptions:
             self._enqueue(subscription, realtime_event)

@@ -42,6 +42,7 @@ class AgentLifecycleState(StrEnum):
     STOPPED = "stopped"
     FAILED = "failed"
 
+
 READ_TASK_STATUS_SCRIPT: Final = """
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
@@ -135,9 +136,7 @@ class PsutilWindowsAgentRunProcessBackend:
             except psutil.NoSuchProcess:
                 continue
             except psutil.AccessDenied as exc:
-                raise WindowsAgentTaskError(
-                    f"无法终止 Agent 进程 {process.pid}。"
-                ) from exc
+                raise WindowsAgentTaskError(f"无法终止 Agent 进程 {process.pid}。") from exc
         _, survivors = psutil.wait_procs(alive, timeout=5.0)
         if survivors:
             process_ids = ", ".join(str(process.pid) for process in survivors)

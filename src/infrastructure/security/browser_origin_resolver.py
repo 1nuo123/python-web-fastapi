@@ -58,7 +58,9 @@ def read_trusted_forwarded_origin(
     if proto is None or host is None:
         return None
 
-    normalized_proto = proto.split(FORWARDED_VALUE_SEPARATOR, maxsplit=1)[0].strip().strip('"').lower()
+    normalized_proto = (
+        proto.split(FORWARDED_VALUE_SEPARATOR, maxsplit=1)[0].strip().strip('"').lower()
+    )
     normalized_host = host.split(FORWARDED_VALUE_SEPARATOR, maxsplit=1)[0].strip().strip('"')
     if (
         normalized_proto not in SUPPORTED_BROWSER_ORIGIN_SCHEMES

@@ -336,10 +336,7 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
 
     assert opened_event.header.detail_kind == CodexRealtimeEventType.APPROVAL_OPENED
     assert isinstance(opened_event.detail, CodexApprovalEventDetail)
-    assert (
-        opened_thread_event.header.detail_kind
-        == CodexRealtimeEventType.THREAD_UPDATED
-    )
+    assert opened_thread_event.header.detail_kind == CodexRealtimeEventType.THREAD_UPDATED
     assert isinstance(opened_thread_event.detail, CodexThreadUpdatedDetail)
     assert opened_thread_event.detail.thread.upstream_thread_id == thread_id
     assert opened_thread_event.detail.thread.recency_at is not None
@@ -372,10 +369,7 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
     assert command.detail.approval_id == approval_id
     assert command.detail.decision == "accept"
     assert command.detail.approval_version == 1
-    assert (
-        resolved_thread_event.header.detail_kind
-        == CodexRealtimeEventType.THREAD_UPDATED
-    )
+    assert resolved_thread_event.header.detail_kind == CodexRealtimeEventType.THREAD_UPDATED
     assert isinstance(resolved_thread_event.detail, CodexThreadUpdatedDetail)
     assert resolved_thread_event.detail.thread.upstream_thread_id == thread_id
     assert resolved_thread_event.detail.thread.recency_at is not None

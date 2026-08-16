@@ -117,12 +117,8 @@ class TestAgentCommandV2MapperUnit:
             "threadId": "thread-1",
         }
 
-        archived = mapper.from_v1_command(
-            self._build_command("thread.archive", params)
-        ).detail
-        unarchived = mapper.from_v1_command(
-            self._build_command("thread.unarchive", params)
-        ).detail
+        archived = mapper.from_v1_command(self._build_command("thread.archive", params)).detail
+        unarchived = mapper.from_v1_command(self._build_command("thread.unarchive", params)).detail
 
         assert isinstance(archived, AgentThreadArchiveCommandDetail)
         assert isinstance(unarchived, AgentThreadUnarchiveCommandDetail)

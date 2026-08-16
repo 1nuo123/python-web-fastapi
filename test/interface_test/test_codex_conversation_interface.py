@@ -129,9 +129,9 @@ class TestCodexConversationInterface:
             cleanup_uow = resource_mount.create_unit_of_work()
             try:
                 cleanup_session = cleanup_uow.get_session()
-                cleanup_session.query(CodexThreadIndexOrmModel).filter_by(
-                    host_id=host_id
-                ).delete(synchronize_session=False)
+                cleanup_session.query(CodexThreadIndexOrmModel).filter_by(host_id=host_id).delete(
+                    synchronize_session=False
+                )
                 cleanup_session.query(CodexWorkspaceOrmModel).filter_by(
                     workspace_id=workspace_id
                 ).delete(synchronize_session=False)

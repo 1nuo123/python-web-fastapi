@@ -258,9 +258,7 @@ class AppServerProcessSupervisor:
                         codex_version=handle.codex_version,
                         occurred_at=datetime.now(UTC),
                     ),
-                    detail=AgentProcessExitDiagnosticDetail(
-                        exit_code=handle.process.returncode
-                    ),
+                    detail=AgentProcessExitDiagnosticDetail(exit_code=handle.process.returncode),
                 ).to_log_line()
             )
         CodexProcessSupport.close_windows_subprocess_transport(handle.process)

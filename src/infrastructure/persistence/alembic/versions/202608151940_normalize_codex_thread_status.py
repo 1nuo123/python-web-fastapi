@@ -27,15 +27,14 @@ class CodexThreadStatusMigration:
     def upgrade() -> None:
         """把旧版或未知状态统一写为 ``unknown``。"""
 
-        supported_status_sql = ", ".join(
-            f"'{status_value}'" for status_value in SUPPORTED_STATUS_VALUES
+        thread_index_table = sa.table(
+            CODEX_THREAD_INDEX_TABLE,
+            sa.column(STATUS_COLUMN, sa.String()),
         )
         op.execute(
-            sa.text(
-                f"UPDATE {CODEX_THREAD_INDEX_TABLE} "
-                f"SET {STATUS_COLUMN} = :unknown_status "
-                f"WHERE {STATUS_COLUMN} NOT IN ({supported_status_sql})"
-            ).bindparams(unknown_status=UNKNOWN_STATUS)
+            thread_index_table.update()
+            .where(thread_index_table.c.status.not_in(SUPPORTED_STATUS_VALUES))
+            .values(status=UNKNOWN_STATUS)
         )
 
     @staticmethod

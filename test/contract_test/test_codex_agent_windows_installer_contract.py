@@ -44,7 +44,7 @@ def test_release_workflows_should_split_signed_build_from_verified_publish() -> 
     sign_script = (WINDOWS_SCRIPTS_ROOT / "sign_release.ps1").read_text("utf-8")
 
     assert "uses: azure/login@v2" in build_workflow
-    assert 'uses: actions/setup-dotnet@v4' in build_workflow
+    assert "uses: actions/setup-dotnet@v4" in build_workflow
     assert 'dotnet-version: "8.0.x"' in build_workflow
     assert build_workflow.index("uses: azure/login@v2") < build_workflow.index("sign_release.ps1")
     assert build_workflow.index("uses: actions/setup-dotnet@v4") < build_workflow.index(
@@ -78,7 +78,7 @@ def test_release_workflows_should_split_signed_build_from_verified_publish() -> 
     assert publish_workflow.index("uses: azure/login@v2") < publish_workflow.index(
         "sign_release.ps1"
     )
-    assert 'uses: actions/setup-dotnet@v4' in publish_workflow
+    assert "uses: actions/setup-dotnet@v4" in publish_workflow
     assert 'dotnet-version: "8.0.x"' in publish_workflow
     assert publish_workflow.index("uses: actions/setup-dotnet@v4") < publish_workflow.index(
         "sign_release.ps1"

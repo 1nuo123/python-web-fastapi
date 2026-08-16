@@ -276,9 +276,7 @@ class CodexConversationListQuery(BaseModel):
             {
                 "workspace_id": str(self.workspace_id) if self.workspace_id else None,
                 "archived": self.archived,
-                "search_term": self.search_term.strip().casefold()
-                if self.search_term
-                else None,
+                "search_term": self.search_term.strip().casefold() if self.search_term else None,
             },
             ensure_ascii=False,
             sort_keys=True,
@@ -316,9 +314,7 @@ class CodexConversationCursor(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    header: CodexConversationCursorHeader = Field(
-        default_factory=CodexConversationCursorHeader
-    )
+    header: CodexConversationCursorHeader = Field(default_factory=CodexConversationCursorHeader)
     detail: CodexConversationCursorDetail
 
     @model_validator(mode="after")

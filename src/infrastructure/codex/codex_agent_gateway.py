@@ -112,9 +112,7 @@ AgentHeartbeatObserver = Callable[[CodexAgentHeartbeat, AgentDevicePrincipal], A
 AgentSnapshotObserver = Callable[[CodexAgentStateSnapshot, AgentDevicePrincipal], Awaitable[None]]
 AgentEventObserver = Callable[[CodexAgentRealtimeEvent, AgentDevicePrincipal], Awaitable[None]]
 AgentApprovalObserver = Callable[[CodexAgentApprovalOpened, AgentDevicePrincipal], Awaitable[None]]
-AgentDisconnectObserver = Callable[
-    [UUID, AgentDevicePrincipal, datetime], Awaitable[None]
-]
+AgentDisconnectObserver = Callable[[UUID, AgentDevicePrincipal, datetime], Awaitable[None]]
 AgentCompatibilityObserver = Callable[
     [UUID, AgentDevicePrincipal, CodexCompatibilityDecision], Awaitable[None]
 ]

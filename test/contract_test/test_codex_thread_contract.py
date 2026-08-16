@@ -25,9 +25,7 @@ class TestCodexThreadContract:
     RECENCY_AT = datetime(2026, 8, 15, 9, 30, tzinfo=UTC)
 
     def test_timeline_item_when_header_and_detail_match_should_validate(self) -> None:
-        item = CodexTimelineItemEnvelope.model_validate(
-            self._build_message_item()
-        )
+        item = CodexTimelineItemEnvelope.model_validate(self._build_message_item())
 
         assert item.header.detail_kind.value == item.detail.kind
         assert item.header.schema_version == item.detail.schema_version

@@ -107,7 +107,9 @@ class AgentExecutionRootStore:
             try:
                 os.replace(self._path, corrupt_path)
             except OSError as replace_exc:
-                raise AgentExecutionRootStoreError("执行根绑定存储损坏且无法隔离。") from replace_exc
+                raise AgentExecutionRootStoreError(
+                    "执行根绑定存储损坏且无法隔离。"
+                ) from replace_exc
             return {}
 
     def _write_entries(self, entries: dict[str, dict[str, object]]) -> None:
@@ -120,7 +122,9 @@ class AgentExecutionRootStore:
         }
         try:
             with temporary_path.open("w", encoding="utf-8", newline="\n") as stream:
-                json.dump(payload, stream, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                json.dump(
+                    payload, stream, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+                )
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary_path, self._path)

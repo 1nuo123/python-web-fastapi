@@ -309,9 +309,7 @@ class AgentSnapshotBuilder:
             display_name=title.display_name,
             title_source=title.source,
             model_id=None,
-            model_provider=(
-                model_provider[:128] if isinstance(model_provider, str) else None
-            ),
+            model_provider=(model_provider[:128] if isinstance(model_provider, str) else None),
             status=normalized_status,
             active_turn_id=None,
             archived=archived,

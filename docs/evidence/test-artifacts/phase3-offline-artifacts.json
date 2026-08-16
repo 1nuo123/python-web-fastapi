@@ -2,7 +2,7 @@
   {
     "kind": "junit",
     "path": "docs/evidence/test-artifacts/phase3-final-offline.xml",
-    "sha256": "b33a3c5986d863e9750c3949e77356d4bc1e9b69b41556e6b648529ae6885a17",
+    "sha256": "99cc0e0ec68871120247165b39464721c5408236b30c83596d9f58928882e81e",
     "command_index": 0
   }
 ]

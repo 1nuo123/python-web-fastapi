@@ -90,9 +90,7 @@ def test_realtime_ticket_when_reused_or_origin_missing_should_reject_before_acce
 def test_thread_snapshot_interface_should_publish_history_capacity_status() -> None:
     app = TestAppFactory().create()
     schema = app.openapi()["components"]["schemas"]["CodexThreadAuthoritySnapshot"]
-    history_status_schema = app.openapi()["components"]["schemas"][
-        "CodexThreadHistoryStatus"
-    ]
+    history_status_schema = app.openapi()["components"]["schemas"]["CodexThreadHistoryStatus"]
 
     assert schema["properties"]["history_status"]["default"] == "complete"
     assert history_status_schema["enum"] == [

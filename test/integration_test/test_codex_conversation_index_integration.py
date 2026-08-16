@@ -159,9 +159,7 @@ class TestCodexConversationIndexIntegration:
                         cursor=second_page.next_cursor,
                     ),
                 )
-                assert [item.upstream_thread_id for item in final_page.items] == [
-                    "thread-a"
-                ]
+                assert [item.upstream_thread_id for item in final_page.items] == ["thread-a"]
                 assert final_page.next_cursor is None
                 assert (
                     repository.list_page_by_host_and_owner(
@@ -182,19 +180,17 @@ class TestCodexConversationIndexIntegration:
                     )
         finally:
             with Session(engine) as cleanup_session:
-                cleanup_session.query(CodexThreadIndexOrmModel).filter_by(
-                    host_id=host_id
-                ).delete(synchronize_session=False)
+                cleanup_session.query(CodexThreadIndexOrmModel).filter_by(host_id=host_id).delete(
+                    synchronize_session=False
+                )
                 cleanup_session.query(CodexWorkspaceOrmModel).filter_by(
                     workspace_id=workspace_id
                 ).delete(synchronize_session=False)
-                cleanup_session.query(CodexHostOrmModel).filter_by(
-                    host_id=host_id
-                ).delete(synchronize_session=False)
+                cleanup_session.query(CodexHostOrmModel).filter_by(host_id=host_id).delete(
+                    synchronize_session=False
+                )
                 cleanup_session.query(AuthUserOrmModel).filter(
-                    AuthUserOrmModel.subject_id.in_(
-                        [owner_subject_id, other_subject_id]
-                    )
+                    AuthUserOrmModel.subject_id.in_([owner_subject_id, other_subject_id])
                 ).delete(synchronize_session=False)
                 cleanup_session.commit()
             engine.dispose()

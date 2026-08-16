@@ -93,3 +93,7 @@ class TestWindowsSubprocessLauncherUnit:
                     "metadata": {"secret": "forbidden"},
                 }
             )
+
+    def test_policy_should_reject_shell_execution(self) -> None:
+        with pytest.raises(ValidationError, match="literal_error"):
+            WindowsSubprocessPolicy.model_validate({"shell": True})

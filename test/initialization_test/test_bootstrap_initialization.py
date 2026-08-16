@@ -132,9 +132,7 @@ class TestBootstrapInitialization:
                     .filter_by(role_key=AuthRoleKey.REGISTERED_USER.value)
                     .one()
                 )
-                assert {
-                    scope.scope_code for scope in role.role_scopes
-                } == {
+                assert {scope.scope_code for scope in role.role_scopes} == {
                     AuthScopeCode.CODEX_READ.value,
                     AuthScopeCode.CODEX_HOST_MANAGE.value,
                 }
@@ -176,9 +174,7 @@ class TestBootstrapInitialization:
                     .filter_by(role_key=AuthRoleKey.REGISTERED_USER.value)
                     .one()
                 )
-                assert {
-                    scope.scope_code for scope in role.role_scopes
-                } == {
+                assert {scope.scope_code for scope in role.role_scopes} == {
                     "auth:read",
                     AuthScopeCode.CODEX_READ.value,
                     AuthScopeCode.CODEX_HOST_MANAGE.value,

@@ -481,9 +481,7 @@ class CodexProtocolMapper:
                 "diff": self._parse_diff(item.unified_diff).model_dump(mode="json"),
             }
         header["detail_kind"] = cast(str, payload["kind"])
-        return CodexTimelineItemEnvelope.model_validate(
-            {"header": header, "detail": payload}
-        )
+        return CodexTimelineItemEnvelope.model_validate({"header": header, "detail": payload})
 
     def to_thread(
         self,
@@ -497,7 +495,9 @@ class CodexProtocolMapper:
             "host_id": str(host_id),
             "workspace_id": str(workspace_id) if workspace_id else "",
             "upstream_thread_id": thread_id,
-            "display_name": display_name if isinstance(display_name, str) and display_name else None,
+            "display_name": display_name
+            if isinstance(display_name, str) and display_name
+            else None,
             "title_source": "app_server"
             if isinstance(display_name, str) and display_name
             else None,
@@ -584,18 +584,14 @@ class CodexProtocolMapper:
             detail = {
                 "kind": "plan",
                 "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
-                "explanation": self._bounded(
-                    str(item.get("text") or ""), MAX_PRODUCT_TEXT_CHARS
-                ),
+                "explanation": self._bounded(str(item.get("text") or ""), MAX_PRODUCT_TEXT_CHARS),
                 "steps": [],
             }
         elif item_type == "commandExecution":
             detail = {
                 "kind": "command",
                 "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
-                "command": self._bounded(
-                    str(item.get("command") or ""), MAX_PRODUCT_TEXT_CHARS
-                ),
+                "command": self._bounded(str(item.get("command") or ""), MAX_PRODUCT_TEXT_CHARS),
                 "output": self._bounded(
                     str(item.get("aggregatedOutput") or ""),
                     MAX_PRODUCT_TEXT_CHARS,
@@ -618,9 +614,7 @@ class CodexProtocolMapper:
         else:
             return None
         header["detail_kind"] = cast(str, detail["kind"])
-        return CodexTimelineItemEnvelope.model_validate(
-            {"header": header, "detail": detail}
-        )
+        return CodexTimelineItemEnvelope.model_validate({"header": header, "detail": detail})
 
     def to_thread_snapshot(
         self,

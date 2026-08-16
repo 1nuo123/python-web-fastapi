@@ -75,9 +75,7 @@ class RecordingAgentSignatureVerifier:
     """记录活动 Agent 签名校验。"""
 
     def __init__(self, *, rejected_paths: set[Path] | None = None) -> None:
-        self.rejected_paths = {
-            path.resolve() for path in (rejected_paths or set())
-        }
+        self.rejected_paths = {path.resolve() for path in (rejected_paths or set())}
         self.paths: list[Path] = []
 
     async def verify(self, path: Path) -> object:
@@ -241,9 +239,7 @@ def _unconfigured_bootstrap() -> AgentBootstrapSettings:
 def _local_bootstrap() -> AgentBootstrapSettings:
     return AgentBootstrapSettings(
         deployment_state="local",
-        connection=AgentLocalBootstrapConnectionSettings.from_local_origin(
-            "http://localhost:8080"
-        ),
+        connection=AgentLocalBootstrapConnectionSettings.from_local_origin("http://localhost:8080"),
         agent_version="0.1.1",
         expected_codex_version="0.145.0",
         app_server_schema_digest=SCHEMA_DIGEST,
@@ -253,9 +249,7 @@ def _local_bootstrap() -> AgentBootstrapSettings:
 def _release_bootstrap(version: str) -> AgentBootstrapSettings:
     return AgentBootstrapSettings(
         deployment_state="configured",
-        connection=AgentBootstrapConnectionSettings.from_public_origin(
-            "https://agent.acme.dev"
-        ),
+        connection=AgentBootstrapConnectionSettings.from_public_origin("https://agent.acme.dev"),
         agent_version=version,
         expected_codex_version="0.145.0",
         app_server_schema_digest=SCHEMA_DIGEST,
@@ -379,9 +373,7 @@ def test_bootstrap_builder_should_derive_loopback_endpoints_for_local_acceptance
     assert payload["deployment_state"] == "local"
     assert payload["connection"] == {
         "api_url": f"http://{expected_authority}",
-        "websocket_url": (
-            f"ws://{expected_authority}/internal/codex-agents/connect"
-        ),
+        "websocket_url": (f"ws://{expected_authority}/internal/codex-agents/connect"),
         "verification_url": f"http://{expected_authority}/codex/verify-device",
         "website_url": f"http://{expected_authority}",
     }
