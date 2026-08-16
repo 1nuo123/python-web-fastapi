@@ -49,7 +49,9 @@ from src.core.http_contract.response_envelope_contract import ResponseEnvelope
 from src.core.http_contract.web_bundle_contract import ApplicationModuleName, WebBundle
 from src.core.security_contract.security_event_contract import SecurityEventType
 from src.domain.auth.auth_error_code import AuthErrorCode
-from src.infrastructure.security.client_ip_resolver import ClientIpResolutionKind
+from src.infrastructure.security.browser_origin_resolver import (
+    build_allowed_browser_origins,
+)
 from src.infrastructure.settings.application_settings import AppEnvironment
 
 AUTH_ROUTE_TAG = "auth"
@@ -65,15 +67,6 @@ AUTH_BROWSER_REFRESH_COOKIE_NAME = "codex_refresh_token"
 AUTH_BROWSER_COOKIE_PATH = "/auth/browser"
 AUTH_STEP_UP_PATH = "/auth/step-up"
 ORIGIN_HEADER_NAME = "origin"
-FORWARDED_HEADER_NAME = "forwarded"
-FORWARDED_HOST_HEADER_NAME = "x-forwarded-host"
-FORWARDED_PROTO_HEADER_NAME = "x-forwarded-proto"
-FORWARDED_HOST_KEY = "host"
-FORWARDED_PROTO_KEY = "proto"
-FORWARDED_PAIR_SEPARATOR = ";"
-FORWARDED_VALUE_SEPARATOR = ","
-FORWARDED_KEY_VALUE_SEPARATOR = "="
-SUPPORTED_BROWSER_ORIGIN_SCHEMES = frozenset({"http", "https"})
 AUTH_REQUEST_EXECUTION_NAME = DEFAULT_SYNC_REQUEST_EXECUTION_NAME
 AUTH_BEARER_SCHEME = HTTPBearer(auto_error=False)
 USER_AGENT_HEADER_NAME = "user-agent"
@@ -446,14 +439,13 @@ class AuthAccessRouteCatalog:
         """严格校验浏览器写接口 Origin。"""
 
         origin = request.headers.get(ORIGIN_HEADER_NAME)
-        web_settings = (
-            self._accessor.read_resource_mount(request).read_runtime_bundle().settings.runtime.web
+        settings = self._accessor.read_resource_mount(request).read_runtime_bundle().settings
+        resource_mount = self._accessor.read_resource_mount(request)
+        allowed_origins = build_allowed_browser_origins(
+            request,
+            configured_origins=settings.runtime.web.cors.allow_origins,
+            client_ip_resolver=resource_mount.get_client_ip_resolver(),
         )
-        allowed_origins = {
-            self._direct_request_origin(request),
-            *web_settings.cors.allow_origins,
-            *self._trusted_forwarded_origins(request),
-        }
         if origin is None or origin.rstrip("/") not in {
             allowed.rstrip("/") for allowed in allowed_origins
         }:
@@ -462,73 +454,6 @@ class AuthAccessRouteCatalog:
                 error_code=AuthErrorCode.BROWSER_ORIGIN_FORBIDDEN,
                 message="浏览器请求来源不允许。",
             )
-
-    def _direct_request_origin(self, request: Request) -> str:
-        """读取当前 ASGI 请求自身的 origin。"""
-
-        return f"{request.url.scheme}://{request.url.netloc}"
-
-    def _trusted_forwarded_origins(self, request: Request) -> set[str]:
-        """从可信代理头读取外部浏览器 origin。"""
-
-        resolution = (
-            self._accessor.read_resource_mount(request).get_client_ip_resolver().resolve(request)
-        )
-        if resolution.header.source != ClientIpResolutionKind.TRUSTED_PROXY_FORWARDED:
-            return set()
-
-        proto = self._read_forwarded_proto(request)
-        host = self._read_forwarded_host(request)
-        if proto is None or host is None:
-            return set()
-        return {f"{proto}://{host}"}
-
-    def _read_forwarded_proto(self, request: Request) -> str | None:
-        """读取并校验可信代理传入的外部协议。"""
-
-        proto = self._read_forwarded_pair(request, FORWARDED_PROTO_KEY)
-        if proto is None:
-            proto = request.headers.get(FORWARDED_PROTO_HEADER_NAME)
-        if proto is None:
-            return None
-
-        candidate = proto.split(FORWARDED_VALUE_SEPARATOR, maxsplit=1)[0].strip().strip('"').lower()
-        if candidate not in SUPPORTED_BROWSER_ORIGIN_SCHEMES:
-            return None
-        return candidate
-
-    def _read_forwarded_host(self, request: Request) -> str | None:
-        """读取并校验可信代理传入的外部 Host。"""
-
-        host = self._read_forwarded_pair(request, FORWARDED_HOST_KEY)
-        if host is None:
-            host = request.headers.get(FORWARDED_HOST_HEADER_NAME)
-        if host is None:
-            return None
-
-        candidate = host.split(FORWARDED_VALUE_SEPARATOR, maxsplit=1)[0].strip().strip('"')
-        if (
-            candidate == ""
-            or any(character.isspace() for character in candidate)
-            or "/" in candidate
-            or "\\" in candidate
-        ):
-            return None
-        return candidate
-
-    def _read_forwarded_pair(self, request: Request, key: str) -> str | None:
-        """从 RFC 7239 Forwarded 头中读取单个键。"""
-
-        header_value = request.headers.get(FORWARDED_HEADER_NAME)
-        if header_value is None:
-            return None
-        first_forwarded = header_value.split(FORWARDED_VALUE_SEPARATOR, maxsplit=1)[0]
-        for part in first_forwarded.split(FORWARDED_PAIR_SEPARATOR):
-            candidate_key, separator, value = part.partition(FORWARDED_KEY_VALUE_SEPARATOR)
-            if separator == "" or candidate_key.strip().lower() != key:
-                continue
-            return value
-        return None
 
     def _read_browser_refresh_cookie(self, request: Request) -> str:
         """读取仅由浏览器自动携带的 refresh Cookie。"""

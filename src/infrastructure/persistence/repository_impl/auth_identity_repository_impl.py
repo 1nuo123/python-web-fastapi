@@ -163,7 +163,8 @@ class AuthIdentityRepositoryImpl(AuthIdentityRepository):
         return select(AuthUserOrmModel).options(
             selectinload(AuthUserOrmModel.user_roles)
             .selectinload(AuthUserRoleOrmModel.role)
-            .selectinload(AuthRoleOrmModel.role_scopes)
+            .selectinload(AuthRoleOrmModel.role_scopes),
+            selectinload(AuthUserOrmModel.user_scopes),
         )
 
     def _build_identity_snapshot(self, user: AuthUserOrmModel) -> AuthIdentitySnapshot:
@@ -177,11 +178,13 @@ class AuthIdentityRepositoryImpl(AuthIdentityRepository):
         """
 
         role_keys = [user_role.role.role_key for user_role in user.user_roles]
-        raw_scope_codes = [
+        role_scope_codes = [
             role_scope.scope_code
             for user_role in user.user_roles
             for role_scope in user_role.role.role_scopes
         ]
+        direct_scope_codes = [user_scope.scope_code for user_scope in user.user_scopes]
+        raw_scope_codes = [*role_scope_codes, *direct_scope_codes]
         enabled_scope_codes = self._load_enabled_scope_codes(set(raw_scope_codes))
         scope_codes = [
             scope_code for scope_code in raw_scope_codes if scope_code in enabled_scope_codes

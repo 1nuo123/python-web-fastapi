@@ -59,6 +59,8 @@ ADMIN_USER_PASSWORD_RESET_KIND: Final = "admin_user_password_reset"
 
 ADMIN_USER_ROLE_REPLACE_KIND: Final = "admin_user_role_replace"
 
+ADMIN_USER_SCOPE_REPLACE_KIND: Final = "admin_user_scope_replace"
+
 ADMIN_USER_DELETE_RESULT_KIND: Final = "admin_user_delete_result"
 
 ADMIN_USER_DISABLE_KIND: Final = "admin_user_disable"
@@ -112,6 +114,7 @@ class AdminIdentityOperationName(StrEnum):
     USER_UPDATE = "user_update"
     USER_PASSWORD_RESET = "user_password_reset"
     USER_ROLE_REPLACE = "user_role_replace"
+    USER_SCOPE_REPLACE = "user_scope_replace"
     USER_DELETE = "user_delete"
     USER_DISABLE = "user_disable"
     USER_ENABLE = "user_enable"
@@ -139,6 +142,7 @@ class AdminIdentityPayloadKind(StrEnum):
     USER_UPDATE = ADMIN_USER_UPDATE_KIND
     USER_PASSWORD_RESET = ADMIN_USER_PASSWORD_RESET_KIND
     USER_ROLE_REPLACE = ADMIN_USER_ROLE_REPLACE_KIND
+    USER_SCOPE_REPLACE = ADMIN_USER_SCOPE_REPLACE_KIND
     USER_DELETE_RESULT = ADMIN_USER_DELETE_RESULT_KIND
     USER_DISABLE = ADMIN_USER_DISABLE_KIND
     USER_ENABLE = ADMIN_USER_ENABLE_KIND
@@ -196,6 +200,10 @@ ADMIN_IDENTITY_OPERATION_DETAIL_KINDS: dict[
     ),
     AdminIdentityOperationName.USER_ROLE_REPLACE: (
         AdminIdentityPayloadKind.USER_ROLE_REPLACE,
+        AdminIdentityPayloadKind.USER,
+    ),
+    AdminIdentityOperationName.USER_SCOPE_REPLACE: (
+        AdminIdentityPayloadKind.USER_SCOPE_REPLACE,
         AdminIdentityPayloadKind.USER,
     ),
     AdminIdentityOperationName.USER_DELETE: (

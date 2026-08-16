@@ -42,7 +42,7 @@ class CodexRealtimeStreamAdapter:
                 event=CursorStreamEvent(
                     stream_key=self._stream_key(owner_subject_id),
                     owner_subject_id=owner_subject_id,
-                    event_id=UUID(event.event_id),
+                    event_id=UUID(event.header.event_id),
                     payload=event.model_dump_json().encode(),
                     expires_at=datetime.now(UTC) + timedelta(seconds=self._ttl_seconds),
                 ),

@@ -1,7 +1,9 @@
-# PyInstaller one-folder specification for the signed per-user Agent bundle.
+# 已签名的当前用户 Agent one-file 构建规格。
+import os
 from pathlib import Path
 
-project_root = Path(SPECPATH).parents[2]
+project_root = Path(SPECPATH).parents[1]
+version_file = os.environ["CODEX_AGENT_VERSION_FILE"]
 
 a = Analysis(
     [str(project_root / "src" / "cli" / "run_codex_host_agent.py")],
@@ -10,16 +12,22 @@ a = Analysis(
     datas=[
         (str(project_root / "protocol"), "protocol"),
     ],
-    hiddenimports=["cryptography.hazmat.bindings._rust"],
-    excludes=["tkinter", "pytest", "nox"],
+    hiddenimports=[
+        "cryptography.hazmat.bindings._rust",
+        "tkinter",
+        "tkinter.filedialog",
+        "tkinter.messagebox",
+    ],
+    excludes=["pytest", "nox"],
 )
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
     name="codex-remote-agent",
-    console=True,
+    console=False,
+    version=version_file,
 )
-coll = COLLECT(exe, a.binaries, a.datas, name="codex-remote-agent")

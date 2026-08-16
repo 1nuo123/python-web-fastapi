@@ -40,7 +40,10 @@ from src.infrastructure.artifact_release.signed_activation import (
     AtomicArtifactActivationAdapter,
 )
 from src.infrastructure.artifact_release.staging_store import LocalArtifactStagingStore
-from src.infrastructure.artifact_release.tuf_catalog_adapter import TufArtifactCatalogAdapter
+from src.infrastructure.artifact_release.tuf_catalog_adapter import (
+    AllowlistedTufFetcher,
+    TufArtifactCatalogAdapter,
+)
 from src.infrastructure.artifact_release.windows_authenticode_verifier import (
     WindowsAuthenticodeVerifier,
 )
@@ -53,7 +56,8 @@ from src.infrastructure.codex_agent.codex_agent_update_coordinator import (
 
 ARTIFACT_CONTENT = b"release"
 ARTIFACT_DIGEST = hashlib.sha256(ARTIFACT_CONTENT).hexdigest()
-REPOSITORY_HOST = "updates.example.com"
+TEST_SIGNER_SHA256 = "c" * 64
+REPOSITORY_HOST = "updates.acme.dev"
 REPOSITORY_URL = f"https://{REPOSITORY_HOST}"
 TARGET_URL = f"{REPOSITORY_URL}/targets/agent.bin"
 
@@ -73,6 +77,19 @@ class ArtifactHttpTransport(httpx.AsyncBaseTransport):
             headers={"content-length": str(len(ARTIFACT_CONTENT))},
             content=ARTIFACT_CONTENT,
         )
+
+
+class TufHttpTransport(httpx.BaseTransport):
+    """提供 TUF fetcher 的重定向和固定主机响应。"""
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/redirect":
+            return httpx.Response(
+                302,
+                headers={"location": "https://other.acme.dev/target"},
+                request=request,
+            )
+        return httpx.Response(200, content=ARTIFACT_CONTENT, request=request)
 
 
 @dataclass(slots=True)
@@ -185,19 +202,21 @@ class FakeTufUpdater:
         target_dir: str,
         metadata_base_url: str,
         target_base_url: str,
+        fetcher: object,
         bootstrap: bytes,
     ) -> None:
         assert metadata_dir.endswith("metadata")
         assert target_dir.endswith("targets")
         assert metadata_base_url.endswith("/metadata/")
         assert target_base_url.endswith("/targets/")
+        assert fetcher is not None
         assert bootstrap == b"trusted-root"
 
     def refresh(self) -> None:
         FakeTufUpdater.refreshed = True
 
     def get_targetinfo(self, target_path: str) -> FakeTufTargetInfo | None:
-        assert target_path == "targets/agent/windows/x86_64/stable/1.2.3"
+        assert target_path == "agent/windows/x86_64/stable/1.2.3"
         return None if self.return_missing else FakeTufTargetInfo()
 
 
@@ -226,6 +245,24 @@ class TestArtifactReleasePipelineUnit:
         with pytest.raises(ValidationError, match="HTTPS"):
             self._settings(tmp_path, repository_url="http://updates.example.com")
 
+    def test_tuf_fetcher_should_reject_redirects_and_unallowlisted_hosts(self) -> None:
+        client = httpx.Client(transport=TufHttpTransport(), follow_redirects=False)
+        fetcher = AllowlistedTufFetcher(
+            host_allowlist=(REPOSITORY_HOST,),
+            timeout_seconds=30,
+            client=client,
+        )
+        try:
+            assert b"".join(fetcher.fetch(f"{REPOSITORY_URL}/target")) == ARTIFACT_CONTENT
+            with pytest.raises(Exception, match="redirects are forbidden"):
+                list(fetcher.fetch(f"{REPOSITORY_URL}/redirect"))
+            with pytest.raises(Exception, match="outside the repository allowlist"):
+                list(fetcher.fetch("https://other.acme.dev/target"))
+            with pytest.raises(Exception, match="outside the repository allowlist"):
+                list(fetcher.fetch(f"http://{REPOSITORY_HOST}/target"))
+        finally:
+            fetcher.close()
+
     @pytest.mark.asyncio
     async def test_digest_and_composite_verifier_should_enforce_digest_and_signature(self) -> None:
         identity = self._identity()
@@ -240,14 +277,18 @@ class TestArtifactReleasePipelineUnit:
         digest_verifier = Sha256ArtifactVerifier()
 
         digest_result = await digest_verifier.verify(signed, ARTIFACT_CONTENT)
-        composite_result = await CompositeArtifactVerifier(digest_verifier).verify(
+        signature_verifier = RecordingArtifactVerifier()
+        composite = CompositeArtifactVerifier(digest_verifier, signature_verifier)
+        composite_result = await composite.verify(
             signed,
             ARTIFACT_CONTENT,
         )
+        unsigned_result = await composite.verify(unsigned, ARTIFACT_CONTENT)
 
         assert digest_result.digest_verified is True
         assert digest_result.signature_verified is True
         assert composite_result.signature_verified is True
+        assert unsigned_result.signature_verified is True
         with pytest.raises(ValueError, match="SHA-256"):
             await digest_verifier.verify(signed, b"tampered")
         with pytest.raises(ValueError, match="TUF"):
@@ -259,9 +300,9 @@ class TestArtifactReleasePipelineUnit:
                 ),
                 ARTIFACT_CONTENT,
             )
-        with pytest.raises(ValueError, match="签名"):
-            await CompositeArtifactVerifier(digest_verifier).verify(
-                unsigned,
+        with pytest.raises(ValueError, match="TUF"):
+            await composite.verify(
+                signed.model_copy(update={"tuf_target": None}),
                 ARTIFACT_CONTENT,
             )
 
@@ -311,8 +352,12 @@ class TestArtifactReleasePipelineUnit:
         staged_path = await staging.stage(identity, ARTIFACT_CONTENT)
         first = await activation.activate(identity, staged_path)
         committed = await activation.commit(first)
-        with pytest.raises(RuntimeError, match="上一版本"):
-            await activation.rollback(first)
+        first_rollback = await activation.rollback(first)
+        assert first_rollback.state is ArtifactActivationState.ROLLED_BACK
+        assert not (tmp_path / "activation" / ACTIVE_VERSION_FILE_NAME).exists()
+
+        first = await activation.activate(identity, staged_path)
+        committed = await activation.commit(first)
 
         second_identity = identity.model_copy(update={"version": "1.2.4"})
         second_path = await staging.stage(second_identity, ARTIFACT_CONTENT)
@@ -377,6 +422,32 @@ class TestArtifactReleasePipelineUnit:
         assert unhealthy.activation.state is ArtifactActivationState.ROLLED_BACK
 
     @pytest.mark.asyncio
+    async def test_orchestrator_should_rollback_when_health_check_raises(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        activation = RecordingArtifactActivation()
+        orchestrator = ArtifactReleaseOrchestrator(
+            catalog=StaticArtifactCatalog(self._envelope()),
+            downloader=StaticArtifactDownloader(ARTIFACT_CONTENT),
+            verifier=RecordingArtifactVerifier(),
+            staging=RecordingArtifactStaging(tmp_path),
+            activation=activation,
+        )
+
+        async def failed_health_check(_record: ArtifactActivationRecord) -> bool:
+            raise TimeoutError("doctor timed out")
+
+        with pytest.raises(TimeoutError, match="doctor timed out"):
+            await orchestrator.execute(
+                identity=self._identity(),
+                target_url=TARGET_URL,
+                health_check=failed_health_check,
+            )
+
+        assert activation.states[-1] is ArtifactActivationState.ROLLED_BACK
+
+    @pytest.mark.asyncio
     async def test_rollout_and_coordinator_should_select_agent_and_codex_targets(
         self,
         tmp_path: Path,
@@ -428,6 +499,7 @@ class TestArtifactReleasePipelineUnit:
             target_url=TARGET_URL,
             rollout_percent=100,
             rollout_subject_digest="subject",
+            forced=False,
             health_check=cast(ArtifactHealthCallback, self._healthy),
         )
         codex = await coordinator.update_codex(
@@ -446,6 +518,7 @@ class TestArtifactReleasePipelineUnit:
                 target_url=TARGET_URL,
                 rollout_percent=0,
                 rollout_subject_digest="subject",
+                forced=False,
                 health_check=cast(ArtifactHealthCallback, self._healthy),
             )
 
@@ -463,6 +536,9 @@ class TestArtifactReleasePipelineUnit:
         settings = self._settings(tmp_path, trusted_root_path=str(trusted_root))
         monkeypatch.setattr(tuf_module, "Updater", FakeTufUpdater)
         adapter = TufArtifactCatalogAdapter(settings=settings)
+
+        with pytest.raises(ValueError, match="规范相对路径"):
+            await adapter.read_target("../codex-agent-release.json")
 
         envelope = await adapter.resolve(self._identity())
 
@@ -484,6 +560,7 @@ class TestArtifactReleasePipelineUnit:
                     'trusted_root_path = "root.json"',
                     f'repository_url = "{REPOSITORY_URL}/"',
                     f'repository_host_allowlist = ["{REPOSITORY_HOST}"]',
+                    f'authenticode_signer_sha256_allowlist = ["{TEST_SIGNER_SHA256}"]',
                     "max_download_bytes = 1024",
                     "request_timeout_seconds = 30",
                     'staging_root = "staging"',
@@ -504,16 +581,55 @@ class TestArtifactReleasePipelineUnit:
         completed = subprocess.CompletedProcess(
             args=[],
             returncode=0,
-            stdout="Valid\n",
+            stdout=json.dumps(
+                {
+                    "Status": "Valid",
+                    "Subject": "CN=Release",
+                    "SignerSha256": TEST_SIGNER_SHA256.upper(),
+                }
+            ),
             stderr="",
         )
         monkeypatch.setattr(signer_module.subprocess, "run", lambda *args, **kwargs: completed)
-        signature = await WindowsAuthenticodeVerifier().verify(tmp_path / "agent.exe")
+        signature = await WindowsAuthenticodeVerifier(
+            allowed_signer_sha256=(TEST_SIGNER_SHA256,)
+        ).verify(tmp_path / "agent.exe")
         assert signature.method == "authenticode"
-        invalid = completed.__class__(args=[], returncode=0, stdout="NotSigned\n", stderr="")
+        assert signature.signer_sha256 == TEST_SIGNER_SHA256
+        mismatched = completed.__class__(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "Status": "Valid",
+                    "Subject": "CN=Other",
+                    "SignerSha256": "d" * 64,
+                }
+            ),
+            stderr="",
+        )
+        monkeypatch.setattr(signer_module.subprocess, "run", lambda *args, **kwargs: mismatched)
+        with pytest.raises(ValueError, match="允许列表"):
+            await WindowsAuthenticodeVerifier(allowed_signer_sha256=(TEST_SIGNER_SHA256,)).verify(
+                tmp_path / "agent.exe"
+            )
+        invalid = completed.__class__(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "Status": "NotSigned",
+                    "Subject": "",
+                    "SignerSha256": "",
+                }
+            ),
+            stderr="",
+        )
         monkeypatch.setattr(signer_module.subprocess, "run", lambda *args, **kwargs: invalid)
         with pytest.raises(ValueError, match="Authenticode"):
-            await WindowsAuthenticodeVerifier().verify(tmp_path / "agent.exe")
+            await WindowsAuthenticodeVerifier(allowed_signer_sha256=(TEST_SIGNER_SHA256,)).verify(
+                tmp_path / "agent.exe"
+            )
 
         runtime = CodexAgentReleaseRuntime.build(settings)
         try:
@@ -564,6 +680,7 @@ class TestArtifactReleasePipelineUnit:
             trusted_root_path=trusted_root_path or str(tmp_path / "root.json"),
             repository_url=repository_url,
             repository_host_allowlist=(REPOSITORY_HOST,),
+            authenticode_signer_sha256_allowlist=(TEST_SIGNER_SHA256,),
             max_download_bytes=max_download_bytes,
             request_timeout_seconds=30,
             staging_root=str(tmp_path / "staging"),

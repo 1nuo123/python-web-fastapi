@@ -23,6 +23,9 @@ AGENT_COMMAND_METHODS: Final = {
     "thread.read": "thread/read",
     "thread.start": "thread/start",
     "thread.resume": "thread/resume",
+    "thread.name_set": "thread/name/set",
+    "thread.archive": "thread/archive",
+    "thread.unarchive": "thread/unarchive",
     "thread.compact": "thread/compact/start",
     "turn.start": "turn/start",
     "turn.steer": "turn/steer",
@@ -37,6 +40,9 @@ WORKSPACE_COMMAND_TYPES: Final = frozenset(
         "thread.read",
         "thread.start",
         "thread.resume",
+        "thread.name_set",
+        "thread.archive",
+        "thread.unarchive",
         "thread.compact",
         "turn.start",
         "turn.steer",
@@ -62,9 +68,9 @@ class AgentCommandValidationError(ValueError):
 class AgentAppServerSecurityPolicy:
     """只允许 Windows Agent 向 App Server 注入的安全执行策略。"""
 
-    approval_policy: Literal["untrusted"] = "untrusted"
+    approval_policy: Literal["untrusted", "on-request"] = "untrusted"
     approvals_reviewer: Literal["user"] = "user"
-    sandbox_mode: Literal["workspace-write"] = "workspace-write"
+    sandbox_mode: Literal["read-only", "workspace-write", "danger-full-access"] = "workspace-write"
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,11 +81,22 @@ class AppServerCommandRequest:
     params: dict[str, JsonValue]
 
 
-def calculate_agent_request_digest(command_type: str, params: Mapping[str, JsonValue]) -> str:
+def calculate_agent_request_digest(
+    command_type: str,
+    params: Mapping[str, JsonValue],
+    *,
+    sandbox_mode: str | None = None,
+    approval_policy: str | None = None,
+) -> str:
     """对稳定命令类型和参数计算 SHA-256，阻止同 id 换副作用。"""
 
     canonical = json.dumps(
-        {"command_type": command_type, "params": params},
+        {
+            "command_type": command_type,
+            "params": params,
+            "sandbox_mode": sandbox_mode,
+            "approval_policy": approval_policy,
+        },
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),

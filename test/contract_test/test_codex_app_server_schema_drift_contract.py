@@ -37,6 +37,30 @@ class TestCodexAppServerSchemaDriftContract:
         assert manifest.detail.json_schema_file_count == self._count_files(json_schema_root)
         assert manifest.detail.typescript_file_count == self._count_files(typescript_root)
 
+    def test_frozen_thread_contract_should_expose_recency_and_product_commands(self) -> None:
+        thread_source = (
+            PROTOCOL_ROOT / FROZEN_CODEX_VERSION / "typescript" / "v2" / "Thread.ts"
+        ).read_text(encoding="utf-8")
+        request_source = (
+            PROTOCOL_ROOT / FROZEN_CODEX_VERSION / "typescript" / "ClientRequest.ts"
+        ).read_text(encoding="utf-8")
+        list_source = (
+            PROTOCOL_ROOT
+            / FROZEN_CODEX_VERSION
+            / "typescript"
+            / "v2"
+            / "ThreadListParams.ts"
+        ).read_text(encoding="utf-8")
+
+        assert "recencyAt" in thread_source
+        assert "name: string | null" in thread_source
+        assert "isPinned" not in thread_source
+        assert '"method": "thread/name/set"' in request_source
+        assert '"method": "thread/archive"' in request_source
+        assert '"method": "thread/unarchive"' in request_source
+        assert "sortKey" in list_source
+        assert "searchTerm" in list_source
+
     @staticmethod
     def _count_files(directory: Path) -> int:
         return sum(1 for path in directory.rglob("*") if path.is_file())

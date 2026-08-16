@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -13,6 +14,13 @@ from src.application.codex.codex_protocol_mapper import (
     CodexProtocolMapper,
 )
 from src.core.codex_contract.agent_protocol_contract import CodexAgentRealtimeEvent
+from src.core.codex_contract.agent_protocol_v2_contract import AgentItemChangedEventDetail
+from src.core.codex_contract.app_server_product_contract import (
+    AppServerContextCompactionItem,
+)
+from src.core.codex_contract.app_server_schema_manifest_contract import (
+    AppServerNotificationName,
+)
 from src.core.codex_contract.realtime_event_contract import CodexRealtimeEventType
 
 APP_SERVER_INSTANCE_ID = "app-server-mapper"
@@ -133,6 +141,37 @@ class TestCodexProtocolMapperUnit:
         assert turn_warning is not None
         assert turn_warning.event_type is CodexRealtimeEventType.PROTOCOL_WARNING
 
+    def test_map_event_should_consume_typed_v2_detail_without_lossy_params(self) -> None:
+        mapper = CodexProtocolMapper()
+        host_id = uuid4()
+        workspace_id = uuid4()
+        event = CodexAgentRealtimeEvent(
+            host_id=host_id,
+            app_server_instance_id=APP_SERVER_INSTANCE_ID,
+            occurred_at=datetime.now(UTC),
+            method=AppServerNotificationName.ITEM_COMPLETED.value,
+            params={"threadId": "wrong-thread", "secret": "never-use"},
+            detail=AgentItemChangedEventDetail(
+                method=AppServerNotificationName.ITEM_COMPLETED,
+                thread_id=THREAD_ID,
+                turn_id=TURN_ID,
+                status="completed",
+                item=AppServerContextCompactionItem(item_id=ITEM_ID),
+            ),
+        )
+
+        mapped = mapper.map_event(event, workspace_id=workspace_id)
+
+        assert mapped is not None
+        assert mapped.thread_id == THREAD_ID
+        item = self._mapping(mapped.payload["item"])
+        detail = self._mapping(item["detail"])
+        assert detail == {
+            "kind": "context_compaction",
+            "schema_version": "1.0",
+            "label": "上下文已压缩",
+        }
+
     def test_map_event_should_handle_item_delta_plan_diff_and_warning_catalog(self) -> None:
         mapper = CodexProtocolMapper()
         host_id = uuid4()
@@ -165,7 +204,7 @@ class TestCodexProtocolMapperUnit:
                     "ignored",
                 ],
             },
-            {"id": "unknown", "type": "webSearch"},
+            {"id": "compaction", "type": "contextCompaction"},
         )
 
         kinds: list[str] = []
@@ -180,7 +219,8 @@ class TestCodexProtocolMapperUnit:
             )
             assert mapped is not None
             item_payload = self._mapping(mapped.payload["item"])
-            kinds.append(str(item_payload["kind"]))
+            item_detail = self._mapping(item_payload["detail"])
+            kinds.append(str(item_detail["kind"]))
         assert kinds == [
             "user_message",
             "agent_message",
@@ -188,8 +228,22 @@ class TestCodexProtocolMapperUnit:
             "plan",
             "command",
             "diff",
-            "notice",
+            "context_compaction",
         ]
+
+        unknown_item = mapper.map_event(
+            self._event(
+                host_id,
+                "item/completed",
+                {
+                    "threadId": THREAD_ID,
+                    "turnId": TURN_ID,
+                    "item": {"id": "unknown", "type": "webSearch"},
+                },
+            ),
+            workspace_id=workspace_id,
+        )
+        assert unknown_item is None
 
         invalid_item = mapper.map_event(
             self._event(
@@ -361,7 +415,7 @@ class TestCodexProtocolMapperUnit:
         assert snapshot.thread["status"] == "unknown"
         assert snapshot.thread["active_turn_id"] is None
         assert len(snapshot.turns) == 1
-        assert [item["item_id"] for item in snapshot.items] == [ITEM_ID]
+        assert [item.header.item_id for item in snapshot.items] == [ITEM_ID]
 
         with pytest.raises(ValueError, match="缺少thread"):
             mapper.to_thread_snapshot({}, host_id=host_id, workspace_id=workspace_id)
@@ -396,6 +450,7 @@ class TestCodexProtocolMapperUnit:
         return CodexAgentRealtimeEvent(
             host_id=host_id,
             app_server_instance_id=APP_SERVER_INSTANCE_ID,
+            occurred_at=datetime.now(UTC),
             method=method,
             params=params,
         )

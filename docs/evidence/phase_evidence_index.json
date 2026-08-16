@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-08-07T23:06:49.627222Z",
+  "generated_at": "2026-08-16T05:39:24.937955Z",
   "test_runs": [
     "docs\\evidence\\test-runs\\phase3-final-image.json",
     "docs\\evidence\\test-runs\\phase3-final-load.json",
@@ -62,6 +62,7 @@
     "docs\\evidence\\documentation\\docs__project_manual__03_application_domain__domain_model_and_constants.md.json",
     "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__authentication_and_authorization.md.json",
     "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__cache_runtime.md.json",
+    "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__codex_agent_production_release.md.json",
     "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__codex_host_agent.md.json",
     "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__configuration_system.md.json",
     "docs\\evidence\\documentation\\docs__project_manual__04_infrastructure__distributed_lock.md.json",
@@ -157,18 +158,25 @@
   ],
   "verified_regressions": [],
   "rejected_regressions": [],
-  "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
-  "current_test_runs": [
+  "code_baseline": "caaf79d5211d72b99e0a274db0ef7d0e95e46a7a3f3e5a56563d7282489b5854",
+  "current_test_runs": [],
+  "stale_test_runs": [
     "docs\\evidence\\test-runs\\phase3-final-image.json",
     "docs\\evidence\\test-runs\\phase3-final-load.json",
     "docs\\evidence\\test-runs\\phase3-final-migration.json",
     "docs\\evidence\\test-runs\\phase3-final-offline.json",
     "docs\\evidence\\test-runs\\phase3-final-regression.json",
     "docs\\evidence\\test-runs\\phase3-final-security.json",
-    "docs\\evidence\\test-runs\\phase3-final-static.json"
-  ],
-  "stale_test_runs": [
+    "docs\\evidence\\test-runs\\phase3-final-static.json",
     "docs\\evidence\\test-runs\\phase4-directed-regression.json"
   ],
-  "missing_required_test_run_ids": []
+  "missing_required_test_run_ids": [
+    "phase3-final-image",
+    "phase3-final-load",
+    "phase3-final-migration",
+    "phase3-final-offline",
+    "phase3-final-regression",
+    "phase3-final-security",
+    "phase3-final-static"
+  ]
 }

@@ -3,19 +3,13 @@
 from http import HTTPStatus
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
-
 from src.application.ports.codex_control_port import CodexControlPort
-from src.core.codex_contract.thread_contract import CodexThreadIndexSnapshot
+from src.core.codex_contract.thread_contract import (
+    CodexConversationListQuery,
+    CodexConversationPage,
+)
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.domain.codex.codex_error_code import CodexErrorCode
-
-
-class CodexThreadIndexCollection(BaseModel):
-    """线程索引集合响应。"""
-
-    model_config = ConfigDict(extra="forbid")
-    items: list[CodexThreadIndexSnapshot]
 
 
 class QueryCodexThreadsUsecase:
@@ -29,7 +23,8 @@ class QueryCodexThreadsUsecase:
         *,
         host_id: UUID,
         owner_subject_id: str,
-    ) -> CodexThreadIndexCollection:
+        query: CodexConversationListQuery,
+    ) -> CodexConversationPage:
         """查询线程索引；主机越权与不存在统一为 404。"""
 
         unit_of_work = self._control_port.create_unit_of_work()
@@ -43,8 +38,17 @@ class QueryCodexThreadsUsecase:
                     message="Codex 主机不存在。",
                 )
             repository = self._control_port.create_codex_thread_repository(session)
-            return CodexThreadIndexCollection(
-                items=repository.list_by_host_and_owner(host_id, owner_subject_id)
-            )
+            try:
+                return repository.list_page_by_host_and_owner(
+                    host_id,
+                    owner_subject_id,
+                    query,
+                )
+            except ValueError as exc:
+                raise HttpFaultException(
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    error_code=CodexErrorCode.STATE_CONFLICT,
+                    message="Codex会话查询条件或游标无效。",
+                ) from exc
         finally:
             unit_of_work.dispose()

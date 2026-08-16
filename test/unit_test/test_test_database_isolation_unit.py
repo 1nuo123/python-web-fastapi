@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from test import conftest
-from test.integration_test.conftest import (
+from test.integration_database_fixture import (
     DATABASE_RESET_REFUSED_MESSAGE,
     TEST_DATABASE_NAME_SUFFIX,
     DatabaseResetPolicy,

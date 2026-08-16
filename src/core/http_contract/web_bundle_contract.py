@@ -32,6 +32,7 @@ class ApplicationModuleName(StrEnum):
     ADMIN_IDENTITY = "admin_identity"
     ADMIN_AUDIT = "admin_audit"
     CODEX_CONTROL = "codex_control"
+    CODEX_ADMIN = "codex_admin"
     CODEX_AGENT_GATEWAY = "codex_agent_gateway"
 
 

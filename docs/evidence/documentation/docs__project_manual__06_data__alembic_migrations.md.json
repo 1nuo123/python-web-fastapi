@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/06_data/alembic_migrations.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
-    "verified_at": "2026-08-07T23:06:48.601713Z"
+    "code_baseline": "caaf79d5211d72b99e0a274db0ef7d0e95e46a7a3f3e5a56563d7282489b5854",
+    "verified_at": "2026-08-16T05:39:22.880480Z"
   },
   "kind": "migration",
   "detail": {
@@ -13,7 +13,7 @@
     "evidence_path": "docs\\project_manual\\06_data\\alembic_migrations.md",
     "status": "current",
     "replacement_path": null,
-    "content_sha256": "8d7adc5c9529b9e2bd01b466097a437d6601f773b91b15cf90aa3fc6bcfefcf1",
+    "content_sha256": "d548037bb131dc4cff23e69872c30e9d8e4562571bc5853b6cca79367871041d",
     "validation_status": "verified",
     "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
     "fact_evidence_paths": [

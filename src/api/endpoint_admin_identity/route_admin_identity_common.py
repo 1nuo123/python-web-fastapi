@@ -69,6 +69,8 @@ ADMIN_USER_PASSWORD_PATH = "/admin/users/{subject_id}/password"
 
 ADMIN_USER_ROLES_PATH = "/admin/users/{subject_id}/roles"
 
+ADMIN_USER_SCOPES_PATH = "/admin/users/{subject_id}/scopes"
+
 ADMIN_IDENTITY_METHOD_GET = "GET"
 
 ADMIN_IDENTITY_METHOD_POST = "POST"
@@ -136,6 +138,8 @@ ADMIN_USER_UPDATE_SUCCESS_MESSAGE = "管理员用户更新成功。"
 ADMIN_USER_PASSWORD_RESET_SUCCESS_MESSAGE = "管理员用户密码重置成功。"
 
 ADMIN_USER_ROLE_REPLACE_SUCCESS_MESSAGE = "管理员用户角色替换成功。"
+
+ADMIN_USER_SCOPE_REPLACE_SUCCESS_MESSAGE = "管理员用户直接 scope 替换成功。"
 
 ADMIN_USER_DISABLE_SUCCESS_MESSAGE = "管理员用户停用成功。"
 

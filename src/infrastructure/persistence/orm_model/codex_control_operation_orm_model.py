@@ -5,13 +5,21 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from pydantic import JsonValue
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PostgresqlUuid
 from sqlalchemy.orm import Mapped, mapped_column
 
+from src.infrastructure.persistence.database_dialect import DatabaseDialect
 from src.infrastructure.persistence.sqlalchemy_metadata_registry import (
     AuditTimestampMixin,
     OrmModelBase,
+)
+
+CODEX_OPERATION_PROJECTION_JSON_TYPE = JSON().with_variant(
+    JSONB(),
+    DatabaseDialect.POSTGRESQL,
 )
 
 
@@ -62,5 +70,9 @@ class CodexControlOperationOrmModel(AuditTimestampMixin, OrmModelBase):
     ack_deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
     result_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    projection: Mapped[dict[str, JsonValue] | None] = mapped_column(
+        CODEX_OPERATION_PROJECTION_JSON_TYPE,
+        nullable=True,
+    )
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

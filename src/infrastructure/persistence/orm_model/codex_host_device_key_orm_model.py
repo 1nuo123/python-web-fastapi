@@ -5,7 +5,16 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, LargeBinary, String, UniqueConstraint
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID as PostgresqlUuid
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +36,12 @@ class CodexHostDeviceKeyOrmModel(AuditTimestampMixin, OrmModelBase):
             "host_id", "fingerprint", name="uq_codex_host_device_key_host_fingerprint"
         ),
         Index("ix_codex_host_device_key_host_state", "host_id", "state"),
+        Index(
+            "uq_codex_host_device_key_active_fingerprint",
+            "fingerprint",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL"),
+        ),
     )
 
     key_id: Mapped[UUID] = mapped_column(

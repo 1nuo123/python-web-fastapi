@@ -29,6 +29,11 @@ from src.core.codex_contract.device_authorization_contract import (
     DeviceAuthorizationStatusDetail,
     DeviceEnrollmentCanonicalMessage,
 )
+from src.core.codex_contract.enrollment_intent_contract import (
+    CodexEnrollmentIntentConsumeDetail,
+    CodexEnrollmentIntentConsumeRequestEnvelope,
+    CodexEnrollmentIntentRequestHeader,
+)
 from src.infrastructure.codex_agent.agent_configuration import (
     AgentProcessSettings,
     AgentProtocolSettings,
@@ -41,7 +46,9 @@ from src.infrastructure.codex_agent.windows_dpapi_device_key_store import (
 
 DEVICE_AUTHORIZATION_CREATE_PATH = "/internal/codex-agents/device-authorizations"
 DEVICE_AUTHORIZATION_POLL_PATH = "/internal/codex-agents/device-authorizations/poll"
+ENROLLMENT_INTENT_CONSUME_PATH = "/internal/codex-agents/enrollment-intents/consume"
 WINDOWS_MESSAGE_BOX_INFORMATION = 0x40
+WINDOWS_MESSAGE_BOX_ERROR = 0x10
 
 
 class WindowsEnrollmentUi:
@@ -61,6 +68,49 @@ class WindowsEnrollmentUi:
             "Codex Remote Agent 设备授权",
             WINDOWS_MESSAGE_BOX_INFORMATION,
         )
+
+    def show_info(self, message: str) -> None:
+        """显示不包含敏感值的连接状态消息。"""
+
+        self._show_message(message=message, flags=WINDOWS_MESSAGE_BOX_INFORMATION)
+
+    def show_error(self, message: str) -> None:
+        """显示可操作的连接失败消息。"""
+
+        self._show_message(message=message, flags=WINDOWS_MESSAGE_BOX_ERROR)
+
+    def _show_message(self, *, message: str, flags: int) -> None:
+        if sys.platform != "win32":
+            raise OSError("Agent消息窗口只支持Windows交互会话。")
+        ctypes.windll.user32.MessageBoxW(
+            0,
+            message,
+            "Codex Remote Agent",
+            flags,
+        )
+
+    def select_workspace(self) -> Path:
+        """使用 Windows 原生窗口选择首个允许的项目目录。"""
+
+        if sys.platform != "win32":
+            raise OSError("Agent项目目录选择只支持Windows交互会话。")
+        import tkinter
+        from tkinter import filedialog
+
+        root = tkinter.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        try:
+            selected = filedialog.askdirectory(
+                parent=root,
+                title="选择允许 Codex 使用的项目目录",
+                mustexist=True,
+            )
+        finally:
+            root.destroy()
+        if not selected:
+            raise PermissionError("用户取消了项目目录选择。")
+        return Path(selected).resolve(strict=True)
 
 
 class CodexAgentSetupUsecase:
@@ -89,18 +139,33 @@ class CodexAgentSetupUsecase:
         display_name: str,
         platform: str,
         expected_codex_version: str,
+        agent_version: str,
         schema_digest: str,
-        workspace: AgentWorkspaceSettings,
+        workspace: AgentWorkspaceSettings | None,
+        enrollment_intent_token: str | None = None,
+        default_workspace_key: str = "default",
+        default_workspace_name: str = "默认工作区",
     ) -> CodexHostAgentSettings:
         key_id = uuid4()
         public_key = self._key_store.generate(key_id)
         try:
-            issued = await self._create_authorization(
-                api_url=api_url,
-                key_id=key_id,
-                public_key=public_key,
-                display_name=display_name,
-                platform=platform,
+            issued = (
+                await self._consume_enrollment_intent(
+                    api_url=api_url,
+                    intent_token=enrollment_intent_token,
+                    key_id=key_id,
+                    public_key=public_key,
+                    display_name=display_name,
+                    platform=platform,
+                )
+                if enrollment_intent_token is not None
+                else await self._create_authorization(
+                    api_url=api_url,
+                    key_id=key_id,
+                    public_key=public_key,
+                    display_name=display_name,
+                    platform=platform,
+                )
             )
             fingerprint = hashlib.sha256(public_key).hexdigest()
             issued_detail = issued.detail
@@ -123,6 +188,14 @@ class CodexAgentSetupUsecase:
                 raise PermissionError("设备授权未获批准。")
             if status.key_id != key_id:
                 raise PermissionError("服务端批准的设备key与本机密钥不一致。")
+            resolved_workspace = workspace
+            if resolved_workspace is None:
+                resolved_workspace = AgentWorkspaceSettings(
+                    key=default_workspace_key,
+                    display_name=default_workspace_name,
+                    root=self._ui.select_workspace(),
+                    allow_write=True,
+                )
             settings = CodexHostAgentSettings(
                 agent=AgentProcessSettings(
                     host_id=status.host_id,
@@ -134,10 +207,11 @@ class CodexAgentSetupUsecase:
                 ),
                 protocol=AgentProtocolSettings(
                     agent_schema_version=CodexConnectionProtocolVersion.V2,
+                    agent_version=agent_version,
                     expected_codex_version=expected_codex_version,
                     app_server_schema_digest=schema_digest,
                 ),
-                workspaces=[workspace],
+                workspaces=[resolved_workspace],
             )
             config_path.parent.mkdir(parents=True, exist_ok=True)
             rtoml.dump(settings.model_dump(mode="json", exclude_none=True), config_path)
@@ -169,6 +243,37 @@ class CodexAgentSetupUsecase:
         envelope = DeviceAuthorizationEnvelope.model_validate(response.json())
         if not isinstance(envelope.detail, DeviceAuthorizationIssuedDetail):
             raise ValueError("设备授权创建未返回issued扩展。")
+        return envelope
+
+    async def _consume_enrollment_intent(
+        self,
+        *,
+        api_url: str,
+        intent_token: str,
+        key_id: UUID,
+        public_key: bytes,
+        display_name: str,
+        platform: str,
+    ) -> DeviceAuthorizationEnvelope:
+        response = await self._client.post(
+            f"{api_url.rstrip('/')}{ENROLLMENT_INTENT_CONSUME_PATH}",
+            json=CodexEnrollmentIntentConsumeRequestEnvelope(
+                header=CodexEnrollmentIntentRequestHeader(request_id=uuid4()),
+                detail=CodexEnrollmentIntentConsumeDetail(
+                    intent_token=intent_token,
+                    authorization=self._build_create_request(
+                        key_id=key_id,
+                        public_key=public_key,
+                        display_name=display_name,
+                        platform=platform,
+                    ).detail,
+                ),
+            ).model_dump(mode="json"),
+        )
+        response.raise_for_status()
+        envelope = DeviceAuthorizationEnvelope.model_validate(response.json())
+        if not isinstance(envelope.detail, DeviceAuthorizationIssuedDetail):
+            raise ValueError("注册意图消费未返回设备授权issued扩展。")
         return envelope
 
     def _build_create_request(

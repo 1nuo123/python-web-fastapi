@@ -25,16 +25,21 @@ async def test_publish_when_slow_consumer_overflows_should_replace_queue_with_ga
                 turn_id="turn-1",
                 item_id="item-1",
                 event_type=CodexRealtimeEventType.ITEM_DELTA,
-                payload={"delta": str(index)},
+                payload={
+                    "item_id": "item-1",
+                    "thread_id": "thread-1",
+                    "turn_id": "turn-1",
+                    "delta": str(index),
+                },
             ),
         )
 
     assert subscription.queue.qsize() == 1
     gap = subscription.queue.get_nowait()
-    assert gap.type is CodexRealtimeEventType.STREAM_GAP_DETECTED
-    assert gap.payload["reason"] == "browser_queue_overflow"
-    assert gap.cursor is None
-    assert gap.event_id
+    assert gap.header.detail_kind is CodexRealtimeEventType.STREAM_GAP_DETECTED
+    assert gap.detail.reason == "browser_queue_overflow"
+    assert gap.header.cursor is None
+    assert gap.header.event_id
 
 
 @pytest.mark.asyncio

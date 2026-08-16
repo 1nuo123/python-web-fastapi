@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-08-07T23:06:40.022063Z",
-  "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
-  "openapi_sha256": "ad7e60904b7fb589b2317fb0cd97672966d04525d40327efa9f3e12c72e45e68",
+  "generated_at": "2026-08-16T05:39:05.117113Z",
+  "code_baseline": "caaf79d5211d72b99e0a274db0ef7d0e95e46a7a3f3e5a56563d7282489b5854",
+  "openapi_sha256": "7edf2f32343c8e884a3a679b431ba9880f7a8d0ee42134db89b97cc1b0c27bd6",
   "openapi_document": {
     "openapi": "3.1.0",
     "info": {
@@ -403,6 +403,77 @@
                 "format": "uuid",
                 "title": "Host Id"
               }
+            },
+            {
+              "name": "workspace_id",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Workspace Id"
+              }
+            },
+            {
+              "name": "archived",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "boolean",
+                "default": false,
+                "title": "Archived"
+              }
+            },
+            {
+              "name": "search_term",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Search Term"
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Cursor"
+              }
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "maximum": 200,
+                "minimum": 1,
+                "default": 50,
+                "title": "Limit"
+              }
             }
           ],
           "responses": {
@@ -411,7 +482,7 @@
               "content": {
                 "application/json": {
                   "schema": {
-                    "$ref": "#/components/schemas/ResponseEnvelope_CodexThreadIndexCollection_"
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexConversationPage_"
                   }
                 }
               }
@@ -956,6 +1027,291 @@
           }
         }
       },
+      "/codex/hosts/{host_id}/threads/{thread_id}/name": {
+        "patch": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Rename Thread",
+          "description": "保存手工标题并投递 App Server 重命名命令。",
+          "operationId": "rename_thread_codex_hosts__host_id__threads__thread_id__name_patch",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "thread_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Thread Id"
+              }
+            },
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "title": "Idempotency-Key"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexConversationRenameRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "202": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexOperationAccepted_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/threads/{thread_id}/pin": {
+        "patch": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Update Thread Pin",
+          "description": "更新控制面会话置顶偏好。",
+          "operationId": "update_thread_pin_codex_hosts__host_id__threads__thread_id__pin_patch",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "thread_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Thread Id"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexConversationPinRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexThreadIndexSnapshot_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/threads/{thread_id}/archive": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Archive Thread",
+          "description": "投递会话归档命令，等待上游结果收敛最终状态。",
+          "operationId": "archive_thread_codex_hosts__host_id__threads__thread_id__archive_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "thread_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Thread Id"
+              }
+            },
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "title": "Idempotency-Key"
+              }
+            }
+          ],
+          "responses": {
+            "202": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexOperationAccepted_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/hosts/{host_id}/threads/{thread_id}/unarchive": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Unarchive Thread",
+          "description": "投递会话恢复命令，等待上游结果收敛最终状态。",
+          "operationId": "unarchive_thread_codex_hosts__host_id__threads__thread_id__unarchive_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "host_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Host Id"
+              }
+            },
+            {
+              "name": "thread_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Thread Id"
+              }
+            },
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "title": "Idempotency-Key"
+              }
+            }
+          ],
+          "responses": {
+            "202": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexOperationAccepted_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "/codex/realtime-tickets": {
         "post": {
           "tags": [
@@ -1148,6 +1504,48 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeviceAuthorizationPollRequestEnvelope"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/DeviceAuthorizationEnvelope"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/internal/codex-agents/enrollment-intents/consume": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Consume Enrollment Intent",
+          "description": "允许 Agent 使用一次性 token 创建设备授权。",
+          "operationId": "consume_enrollment_intent_internal_codex_agents_enrollment_intents_consume_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexEnrollmentIntentConsumeRequestEnvelope"
                 }
               }
             },
@@ -1385,6 +1783,145 @@
           }
         }
       },
+      "/codex/enrollment-intents": {
+        "post": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Create Enrollment Intent",
+          "description": "为当前登录会话创建一次性设备注册意图。",
+          "operationId": "create_enrollment_intent_codex_enrollment_intents_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodexEnrollmentIntentCreateRequestEnvelope"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexEnrollmentIntentEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/codex/enrollment-intents/{intent_id}": {
+        "get": {
+          "tags": [
+            "codex"
+          ],
+          "summary": "Read Enrollment Intent",
+          "description": "读取当前登录会话创建的设备注册意图。",
+          "operationId": "read_enrollment_intent_codex_enrollment_intents__intent_id__get",
+          "parameters": [
+            {
+              "name": "intent_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid",
+                "title": "Intent Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexEnrollmentIntentEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/admin/codex/hosts": {
+        "get": {
+          "tags": [
+            "codex_admin"
+          ],
+          "summary": "List Hosts",
+          "operationId": "list_hosts_admin_codex_hosts_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexHostCollection_"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/codex/agent-release/current": {
+        "get": {
+          "tags": [
+            "codex_admin"
+          ],
+          "summary": "Read Current Agent Release",
+          "description": "返回登录用户可用的签名安装包与 TUF 清单入口。",
+          "operationId": "read_current_agent_release_codex_agent_release_current_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_CodexAgentReleaseDownloadEnvelope_"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
       "/internal/codex-agents/enroll": {
         "post": {
           "tags": [
@@ -1442,6 +1979,48 @@
                 "application/json": {
                   "schema": {
                     "$ref": "#/components/schemas/CodexAgentCredentialResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/register": {
+        "post": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Post Register",
+          "description": "注册普通用户，角色完全由服务端策略决定。",
+          "operationId": "post_register_auth_register_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRegistrationRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "201": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_UserRegistrationPayload_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
                   }
                 }
               }
@@ -2967,6 +3546,66 @@
           }
         }
       },
+      "/admin/users/{subject_id}/scopes": {
+        "put": {
+          "tags": [
+            "admin_identity"
+          ],
+          "summary": "Replace User Scopes",
+          "description": "替换管理员用户直接 scope。",
+          "operationId": "replace_user_scopes_admin_users__subject_id__scopes_put",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "subject_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "用户主体标识。",
+                "title": "Subject Id"
+              },
+              "description": "用户主体标识。"
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminIdentityEnvelope"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResponseEnvelope_AdminIdentityEnvelope_"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "/admin/audit-events": {
         "get": {
           "tags": [
@@ -3610,6 +4249,9 @@
                   "$ref": "#/components/schemas/AdminUserRoleReplaceRequest"
                 },
                 {
+                  "$ref": "#/components/schemas/AdminUserScopeReplaceRequest"
+                },
+                {
                   "$ref": "#/components/schemas/AdminUserDisableRequest"
                 },
                 {
@@ -3647,6 +4289,7 @@
                   "admin_user_list": "#/components/schemas/AdminUserListPayload",
                   "admin_user_password_reset": "#/components/schemas/AdminUserPasswordResetRequest",
                   "admin_user_role_replace": "#/components/schemas/AdminUserRoleReplaceRequest",
+                  "admin_user_scope_replace": "#/components/schemas/AdminUserScopeReplaceRequest",
                   "admin_user_status_result": "#/components/schemas/AdminUserStatusResultPayload",
                   "admin_user_update": "#/components/schemas/AdminUserUpdateRequest"
                 }
@@ -3706,6 +4349,7 @@
             "user_update",
             "user_password_reset",
             "user_role_replace",
+            "user_scope_replace",
             "user_delete",
             "user_disable",
             "user_enable"
@@ -3733,6 +4377,7 @@
             "admin_user_update",
             "admin_user_password_reset",
             "admin_user_role_replace",
+            "admin_user_scope_replace",
             "admin_user_delete_result",
             "admin_user_disable",
             "admin_user_enable",
@@ -4382,6 +5027,20 @@
               },
               "type": "array",
               "title": "Role Keys"
+            },
+            "direct_scope_codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Direct Scope Codes"
+            },
+            "effective_scope_codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Effective Scope Codes"
             }
           },
           "additionalProperties": false,
@@ -4390,7 +5049,9 @@
             "subject_id",
             "username",
             "is_active",
-            "role_keys"
+            "role_keys",
+            "direct_scope_codes",
+            "effective_scope_codes"
           ],
           "title": "AdminUserPayload",
           "description": "管理员用户响应载荷。"
@@ -4430,6 +5091,42 @@
           ],
           "title": "AdminUserRoleReplaceRequest",
           "description": "管理员用户角色替换请求。"
+        },
+        "AdminUserScopeReplaceRequest": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "admin_user_scope_replace",
+              "title": "Kind",
+              "default": "admin_user_scope_replace"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "scope_codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Scope Codes"
+            },
+            "confirmation": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Confirmation"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "confirmation"
+          ],
+          "title": "AdminUserScopeReplaceRequest",
+          "description": "管理员用户直接 scope 替换请求。"
         },
         "AdminUserStatusResultPayload": {
           "properties": {
@@ -4547,6 +5244,9 @@
             "thread.read",
             "thread.start",
             "thread.resume",
+            "thread.name_set",
+            "thread.archive",
+            "thread.unarchive",
             "thread.delete",
             "thread.compact",
             "turn.start",
@@ -4725,6 +5425,116 @@
             "pairing_code"
           ],
           "title": "CodexAgentEnrollRequest"
+        },
+        "CodexAgentMessageTimelineDetail": {
+          "properties": {
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "kind": {
+              "type": "string",
+              "const": "agent_message",
+              "title": "Kind",
+              "default": "agent_message"
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 1048576,
+              "title": "Text"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "text"
+          ],
+          "title": "CodexAgentMessageTimelineDetail",
+          "description": "Agent 消息扩展字段。"
+        },
+        "CodexAgentReleaseDownloadDetail": {
+          "properties": {
+            "version": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Version"
+            },
+            "download_url": {
+              "type": "string",
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Download Url"
+            },
+            "manifest_url": {
+              "type": "string",
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Manifest Url"
+            },
+            "minimum_security_version": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Minimum Security Version"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "version",
+            "download_url",
+            "manifest_url",
+            "minimum_security_version"
+          ],
+          "title": "CodexAgentReleaseDownloadDetail",
+          "description": "登录用户可见的安装包和签名清单入口。"
+        },
+        "CodexAgentReleaseDownloadEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/CodexAgentReleaseManifestHeader"
+            },
+            "detail": {
+              "$ref": "#/components/schemas/CodexAgentReleaseDownloadDetail"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "CodexAgentReleaseDownloadEnvelope",
+          "description": "下载入口公共头与强类型扩展字段。"
+        },
+        "CodexAgentReleaseManifestHeader": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "codex_agent_release_manifest",
+              "title": "Kind",
+              "default": "codex_agent_release_manifest"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "channel": {
+              "type": "string",
+              "const": "stable",
+              "title": "Channel",
+              "default": "stable"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "CodexAgentReleaseManifestHeader",
+          "description": "发布清单公共头。"
         },
         "CodexApprovalAuditSnapshot": {
           "properties": {
@@ -4915,6 +5725,66 @@
           "title": "CodexApprovalCollection",
           "description": "当前主体可见的审批摘要集合。"
         },
+        "CodexApprovalCommandAction": {
+          "properties": {
+            "action_type": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Action Type"
+            },
+            "command": {
+              "type": "string",
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Command"
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Path"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            },
+            "query": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Query"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "action_type",
+            "command"
+          ],
+          "title": "CodexApprovalCommandAction",
+          "description": "Structured, display-safe command action supplied by the Agent."
+        },
         "CodexApprovalDecision": {
           "type": "string",
           "enum": [
@@ -4986,6 +5856,44 @@
               ],
               "title": "Command Summary"
             },
+            "command": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Command"
+            },
+            "command_actions": {
+              "items": {
+                "$ref": "#/components/schemas/CodexApprovalCommandAction"
+              },
+              "type": "array",
+              "maxItems": 32,
+              "title": "Command Actions",
+              "default": []
+            },
+            "working_directory": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Working Directory"
+            },
+            "read_only": {
+              "type": "boolean",
+              "title": "Read Only",
+              "default": false
+            },
             "file_scope": {
               "items": {
                 "type": "string"
@@ -4993,6 +5901,15 @@
               "type": "array",
               "maxItems": 64,
               "title": "File Scope",
+              "default": []
+            },
+            "file_changes": {
+              "items": {
+                "$ref": "#/components/schemas/CodexApprovalFileChange"
+              },
+              "type": "array",
+              "maxItems": 64,
+              "title": "File Changes",
               "default": []
             },
             "permission_names": {
@@ -5013,6 +5930,18 @@
               "type": "boolean",
               "title": "Extra Root Requested",
               "default": false
+            },
+            "risk_reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Risk Reason"
             }
           },
           "additionalProperties": false,
@@ -5024,6 +5953,59 @@
           ],
           "title": "CodexApprovalDisplaySummary",
           "description": "Agent 清洗后的审批展示字段，禁止包含原始 JSON 或绝对路径。"
+        },
+        "CodexApprovalFileChange": {
+          "properties": {
+            "path": {
+              "type": "string",
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Path"
+            },
+            "change_kind": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Change Kind"
+            },
+            "added_lines": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Added Lines"
+            },
+            "deleted_lines": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deleted Lines"
+            },
+            "sensitive": {
+              "type": "boolean",
+              "title": "Sensitive",
+              "default": false
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "path",
+            "change_kind"
+          ],
+          "title": "CodexApprovalFileChange",
+          "description": "Workspace-relative file target when the upstream protocol provides it."
         },
         "CodexApprovalKind": {
           "type": "string",
@@ -5066,6 +6048,201 @@
           ],
           "title": "CodexApprovalState",
           "description": "审批审计状态。"
+        },
+        "CodexApprovalTimelineDetail": {
+          "properties": {
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "kind": {
+              "type": "string",
+              "const": "approval",
+              "title": "Kind",
+              "default": "approval"
+            },
+            "approval_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Approval Id"
+            },
+            "approval_kind": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Approval Kind"
+            },
+            "risk_level": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1,
+              "title": "Risk Level"
+            },
+            "state": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1,
+              "title": "State"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1.0,
+              "title": "Version"
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Summary"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "approval_id",
+            "approval_kind",
+            "risk_level",
+            "state",
+            "version",
+            "summary"
+          ],
+          "title": "CodexApprovalTimelineDetail",
+          "description": "会话内审批引用扩展字段。"
+        },
+        "CodexCommandTimelineDetail": {
+          "properties": {
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "kind": {
+              "type": "string",
+              "const": "command",
+              "title": "Kind",
+              "default": "command"
+            },
+            "command": {
+              "type": "string",
+              "maxLength": 1048576,
+              "title": "Command"
+            },
+            "output": {
+              "type": "string",
+              "maxLength": 1048576,
+              "title": "Output"
+            },
+            "exit_code": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exit Code"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "command",
+            "output"
+          ],
+          "title": "CodexCommandTimelineDetail",
+          "description": "命令及有界输出扩展字段。"
+        },
+        "CodexContextCompactionTimelineDetail": {
+          "properties": {
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "kind": {
+              "type": "string",
+              "const": "context_compaction",
+              "title": "Kind",
+              "default": "context_compaction"
+            },
+            "label": {
+              "type": "string",
+              "const": "上下文已压缩",
+              "title": "Label",
+              "default": "上下文已压缩"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "CodexContextCompactionTimelineDetail",
+          "description": "上下文压缩产品状态扩展字段。"
+        },
+        "CodexConversationPage": {
+          "properties": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/CodexThreadIndexSnapshot"
+              },
+              "type": "array",
+              "title": "Items"
+            },
+            "next_cursor": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 2048
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Next Cursor"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "items"
+          ],
+          "title": "CodexConversationPage",
+          "description": "稳定键集分页的会话索引响应。"
+        },
+        "CodexConversationPinRequest": {
+          "properties": {
+            "is_pinned": {
+              "type": "boolean",
+              "title": "Is Pinned"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "is_pinned"
+          ],
+          "title": "CodexConversationPinRequest",
+          "description": "会话置顶偏好更新请求。"
+        },
+        "CodexConversationRenameRequest": {
+          "properties": {
+            "display_name": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Display Name"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "display_name"
+          ],
+          "title": "CodexConversationRenameRequest",
+          "description": "会话手工重命名请求。"
         },
         "CodexDiffChangeKind": {
           "type": "string",
@@ -5253,6 +6430,266 @@
           ],
           "title": "CodexDiffSnapshot",
           "description": "一次 turn 的结构化文件变更集合。"
+        },
+        "CodexDiffTimelineDetail": {
+          "properties": {
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "kind": {
+              "type": "string",
+              "const": "diff",
+              "title": "Kind",
+              "default": "diff"
+            },
+            "diff": {
+              "$ref": "#/components/schemas/CodexDiffSnapshot"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "diff"
+          ],
+          "title": "CodexDiffTimelineDetail",
+          "description": "结构化 Diff 扩展字段。"
+        },
+        "CodexEnrollmentIntentConsumeDetail": {
+          "properties": {
+            "intent_token": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 32,
+              "title": "Intent Token"
+            },
+            "authorization": {
+              "$ref": "#/components/schemas/DeviceAuthorizationCreateDetail"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "intent_token",
+            "authorization"
+          ],
+          "title": "CodexEnrollmentIntentConsumeDetail",
+          "description": "Agent 使用一次性 token 创建设备授权的强类型扩展字段。"
+        },
+        "CodexEnrollmentIntentConsumeRequestEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/CodexEnrollmentIntentRequestHeader"
+            },
+            "detail": {
+              "$ref": "#/components/schemas/CodexEnrollmentIntentConsumeDetail"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "CodexEnrollmentIntentConsumeRequestEnvelope",
+          "description": "Agent 消费注册意图请求信封。"
+        },
+        "CodexEnrollmentIntentCreateDetail": {
+          "properties": {
+            "return_path": {
+              "type": "string",
+              "pattern": "^/codex/[a-z0-9/_-]*$",
+              "title": "Return Path",
+              "default": "/codex/verify-device"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "title": "CodexEnrollmentIntentCreateDetail",
+          "description": "浏览器创建注册意图的强类型扩展字段。"
+        },
+        "CodexEnrollmentIntentCreateRequestEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/CodexEnrollmentIntentRequestHeader"
+            },
+            "detail": {
+              "$ref": "#/components/schemas/CodexEnrollmentIntentCreateDetail"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "CodexEnrollmentIntentCreateRequestEnvelope",
+          "description": "浏览器创建注册意图请求信封。"
+        },
+        "CodexEnrollmentIntentEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/CodexEnrollmentIntentHeader"
+            },
+            "detail": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CodexEnrollmentIntentIssuedDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/CodexEnrollmentIntentStatusDetail"
+                }
+              ],
+              "title": "Detail"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "CodexEnrollmentIntentEnvelope",
+          "description": "注册意图公共头与强类型扩展字段信封。"
+        },
+        "CodexEnrollmentIntentHeader": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "codex_enrollment_intent",
+              "title": "Kind",
+              "default": "codex_enrollment_intent"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "intent_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Intent Id"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "intent_id"
+          ],
+          "title": "CodexEnrollmentIntentHeader",
+          "description": "注册意图公共头字段。"
+        },
+        "CodexEnrollmentIntentIssuedDetail": {
+          "properties": {
+            "state": {
+              "type": "string",
+              "const": "issued",
+              "title": "State"
+            },
+            "launch_uri": {
+              "type": "string",
+              "pattern": "^codexremote://enroll\\?token=",
+              "title": "Launch Uri"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Expires At"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "state",
+            "launch_uri",
+            "expires_at"
+          ],
+          "title": "CodexEnrollmentIntentIssuedDetail",
+          "description": "浏览器收到的一次性注册意图。"
+        },
+        "CodexEnrollmentIntentRequestHeader": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "codex_enrollment_intent",
+              "title": "Kind",
+              "default": "codex_enrollment_intent"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "request_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "request_id"
+          ],
+          "title": "CodexEnrollmentIntentRequestHeader",
+          "description": "注册意图 HTTP 请求公共头字段。"
+        },
+        "CodexEnrollmentIntentState": {
+          "type": "string",
+          "enum": [
+            "issued",
+            "consuming",
+            "consumed"
+          ],
+          "title": "CodexEnrollmentIntentState",
+          "description": "注册意图生命周期状态。"
+        },
+        "CodexEnrollmentIntentStatusDetail": {
+          "properties": {
+            "state": {
+              "$ref": "#/components/schemas/CodexEnrollmentIntentState"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Expires At"
+            },
+            "user_code": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 16,
+                  "minLength": 6
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Code"
+            },
+            "authorization": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/DeviceAuthorizationEnvelope"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "state",
+            "expires_at"
+          ],
+          "title": "CodexEnrollmentIntentStatusDetail",
+          "description": "浏览器可读取的注册意图状态。"
         },
         "CodexExecutionOptions": {
           "properties": {
@@ -5716,6 +7153,41 @@
           "title": "CodexHostUpdateState",
           "description": "主机更新展示状态。"
         },
+        "CodexNoticeTimelineDetail": {
+          "properties": {
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "kind": {
+              "type": "string",
+              "const": "notice",
+              "title": "Kind",
+              "default": "notice"
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Label"
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 1048576,
+              "title": "Text"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "label",
+            "text"
+          ],
+          "title": "CodexNoticeTimelineDetail",
+          "description": "通知和推理摘要扩展字段。"
+        },
         "CodexOperationAccepted": {
           "properties": {
             "operation_id": {
@@ -5830,6 +7302,42 @@
           "title": "CodexPlanStepStatus",
           "description": "结构化计划步骤状态。"
         },
+        "CodexPlanTimelineDetail": {
+          "properties": {
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "kind": {
+              "type": "string",
+              "const": "plan",
+              "title": "Kind",
+              "default": "plan"
+            },
+            "explanation": {
+              "type": "string",
+              "maxLength": 1048576,
+              "title": "Explanation"
+            },
+            "steps": {
+              "items": {
+                "$ref": "#/components/schemas/CodexPlanStepSnapshot"
+              },
+              "type": "array",
+              "title": "Steps"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "explanation",
+            "steps"
+          ],
+          "title": "CodexPlanTimelineDetail",
+          "description": "结构化计划扩展字段。"
+        },
         "CodexRealtimeTicket": {
           "properties": {
             "ticket": {
@@ -5877,20 +7385,13 @@
             },
             "items": {
               "items": {
-                "$ref": "#/components/schemas/CodexTimelineItemSnapshot"
+                "$ref": "#/components/schemas/CodexTimelineItemEnvelope"
               },
               "type": "array",
               "title": "Items"
             },
             "history_status": {
-              "type": "string",
-              "enum": [
-                "complete",
-                "not_requested",
-                "omitted_too_large",
-                "not_available_yet"
-              ],
-              "title": "History Status",
+              "$ref": "#/components/schemas/CodexThreadHistoryStatus",
               "default": "complete"
             },
             "next_history_cursor": {
@@ -5914,7 +7415,7 @@
             "items"
           ],
           "title": "CodexThreadAuthoritySnapshot",
-          "description": "App Server thread/read 正文与 PostgreSQL 所有权索引的组合响应。"
+          "description": "App Server 会话正文与 PostgreSQL 所有权索引的组合响应。"
         },
         "CodexThreadCreateRequest": {
           "properties": {
@@ -5935,23 +7436,16 @@
           "title": "CodexThreadCreateRequest",
           "description": "创建本地持久 thread 的产品请求。"
         },
-        "CodexThreadIndexCollection": {
-          "properties": {
-            "items": {
-              "items": {
-                "$ref": "#/components/schemas/CodexThreadIndexSnapshot"
-              },
-              "type": "array",
-              "title": "Items"
-            }
-          },
-          "additionalProperties": false,
-          "type": "object",
-          "required": [
-            "items"
+        "CodexThreadHistoryStatus": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "not_requested",
+            "omitted_too_large",
+            "not_available_yet"
           ],
-          "title": "CodexThreadIndexCollection",
-          "description": "线程索引集合响应。"
+          "title": "CodexThreadHistoryStatus",
+          "description": "会话历史正文装载状态。"
         },
         "CodexThreadIndexSnapshot": {
           "properties": {
@@ -5983,16 +7477,13 @@
               "title": "Upstream Thread Id"
             },
             "display_name": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "maxLength": 256
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
               "title": "Display Name"
+            },
+            "title_source": {
+              "$ref": "#/components/schemas/CodexThreadTitleSource"
             },
             "model": {
               "anyOf": [
@@ -6005,6 +7496,18 @@
                 }
               ],
               "title": "Model"
+            },
+            "model_provider": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model Provider"
             },
             "reasoning_effort": {
               "anyOf": [
@@ -6019,10 +7522,7 @@
               "title": "Reasoning Effort"
             },
             "status": {
-              "type": "string",
-              "maxLength": 32,
-              "minLength": 1,
-              "title": "Status"
+              "$ref": "#/components/schemas/CodexThreadStatus"
             },
             "active_turn_id": {
               "anyOf": [
@@ -6040,6 +7540,10 @@
               "type": "boolean",
               "title": "Archived"
             },
+            "is_pinned": {
+              "type": "boolean",
+              "title": "Is Pinned"
+            },
             "source_kind": {
               "anyOf": [
                 {
@@ -6053,16 +7557,14 @@
               "title": "Source Kind"
             },
             "created_at": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "format": "date-time",
               "title": "Created At"
+            },
+            "recency_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Recency At"
             },
             "updated_at": {
               "type": "string",
@@ -6083,15 +7585,101 @@
             "workspace_id",
             "owner_subject_id",
             "upstream_thread_id",
+            "display_name",
+            "title_source",
             "status",
             "archived",
+            "is_pinned",
+            "created_at",
+            "recency_at",
             "updated_at",
             "last_synced_at"
           ],
           "title": "CodexThreadIndexSnapshot",
-          "description": "控制面线程索引；不包含消息、代码或 Diff 正文。"
+          "description": "控制面会话索引；不包含消息、代码或 Diff 正文。\n\n:ivar display_name: 非空会话标题。\n:ivar title_source: 标题权威来源。\n:ivar recency_at: 上游定义的真实活动时间。\n:ivar last_synced_at: 控制面最近同步时间，不参与排序。"
         },
-        "CodexTimelineItemSnapshot": {
+        "CodexThreadStatus": {
+          "type": "string",
+          "enum": [
+            "idle",
+            "active",
+            "interrupted",
+            "failed",
+            "unknown",
+            "archived"
+          ],
+          "title": "CodexThreadStatus",
+          "description": "控制面可稳定展示的会话状态。"
+        },
+        "CodexThreadTitleSource": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "app_server",
+            "first_user_message",
+            "new_conversation"
+          ],
+          "title": "CodexThreadTitleSource",
+          "description": "会话标题的封闭来源集合。"
+        },
+        "CodexTimelineItemEnvelope": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/CodexTimelineItemHeader"
+            },
+            "detail": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CodexUserMessageTimelineDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/CodexAgentMessageTimelineDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/CodexNoticeTimelineDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/CodexContextCompactionTimelineDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/CodexPlanTimelineDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/CodexCommandTimelineDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/CodexDiffTimelineDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/CodexApprovalTimelineDetail"
+                }
+              ],
+              "title": "Detail",
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "agent_message": "#/components/schemas/CodexAgentMessageTimelineDetail",
+                  "approval": "#/components/schemas/CodexApprovalTimelineDetail",
+                  "command": "#/components/schemas/CodexCommandTimelineDetail",
+                  "context_compaction": "#/components/schemas/CodexContextCompactionTimelineDetail",
+                  "diff": "#/components/schemas/CodexDiffTimelineDetail",
+                  "notice": "#/components/schemas/CodexNoticeTimelineDetail",
+                  "plan": "#/components/schemas/CodexPlanTimelineDetail",
+                  "user_message": "#/components/schemas/CodexUserMessageTimelineDetail"
+                }
+              }
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "detail"
+          ],
+          "title": "CodexTimelineItemEnvelope",
+          "description": "时间线公共头与强类型扩展字段信封。"
+        },
+        "CodexTimelineItemHeader": {
           "properties": {
             "item_id": {
               "type": "string",
@@ -6117,17 +7705,17 @@
               ],
               "title": "Turn Id"
             },
-            "kind": {
+            "detail_kind": {
+              "$ref": "#/components/schemas/CodexTimelineItemKind"
+            },
+            "schema_version": {
               "type": "string",
-              "maxLength": 64,
-              "minLength": 1,
-              "title": "Kind"
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
             },
             "status": {
-              "type": "string",
-              "maxLength": 32,
-              "minLength": 1,
-              "title": "Status"
+              "$ref": "#/components/schemas/CodexTimelineItemStatus"
             },
             "created_at": {
               "anyOf": [
@@ -6139,107 +7727,6 @@
                 }
               ],
               "title": "Created At"
-            },
-            "text": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Text"
-            },
-            "explanation": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Explanation"
-            },
-            "steps": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/components/schemas/CodexPlanStepSnapshot"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Steps"
-            },
-            "command": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Command"
-            },
-            "output": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Output"
-            },
-            "exit_code": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Exit Code"
-            },
-            "diff": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/CodexDiffSnapshot"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "label": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Label"
-            },
-            "detail": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Detail"
             }
           },
           "additionalProperties": false,
@@ -6247,11 +7734,36 @@
           "required": [
             "item_id",
             "thread_id",
-            "kind",
+            "detail_kind",
             "status"
           ],
-          "title": "CodexTimelineItemSnapshot",
-          "description": "稳定浏览器时间线条目，类型专用字段保持显式可空。"
+          "title": "CodexTimelineItemHeader",
+          "description": "所有时间线条目共享的定位与状态字段。"
+        },
+        "CodexTimelineItemKind": {
+          "type": "string",
+          "enum": [
+            "user_message",
+            "agent_message",
+            "plan",
+            "command",
+            "diff",
+            "approval",
+            "notice",
+            "context_compaction"
+          ],
+          "title": "CodexTimelineItemKind",
+          "description": "时间线扩展字段种类。"
+        },
+        "CodexTimelineItemStatus": {
+          "type": "string",
+          "enum": [
+            "streaming",
+            "completed",
+            "failed"
+          ],
+          "title": "CodexTimelineItemStatus",
+          "description": "时间线条目状态。"
         },
         "CodexTurnSnapshot": {
           "properties": {
@@ -6316,7 +7828,7 @@
             "status"
           ],
           "title": "CodexTurnSnapshot",
-          "description": "浏览器权威 thread snapshot 中的 turn。"
+          "description": "浏览器权威会话快照中的 turn。"
         },
         "CodexTurnStartRequest": {
           "properties": {
@@ -6337,6 +7849,34 @@
           ],
           "title": "CodexTurnStartRequest",
           "description": "向已有 thread 发起文本 turn 的产品请求。"
+        },
+        "CodexUserMessageTimelineDetail": {
+          "properties": {
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "kind": {
+              "type": "string",
+              "const": "user_message",
+              "title": "Kind",
+              "default": "user_message"
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 1048576,
+              "title": "Text"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "text"
+          ],
+          "title": "CodexUserMessageTimelineDetail",
+          "description": "用户消息扩展字段。"
         },
         "CodexWorkspaceCollection": {
           "properties": {
@@ -6413,6 +7953,10 @@
             "worktree_policy": {
               "$ref": "#/components/schemas/GitWorktreePolicy"
             },
+            "is_pinned": {
+              "type": "boolean",
+              "title": "Is Pinned"
+            },
             "enabled": {
               "type": "boolean",
               "title": "Enabled"
@@ -6441,6 +7985,7 @@
             "owner_subject_id",
             "agent_workspace_key",
             "display_name",
+            "is_pinned",
             "enabled",
             "created_at",
             "updated_at",
@@ -6463,6 +8008,17 @@
                 }
               ],
               "title": "Display Name"
+            },
+            "is_pinned": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Pinned"
             },
             "enabled": {
               "anyOf": [
@@ -6489,7 +8045,7 @@
           "additionalProperties": false,
           "type": "object",
           "title": "CodexWorkspaceUpdateRequest",
-          "description": "工作区名称、启用状态与隔离策略的更新请求。"
+          "description": "工作区名称、置顶、启用状态与隔离策略的更新请求。"
         },
         "CodexWorkspaceWorktreePolicyUpdate": {
           "properties": {
@@ -7374,6 +8930,23 @@
           ],
           "title": "ResponseEnvelope[BrowserTokenIssuePayload]"
         },
+        "ResponseEnvelope_CodexAgentReleaseDownloadEnvelope_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexAgentReleaseDownloadEnvelope"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexAgentReleaseDownloadEnvelope]"
+        },
         "ResponseEnvelope_CodexApprovalCollection_": {
           "properties": {
             "header": {
@@ -7390,6 +8963,40 @@
             "data"
           ],
           "title": "ResponseEnvelope[CodexApprovalCollection]"
+        },
+        "ResponseEnvelope_CodexConversationPage_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexConversationPage"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexConversationPage]"
+        },
+        "ResponseEnvelope_CodexEnrollmentIntentEnvelope_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/CodexEnrollmentIntentEnvelope"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[CodexEnrollmentIntentEnvelope]"
         },
         "ResponseEnvelope_CodexHostCollection_": {
           "properties": {
@@ -7493,13 +9100,13 @@
           ],
           "title": "ResponseEnvelope[CodexThreadAuthoritySnapshot]"
         },
-        "ResponseEnvelope_CodexThreadIndexCollection_": {
+        "ResponseEnvelope_CodexThreadIndexSnapshot_": {
           "properties": {
             "header": {
               "$ref": "#/components/schemas/ResponseHeader"
             },
             "data": {
-              "$ref": "#/components/schemas/CodexThreadIndexCollection"
+              "$ref": "#/components/schemas/CodexThreadIndexSnapshot"
             }
           },
           "additionalProperties": false,
@@ -7508,7 +9115,7 @@
             "header",
             "data"
           ],
-          "title": "ResponseEnvelope[CodexThreadIndexCollection]"
+          "title": "ResponseEnvelope[CodexThreadIndexSnapshot]"
         },
         "ResponseEnvelope_CodexWorkspaceCollection_": {
           "properties": {
@@ -7629,6 +9236,23 @@
           ],
           "title": "ResponseEnvelope[TokenRevokePayload]"
         },
+        "ResponseEnvelope_UserRegistrationPayload_": {
+          "properties": {
+            "header": {
+              "$ref": "#/components/schemas/ResponseHeader"
+            },
+            "data": {
+              "$ref": "#/components/schemas/UserRegistrationPayload"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "header",
+            "data"
+          ],
+          "title": "ResponseEnvelope[UserRegistrationPayload]"
+        },
         "ResponseHeader": {
           "properties": {
             "code": {
@@ -7689,6 +9313,15 @@
           "title": "StepUpGrantPayload",
           "description": "短时一次性增强授权 grant。"
         },
+        "StepUpGrantPurpose": {
+          "type": "string",
+          "enum": [
+            "codex.high_risk_approval",
+            "codex.host.revoke"
+          ],
+          "title": "StepUpGrantPurpose",
+          "description": "需要密码再验证的一次性高风险操作。"
+        },
         "StepUpGrantRequest": {
           "properties": {
             "password": {
@@ -7698,9 +9331,7 @@
               "title": "Password"
             },
             "purpose": {
-              "type": "string",
-              "const": "codex.high_risk_approval",
-              "title": "Purpose"
+              "$ref": "#/components/schemas/StepUpGrantPurpose"
             }
           },
           "additionalProperties": false,
@@ -8024,6 +9655,65 @@
           "title": "TokenRevokeRequest",
           "description": "令牌撤销Pydantic 模型，用于承载并校验结构化数据。\n\n:ivar model_config: Pydantic 模型配置对象。约束：需满足当前实现中的类型与状态约束。默认值：`ConfigDict(extra='forbid')`。取值语义：用于控制 Pydantic 模型的额外字段和校验行为。\n:vartype model_config: ConfigDict\n:ivar refresh_token: ``refresh_token`` 字段。约束：需符合 ``str`` 注解。默认值：无，必须显式提供。取值语义：用于表达访问令牌、刷新令牌或令牌会话信息。\n:vartype refresh_token: str"
         },
+        "UserRegistrationPayload": {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "user_registration",
+              "title": "Kind",
+              "default": "user_registration"
+            },
+            "schema_version": {
+              "type": "string",
+              "const": "1.0",
+              "title": "Schema Version",
+              "default": "1.0"
+            },
+            "subject_id": {
+              "type": "string",
+              "title": "Subject Id"
+            },
+            "username": {
+              "type": "string",
+              "title": "Username"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "subject_id",
+            "username"
+          ],
+          "title": "UserRegistrationPayload",
+          "description": "普通用户注册响应。"
+        },
+        "UserRegistrationRequest": {
+          "properties": {
+            "username": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 3,
+              "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+              "title": "Username"
+            },
+            "password": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 12,
+              "format": "password",
+              "title": "Password",
+              "writeOnly": true
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "username",
+            "password"
+          ],
+          "title": "UserRegistrationRequest",
+          "description": "普通用户注册请求。"
+        },
         "ValidationError": {
           "properties": {
             "loc": {
@@ -8091,6 +9781,14 @@
         422
       ],
       "operation_id": "list_business_roles_admin_business_roles_get"
+    },
+    {
+      "path": "/admin/codex/hosts",
+      "method": "GET",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "list_hosts_admin_codex_hosts_get"
     },
     {
       "path": "/admin/roles",
@@ -8264,6 +9962,15 @@
       "operation_id": "replace_user_roles_admin_users__subject_id__roles_post"
     },
     {
+      "path": "/admin/users/{subject_id}/scopes",
+      "method": "PUT",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "replace_user_scopes_admin_users__subject_id__scopes_put"
+    },
+    {
       "path": "/auth/browser/refresh",
       "method": "POST",
       "status_codes": [
@@ -8306,6 +10013,15 @@
       "operation_id": "post_refresh_auth_refresh_post"
     },
     {
+      "path": "/auth/register",
+      "method": "POST",
+      "status_codes": [
+        201,
+        422
+      ],
+      "operation_id": "post_register_auth_register_post"
+    },
+    {
       "path": "/auth/revoke",
       "method": "POST",
       "status_codes": [
@@ -8331,6 +10047,14 @@
         422
       ],
       "operation_id": "post_token_auth_token_post"
+    },
+    {
+      "path": "/codex/agent-release/current",
+      "method": "GET",
+      "status_codes": [
+        200
+      ],
+      "operation_id": "read_current_agent_release_codex_agent_release_current_get"
     },
     {
       "path": "/codex/approvals",
@@ -8366,6 +10090,24 @@
         422
       ],
       "operation_id": "read_authorization_codex_device_authorizations__user_code__get"
+    },
+    {
+      "path": "/codex/enrollment-intents",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "create_enrollment_intent_codex_enrollment_intents_post"
+    },
+    {
+      "path": "/codex/enrollment-intents/{intent_id}",
+      "method": "GET",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "read_enrollment_intent_codex_enrollment_intents__intent_id__get"
     },
     {
       "path": "/codex/hosts",
@@ -8430,6 +10172,15 @@
       "operation_id": "get_thread_codex_hosts__host_id__threads__thread_id__get"
     },
     {
+      "path": "/codex/hosts/{host_id}/threads/{thread_id}/archive",
+      "method": "POST",
+      "status_codes": [
+        202,
+        422
+      ],
+      "operation_id": "archive_thread_codex_hosts__host_id__threads__thread_id__archive_post"
+    },
+    {
       "path": "/codex/hosts/{host_id}/threads/{thread_id}/compact",
       "method": "POST",
       "status_codes": [
@@ -8446,6 +10197,24 @@
         422
       ],
       "operation_id": "interrupt_turn_codex_hosts__host_id__threads__thread_id__interrupt_post"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads/{thread_id}/name",
+      "method": "PATCH",
+      "status_codes": [
+        202,
+        422
+      ],
+      "operation_id": "rename_thread_codex_hosts__host_id__threads__thread_id__name_patch"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads/{thread_id}/pin",
+      "method": "PATCH",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "update_thread_pin_codex_hosts__host_id__threads__thread_id__pin_patch"
     },
     {
       "path": "/codex/hosts/{host_id}/threads/{thread_id}/resume",
@@ -8473,6 +10242,15 @@
         422
       ],
       "operation_id": "start_turn_codex_hosts__host_id__threads__thread_id__turns_post"
+    },
+    {
+      "path": "/codex/hosts/{host_id}/threads/{thread_id}/unarchive",
+      "method": "POST",
+      "status_codes": [
+        202,
+        422
+      ],
+      "operation_id": "unarchive_thread_codex_hosts__host_id__threads__thread_id__unarchive_post"
     },
     {
       "path": "/codex/hosts/{host_id}/workspaces",
@@ -8571,6 +10349,15 @@
       "operation_id": "enroll_internal_codex_agents_enroll_post"
     },
     {
+      "path": "/internal/codex-agents/enrollment-intents/consume",
+      "method": "POST",
+      "status_codes": [
+        200,
+        422
+      ],
+      "operation_id": "consume_enrollment_intent_internal_codex_agents_enrollment_intents_consume_post"
+    },
+    {
       "path": "/internal/codex-agents/rotate-credential",
       "method": "POST",
       "status_codes": [
@@ -8649,7 +10436,9 @@
         "module.bootstrap_admin.enabled",
         "module.bootstrap_admin.role_bindings",
         "module.bootstrap_admin.subject_id",
-        "module.bootstrap_admin.username"
+        "module.bootstrap_admin.username",
+        "module.public_registration.default_role_key",
+        "module.public_registration.enabled"
       ]
     },
     {
@@ -8658,7 +10447,16 @@
         "module.bootstrap_admin.enabled",
         "module.bootstrap_admin.role_bindings",
         "module.bootstrap_admin.subject_id",
-        "module.bootstrap_admin.username"
+        "module.bootstrap_admin.username",
+        "module.public_registration.default_role_key",
+        "module.public_registration.enabled"
+      ]
+    },
+    {
+      "path": "config\\modules\\auth_module\\auth_module_production.toml",
+      "keys": [
+        "module.public_registration.default_role_key",
+        "module.public_registration.enabled"
       ]
     },
     {
@@ -8667,7 +10465,9 @@
         "module.bootstrap_admin.enabled",
         "module.bootstrap_admin.role_bindings",
         "module.bootstrap_admin.subject_id",
-        "module.bootstrap_admin.username"
+        "module.bootstrap_admin.username",
+        "module.public_registration.default_role_key",
+        "module.public_registration.enabled"
       ]
     },
     {
@@ -8814,6 +10614,10 @@
         "runtime.agent_outgoing_queue_size",
         "runtime.agent_reconnect_max_seconds",
         "runtime.agent_reconnect_min_seconds",
+        "runtime.agent_release_download_url",
+        "runtime.agent_release_manifest_url",
+        "runtime.agent_release_minimum_security_version",
+        "runtime.agent_release_version",
         "runtime.agent_rpc_ack_timeout_seconds",
         "runtime.allow_experimental_app_server_api",
         "runtime.allow_legacy_agent_bearer",
@@ -8837,6 +10641,7 @@
         "runtime.device_security_rate_limit",
         "runtime.device_security_rate_window_seconds",
         "runtime.enabled",
+        "runtime.enrollment_intent_ttl_seconds",
         "runtime.instance_control_read_limit",
         "runtime.instance_control_stream_max_events",
         "runtime.instance_control_stream_ttl_seconds",
@@ -8845,6 +10650,8 @@
         "runtime.max_agent_frame_bytes",
         "runtime.max_browser_frame_bytes",
         "runtime.max_connected_agents",
+        "runtime.max_hosts_per_user",
+        "runtime.max_workspaces_per_host",
         "runtime.operation_idempotency_ttl_seconds",
         "runtime.pairing_code_ttl_seconds",
         "runtime.realtime_ticket_ttl_seconds",
@@ -9475,7 +11282,7 @@
     }
   ],
   "migration_heads": [
-    "202608081000"
+    "202608161230"
   ],
   "task_contracts": [
     {

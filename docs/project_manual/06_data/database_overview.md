@@ -21,8 +21,8 @@
 | `config/runtime/database_runtime` | 数据库配置。 |
 
 ## 4. 核心结论
-- 当前持久化表共 20 张：基础身份、日志、任务、安全与密钥环 11 张，Codex 控制面 9 张。
-- Alembic 版本链从 `202605151600` 到 `202608081000`。
+- 当前持久化表共 25 张：基础身份、日志、任务、安全与密钥环 11 张，Codex 控制面 14 张。
+- Alembic 版本链从 `202605151600` 到 `202608161230`。
 - 事务边界通过 `SqlAlchemyUnitOfWork` 控制。
 
 ## 5. 结构说明
@@ -72,6 +72,7 @@ flowchart TD
 | `auth_user` | `AuthUserOrmModel` | `202605151600_create_auth_tables.py` |
 | `auth_role` | `AuthRoleOrmModel` | `202605151600_create_auth_tables.py` |
 | `auth_user_role` | `AuthUserRoleOrmModel` | `202605151600_create_auth_tables.py` |
+| `auth_user_scope` | `AuthUserScopeOrmModel` | `202608101100_add_auth_user_scope.py` |
 | `auth_role_scope` | `AuthRoleScopeOrmModel` | `202605151600_create_auth_tables.py` + `202605291041_fix_identity_task_schema_drift.py` |
 | `auth_refresh_token` | `AuthRefreshTokenOrmModel` | `202605151600_create_auth_tables.py` + `202605251640_harden_refresh_token_constraints.py` |
 | `auth_scope` | `AuthScopeOrmModel` | `202605271330_create_auth_scope_catalog.py` |
@@ -80,12 +81,12 @@ flowchart TD
 | `task_execution_outbox` | `TaskExecutionOutboxOrmModel` | `202607021200_add_task_execution_published_at.py` |
 | `security_ip_block_record` | `SecurityIpBlockRecordOrmModel` | `202605260859_create_security_ip_block_record.py` |
 | `key_ring_snapshot` | `KeyRingSnapshotOrmModel` | `202607051000_create_key_ring_snapshot.py` |
-| `codex_host` | `CodexHostOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608081000_add_codex_host_compatibility.py` |
+| `codex_host` | `CodexHostOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608081000_add_codex_host_compatibility.py` + `202608101000_harden_codex_device_ownership.py` |
 | `codex_agent_credential` | `CodexAgentCredentialOrmModel` | `202607311200_create_codex_control_phase1.py` |
-| `codex_workspace` | `CodexWorkspaceOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608071400_add_codex_workspace_worktree_policy.py` |
-| `codex_thread_index` | `CodexThreadIndexOrmModel` | `202607311200_create_codex_control_phase1.py` |
-| `codex_control_operation` | `CodexControlOperationOrmModel` | `202607311200_create_codex_control_phase1.py` |
-| `codex_approval_audit` | `CodexApprovalAuditOrmModel` | `202607311200_create_codex_control_phase1.py` |
+| `codex_workspace` | `CodexWorkspaceOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608071400_add_codex_workspace_worktree_policy.py` + `202608151820_unify_codex_conversation_index.py` |
+| `codex_thread_index` | `CodexThreadIndexOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608151820_unify_codex_conversation_index.py` + `202608151940_normalize_codex_thread_status.py` |
+| `codex_control_operation` | `CodexControlOperationOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608161230_add_codex_operation_projection.py` |
+| `codex_approval_audit` | `CodexApprovalAuditOrmModel` | `202607311200_create_codex_control_phase1.py` + `202608101300_repair_codex_approval_runtime_state.py` |
 | `codex_host_device_key` | `CodexHostDeviceKeyOrmModel` | `202608071200_add_codex_device_identity.py` |
 | `codex_device_authorization_audit` | `CodexDeviceAuthorizationAuditOrmModel` | `202608071200_add_codex_device_identity.py` |
 | `codex_command_outbox` | `CodexCommandOutboxOrmModel` | `202608071300_add_codex_command_outbox.py` |
@@ -98,6 +99,7 @@ flowchart TD
 - `AlembicRunner.upgrade_head` 将脚本目录、数据库 URL、schema、连接超时写入 Alembic `Config` 后升级到 `head`；迁移环境的在线模式使用 `NullPool`、显式创建目标 schema、设置 `version_table_schema`，并在成功或异常路径都 dispose online engine。
 - 当前持久化表共 20 张：基础表 11 张，Codex host、旧迁移凭据、workspace、thread index、operation、approval audit、device key、device authorization audit、加密 command outbox 共 9 张。运行态探活还包括 `RuntimeStateRepositoryImpl.ping()` 的 `SELECT 1`，不对应独立业务表。
 - Codex 审批决定与稳定 operation、AES-GCM 加密 command outbox 在同一 `SqlAlchemyUnitOfWork` 中提交；Redis 只承载通知、presence、短期票据和有界事件流，不承担命令事实源。
+- `codex_control_operation.projection` 使用“公共头 + 判别联合 detail”，只保存首条消息派生短标题和 `occurred_at`，迟到 ACK 与幂等重放复用同一投影服务，禁止保存原始 prompt。
 - 测试覆盖除任务记录外，还包括 `test/unit_test/test_auth_persistence_unit.py`、`test/integration_test/admin_identity/test_admin_identity_rbac_integration.py`、`test/integration_test/test_security_ip_block_integration.py`、`test/integration_test/test_database_logging_integration.py` 和 `test/integration_test/test_migration_job_integration.py`。
 
 ## 12. 相关文档

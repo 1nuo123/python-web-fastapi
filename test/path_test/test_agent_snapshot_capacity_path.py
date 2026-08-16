@@ -78,7 +78,7 @@ async def test_snapshot_when_thread_list_has_cursor_should_page_and_forward_meta
         "nextCursor": "cursor-1",
     }
     second = {"data": [_thread("thread-2")], "nextCursor": None}
-    client = PagingAppServerClient([first, second])
+    client = PagingAppServerClient([first, second, {"data": [], "nextCursor": None}])
     root = tmp_path / "work"
     root.mkdir()
     registry = AgentWorkspaceRegistry([AgentWorkspaceDefinition("work", "Work", root, False)])
@@ -92,13 +92,15 @@ async def test_snapshot_when_thread_list_has_cursor_should_page_and_forward_meta
         history_capacity_registry=history_registry,
     ).build()
 
-    assert len(client.calls) == 2
+    assert len(client.calls) == 3
     assert client.calls[0][1]["useStateDbOnly"] is True
     assert client.calls[1][1]["cursor"] == "cursor-1"
-    assert [thread["id"] for thread in snapshot.threads] == ["thread-1", "thread-2"]
-    assert all("preview" not in thread for thread in snapshot.threads)
-    assert all("cwd" not in thread and "path" not in thread for thread in snapshot.threads)
-    assert all("turns" not in thread for thread in snapshot.threads)
+    assert [thread.thread_id for thread in snapshot.threads] == ["thread-1", "thread-2"]
+    assert [thread.display_name for thread in snapshot.threads] == [
+        "Thread title",
+        "Thread title",
+    ]
+    assert all(thread.archived is False for thread in snapshot.threads)
     assert history_registry.should_omit("thread-1") is True
 
 
@@ -114,6 +116,7 @@ async def test_snapshot_when_workspace_page_exceeds_limit_should_keep_host_avail
         [
             AppServerMessageTooLargeError(4 * 1024 * 1024),
             {"data": [_thread("thread-2")], "nextCursor": None},
+            {"data": [], "nextCursor": None},
         ]
     )
     registry = AgentWorkspaceRegistry(
@@ -132,4 +135,4 @@ async def test_snapshot_when_workspace_page_exceeds_limit_should_keep_host_avail
 
     assert [workspace.key for workspace in snapshot.workspaces] == ["first", "second"]
     assert snapshot.omitted_thread_workspace_keys == ["first"]
-    assert [thread["workspaceKey"] for thread in snapshot.threads] == ["second"]
+    assert [thread.workspace_key for thread in snapshot.threads] == ["second"]

@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Request, Security, status
+from fastapi import APIRouter, Depends, Header, Query, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.api.dependency_context_accessor import DependencyContextAccessor
-from src.application.codex.query_threads_usecase import CodexThreadIndexCollection
-from src.core.codex_contract.thread_contract import CodexThreadAuthoritySnapshot
+from src.core.codex_contract.host_contract import CodexSandboxMode
+from src.core.codex_contract.thread_contract import (
+    CODEX_CONVERSATION_PAGE_LIMIT_DEFAULT,
+    CODEX_CONVERSATION_PAGE_LIMIT_MAXIMUM,
+    CODEX_CONVERSATION_PAGE_LIMIT_MINIMUM,
+    CodexConversationListQuery,
+    CodexConversationPage,
+    CodexConversationPinRequest,
+    CodexConversationRenameRequest,
+    CodexThreadAuthoritySnapshot,
+    CodexThreadIndexSnapshot,
+)
 from src.core.codex_contract.turn_contract import (
+    CodexExecutionOptions,
     CodexOperationAccepted,
     CodexThreadCreateRequest,
     CodexTurnStartRequest,
@@ -18,8 +30,10 @@ from src.core.codex_contract.turn_contract import (
 from src.core.exception_contract.error_code_catalog_contract import SuccessCode
 from src.core.http_contract.response_envelope_contract import ResponseEnvelope
 from src.domain.codex.codex_authorization_policy import (
+    CODEX_FULL_ACCESS_AUTHORIZATION_REQUIREMENT,
     CODEX_OPERATE_AUTHORIZATION_REQUIREMENT,
     CODEX_READ_AUTHORIZATION_REQUIREMENT,
+    CODEX_TOOL_EXECUTION_AUTHORIZATION_REQUIREMENT,
 )
 
 CODEX_THREAD_BEARER_SCHEME = HTTPBearer(auto_error=False)
@@ -35,7 +49,7 @@ class CodexThreadRouteCatalog:
             "/codex/hosts/{host_id}/threads",
             self.get_threads,
             methods=["GET"],
-            response_model=ResponseEnvelope[CodexThreadIndexCollection],
+            response_model=ResponseEnvelope[CodexConversationPage],
             dependencies=[Depends(self.require_codex_read)],
         )
         self.router.add_api_route(
@@ -93,6 +107,37 @@ class CodexThreadRouteCatalog:
             response_model=ResponseEnvelope[CodexOperationAccepted],
             dependencies=[Depends(self.require_codex_operate)],
         )
+        self.router.add_api_route(
+            "/codex/hosts/{host_id}/threads/{thread_id}/name",
+            self.rename_thread,
+            methods=["PATCH"],
+            status_code=status.HTTP_202_ACCEPTED,
+            response_model=ResponseEnvelope[CodexOperationAccepted],
+            dependencies=[Depends(self.require_codex_operate)],
+        )
+        self.router.add_api_route(
+            "/codex/hosts/{host_id}/threads/{thread_id}/pin",
+            self.update_thread_pin,
+            methods=["PATCH"],
+            response_model=ResponseEnvelope[CodexThreadIndexSnapshot],
+            dependencies=[Depends(self.require_codex_operate)],
+        )
+        self.router.add_api_route(
+            "/codex/hosts/{host_id}/threads/{thread_id}/archive",
+            self.archive_thread,
+            methods=["POST"],
+            status_code=status.HTTP_202_ACCEPTED,
+            response_model=ResponseEnvelope[CodexOperationAccepted],
+            dependencies=[Depends(self.require_codex_operate)],
+        )
+        self.router.add_api_route(
+            "/codex/hosts/{host_id}/threads/{thread_id}/unarchive",
+            self.unarchive_thread,
+            methods=["POST"],
+            status_code=status.HTTP_202_ACCEPTED,
+            response_model=ResponseEnvelope[CodexOperationAccepted],
+            dependencies=[Depends(self.require_codex_operate)],
+        )
 
     async def require_codex_read(
         self,
@@ -115,7 +160,18 @@ class CodexThreadRouteCatalog:
         self,
         request: Request,
         host_id: UUID,
-    ) -> ResponseEnvelope[CodexThreadIndexCollection]:
+        workspace_id: UUID | None = None,
+        archived: bool = False,
+        search_term: str | None = None,
+        cursor: str | None = None,
+        limit: Annotated[
+            int,
+            Query(
+                ge=CODEX_CONVERSATION_PAGE_LIMIT_MINIMUM,
+                le=CODEX_CONVERSATION_PAGE_LIMIT_MAXIMUM,
+            ),
+        ] = CODEX_CONVERSATION_PAGE_LIMIT_DEFAULT,
+    ) -> ResponseEnvelope[CodexConversationPage]:
         """读取当前主体拥有的主机线程索引。"""
 
         principal = self._accessor.read_authenticated_principal(request)
@@ -124,6 +180,13 @@ class CodexThreadRouteCatalog:
             callable_object=self._accessor.read_query_codex_threads_usecase(request).execute,
             host_id=host_id,
             owner_subject_id=principal.subject_id,
+            query=CodexConversationListQuery(
+                workspace_id=workspace_id,
+                archived=archived,
+                search_term=search_term,
+                cursor=cursor,
+                limit=limit,
+            ),
         )
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),
@@ -142,6 +205,7 @@ class CodexThreadRouteCatalog:
         """提交 thread/start 并只等待 App Server 接受。"""
 
         principal = self._accessor.read_authenticated_principal(request)
+        self._require_execution_scopes(request, body.execution)
         payload = await self._accessor.read_execute_codex_thread_command_usecase(
             request
         ).start_thread(
@@ -211,6 +275,10 @@ class CodexThreadRouteCatalog:
         """向 active turn 发送 steer。"""
 
         principal = self._accessor.read_authenticated_principal(request)
+        self._accessor.read_authorized_principal(
+            request,
+            CODEX_TOOL_EXECUTION_AUTHORIZATION_REQUIREMENT,
+        )
         payload = await self._accessor.read_execute_codex_thread_command_usecase(
             request
         ).steer_turn(
@@ -266,6 +334,7 @@ class CodexThreadRouteCatalog:
         """提交 turn/start 并返回固定 operation/command 身份。"""
 
         principal = self._accessor.read_authenticated_principal(request)
+        self._require_execution_scopes(request, body.execution)
         payload = await self._accessor.read_execute_codex_thread_command_usecase(
             request
         ).start_turn(
@@ -302,3 +371,107 @@ class CodexThreadRouteCatalog:
             idempotency_key=idempotency_key,
         )
         return self._accepted_response(request, payload, "Codex thread压缩操作已接受。")
+
+    async def rename_thread(
+        self,
+        request: Request,
+        host_id: UUID,
+        thread_id: str,
+        body: CodexConversationRenameRequest,
+        idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=256),
+    ) -> ResponseEnvelope[CodexOperationAccepted]:
+        """保存手工标题并投递 App Server 重命名命令。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        payload = await self._accessor.read_execute_codex_thread_command_usecase(
+            request
+        ).rename_thread(
+            host_id=host_id,
+            upstream_thread_id=thread_id,
+            display_name=body.display_name,
+            actor_subject_id=principal.subject_id,
+            idempotency_key=idempotency_key,
+        )
+        return self._accepted_response(request, payload, "Codex会话重命名操作已接受。")
+
+    async def update_thread_pin(
+        self,
+        request: Request,
+        host_id: UUID,
+        thread_id: str,
+        body: CodexConversationPinRequest,
+    ) -> ResponseEnvelope[CodexThreadIndexSnapshot]:
+        """更新控制面会话置顶偏好。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        payload = await self._accessor.read_request_execution_bridge(request).run_sync(
+            execution_name="default_sync_usecase",
+            callable_object=(
+                self._accessor.read_update_codex_thread_preference_usecase(request).execute
+            ),
+            host_id=host_id,
+            upstream_thread_id=thread_id,
+            owner_subject_id=principal.subject_id,
+            request=body,
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="Codex会话置顶偏好更新成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=payload,
+        )
+
+    async def archive_thread(
+        self,
+        request: Request,
+        host_id: UUID,
+        thread_id: str,
+        idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=256),
+    ) -> ResponseEnvelope[CodexOperationAccepted]:
+        """投递会话归档命令，等待上游结果收敛最终状态。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        payload = await self._accessor.read_execute_codex_thread_command_usecase(
+            request
+        ).archive_thread(
+            host_id=host_id,
+            upstream_thread_id=thread_id,
+            actor_subject_id=principal.subject_id,
+            idempotency_key=idempotency_key,
+        )
+        return self._accepted_response(request, payload, "Codex会话归档操作已接受。")
+
+    async def unarchive_thread(
+        self,
+        request: Request,
+        host_id: UUID,
+        thread_id: str,
+        idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=256),
+    ) -> ResponseEnvelope[CodexOperationAccepted]:
+        """投递会话恢复命令，等待上游结果收敛最终状态。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        payload = await self._accessor.read_execute_codex_thread_command_usecase(
+            request
+        ).unarchive_thread(
+            host_id=host_id,
+            upstream_thread_id=thread_id,
+            actor_subject_id=principal.subject_id,
+            idempotency_key=idempotency_key,
+        )
+        return self._accepted_response(request, payload, "Codex会话恢复操作已接受。")
+
+    def _require_execution_scopes(
+        self,
+        request: Request,
+        execution: CodexExecutionOptions,
+    ) -> None:
+        self._accessor.read_authorized_principal(
+            request,
+            CODEX_TOOL_EXECUTION_AUTHORIZATION_REQUIREMENT,
+        )
+        if execution.sandbox_mode is CodexSandboxMode.DANGER_FULL_ACCESS:
+            self._accessor.read_authorized_principal(
+                request,
+                CODEX_FULL_ACCESS_AUTHORIZATION_REQUIREMENT,
+            )

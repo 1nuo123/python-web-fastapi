@@ -78,6 +78,9 @@ from src.application.admin.identity.user.list_admin_users_usecase import (
 from src.application.admin.identity.user.replace_admin_user_roles_usecase import (
     ReplaceAdminUserRolesUsecase,
 )
+from src.application.admin.identity.user.replace_admin_user_scopes_usecase import (
+    ReplaceAdminUserScopesUsecase,
+)
 from src.application.admin.identity.user.reset_admin_user_password_usecase import (
     ResetAdminUserPasswordUsecase,
 )
@@ -114,6 +117,12 @@ from src.application.codex.manage_approval_usecase import ManageCodexApprovalUse
 from src.application.codex.query_threads_usecase import QueryCodexThreadsUsecase
 from src.application.codex.read_thread_snapshot_usecase import (
     ReadCodexThreadSnapshotUsecase,
+)
+from src.application.codex.revoke_subject_agent_access_usecase import (
+    RevokeCodexSubjectAgentAccessUsecase,
+)
+from src.application.codex.update_thread_preference_usecase import (
+    UpdateCodexThreadPreferenceUsecase,
 )
 from src.application.codex.update_workspace_usecase import UpdateCodexWorkspaceUsecase
 from src.application.dispatch_background_job_usecase import DispatchBackgroundJobUsecase
@@ -270,10 +279,13 @@ class ApplicationContainer:
     update_admin_user_usecase: UpdateAdminUserUsecase
     reset_admin_user_password_usecase: ResetAdminUserPasswordUsecase
     replace_admin_user_roles_usecase: ReplaceAdminUserRolesUsecase
+    replace_admin_user_scopes_usecase: ReplaceAdminUserScopesUsecase
     delete_admin_user_usecase: DeleteAdminUserUsecase
+    revoke_codex_subject_agent_access_usecase: RevokeCodexSubjectAgentAccessUsecase
     list_codex_hosts_usecase: ListCodexHostsUsecase
     list_codex_workspaces_usecase: ListCodexWorkspacesUsecase
     update_codex_workspace_usecase: UpdateCodexWorkspaceUsecase
+    update_codex_thread_preference_usecase: UpdateCodexThreadPreferenceUsecase
     query_codex_threads_usecase: QueryCodexThreadsUsecase
     execute_codex_thread_command_usecase: ExecuteCodexThreadCommandUsecase
     read_codex_thread_snapshot_usecase: ReadCodexThreadSnapshotUsecase
@@ -680,16 +692,31 @@ class FastApiAppAssembler:
             replace_admin_user_roles_usecase=ReplaceAdminUserRolesUsecase(
                 admin_identity_port=resource_mount,
             ),
+            replace_admin_user_scopes_usecase=ReplaceAdminUserScopesUsecase(
+                admin_identity_port=resource_mount,
+            ),
             delete_admin_user_usecase=DeleteAdminUserUsecase(
                 admin_identity_port=resource_mount,
+            ),
+            revoke_codex_subject_agent_access_usecase=(
+                RevokeCodexSubjectAgentAccessUsecase(
+                    control_port=resource_mount,
+                    revocation_signal=(
+                        resource_mount.get_codex_control_runtime().revocation_signal
+                    ),
+                )
             ),
             list_codex_hosts_usecase=ListCodexHostsUsecase(control_port=resource_mount),
             list_codex_workspaces_usecase=ListCodexWorkspacesUsecase(control_port=resource_mount),
             update_codex_workspace_usecase=UpdateCodexWorkspaceUsecase(control_port=resource_mount),
+            update_codex_thread_preference_usecase=UpdateCodexThreadPreferenceUsecase(
+                control_port=resource_mount
+            ),
             query_codex_threads_usecase=QueryCodexThreadsUsecase(control_port=resource_mount),
             execute_codex_thread_command_usecase=ExecuteCodexThreadCommandUsecase(
                 control_port=resource_mount,
                 dispatch_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
+                event_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
                 payload_cipher=CodexCommandPayloadCipherAdapter(
                     DeferredAeadEnvelopeCipher(resource_mount.get_key_management_service)
                 ),

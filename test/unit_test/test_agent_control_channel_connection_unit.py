@@ -46,11 +46,21 @@ class TestAgentControlConnectionTransportPolicy:
 
     def test_http_rate_limit_should_retry(self) -> None:
         request = Request("POST", "https://control.test/challenge")
-        response = HttpResponse(429)
+        response = HttpResponse(429, headers={"Retry-After": "120"})
         exc = HTTPStatusError("请求过于频繁。", request=request, response=response)
 
         assert AgentControlConnectionPolicy.should_retry(exc) is True
         assert AgentControlConnectionPolicy.describe(exc) == "HTTP 429"
+        assert AgentControlConnectionPolicy.read_retry_after_seconds(exc) == 120
+
+    def test_http_rate_limit_when_retry_after_invalid_should_use_exponential_backoff(
+        self,
+    ) -> None:
+        request = Request("POST", "https://control.test/challenge")
+        response = HttpResponse(429, headers={"Retry-After": "invalid"})
+        exc = HTTPStatusError("请求过于频繁。", request=request, response=response)
+
+        assert AgentControlConnectionPolicy.read_retry_after_seconds(exc) is None
 
     def test_http_credential_rejection_should_not_retry(self) -> None:
         request = Request("POST", "https://control.test/challenge")

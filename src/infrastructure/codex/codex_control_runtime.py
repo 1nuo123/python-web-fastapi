@@ -25,6 +25,9 @@ from src.application.codex.manage_device_challenge_usecase import (
     IssueDeviceChallengeUsecase,
     VerifyDeviceChallengeUsecase,
 )
+from src.application.codex.manage_enrollment_intent_usecase import (
+    ManageCodexEnrollmentIntentUsecase,
+)
 from src.application.codex.manage_host_usecase import (
     RenameCodexHostUsecase,
     RevokeCodexHostUsecase,
@@ -42,6 +45,9 @@ from src.application.ports.codex_device_authorization_store_port import (
     CodexDeviceAuthorizationStorePort,
 )
 from src.application.ports.codex_device_challenge_store_port import CodexDeviceChallengeStorePort
+from src.application.ports.codex_enrollment_intent_store_port import (
+    CodexEnrollmentIntentStorePort,
+)
 from src.application.ports.signature_verifier_port import SignatureVerifierPort
 from src.application.ports.step_up_grant_port import StepUpGrantPort
 from src.application.streaming.stream_access_ticket_service import StreamAccessTicketService
@@ -56,7 +62,11 @@ from src.core.codex_contract.instance_control_contract import (
     CodexDispatchSignalDetail,
     CodexRevokeSignalDetail,
 )
-from src.core.codex_contract.realtime_event_contract import CodexRealtimeEventType
+from src.core.codex_contract.realtime_event_contract import (
+    CodexRealtimeEventType,
+    CodexThreadPatch,
+)
+from src.core.codex_contract.thread_contract import CodexThreadIndexSnapshot
 from src.core.concurrency_contract.fenced_lease_contract import FencedLeasePort
 from src.core.distributed_state_contract.atomic_state_contract import AtomicStatePort
 from src.domain.codex.codex_compatibility_policy import CodexCompatibilityPolicy
@@ -76,6 +86,7 @@ from src.infrastructure.codex.codex_command_outbox_dispatcher import (
 from src.infrastructure.codex.codex_connection_registry import CodexConnectionRegistry
 from src.infrastructure.codex.codex_device_authorization_store import CodexDeviceAuthorizationStore
 from src.infrastructure.codex.codex_device_challenge_store import CodexDeviceChallengeStore
+from src.infrastructure.codex.codex_enrollment_intent_store import CodexEnrollmentIntentStore
 from src.infrastructure.codex.codex_host_actor import CodexHostActorRegistry
 from src.infrastructure.codex.codex_host_presence_adapter import CodexHostPresenceAdapter
 from src.infrastructure.codex.codex_instance_control_signal_adapter import (
@@ -119,6 +130,7 @@ class CodexControlRuntime:
     stream_ticket_service: StreamAccessTicketService
     device_authorization_store: CodexDeviceAuthorizationStorePort
     device_challenge_store: CodexDeviceChallengeStorePort
+    enrollment_intent_store: CodexEnrollmentIntentStorePort
     revocation_signal: CodexAgentRevocationSignalPort
     create_device_authorization: CreateDeviceAuthorizationUsecase
     poll_device_authorization: PollDeviceAuthorizationUsecase
@@ -131,6 +143,7 @@ class CodexControlRuntime:
     revoke_host: RevokeCodexHostUsecase
     start_device_key_rotation: StartDeviceKeyRotationUsecase
     cleanup_expired_device_authorizations: CleanupExpiredDeviceAuthorizationsUsecase
+    manage_enrollment_intent: ManageCodexEnrollmentIntentUsecase
     presence_adapter: CodexHostPresenceAdapter
     instance_control_signal_adapter: CodexInstanceControlSignalAdapter
     outbox_dispatcher: CodexCommandOutboxDispatcher
@@ -203,6 +216,10 @@ class CodexControlRuntime:
             digest_service=sensitive_digest_service,
         )
         device_challenge_store = CodexDeviceChallengeStore(state=atomic_state)
+        enrollment_intent_store = CodexEnrollmentIntentStore(
+            state=atomic_state,
+            digest_service=sensitive_digest_service,
+        )
         revocation_signal = CodexAgentRevocationSignal(
             state=atomic_state,
             connection_registry=connection_registry,
@@ -235,7 +252,10 @@ class CodexControlRuntime:
             connection_registry=connection_registry,
             actor_registry=actor_registry,
             authentication_guard=AgentDeviceAuthenticationGuard(verifier=credential_service),
-            state_synchronizer=SyncCodexAgentStateUsecase(control_port),
+            state_synchronizer=SyncCodexAgentStateUsecase(
+                control_port,
+                max_workspaces_per_host=settings.max_workspaces_per_host,
+            ),
             event_buffer=CodexAgentEventBuffer(capacity=settings.agent_event_replay_buffer_size),
             event_cursor_store=CodexAgentEventCursorStore(state=atomic_state),
             browser_event_hub=CodexBrowserEventHub(
@@ -251,6 +271,7 @@ class CodexControlRuntime:
             stream_ticket_service=stream_ticket_service,
             device_authorization_store=device_authorization_store,
             device_challenge_store=device_challenge_store,
+            enrollment_intent_store=enrollment_intent_store,
             revocation_signal=revocation_signal,
             create_device_authorization=create_device_authorization,
             poll_device_authorization=PollDeviceAuthorizationUsecase(
@@ -264,6 +285,7 @@ class CodexControlRuntime:
                 store=device_authorization_store,
                 control_port=control_port,
                 key_rotation_grace_seconds=settings.device_key_rotation_grace_seconds,
+                max_hosts_per_user=settings.max_hosts_per_user,
             ),
             issue_device_challenge=IssueDeviceChallengeUsecase(
                 store=device_challenge_store,
@@ -288,6 +310,14 @@ class CodexControlRuntime:
             cleanup_expired_device_authorizations=CleanupExpiredDeviceAuthorizationsUsecase(
                 control_port=control_port,
                 pending_ttl_seconds=settings.device_authorization_ttl_seconds,
+            ),
+            manage_enrollment_intent=ManageCodexEnrollmentIntentUsecase(
+                store=enrollment_intent_store,
+                device_authorization_store=device_authorization_store,
+                create_device_authorization=create_device_authorization,
+                digest_service=sensitive_digest_service,
+                ttl_seconds=settings.enrollment_intent_ttl_seconds,
+                maximum_create_attempts=settings.device_authorization_create_attempts,
             ),
             presence_adapter=presence_adapter,
             instance_control_signal_adapter=instance_control_signal_adapter,
@@ -347,12 +377,22 @@ class CodexControlRuntime:
         """保留有界恢复窗口并把 App Server 事件转换后按所有者推送。"""
 
         overflowed = await self.event_buffer.publish(event, principal)
-        await asyncio.to_thread(
+        updated_thread = await asyncio.to_thread(
             self.state_synchronizer.accept_realtime_event,
             event,
             principal,
         )
-        workspace_id = self._find_workspace_id(event, principal.owner_subject_id)
+        workspace_id = (
+            updated_thread.workspace_id
+            if updated_thread is not None
+            else self._find_workspace_id(event, principal.owner_subject_id)
+        )
+        if updated_thread is not None:
+            await self.publish_thread_updated(
+                owner_subject_id=principal.owner_subject_id,
+                thread=updated_thread,
+                occurred_at=event.occurred_at,
+            )
         product_event = self.protocol_mapper.map_event(event, workspace_id=workspace_id)
         if product_event is not None:
             await self.browser_event_hub.publish(principal.owner_subject_id, product_event)
@@ -367,8 +407,48 @@ class CodexControlRuntime:
                     item_id=None,
                     event_type=CodexRealtimeEventType.STREAM_GAP_DETECTED,
                     payload={"reason": "agent_event_buffer_overflow"},
+                    occurred_at=event.occurred_at,
                 ),
             )
+
+    async def publish_thread_updated(
+        self,
+        *,
+        owner_subject_id: str,
+        thread: CodexThreadIndexSnapshot,
+        occurred_at: datetime,
+    ) -> None:
+        """向浏览器发布数据库确认后的会话索引局部更新。"""
+
+        patch = CodexThreadPatch(
+            host_id=thread.host_id,
+            workspace_id=thread.workspace_id,
+            upstream_thread_id=thread.upstream_thread_id,
+            display_name=thread.display_name,
+            title_source=thread.title_source.value,
+            model=thread.model,
+            model_provider=thread.model_provider,
+            status=thread.status,
+            active_turn_id=thread.active_turn_id,
+            archived=thread.archived,
+            is_pinned=thread.is_pinned,
+            created_at=thread.created_at,
+            recency_at=thread.recency_at,
+            updated_at=thread.updated_at,
+        )
+        await self.browser_event_hub.publish(
+            owner_subject_id,
+            CodexProductEvent(
+                host_id=thread.host_id,
+                workspace_id=thread.workspace_id,
+                thread_id=thread.upstream_thread_id,
+                turn_id=thread.active_turn_id,
+                item_id=None,
+                event_type=CodexRealtimeEventType.THREAD_UPDATED,
+                payload={"thread": patch.model_dump(mode="json")},
+                occurred_at=occurred_at,
+            ),
+        )
 
     async def publish_host_status_changed(
         self,
@@ -408,16 +488,23 @@ class CodexControlRuntime:
 
         unit_of_work = self.control_port.create_unit_of_work()
         try:
+            session = unit_of_work.get_session()
             thread = self.control_port.create_codex_thread_repository(
-                unit_of_work.get_session()
+                session
             ).get_by_upstream_id_and_owner(
                 approval.host_id,
                 approval.thread_id,
                 principal.owner_subject_id,
             )
+            persisted_approval = self.control_port.create_codex_approval_repository(
+                session
+            ).get_by_id_and_owner(
+                approval.approval_id,
+                principal.owner_subject_id,
+            )
         finally:
             unit_of_work.dispose()
-        if thread is None:
+        if thread is None or persisted_approval is None:
             return
         await self.browser_event_hub.publish(
             principal.owner_subject_id,
@@ -428,23 +515,13 @@ class CodexControlRuntime:
                 turn_id=approval.turn_id,
                 item_id=approval.item_id,
                 event_type=CodexRealtimeEventType.APPROVAL_OPENED,
-                payload={
-                    "approval": {
-                        "approval_id": str(approval.approval_id),
-                        "host_id": str(approval.host_id),
-                        "workspace_id": str(thread.workspace_id),
-                        "thread_id": approval.thread_id,
-                        "turn_id": approval.turn_id,
-                        "item_id": approval.item_id,
-                        "approval_kind": approval.approval_kind,
-                        "risk_level": approval.risk_level,
-                        "display_summary": approval.display_summary.model_dump(mode="json"),
-                        "state": "pending",
-                        "version": 1,
-                        "expires_at": approval.expires_at.isoformat(),
-                    }
-                },
+                payload={"approval": persisted_approval.model_dump(mode="json")},
             ),
+        )
+        await self.publish_thread_updated(
+            owner_subject_id=principal.owner_subject_id,
+            thread=thread,
+            occurred_at=thread.recency_at,
         )
 
     def _find_workspace_id(

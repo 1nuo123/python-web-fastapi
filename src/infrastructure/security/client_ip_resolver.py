@@ -169,6 +169,11 @@ class ClientIpResolver:
 
         return self.resolve(request).detail.client_ip
 
+    def is_trusted_proxy(self, request: HTTPConnection) -> bool:
+        """Return whether the direct peer may provide proxy metadata."""
+
+        return self._is_trusted_proxy(self._read_remote_ip(request))
+
     def _read_remote_ip(self, request: HTTPConnection) -> str:
         """
         读取直连远端 IP。

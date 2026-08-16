@@ -232,6 +232,7 @@ class AdminIdentityRepositorySupport(Repository):
             if user_role.role is not None and user_role.role.role_key != target_role_key
             for role_scope in user_role.role.role_scopes
         ]
+        future_scope_codes.extend(user_scope.scope_code for user_scope in actor.user_scopes)
         future_scope_codes.extend(next_scope_codes)
         if ADMIN_ROLE_KEY not in actor_role_keys:
             self._raise_self_lock()
@@ -271,11 +272,10 @@ class AdminIdentityRepositorySupport(Repository):
         return any(
             user_role.role is not None
             and user_role.role.role_key == ADMIN_ROLE_KEY
-            and any(
-                role_scope.scope_code == ADMIN_MANAGE_SCOPE_CODE
-                and role_scope.scope_code != excluded_scope_code
-                and self._is_scope_code_enabled(role_scope.scope_code)
-                for role_scope in user_role.role.role_scopes
+            and self._user_has_enabled_scope_excluding(
+                user=user,
+                scope_code=ADMIN_MANAGE_SCOPE_CODE,
+                excluded_scope_code=excluded_scope_code,
             )
             for user_role in user.user_roles
         )
@@ -305,10 +305,9 @@ class AdminIdentityRepositorySupport(Repository):
         return any(
             user_role.role is not None
             and user_role.role.role_key == ADMIN_ROLE_KEY
-            and any(
-                role_scope.scope_code == ADMIN_MANAGE_SCOPE_CODE
-                and self._is_scope_code_enabled(role_scope.scope_code)
-                for role_scope in user_role.role.role_scopes
+            and self._user_has_enabled_scope(
+                user=user,
+                scope_code=ADMIN_MANAGE_SCOPE_CODE,
             )
             for user_role in user.user_roles
         )
@@ -356,7 +355,7 @@ class AdminIdentityRepositorySupport(Repository):
         判断用户是否拥有当前有效的指定 scope。
         """
 
-        return any(
+        role_grants_scope = any(
             user_role.role is not None
             and any(
                 role_scope.scope_code == scope_code
@@ -364,6 +363,25 @@ class AdminIdentityRepositorySupport(Repository):
                 for role_scope in user_role.role.role_scopes
             )
             for user_role in user.user_roles
+        )
+        direct_grants_scope = any(
+            user_scope.scope_code == scope_code and self._is_scope_code_enabled(scope_code)
+            for user_scope in user.user_scopes
+        )
+        return role_grants_scope or direct_grants_scope
+
+    def _user_has_enabled_scope_excluding(
+        self,
+        *,
+        user: AuthUserOrmModel,
+        scope_code: str,
+        excluded_scope_code: str,
+    ) -> bool:
+        """判断排除目录项后用户是否仍拥有指定有效 scope。"""
+
+        return scope_code != excluded_scope_code and self._user_has_enabled_scope(
+            user=user,
+            scope_code=scope_code,
         )
 
     def _scope_codes_contain_protected_admin_scope(
@@ -384,16 +402,42 @@ class AdminIdentityRepositorySupport(Repository):
         scope = self._get_scope_snapshot_or_none(scope_code)
         return scope is not None and scope.enabled
 
-    def _role_models_grant_manage(self, role_models: list[AuthRoleOrmModel]) -> bool:
-        """
-        判断角色集合是否保留管理员管理能力。
-        """
+    def _role_models_retain_manage(
+        self,
+        *,
+        user: AuthUserOrmModel,
+        role_models: list[AuthRoleOrmModel],
+    ) -> bool:
+        """判断目标角色与现有直接 scope 是否保留管理员管理能力。"""
 
         role_keys = {role.role_key for role in role_models}
         scope_codes = {
             role_scope.scope_code for role in role_models for role_scope in role.role_scopes
         }
+        scope_codes.update(user_scope.scope_code for user_scope in user.user_scopes)
         return ADMIN_ROLE_KEY in role_keys and ADMIN_MANAGE_SCOPE_CODE in scope_codes
+
+    def _scope_codes_retain_manage(
+        self,
+        *,
+        user: AuthUserOrmModel,
+        direct_scope_codes: list[str],
+    ) -> bool:
+        """判断目标直接 scope 与现有角色是否保留管理员管理能力。"""
+
+        role_keys = {
+            user_role.role.role_key for user_role in user.user_roles if user_role.role is not None
+        }
+        role_scope_codes = {
+            role_scope.scope_code
+            for user_role in user.user_roles
+            if user_role.role is not None
+            for role_scope in user_role.role.role_scopes
+        }
+        return ADMIN_ROLE_KEY in role_keys and ADMIN_MANAGE_SCOPE_CODE in {
+            *role_scope_codes,
+            *direct_scope_codes,
+        }
 
     def _normalize_unique_values(self, values: list[str]) -> list[str]:
         """

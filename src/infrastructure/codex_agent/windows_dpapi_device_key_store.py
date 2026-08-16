@@ -18,11 +18,17 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from src.application.ports.agent_device_key_store_port import AgentDeviceKeyStorePort
+from src.infrastructure.process.windows_subprocess_launcher import (
+    WindowsSubprocessLauncher,
+    WindowsSubprocessLogCategory,
+    WindowsSubprocessRequest,
+)
 
 DPAPI_ENTROPY = b"CodexRemoteAgent.current-user.device-key.v1"
 PRIVATE_KEY_LENGTH = 32
 POWERSHELL_ACL_EXECUTABLE = "icacls.exe"
 CURRENT_USER_COMMAND = "whoami.exe"
+SUBPROCESS_ERROR_TYPE = subprocess.SubprocessError
 
 
 class _DataBlob(Structure):
@@ -80,36 +86,39 @@ class WindowsCurrentUserDpapi:
 class WindowsCurrentUserAclEnforcer:
     """将密钥文件 ACL 收敛到当前 Windows 用户。"""
 
+    def __init__(self, subprocess_launcher: WindowsSubprocessLauncher | None = None) -> None:
+        self._subprocess_launcher = subprocess_launcher or WindowsSubprocessLauncher()
+
     def enforce(self, path: Path) -> None:
         if sys.platform != "win32":
             raise OSError("设备密钥 ACL 只能在Windows中设置。")
-        identity = (
-            subprocess.run(
-                [CURRENT_USER_COMMAND, "/user", "/fo", "csv", "/nh"],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=10,
+        identity_result = self._subprocess_launcher.run(
+            WindowsSubprocessRequest(
+                argv=(CURRENT_USER_COMMAND, "/user", "/fo", "csv", "/nh"),
+                timeout_seconds=10,
+                log_category=WindowsSubprocessLogCategory.WINDOWS,
             )
-            .stdout.strip()
-            .strip('"')
-            .split('","')
         )
+        if identity_result.return_code != 0:
+            raise OSError("无法读取当前用户 SID。")
+        identity = identity_result.stdout.strip().strip('"').split('","')
         if len(identity) < 2 or not identity[1]:
             raise OSError("无法解析当前用户 SID。")
-        subprocess.run(
-            [
-                POWERSHELL_ACL_EXECUTABLE,
-                str(path),
-                "/inheritance:r",
-                "/grant:r",
-                f"*{identity[1]}:(R,W)",
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=10,
+        acl_result = self._subprocess_launcher.run(
+            WindowsSubprocessRequest(
+                argv=(
+                    POWERSHELL_ACL_EXECUTABLE,
+                    str(path),
+                    "/inheritance:r",
+                    "/grant:r",
+                    f"*{identity[1]}:(R,W)",
+                ),
+                timeout_seconds=10,
+                log_category=WindowsSubprocessLogCategory.WINDOWS,
+            )
         )
+        if acl_result.return_code != 0:
+            raise OSError("设备密钥 ACL 收敛失败。")
 
 
 class WindowsDpapiDeviceKeyStore(AgentDeviceKeyStorePort):

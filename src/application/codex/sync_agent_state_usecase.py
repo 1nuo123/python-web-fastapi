@@ -11,9 +11,14 @@ from uuid import UUID, uuid4
 
 from pydantic import JsonValue
 
+from src.application.codex.operation_projection_service import (
+    CodexAppliedOperationProjection,
+    CodexOperationProjectionService,
+)
 from src.application.ports.codex_control_port import CodexControlPort
 from src.core.codex_contract.agent_device_auth_contract import AgentDevicePrincipal
 from src.core.codex_contract.agent_protocol_contract import (
+    AgentConversationSnapshotDetail,
     CodexAgentApprovalOpened,
     CodexAgentCommandAck,
     CodexAgentCommandResult,
@@ -23,9 +28,17 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentStateSnapshot,
     CodexAgentWorkspaceSnapshot,
 )
+from src.core.codex_contract.agent_protocol_v2_contract import (
+    AgentApprovalOpenedEventDetail,
+    AgentItemChangedEventDetail,
+    AgentThreadChangedEventDetail,
+    AgentThreadMetadataChangedEventDetail,
+    AgentTurnChangedEventDetail,
+)
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerCapabilityCode,
     AppServerCapabilityDetail,
+    AppServerNotificationName,
 )
 from src.core.codex_contract.approval_contract import (
     CodexApprovalAuditSnapshot,
@@ -36,20 +49,38 @@ from src.core.codex_contract.host_contract import (
     CodexApprovalPolicy,
     CodexHostCapabilities,
     CodexHostCompatibilityDetail,
+    CodexHostCompatibilityObservationDetail,
     CodexHostCompatibilityState,
+    CodexHostDisconnectObservationDetail,
+    CodexHostHeartbeatObservationDetail,
+    CodexHostHelloObservationDetail,
+    CodexHostObservation,
+    CodexHostObservationHeader,
+    CodexHostObservationType,
+    CodexHostSnapshot,
     CodexSandboxMode,
 )
-from src.core.codex_contract.thread_contract import CodexThreadIndexSnapshot
+from src.core.codex_contract.product_command_contract import CodexProductCommandCode
+from src.core.codex_contract.thread_contract import (
+    CodexActiveTurnUpdateMode,
+    CodexThreadIndexSnapshot,
+    CodexThreadRuntimeStateUpdate,
+    CodexThreadStatus,
+    CodexThreadTitleSource,
+)
 from src.core.codex_contract.workspace_contract import CodexWorkspaceSnapshot
 from src.core.persistence_contract.unit_of_work_contract import PersistenceSession
 from src.domain.codex.codex_compatibility_policy import CodexCompatibilityDecision
+from src.domain.codex.thread_title_policy import CodexThreadTitlePolicy
 
 
 class SyncCodexAgentStateUsecase:
     """仅同步控制元数据，不保存 prompt、Diff 或终端正文。"""
 
-    def __init__(self, control_port: CodexControlPort) -> None:
+    def __init__(self, control_port: CodexControlPort, *, max_workspaces_per_host: int) -> None:
         self._control_port = control_port
+        self._max_workspaces_per_host = max_workspaces_per_host
+        self._projection_service = CodexOperationProjectionService(control_port)
 
     def accept_hello(
         self,
@@ -61,25 +92,23 @@ class SyncCodexAgentStateUsecase:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
             repository = self._control_port.create_codex_host_repository(unit_of_work.get_session())
-            host = repository.get_by_id_and_owner(hello.host_id, principal.owner_subject_id)
-            if host is None:
-                raise PermissionError("Agent凭据绑定的主机不存在。")
-            now = datetime.now(UTC)
-            repository.save(
-                host.model_copy(
-                    update={
-                        "agent_version": hello.agent_version,
-                        "codex_version": hello.codex_version,
-                        "agent_protocol_version": hello.agent_protocol_version,
-                        "app_server_schema_digest": hello.app_server_schema_digest,
-                        "status": "online",
-                        "capabilities": self._map_host_capabilities(hello),
-                        "last_seen_at": now,
-                        "updated_at": now,
-                        "version": host.version + 1,
-                    }
-                )
+            observation = CodexHostObservation(
+                header=CodexHostObservationHeader(
+                    detail_kind=CodexHostObservationType.HELLO,
+                    host_id=hello.host_id,
+                    owner_subject_id=principal.owner_subject_id,
+                    observed_at=datetime.now(UTC),
+                ),
+                detail=CodexHostHelloObservationDetail(
+                    agent_version=hello.agent_version,
+                    codex_version=hello.codex_version,
+                    agent_protocol_version=hello.agent_protocol_version,
+                    app_server_schema_digest=hello.app_server_schema_digest,
+                    capabilities=self._map_host_capabilities(hello),
+                ),
             )
+            if repository.apply_observation(observation) is None:
+                raise PermissionError("Agent凭据绑定的主机不存在。")
             unit_of_work.commit()
         except BaseException:
             unit_of_work.rollback()
@@ -151,21 +180,21 @@ class SyncCodexAgentStateUsecase:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
             repository = self._control_port.create_codex_host_repository(unit_of_work.get_session())
-            host = repository.get_by_id_and_owner(host_id, principal.owner_subject_id)
-            if host is None:
-                raise PermissionError("Agent兼容性主机不存在。")
-            now = datetime.now(UTC)
-            repository.save(
-                host.model_copy(
-                    update={
-                        "compatibility": CodexHostCompatibilityDetail(
-                            state=CodexHostCompatibilityState(decision.value),
-                        ),
-                        "updated_at": now,
-                        "version": host.version + 1,
-                    }
-                )
+            observation = CodexHostObservation(
+                header=CodexHostObservationHeader(
+                    detail_kind=CodexHostObservationType.COMPATIBILITY,
+                    host_id=host_id,
+                    owner_subject_id=principal.owner_subject_id,
+                    observed_at=datetime.now(UTC),
+                ),
+                detail=CodexHostCompatibilityObservationDetail(
+                    compatibility=CodexHostCompatibilityDetail(
+                        state=CodexHostCompatibilityState(decision.value),
+                    )
+                ),
             )
+            if repository.apply_observation(observation) is None:
+                raise PermissionError("Agent兼容性主机不存在。")
             unit_of_work.commit()
         except BaseException:
             unit_of_work.rollback()
@@ -183,23 +212,19 @@ class SyncCodexAgentStateUsecase:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
             repository = self._control_port.create_codex_host_repository(unit_of_work.get_session())
-            host = repository.get_by_id_and_owner(
-                heartbeat.host_id,
-                principal.owner_subject_id,
+            observation = CodexHostObservation(
+                header=CodexHostObservationHeader(
+                    detail_kind=CodexHostObservationType.HEARTBEAT,
+                    host_id=heartbeat.host_id,
+                    owner_subject_id=principal.owner_subject_id,
+                    observed_at=datetime.now(UTC),
+                ),
+                detail=CodexHostHeartbeatObservationDetail(
+                    app_server_instance_id=heartbeat.app_server_instance_id,
+                ),
             )
-            if host is None:
+            if repository.apply_observation(observation) is None:
                 raise PermissionError("Agent心跳主机不存在。")
-            now = datetime.now(UTC)
-            repository.save(
-                host.model_copy(
-                    update={
-                        "status": "online",
-                        "last_seen_at": now,
-                        "updated_at": now,
-                        "version": host.version + 1,
-                    }
-                )
-            )
             unit_of_work.commit()
         except BaseException:
             unit_of_work.rollback()
@@ -211,27 +236,27 @@ class SyncCodexAgentStateUsecase:
         self,
         host_id: UUID,
         principal: AgentDevicePrincipal,
-    ) -> None:
+        connection_started_at: datetime,
+    ) -> CodexHostSnapshot | None:
         """仅在当前权威连接消失后把所属主机标记离线。"""
 
         unit_of_work = self._control_port.create_unit_of_work()
         try:
             repository = self._control_port.create_codex_host_repository(unit_of_work.get_session())
-            host = repository.get_by_id_and_owner(host_id, principal.owner_subject_id)
-            if host is None:
-                unit_of_work.commit()
-                return
-            now = datetime.now(UTC)
-            repository.save(
-                host.model_copy(
-                    update={
-                        "status": "offline",
-                        "updated_at": now,
-                        "version": host.version + 1,
-                    }
-                )
+            observation = CodexHostObservation(
+                header=CodexHostObservationHeader(
+                    detail_kind=CodexHostObservationType.DISCONNECT,
+                    host_id=host_id,
+                    owner_subject_id=principal.owner_subject_id,
+                    observed_at=datetime.now(UTC),
+                ),
+                detail=CodexHostDisconnectObservationDetail(
+                    connection_started_at=connection_started_at,
+                ),
             )
+            host = repository.apply_observation(observation)
             unit_of_work.commit()
+            return host
         except BaseException:
             unit_of_work.rollback()
             raise
@@ -259,6 +284,11 @@ class SyncCodexAgentStateUsecase:
                 raise PermissionError("Agent快照主机不存在。")
             workspace_repository = self._control_port.create_codex_workspace_repository(session)
             thread_repository = self._control_port.create_codex_thread_repository(session)
+            enabled_workspaces = workspace_repository.list_by_host_and_owner(
+                snapshot.host_id,
+                principal.owner_subject_id,
+            )
+            reported_workspace_keys = {workspace.key for workspace in snapshot.workspaces}
             workspace_ids: dict[str, UUID] = {}
             for workspace in snapshot.workspaces:
                 existing = workspace_repository.get_by_agent_key_and_owner(
@@ -275,17 +305,35 @@ class SyncCodexAgentStateUsecase:
                 )
                 workspace_ids[workspace.key] = workspace_state.workspace_id
                 if existing is None:
+                    if (
+                        workspace_repository.count_enabled_by_host_and_owner(
+                            snapshot.host_id,
+                            principal.owner_subject_id,
+                        )
+                        >= self._max_workspaces_per_host
+                    ):
+                        raise PermissionError("Codex主机登记的工作区数量已经达到配额上限。")
                     workspace_repository.add(workspace_state)
                 else:
                     workspace_repository.save(workspace_state)
+            for enabled_workspace in enabled_workspaces:
+                if enabled_workspace.agent_workspace_key in reported_workspace_keys:
+                    continue
+                workspace_repository.save(
+                    enabled_workspace.model_copy(
+                        update={
+                            "enabled": False,
+                            "updated_at": snapshot.captured_at,
+                            "version": enabled_workspace.version + 1,
+                        }
+                    )
+                )
             # Make newly discovered workspace rows visible to the thread foreign key
             # before SQLAlchemy batches the thread index inserts.
             unit_of_work.flush()
             for raw_thread in snapshot.threads:
-                workspace_key = raw_thread.get("workspaceKey")
-                thread_id = raw_thread.get("id")
-                if not isinstance(workspace_key, str) or not isinstance(thread_id, str):
-                    raise ValueError("Agent线程快照缺少workspaceKey或id。")
+                workspace_key = raw_thread.workspace_key
+                thread_id = raw_thread.thread_id
                 existing_thread = thread_repository.get_by_upstream_id_and_owner(
                     snapshot.host_id,
                     thread_id,
@@ -319,18 +367,18 @@ class SyncCodexAgentStateUsecase:
         self,
         ack: CodexAgentCommandAck,
         principal: AgentDevicePrincipal,
-    ) -> None:
+    ) -> CodexAppliedOperationProjection | None:
         """收敛 HTTP 超时后迟到或重连回放的 Agent ack。"""
 
         if ack.state not in {"received", "executing", "accepted", "completed", "failed", "unknown"}:
-            return
+            return None
         if ack.state == "unknown":
             status = "unknown"
         elif ack.state == "failed":
             status = "failed"
         else:
             status = "acknowledged"
-        self._update_operation(
+        return self._update_operation(
             operation_id=ack.operation_id,
             owner_subject_id=principal.owner_subject_id,
             status=status,
@@ -341,17 +389,16 @@ class SyncCodexAgentStateUsecase:
         self,
         result: CodexAgentCommandResult,
         principal: AgentDevicePrincipal,
-    ) -> None:
+    ) -> CodexAppliedOperationProjection | None:
         """把 Agent 最终结果收敛到 operation，正文只计算摘要不落库。"""
 
         if result.outcome == "unknown":
-            self._update_operation(
+            return self._update_operation(
                 operation_id=result.operation_id,
                 owner_subject_id=principal.owner_subject_id,
                 status="unknown",
                 result_digest=None,
             )
-            return
         result_digest = hashlib.sha256(
             json.dumps(
                 result.result,
@@ -361,7 +408,8 @@ class SyncCodexAgentStateUsecase:
             ).encode("utf-8")
         ).hexdigest()
         self._materialize_started_thread(result, principal)
-        self._update_operation(
+        self._apply_completed_thread_command(result, principal)
+        return self._update_operation(
             operation_id=result.operation_id,
             owner_subject_id=principal.owner_subject_id,
             status="completed" if result.outcome == "completed" else "failed",
@@ -412,6 +460,7 @@ class SyncCodexAgentStateUsecase:
                 is None
             ):
                 now = datetime.now(UTC)
+                title = CodexThreadTitlePolicy().resolve(created_at=now)
                 thread_repository.add(
                     CodexThreadIndexSnapshot(
                         thread_index_id=uuid4(),
@@ -419,14 +468,18 @@ class SyncCodexAgentStateUsecase:
                         workspace_id=operation.workspace_id,
                         owner_subject_id=principal.owner_subject_id,
                         upstream_thread_id=thread_id,
-                        display_name=None,
+                        display_name=title.display_name,
+                        title_source=title.source,
                         model=None,
+                        model_provider=None,
                         reasoning_effort=None,
-                        status="idle",
+                        status=CodexThreadStatus.IDLE,
                         active_turn_id=None,
                         archived=False,
+                        is_pinned=False,
                         source_kind="remote",
                         created_at=now,
+                        recency_at=now,
                         updated_at=now,
                         last_synced_at=now,
                     )
@@ -449,28 +502,127 @@ class SyncCodexAgentStateUsecase:
         value = result.get("threadId")
         return value if isinstance(value, str) and value else None
 
+    def _apply_completed_thread_command(
+        self,
+        result: CodexAgentCommandResult,
+        principal: AgentDevicePrincipal,
+    ) -> None:
+        """App Server 成功后收敛归档或恢复最终状态。"""
+
+        if result.outcome != "completed":
+            return
+        unit_of_work = self._control_port.create_unit_of_work()
+        try:
+            session = unit_of_work.get_session()
+            operation = self._control_port.create_codex_operation_repository(
+                session
+            ).get_by_id_and_owner(
+                UUID(str(result.operation_id)),
+                principal.owner_subject_id,
+            )
+            if operation is None or operation.thread_id is None:
+                unit_of_work.commit()
+                return
+            if operation.operation_type not in {
+                CodexProductCommandCode.THREAD_ARCHIVE.value,
+                CodexProductCommandCode.THREAD_UNARCHIVE.value,
+            }:
+                unit_of_work.commit()
+                return
+            repository = self._control_port.create_codex_thread_repository(session)
+            thread = repository.get_by_upstream_id_and_owner(
+                operation.host_id,
+                operation.thread_id,
+                principal.owner_subject_id,
+            )
+            if thread is None:
+                unit_of_work.commit()
+                return
+            archived = operation.operation_type == CodexProductCommandCode.THREAD_ARCHIVE.value
+            now = datetime.now(UTC)
+            repository.save(
+                thread.model_copy(
+                    update={
+                        "archived": archived,
+                        "status": (
+                            CodexThreadStatus.ARCHIVED if archived else CodexThreadStatus.IDLE
+                        ),
+                        "active_turn_id": None,
+                        "updated_at": now,
+                        "last_synced_at": now,
+                    }
+                )
+            )
+            unit_of_work.commit()
+        except BaseException:
+            unit_of_work.rollback()
+            raise
+        finally:
+            unit_of_work.dispose()
+
     def accept_realtime_event(
         self,
         event: CodexAgentRealtimeEvent,
         principal: AgentDevicePrincipal,
-    ) -> None:
+    ) -> CodexThreadIndexSnapshot | None:
         """用 turn/thread 生命周期事件更新控制面并发事实，不保存正文。"""
 
-        if not isinstance(event.params, Mapping):
-            return
-        params = cast(Mapping[str, JsonValue], event.params)
-        thread_id = params.get("threadId")
-        if not isinstance(thread_id, str):
-            return
-        status: str | None = None
+        params = (
+            cast(Mapping[str, JsonValue], event.params) if isinstance(event.params, Mapping) else {}
+        )
+        thread_id: str | None = None
+        status: CodexThreadStatus | None = None
         active_turn_id: str | None = None
-        if event.method == "turn/started":
+        active_turn_mode = CodexActiveTurnUpdateMode.PRESERVE
+        display_name: str | None = None
+        archived: bool | None = None
+        activity_at: datetime | None = None
+        detail = event.detail
+        if isinstance(detail, AgentTurnChangedEventDetail):
+            thread_id = detail.thread_id
+            activity_at = event.occurred_at
+            if detail.method is AppServerNotificationName.TURN_STARTED:
+                status = CodexThreadStatus.ACTIVE
+                active_turn_id = detail.turn_id
+                active_turn_mode = CodexActiveTurnUpdateMode.SET
+            else:
+                status = self._read_thread_status(detail.status)
+                active_turn_mode = CodexActiveTurnUpdateMode.CLEAR
+        elif isinstance(detail, AgentThreadChangedEventDetail):
+            thread_id = detail.thread.thread_id
+            status = self._read_thread_status(detail.thread.status)
+            display_name = detail.thread.display_name
+            archived = detail.thread.archived
+            if detail.thread.recency_at is not None:
+                activity_at = datetime.fromtimestamp(detail.thread.recency_at, UTC)
+        elif isinstance(detail, AgentThreadMetadataChangedEventDetail):
+            thread_id = detail.thread_id
+            display_name = detail.display_name
+            archived = detail.archived
+            if archived is not None:
+                status = CodexThreadStatus.ARCHIVED if archived else CodexThreadStatus.IDLE
+                active_turn_mode = CodexActiveTurnUpdateMode.CLEAR
+                activity_at = event.occurred_at
+        elif isinstance(detail, AgentItemChangedEventDetail):
+            thread_id = detail.thread_id
+            activity_at = event.occurred_at
+        elif isinstance(detail, AgentApprovalOpenedEventDetail):
+            thread_id = detail.approval.thread_id
+            activity_at = event.occurred_at
+        else:
+            raw_thread_id = params.get("threadId")
+            thread_id = raw_thread_id if isinstance(raw_thread_id, str) else None
+        if thread_id is None:
+            return None
+        if detail is None and event.method == AppServerNotificationName.TURN_STARTED.value:
             turn = params.get("turn")
             if isinstance(turn, Mapping):
                 turn_id = cast(Mapping[str, object], turn).get("id")
                 active_turn_id = turn_id if isinstance(turn_id, str) else None
-            status = "active"
-        elif event.method == "turn/completed":
+            status = CodexThreadStatus.ACTIVE
+            active_turn_mode = CodexActiveTurnUpdateMode.SET
+            activity_at = event.occurred_at
+        elif detail is None and event.method == AppServerNotificationName.TURN_COMPLETED.value:
             turn = params.get("turn")
             turn_status = (
                 cast(Mapping[str, object], turn).get("status")
@@ -478,13 +630,32 @@ class SyncCodexAgentStateUsecase:
                 else None
             )
             status = self._read_thread_status(cast(JsonValue | None, turn_status))
-            if status == "completed":
-                status = "idle"
-        elif event.method == "thread/status/changed":
+            active_turn_mode = CodexActiveTurnUpdateMode.CLEAR
+            activity_at = event.occurred_at
+        elif (
+            detail is None and event.method == AppServerNotificationName.THREAD_STATUS_CHANGED.value
+        ):
             status = self._read_thread_status(params.get("status"))
-            active_turn_id = None
-        if status is None:
-            return
+            active_turn_mode = (
+                CodexActiveTurnUpdateMode.PRESERVE
+                if status is CodexThreadStatus.ACTIVE
+                else CodexActiveTurnUpdateMode.CLEAR
+            )
+        elif detail is None and event.method == AppServerNotificationName.THREAD_NAME_UPDATED.value:
+            raw_name = params.get("threadName")
+            display_name = raw_name if isinstance(raw_name, str) and raw_name else None
+        elif detail is None and event.method == AppServerNotificationName.THREAD_ARCHIVED.value:
+            archived = True
+            status = CodexThreadStatus.ARCHIVED
+            active_turn_mode = CodexActiveTurnUpdateMode.CLEAR
+            activity_at = event.occurred_at
+        elif detail is None and event.method == AppServerNotificationName.THREAD_UNARCHIVED.value:
+            archived = False
+            status = CodexThreadStatus.IDLE
+            active_turn_mode = CodexActiveTurnUpdateMode.CLEAR
+            activity_at = event.occurred_at
+        if status is None and display_name is None and archived is None and activity_at is None:
+            return None
         unit_of_work = self._control_port.create_unit_of_work()
         try:
             repository = self._control_port.create_codex_thread_repository(
@@ -497,18 +668,52 @@ class SyncCodexAgentStateUsecase:
             )
             if thread is None:
                 unit_of_work.commit()
-                return
-            repository.save(
-                thread.model_copy(
-                    update={
-                        "status": status,
-                        "active_turn_id": active_turn_id,
-                        "updated_at": datetime.now(UTC),
-                        "last_synced_at": datetime.now(UTC),
-                    }
+                return None
+            synchronized_at = datetime.now(UTC)
+            if display_name is not None:
+                title = CodexThreadTitlePolicy().resolve(
+                    created_at=thread.created_at,
+                    app_server_title=display_name,
                 )
-            )
+                thread = (
+                    repository.promote_title(
+                        host_id=event.host_id,
+                        upstream_thread_id=thread_id,
+                        owner_subject_id=principal.owner_subject_id,
+                        display_name=title.display_name,
+                        source=title.source,
+                        updated_at=synchronized_at,
+                    )
+                    or thread
+                )
+            if activity_at is not None:
+                thread = (
+                    repository.advance_activity(
+                        host_id=event.host_id,
+                        upstream_thread_id=thread_id,
+                        owner_subject_id=principal.owner_subject_id,
+                        occurred_at=activity_at,
+                    )
+                    or thread
+                )
+            if status is not None or archived is not None:
+                thread = (
+                    repository.apply_runtime_state(
+                        host_id=event.host_id,
+                        upstream_thread_id=thread_id,
+                        owner_subject_id=principal.owner_subject_id,
+                        state_update=CodexThreadRuntimeStateUpdate(
+                            status=status,
+                            active_turn_mode=active_turn_mode,
+                            active_turn_id=active_turn_id,
+                            archived=archived,
+                            synchronized_at=synchronized_at,
+                        ),
+                    )
+                    or thread
+                )
             unit_of_work.commit()
+            return thread
         except BaseException:
             unit_of_work.rollback()
             raise
@@ -525,15 +730,21 @@ class SyncCodexAgentStateUsecase:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
             session = unit_of_work.get_session()
-            thread = self._control_port.create_codex_thread_repository(
-                session
-            ).get_by_upstream_id_and_owner(
+            thread_repository = self._control_port.create_codex_thread_repository(session)
+            thread = thread_repository.get_by_upstream_id_and_owner(
                 approval.host_id,
                 approval.thread_id,
                 principal.owner_subject_id,
             )
             if thread is None:
                 raise PermissionError("Agent审批thread不属于设备所有者。")
+            now = datetime.now(UTC)
+            thread_repository.advance_activity(
+                host_id=approval.host_id,
+                upstream_thread_id=approval.thread_id,
+                owner_subject_id=principal.owner_subject_id,
+                occurred_at=now,
+            )
             repository = self._control_port.create_codex_approval_repository(session)
             if (
                 repository.get_by_id_and_owner(
@@ -542,7 +753,6 @@ class SyncCodexAgentStateUsecase:
                 )
                 is None
             ):
-                now = datetime.now(UTC)
                 repository.add(
                     CodexApprovalAuditSnapshot(
                         approval_id=approval.approval_id,
@@ -577,7 +787,7 @@ class SyncCodexAgentStateUsecase:
         owner_subject_id: str,
         status: str,
         result_digest: str | None,
-    ) -> None:
+    ) -> CodexAppliedOperationProjection | None:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
             session = unit_of_work.get_session()
@@ -586,23 +796,30 @@ class SyncCodexAgentStateUsecase:
             if operation is None:
                 # thread.read 等瞬时只读命令不创建控制面 operation。
                 unit_of_work.commit()
-                return
+                return None
             if operation.status in {"completed", "failed"} and status == "acknowledged":
                 unit_of_work.commit()
-                return
+                return None
             now = datetime.now(UTC)
-            repository.save(
-                operation.model_copy(
-                    update={
-                        "status": status,
-                        "result_digest": result_digest or operation.result_digest,
-                        "accepted_at": (now if status == "acknowledged" else operation.accepted_at),
-                        "completed_at": (
-                            now if status in {"completed", "failed"} else operation.completed_at
-                        ),
-                        "updated_at": now,
-                    }
+            updated_operation = operation.model_copy(
+                update={
+                    "status": status,
+                    "result_digest": result_digest or operation.result_digest,
+                    "accepted_at": (now if status == "acknowledged" else operation.accepted_at),
+                    "completed_at": (
+                        now if status in {"completed", "failed"} else operation.completed_at
+                    ),
+                    "updated_at": now,
+                }
+            )
+            repository.save(updated_operation)
+            applied_projection = (
+                self._projection_service.apply_accepted(
+                    session=session,
+                    operation=updated_operation,
                 )
+                if status in {"acknowledged", "completed"}
+                else None
             )
             outbox_repository = self._control_port.create_codex_command_outbox_repository(session)
             outbox = outbox_repository.get_by_command_id(operation.command_id)
@@ -638,6 +855,7 @@ class SyncCodexAgentStateUsecase:
                         )
                     )
             unit_of_work.commit()
+            return applied_projection
         except BaseException:
             unit_of_work.rollback()
             raise
@@ -681,16 +899,20 @@ class SyncCodexAgentStateUsecase:
             else:
                 target_status = "unknown"
                 error_code = "agent_reconciliation_required"
-            repository.save(
-                operation.model_copy(
-                    update={
-                        "status": target_status,
-                        "error_code": error_code,
-                        "updated_at": now,
-                        "completed_at": now if target_status in {"completed", "failed"} else None,
-                    }
-                )
+            updated_operation = operation.model_copy(
+                update={
+                    "status": target_status,
+                    "error_code": error_code,
+                    "updated_at": now,
+                    "completed_at": now if target_status in {"completed", "failed"} else None,
+                }
             )
+            repository.save(updated_operation)
+            if target_status == "completed":
+                self._projection_service.apply_accepted(
+                    session=session,
+                    operation=updated_operation,
+                )
             outbox = outbox_repository.get_by_command_id(operation.command_id)
             if outbox is not None:
                 outbox_state = {
@@ -760,6 +982,7 @@ class SyncCodexAgentStateUsecase:
             display_name=workspace.display_name,
             repo_fingerprint=workspace.repo_fingerprint,
             default_branch=workspace.default_branch,
+            is_pinned=existing.is_pinned if existing is not None else False,
             enabled=True,
             created_at=existing.created_at if existing is not None else captured_at,
             updated_at=captured_at,
@@ -769,79 +992,63 @@ class SyncCodexAgentStateUsecase:
     def _build_thread_snapshot(
         self,
         *,
-        raw_thread: Mapping[str, JsonValue],
+        raw_thread: AgentConversationSnapshotDetail,
         host_id: UUID,
         workspace_id: UUID,
         owner_subject_id: str,
         captured_at: datetime,
         existing: CodexThreadIndexSnapshot | None,
     ) -> CodexThreadIndexSnapshot:
-        thread_id = self._read_required_string(raw_thread, "id")
-        status = self._read_thread_status(raw_thread.get("status"))
+        thread_id = raw_thread.thread_id
+        status = self._read_thread_status(raw_thread.status)
         if existing is not None and existing.status == "active" and status != "active":
-            status = "interrupted"
-        created_at = self._read_epoch(raw_thread.get("createdAt"))
-        updated_at = self._read_epoch(raw_thread.get("updatedAt")) or captured_at
-        name = raw_thread.get("name")
-        preview = raw_thread.get("preview")
-        display_name = name if isinstance(name, str) and name else preview
-        model_provider = raw_thread.get("modelProvider")
-        source = raw_thread.get("threadSource") or raw_thread.get("source")
+            status = CodexThreadStatus.INTERRUPTED
+        title_source = raw_thread.title_source
+        display_name = raw_thread.display_name
+        if existing is not None and existing.title_source is CodexThreadTitleSource.MANUAL:
+            title_source = existing.title_source
+            display_name = existing.display_name
         return CodexThreadIndexSnapshot(
             thread_index_id=existing.thread_index_id if existing is not None else uuid4(),
             host_id=host_id,
             workspace_id=workspace_id,
             owner_subject_id=owner_subject_id,
             upstream_thread_id=thread_id,
-            display_name=(display_name[:256] if isinstance(display_name, str) else None),
-            model=model_provider if isinstance(model_provider, str) else None,
-            reasoning_effort=None,
+            display_name=display_name,
+            title_source=title_source,
+            model=raw_thread.model_id,
+            model_provider=raw_thread.model_provider,
+            reasoning_effort=existing.reasoning_effort if existing is not None else None,
             status=status,
             active_turn_id=(
-                self._read_active_turn_id(raw_thread)
+                raw_thread.active_turn_id
                 or (
                     existing.active_turn_id if existing is not None and status == "active" else None
                 )
             ),
-            archived=False,
-            source_kind=source if isinstance(source, str) else None,
-            created_at=created_at,
-            updated_at=updated_at,
+            archived=raw_thread.archived,
+            is_pinned=existing.is_pinned if existing is not None else False,
+            source_kind=raw_thread.source_kind,
+            created_at=raw_thread.created_at,
+            recency_at=raw_thread.recency_at,
+            updated_at=captured_at,
             last_synced_at=captured_at,
         )
 
-    def _read_required_string(
-        self,
-        mapping: Mapping[str, JsonValue],
-        key: str,
-    ) -> str:
-        value = mapping.get(key)
-        if not isinstance(value, str) or not value:
-            raise ValueError(f"Agent线程快照缺少{key}。")
-        return value
-
-    def _read_thread_status(self, value: JsonValue | None) -> str:
+    def _read_thread_status(self, value: JsonValue | None) -> CodexThreadStatus:
+        status: str | None = None
         if isinstance(value, Mapping):
             status_type = cast(Mapping[str, object], value).get("type")
             if isinstance(status_type, str):
-                return "unknown" if status_type == "systemError" else status_type
-        return value if isinstance(value, str) else "unknown"
-
-    def _read_epoch(self, value: JsonValue | None) -> datetime | None:
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            return datetime.fromtimestamp(value, tz=UTC)
-        return None
-
-    def _read_active_turn_id(self, raw_thread: Mapping[str, JsonValue]) -> str | None:
-        turns = raw_thread.get("turns")
-        if not isinstance(turns, list):
-            return None
-        for raw_turn in reversed(turns):
-            if not isinstance(raw_turn, Mapping):
-                continue
-            turn = cast(Mapping[str, JsonValue], raw_turn)
-            if self._read_thread_status(turn.get("status")) not in {"active", "inProgress"}:
-                continue
-            turn_id = turn.get("id")
-            return turn_id if isinstance(turn_id, str) else None
-        return None
+                status = status_type
+        elif isinstance(value, str):
+            status = value
+        if status in {"active", "inProgress"}:
+            return CodexThreadStatus.ACTIVE
+        if status in {"interrupted", "cancelled"}:
+            return CodexThreadStatus.INTERRUPTED
+        if status in {"failed", "systemError"}:
+            return CodexThreadStatus.FAILED
+        if status in {"idle", "completed"}:
+            return CodexThreadStatus.IDLE
+        return CodexThreadStatus.UNKNOWN

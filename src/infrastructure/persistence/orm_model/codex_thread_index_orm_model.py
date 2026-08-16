@@ -24,10 +24,22 @@ class CodexThreadIndexOrmModel(OrmModelBase):
         ),
         Index("ix_codex_thread_index_owner_updated", "owner_subject_id", "updated_at"),
         Index(
-            "ix_codex_thread_index_workspace_archived_updated",
+            "ix_codex_thread_index_workspace_conversation_order",
             "workspace_id",
             "archived",
-            "updated_at",
+            "is_pinned",
+            "recency_at",
+            "created_at",
+            "upstream_thread_id",
+        ),
+        Index(
+            "ix_codex_thread_index_owner_conversation_order",
+            "owner_subject_id",
+            "archived",
+            "is_pinned",
+            "recency_at",
+            "created_at",
+            "upstream_thread_id",
         ),
     )
 
@@ -50,14 +62,18 @@ class CodexThreadIndexOrmModel(OrmModelBase):
         nullable=False,
     )
     upstream_thread_id: Mapped[str] = mapped_column(String(256), nullable=False)
-    display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    display_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    title_source: Mapped[str] = mapped_column(String(32), nullable=False)
     model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    model_provider: Mapped[str | None] = mapped_column(String(128), nullable=True)
     reasoning_effort: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     active_turn_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source_kind: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    recency_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )

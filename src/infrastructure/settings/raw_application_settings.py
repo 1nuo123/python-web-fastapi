@@ -1195,6 +1195,8 @@ class RawCodexControlRuntimeMapping(TypedDict, total=False):
     agent_reconnect_min_seconds: int
     agent_reconnect_max_seconds: int
     max_connected_agents: int
+    max_hosts_per_user: int
+    max_workspaces_per_host: int
     max_active_turns_per_host: int
     max_active_write_turns_per_workspace: int
     agent_outgoing_queue_size: int
@@ -1206,8 +1208,13 @@ class RawCodexControlRuntimeMapping(TypedDict, total=False):
     pairing_code_ttl_seconds: int
     step_up_grant_ttl_seconds: int
     operation_idempotency_ttl_seconds: int
+    enrollment_intent_ttl_seconds: int
     allow_experimental_app_server_api: bool
     allowed_codex_versions: list[str]
+    agent_release_version: str
+    agent_release_download_url: str
+    agent_release_manifest_url: str
+    agent_release_minimum_security_version: str
 
 
 class RawRuntimeRootMapping(TypedDict, total=False):

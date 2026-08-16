@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -25,6 +26,7 @@ async def test_publish_when_capacity_overflows_should_keep_tail_and_mark_gap() -
             CodexAgentRealtimeEvent(
                 host_id=host_id,
                 app_server_instance_id="instance-1",
+                occurred_at=datetime.now(UTC),
                 method="item/agentMessage/delta",
                 params={"delta": str(index)},
             ),
@@ -42,6 +44,7 @@ async def test_publish_when_host_mismatches_principal_should_reject() -> None:
     event = CodexAgentRealtimeEvent(
         host_id=uuid4(),
         app_server_instance_id="instance-1",
+        occurred_at=datetime.now(UTC),
         method="turn/completed",
         params={},
     )

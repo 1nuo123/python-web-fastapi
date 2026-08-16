@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import cast
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Request
 
@@ -23,6 +24,11 @@ from src.core.codex_contract.device_key_contract import (
     DeviceChallengeIssueRequestEnvelope,
     DeviceChallengeProofRequestEnvelope,
     DeviceKeyRotationStartRequestEnvelope,
+)
+from src.core.codex_contract.enrollment_intent_contract import (
+    CodexEnrollmentIntentConsumeRequestEnvelope,
+    CodexEnrollmentIntentCreateRequestEnvelope,
+    CodexEnrollmentIntentEnvelope,
 )
 from src.core.exception_contract.error_code_catalog_contract import SuccessCode
 from src.core.http_contract.response_envelope_contract import ResponseEnvelope
@@ -51,6 +57,12 @@ class CodexDeviceAuthorizationRouteCatalog:
         self.router.add_api_route(
             "/internal/codex-agents/device-authorizations/poll",
             self.poll_authorization,
+            methods=["POST"],
+            response_model=DeviceAuthorizationEnvelope,
+        )
+        self.router.add_api_route(
+            "/internal/codex-agents/enrollment-intents/consume",
+            self.consume_enrollment_intent,
             methods=["POST"],
             response_model=DeviceAuthorizationEnvelope,
         )
@@ -84,6 +96,20 @@ class CodexDeviceAuthorizationRouteCatalog:
             self.decide_authorization,
             methods=["POST"],
             response_model=ResponseEnvelope[DeviceAuthorizationEnvelope],
+            dependencies=[Depends(self.require_host_manage)],
+        )
+        self.router.add_api_route(
+            "/codex/enrollment-intents",
+            self.create_enrollment_intent,
+            methods=["POST"],
+            response_model=ResponseEnvelope[CodexEnrollmentIntentEnvelope],
+            dependencies=[Depends(self.require_host_manage)],
+        )
+        self.router.add_api_route(
+            "/codex/enrollment-intents/{intent_id}",
+            self.read_enrollment_intent,
+            methods=["GET"],
+            response_model=ResponseEnvelope[CodexEnrollmentIntentEnvelope],
             dependencies=[Depends(self.require_host_manage)],
         )
 
@@ -125,6 +151,17 @@ class CodexDeviceAuthorizationRouteCatalog:
         return await runtime.poll_device_authorization.execute(
             enrollment_id=body.detail.enrollment_id,
             device_code=body.detail.device_code,
+        )
+
+    async def consume_enrollment_intent(
+        self,
+        request: Request,
+        body: CodexEnrollmentIntentConsumeRequestEnvelope,
+    ) -> DeviceAuthorizationEnvelope:
+        """允许 Agent 使用一次性 token 创建设备授权。"""
+
+        return await self._read_runtime(request).manage_enrollment_intent.consume(
+            detail=body.detail
         )
 
     async def issue_challenge(
@@ -227,6 +264,49 @@ class CodexDeviceAuthorizationRouteCatalog:
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),
             message="设备授权决定已提交。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=result,
+        )
+
+    async def create_enrollment_intent(
+        self,
+        request: Request,
+        body: CodexEnrollmentIntentCreateRequestEnvelope,
+    ) -> ResponseEnvelope[CodexEnrollmentIntentEnvelope]:
+        """为当前登录会话创建一次性设备注册意图。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        token_payload = self._accessor.read_access_token_payload(request)
+        result = await self._read_runtime(request).manage_enrollment_intent.create(
+            subject_id=principal.subject_id,
+            token_session_id=token_payload.token_session_id,
+            verification_base_url=str(request.base_url).rstrip("/"),
+            return_path=body.detail.return_path,
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="设备注册意图创建成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=result,
+        )
+
+    async def read_enrollment_intent(
+        self,
+        request: Request,
+        intent_id: UUID,
+    ) -> ResponseEnvelope[CodexEnrollmentIntentEnvelope]:
+        """读取当前登录会话创建的设备注册意图。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        token_payload = self._accessor.read_access_token_payload(request)
+        result = await self._read_runtime(request).manage_enrollment_intent.read(
+            intent_id=intent_id,
+            subject_id=principal.subject_id,
+            token_session_id=token_payload.token_session_id,
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="设备注册意图读取成功。",
             request_scope=self._accessor.read_request_scope(request),
             data=result,
         )

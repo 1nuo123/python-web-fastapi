@@ -1,67 +1,89 @@
+# Version control and repository metadata
 .git
 .gitignore
-.idea
-.pytest_cache
-.mypy_cache
-.nox
-.ruff_cache
-.tmp
-.uv-cache
-.venv
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-*.db
-*.log
-coverage.xml
-htmlcov
-logs
-.env
-docs
-test
-work_app.db
+.gitattributes
+.github
 
-# Local environment and credentials
-.env*
+# Local agent, editor, and IDE state
+.agents
+.codex-tmp
+.cursor
+.idea
+.vscode
+
+# Environment variables and credentials
+.env
+.env.*
+.envrc
+.direnv
 *.pem
 *.key
 *.p12
 *.pfx
 
-# Editors and operating systems
-.vscode
-.DS_Store
-.AppleDouble
-.LSOverride
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN
-
-# Python build and test artifacts
+# Python environments, bytecode, and caches
+.venv
+venv
+env
+__pycache__
+*.py[codz]
+*$py.class
+.uv-cache
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.hypothesis
+.pyre
+.pytype
+.pyright
 .tox
+.nox
+.import_linter_cache
+.dmypy.json
+dmypy.json
+pip-wheel-metadata
+*.egg-info
+.eggs
+
+# Tests, documentation, and development-only files
+test
+test-results
+docs
+scripts
+noxfile.py
+coverage.xml
+coverage.json
 .coverage
 .coverage.*
-coverage.json
+htmlcov
 junit*.xml
-test-results
+
+# Build, release, and deployment output
+.build
 build
 dist
 site
-*.egg-info
-.eggs
-pip-wheel-metadata
+packaging
+deploy
+.tmp
+tmp_pycache
+logs
 
-# Local databases and temporary files
+# Runtime data and local databases
+*.log
+*.pid
+*.tmp
+*.temp
+*.bak
+*.db
 *.sqlite
 *.sqlite3
 *.db-journal
 *.db-shm
 *.db-wal
-*.pid
-*.tmp
-*.temp
-*.bak
-*.swp
-*.swo
+
+# Docker orchestration files are not part of the image filesystem
+.dockerignore
+Dockerfile*
+compose*.yml
+compose*.yaml

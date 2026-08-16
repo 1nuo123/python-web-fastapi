@@ -320,10 +320,12 @@ class DecideDeviceAuthorizationUsecase:
         store: CodexDeviceAuthorizationStorePort,
         control_port: CodexControlPort,
         key_rotation_grace_seconds: int,
+        max_hosts_per_user: int,
     ) -> None:
         self._store = store
         self._control_port = control_port
         self._key_rotation_grace_seconds = key_rotation_grace_seconds
+        self._max_hosts_per_user = max_hosts_per_user
         self._mapper = DeviceAuthorizationContractMapper()
 
     async def execute(
@@ -521,8 +523,18 @@ class DecideDeviceAuthorizationUsecase:
                     ):
                         raise self._state_conflict()
                 else:
+                    host_repository = self._control_port.create_codex_host_repository(session)
+                    if (
+                        host_repository.count_active_by_owner(owner_subject_id)
+                        >= self._max_hosts_per_user
+                    ):
+                        raise HttpFaultException(
+                            status_code=HTTPStatus.CONFLICT,
+                            error_code=CodexErrorCode.STATE_CONFLICT,
+                            message="当前用户拥有的个人电脑数量已经达到配额上限。",
+                        )
                     host_id = uuid4()
-                    self._control_port.create_codex_host_repository(session).add(
+                    host_repository.add(
                         CodexHostSnapshot(
                             host_id=host_id,
                             owner_subject_id=owner_subject_id,
@@ -737,15 +749,11 @@ class CleanupExpiredDeviceAuthorizationsUsecase:
                     key.owner_subject_id,
                 )
                 if host is not None and host.revoked_at is None:
-                    host_repository.save(
-                        host.model_copy(
-                            update={
-                                "status": CodexHostStatus.REVOKED.value,
-                                "revoked_at": now,
-                                "updated_at": now,
-                                "version": host.version + 1,
-                            }
-                        )
+                    host_repository.revoke_if_version(
+                        host_id=host.host_id,
+                        owner_subject_id=host.owner_subject_id,
+                        expected_version=host.version,
+                        revoked_at=now,
                     )
             unit_of_work.commit()
             return len(expired)

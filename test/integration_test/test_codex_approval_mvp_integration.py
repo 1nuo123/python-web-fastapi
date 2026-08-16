@@ -24,9 +24,18 @@ from src.core.codex_contract.approval_contract import (
 )
 from src.core.codex_contract.device_key_contract import DeviceKeyState
 from src.core.codex_contract.host_contract import CodexHostCollection, CodexHostSnapshot
-from src.core.codex_contract.realtime_event_contract import CodexRealtimeEvent
+from src.core.codex_contract.realtime_event_contract import (
+    CodexApprovalEventDetail,
+    CodexRealtimeEvent,
+    CodexRealtimeEventType,
+    CodexThreadUpdatedDetail,
+)
+from src.core.codex_contract.thread_contract import (
+    CodexThreadStatus,
+    CodexThreadTitleSource,
+)
 from src.core.http_contract.response_envelope_contract import ResponseEnvelope
-from src.domain.codex.host_status import CodexHostStatus
+from src.domain.codex.host_status import CodexApprovalState, CodexHostStatus
 from src.infrastructure.persistence.orm_model.codex_device_authorization_audit_orm_model import (
     CodexDeviceAuthorizationAuditOrmModel,
 )
@@ -138,6 +147,10 @@ def test_host_revoke_should_atomically_revoke_host_and_device_key() -> None:
     assert revoked.data.revoked_at is not None
 
 
+@pytest.mark.integration
+@pytest.mark.postgres
+@pytest.mark.docker
+@pytest.mark.usefixtures("integration_database")
 def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal_decision() -> None:
     app = TestAppFactory().create()
     host_id = uuid4()
@@ -165,6 +178,7 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
                     version=1,
                 )
             )
+            unit_of_work.flush()
             session.add(
                 CodexWorkspaceOrmModel(
                     workspace_id=workspace_id,
@@ -176,6 +190,7 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
                     version=1,
                 )
             )
+            unit_of_work.flush()
             now = datetime.now(UTC)
             session.add(
                 CodexThreadIndexOrmModel(
@@ -184,9 +199,13 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
                     workspace_id=workspace_id,
                     owner_subject_id="user-admin",
                     upstream_thread_id=thread_id,
-                    status="active",
+                    display_name="Approval conversation",
+                    title_source=CodexThreadTitleSource.APP_SERVER.value,
+                    status=CodexThreadStatus.ACTIVE.value,
                     active_turn_id="019-approval-turn",
                     archived=False,
+                    created_at=now,
+                    recency_at=now,
                     updated_at=now,
                     last_synced_at=now,
                 )
@@ -250,6 +269,9 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
                 opened_event = CodexRealtimeEvent.model_validate_json(
                     browser_websocket.receive_text()
                 )
+                opened_thread_event = CodexRealtimeEvent.model_validate_json(
+                    browser_websocket.receive_text()
+                )
                 approvals = client.get(
                     "/codex/approvals",
                     headers={"Authorization": f"Bearer {access_token}"},
@@ -294,6 +316,9 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
                         command,
                     )
                     decision_response = decision_future.result(timeout=5)
+                resolved_thread_event = CodexRealtimeEvent.model_validate_json(
+                    browser_websocket.receive_text()
+                )
                 resolved_event = CodexRealtimeEvent.model_validate_json(
                     browser_websocket.receive_text()
                 )
@@ -309,7 +334,15 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
                 browser_websocket.close()
             CodexDeviceAuthorizationTestSupport.close_websocket(agent_websocket)
 
-    assert opened_event.type.value == "approval.opened"
+    assert opened_event.header.detail_kind == CodexRealtimeEventType.APPROVAL_OPENED
+    assert isinstance(opened_event.detail, CodexApprovalEventDetail)
+    assert (
+        opened_thread_event.header.detail_kind
+        == CodexRealtimeEventType.THREAD_UPDATED
+    )
+    assert isinstance(opened_thread_event.detail, CodexThreadUpdatedDetail)
+    assert opened_thread_event.detail.thread.upstream_thread_id == thread_id
+    assert opened_thread_event.detail.thread.recency_at is not None
     assert approvals.status_code == HTTPStatus.OK
     persisted = approvals.json()["data"]["items"][0]
     assert persisted["display_summary"] == {
@@ -318,12 +351,19 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
         "workspace_name": None,
         "risk_level": "high",
         "command_summary": None,
+        "command": None,
+        "command_actions": [],
+        "working_directory": None,
+        "read_only": False,
         "file_scope": [],
+        "file_changes": [],
         "permission_names": [],
         "network_requested": False,
         "extra_root_requested": False,
+        "risk_reason": None,
     }
-    assert "command" not in persisted["display_summary"]
+    opened_approval = opened_event.detail.approval.model_dump(mode="json")
+    assert opened_approval == persisted
     assert missing_step_up.status_code == HTTPStatus.FORBIDDEN
     assert step_up.status_code == HTTPStatus.OK
     assert grant_reuse_response.status_code == HTTPStatus.FORBIDDEN
@@ -332,7 +372,13 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
     assert command.detail.approval_id == approval_id
     assert command.detail.decision == "accept"
     assert command.detail.approval_version == 1
-    assert resolved_event.type.value == "approval.resolved"
-    resolved_approval = resolved_event.payload.get("approval")
-    assert isinstance(resolved_approval, dict)
-    assert resolved_approval["state"] == "applied"
+    assert (
+        resolved_thread_event.header.detail_kind
+        == CodexRealtimeEventType.THREAD_UPDATED
+    )
+    assert isinstance(resolved_thread_event.detail, CodexThreadUpdatedDetail)
+    assert resolved_thread_event.detail.thread.upstream_thread_id == thread_id
+    assert resolved_thread_event.detail.thread.recency_at is not None
+    assert resolved_event.header.detail_kind == CodexRealtimeEventType.APPROVAL_RESOLVED
+    assert isinstance(resolved_event.detail, CodexApprovalEventDetail)
+    assert resolved_event.detail.approval.state == CodexApprovalState.APPLIED

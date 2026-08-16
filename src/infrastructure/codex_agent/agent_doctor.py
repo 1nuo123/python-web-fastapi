@@ -23,6 +23,11 @@ from src.infrastructure.codex_agent.agent_secret_store import (
     AgentSecretStorePort,
 )
 from src.infrastructure.codex_agent.app_server_process_supervisor import CodexProcessSupport
+from src.infrastructure.process.windows_subprocess_launcher import (
+    WindowsSubprocessLauncher,
+    WindowsSubprocessLogCategory,
+    WindowsSubprocessRequest,
+)
 
 
 class AgentDoctor:
@@ -34,10 +39,12 @@ class AgentDoctor:
         settings: CodexHostAgentSettings,
         secret_store: AgentSecretStorePort | None = None,
         device_key_store: AgentDeviceKeyStorePort | None = None,
+        subprocess_launcher: WindowsSubprocessLauncher | None = None,
     ) -> None:
         self._settings = settings
         self._secret_store = secret_store
         self._device_key_store = device_key_store
+        self._subprocess_launcher = subprocess_launcher or WindowsSubprocessLauncher()
 
     async def run(self) -> AgentDoctorReport:
         """执行本地版本、SQLite、目录、DPAPI 与控制面 DNS 检查。"""
@@ -52,7 +59,7 @@ class AgentDoctor:
         exit_code = self._choose_exit_code(tuple(checks))
         codex_version = self._read_codex_version_safely()
         return AgentDoctorReport(
-            agent_version=self._settings.protocol.agent_schema_version,
+            agent_version=self._settings.protocol.agent_version,
             codex_version=codex_version,
             schema_digest=self._settings.protocol.app_server_schema_digest,
             state_database=self._settings.agent.state_database,
@@ -99,14 +106,13 @@ class AgentDoctor:
 
     def _check_codex_binary(self) -> AgentDoctorCheck:
         try:
-            command = CodexProcessSupport.resolve_command(self._settings.agent.codex_binary)
-            subprocess.run(
-                [*command, "--version"],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
+            version = self._read_codex_version()
+            if version != self._settings.protocol.expected_codex_version:
+                return AgentDoctorCheck(
+                    name="codex_binary",
+                    state=AgentDoctorCheckState.BLOCKED,
+                    reason_code="codex_version_mismatch",
+                )
             return AgentDoctorCheck(
                 name="codex_binary",
                 state=AgentDoctorCheckState.PASS,
@@ -188,18 +194,26 @@ class AgentDoctor:
 
     def _read_codex_version_safely(self) -> str | None:
         try:
-            command = CodexProcessSupport.resolve_command(self._settings.agent.codex_binary)
-            completed = subprocess.run(
-                [*command, "--version"],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            value = completed.stdout.strip()
-            return value[:64] if value else None
+            return self._read_codex_version()
         except (OSError, subprocess.SubprocessError, ValueError):
             return None
+
+    def _read_codex_version(self) -> str:
+        command = CodexProcessSupport.resolve_command(self._settings.agent.codex_binary)
+        completed = self._subprocess_launcher.run(
+            WindowsSubprocessRequest(
+                argv=(*command, "--version"),
+                environment=CodexProcessSupport.build_standalone_environment(),
+                timeout_seconds=10,
+                log_category=WindowsSubprocessLogCategory.CODEX,
+            )
+        )
+        if completed.return_code != 0:
+            raise OSError("本机Codex版本读取失败。")
+        tokens = completed.stdout.strip().split()
+        if not tokens:
+            raise ValueError("本机Codex未返回版本。")
+        return tokens[-1]
 
     def _choose_exit_code(self, checks: tuple[AgentDoctorCheck, ...]) -> AgentDoctorExitCode:
         if any(item.state == AgentDoctorCheckState.FAILED for item in checks):

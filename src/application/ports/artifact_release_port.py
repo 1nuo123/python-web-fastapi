@@ -20,6 +20,12 @@ class ArtifactCatalogPort(Protocol):
     async def resolve(self, identity: ArtifactIdentity) -> ArtifactReleaseEnvelope: ...
 
 
+class TufTargetReaderPort(Protocol):
+    """读取经过 TUF 验证的通用 target。"""
+
+    async def read_target(self, target_path: str) -> bytes: ...
+
+
 class ArtifactDownloaderPort(Protocol):
     """受 allowlist 和大小限制的制品下载端口。"""
 

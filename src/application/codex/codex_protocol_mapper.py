@@ -5,14 +5,41 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import cast
 from uuid import UUID
 
 from pydantic import JsonValue
 
 from src.core.codex_contract.agent_protocol_contract import CodexAgentRealtimeEvent
+from src.core.codex_contract.agent_protocol_v2_contract import (
+    AgentApprovalOpenedEventDetail,
+    AgentDiffChangedEventDetail,
+    AgentGapEventDetail,
+    AgentItemChangedEventDetail,
+    AgentItemDeltaEventDetail,
+    AgentPlanChangedEventDetail,
+    AgentProtocolWarningEventDetail,
+    AgentThreadChangedEventDetail,
+    AgentThreadMetadataChangedEventDetail,
+    AgentTurnChangedEventDetail,
+)
+from src.core.codex_contract.app_server_product_contract import (
+    AppServerAgentMessageItem,
+    AppServerCommandItem,
+    AppServerContextCompactionItem,
+    AppServerDiffItem,
+    AppServerNoticeItem,
+    AppServerPlanItem,
+    AppServerProductTimelineItem,
+    AppServerUserMessageItem,
+)
+from src.core.codex_contract.app_server_schema_manifest_contract import (
+    AppServerNotificationName,
+)
 from src.core.codex_contract.realtime_event_contract import CodexRealtimeEventType
 from src.core.codex_contract.thread_contract import (
+    CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
     CodexDiffChangeKind,
     CodexDiffFileSnapshot,
     CodexDiffHunkSnapshot,
@@ -21,6 +48,7 @@ from src.core.codex_contract.thread_contract import (
     CodexDiffSnapshot,
     CodexPlanStepSnapshot,
     CodexPlanStepStatus,
+    CodexTimelineItemEnvelope,
 )
 
 MAX_PRODUCT_TEXT_CHARS = 1_048_576
@@ -45,6 +73,7 @@ class CodexProductEvent:
     item_id: str | None
     event_type: CodexRealtimeEventType
     payload: dict[str, JsonValue]
+    occurred_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +82,7 @@ class CodexMappedThreadSnapshot:
 
     thread: dict[str, JsonValue]
     turns: list[dict[str, JsonValue]]
-    items: list[dict[str, JsonValue]]
+    items: list[CodexTimelineItemEnvelope]
 
 
 class CodexProtocolMapper:
@@ -65,6 +94,8 @@ class CodexProtocolMapper:
         *,
         workspace_id: UUID | None,
     ) -> CodexProductEvent | None:
+        if event.detail is not None:
+            return self._map_typed_event(event, workspace_id=workspace_id)
         params = self._mapping(event.params)
         if params is None:
             return self._warning(event, "App Server事件参数不是对象。")
@@ -146,7 +177,7 @@ class CodexProtocolMapper:
             )
             if mapped_item is None:
                 return None
-            item_id = cast(str, mapped_item["item_id"])
+            item_id = mapped_item.header.item_id
             return self._event(
                 event,
                 workspace_id,
@@ -154,7 +185,7 @@ class CodexProtocolMapper:
                 turn_id,
                 item_id,
                 CodexRealtimeEventType.ITEM_UPSERT,
-                {"item": mapped_item},
+                {"item": mapped_item.model_dump(mode="json")},
             )
         if method in {
             "item/agentMessage/delta",
@@ -226,6 +257,234 @@ class CodexProtocolMapper:
             return self._warning(event, str(message))
         return None
 
+    def _map_typed_event(
+        self,
+        event: CodexAgentRealtimeEvent,
+        *,
+        workspace_id: UUID | None,
+    ) -> CodexProductEvent | None:
+        """直接消费 v2 判别联合，避免回退到有损字典协议。"""
+
+        detail = event.detail
+        if isinstance(detail, AgentGapEventDetail):
+            return self._event(
+                event,
+                workspace_id,
+                None,
+                None,
+                None,
+                CodexRealtimeEventType.STREAM_GAP_DETECTED,
+                {"reason": "agent_event_buffer_overflow"},
+            )
+        if isinstance(detail, AgentProtocolWarningEventDetail):
+            return self._warning(event, f"Agent协议告警：{detail.reason_code}")
+        if isinstance(detail, AgentThreadChangedEventDetail):
+            thread = detail.thread
+            return self._event(
+                event,
+                workspace_id,
+                thread.thread_id,
+                None,
+                None,
+                CodexRealtimeEventType.THREAD_UPDATED,
+                {
+                    "thread": {
+                        "host_id": str(event.host_id),
+                        "workspace_id": str(workspace_id) if workspace_id else "",
+                        "upstream_thread_id": thread.thread_id,
+                        "display_name": thread.display_name,
+                        "title_source": "app_server" if thread.display_name else None,
+                        "model": thread.model_id,
+                        "model_provider": thread.model_provider,
+                        "status": self._thread_status(thread.status),
+                        "archived": thread.archived,
+                        "created_at": self._iso_epoch(thread.created_at),
+                        "recency_at": self._iso_epoch(
+                            thread.recency_at
+                            if thread.recency_at is not None
+                            else thread.updated_at
+                        ),
+                        "updated_at": self._iso_epoch(thread.updated_at),
+                    }
+                },
+            )
+        if isinstance(detail, AgentThreadMetadataChangedEventDetail):
+            return self._event(
+                event,
+                workspace_id,
+                detail.thread_id,
+                None,
+                None,
+                CodexRealtimeEventType.THREAD_UPDATED,
+                {
+                    "thread": {
+                        "host_id": str(event.host_id),
+                        "workspace_id": str(workspace_id) if workspace_id else "",
+                        "upstream_thread_id": detail.thread_id,
+                        "display_name": detail.display_name,
+                        "title_source": "app_server" if detail.display_name else None,
+                        "archived": detail.archived,
+                    }
+                },
+            )
+        if isinstance(detail, AgentTurnChangedEventDetail):
+            event_type = self._turn_event_type(detail.method.value, detail.status)
+            return self._event(
+                event,
+                workspace_id,
+                detail.thread_id,
+                detail.turn_id,
+                None,
+                event_type,
+                {
+                    "turn": {
+                        "turn_id": detail.turn_id,
+                        "thread_id": detail.thread_id,
+                        "status": detail.status,
+                        "started_at": event.occurred_at.isoformat()
+                        if detail.method is AppServerNotificationName.TURN_STARTED
+                        else None,
+                        "completed_at": event.occurred_at.isoformat()
+                        if detail.method is AppServerNotificationName.TURN_COMPLETED
+                        else None,
+                        "error_message": None,
+                    }
+                },
+            )
+        if isinstance(detail, AgentItemChangedEventDetail):
+            item = self._to_product_timeline_item(
+                detail.item,
+                thread_id=detail.thread_id,
+                turn_id=detail.turn_id,
+                completed=detail.status == "completed",
+            )
+            return self._event(
+                event,
+                workspace_id,
+                detail.thread_id,
+                detail.turn_id,
+                detail.item.item_id,
+                CodexRealtimeEventType.ITEM_UPSERT,
+                {"item": item.model_dump(mode="json")},
+            )
+        if isinstance(detail, AgentItemDeltaEventDetail):
+            return self._event(
+                event,
+                workspace_id,
+                detail.thread_id,
+                detail.turn_id,
+                detail.item_id,
+                CodexRealtimeEventType.ITEM_DELTA,
+                {
+                    "item_id": detail.item_id,
+                    "thread_id": detail.thread_id,
+                    "turn_id": detail.turn_id,
+                    "delta": detail.delta,
+                },
+            )
+        if isinstance(detail, AgentPlanChangedEventDetail):
+            return self._event(
+                event,
+                workspace_id,
+                detail.thread_id,
+                detail.turn_id,
+                f"plan-{detail.turn_id}",
+                CodexRealtimeEventType.TURN_PLAN_UPDATED,
+                {
+                    "item_id": f"plan-{detail.turn_id}",
+                    "thread_id": detail.thread_id,
+                    "turn_id": detail.turn_id,
+                    "explanation": detail.explanation or "",
+                    "steps": [step.model_dump(mode="json") for step in detail.steps],
+                },
+            )
+        if isinstance(detail, AgentDiffChangedEventDetail):
+            return self._event(
+                event,
+                workspace_id,
+                detail.thread_id,
+                detail.turn_id,
+                f"diff-{detail.turn_id}",
+                CodexRealtimeEventType.TURN_DIFF_UPDATED,
+                {
+                    "item_id": f"diff-{detail.turn_id}",
+                    "thread_id": detail.thread_id,
+                    "turn_id": detail.turn_id,
+                    "diff": self._parse_diff(detail.unified_diff).model_dump(mode="json"),
+                },
+            )
+        if isinstance(detail, AgentApprovalOpenedEventDetail):
+            return None
+        return None
+
+    def _to_product_timeline_item(
+        self,
+        item: AppServerProductTimelineItem,
+        *,
+        thread_id: str,
+        turn_id: str | None,
+        completed: bool,
+    ) -> CodexTimelineItemEnvelope:
+        """把 Agent 强类型产品条目映射为浏览器时间线判别联合。"""
+
+        header: dict[str, JsonValue] = {
+            "item_id": item.item_id,
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+            "status": "completed" if completed else "streaming",
+        }
+        if isinstance(item, AppServerUserMessageItem):
+            payload: dict[str, JsonValue] = {
+                "kind": "user_message",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "text": item.text,
+            }
+        elif isinstance(item, AppServerAgentMessageItem):
+            payload = {
+                "kind": "agent_message",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "text": item.text,
+            }
+        elif isinstance(item, AppServerNoticeItem):
+            payload = {
+                "kind": "notice",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "label": "推理摘要" if item.label == "reasoning" else item.label,
+                "text": item.text,
+            }
+        elif isinstance(item, AppServerContextCompactionItem):
+            payload = {
+                "kind": "context_compaction",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "label": "上下文已压缩",
+            }
+        elif isinstance(item, AppServerPlanItem):
+            payload = {
+                "kind": "plan",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "explanation": item.explanation,
+                "steps": [step.model_dump(mode="json") for step in item.steps],
+            }
+        elif isinstance(item, AppServerCommandItem):
+            payload = {
+                "kind": "command",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "command": item.command,
+                "output": item.output,
+                "exit_code": item.exit_code,
+            }
+        elif isinstance(item, AppServerDiffItem):
+            payload = {
+                "kind": "diff",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "diff": self._parse_diff(item.unified_diff).model_dump(mode="json"),
+            }
+        header["detail_kind"] = cast(str, payload["kind"])
+        return CodexTimelineItemEnvelope.model_validate(
+            {"header": header, "detail": payload}
+        )
+
     def to_thread(
         self,
         thread: Mapping[str, JsonValue],
@@ -233,16 +492,26 @@ class CodexProtocolMapper:
         workspace_id: UUID | None,
     ) -> dict[str, JsonValue]:
         thread_id = self._string(thread, "id") or "unknown"
+        display_name = thread.get("name")
         return {
             "host_id": str(host_id),
             "workspace_id": str(workspace_id) if workspace_id else "",
             "upstream_thread_id": thread_id,
-            "display_name": thread.get("name") or thread.get("preview"),
-            "model": thread.get("modelProvider"),
-            "status": self._status(thread.get("status")),
+            "display_name": display_name if isinstance(display_name, str) and display_name else None,
+            "title_source": "app_server"
+            if isinstance(display_name, str) and display_name
+            else None,
+            "model": None,
+            "model_provider": thread.get("modelProvider"),
+            "status": self._thread_status(thread.get("status")),
             "active_turn_id": self._active_turn_id(thread),
             "archived": False,
             "created_at": self._iso_epoch(thread.get("createdAt")),
+            "recency_at": self._iso_epoch(
+                thread.get("recencyAt")
+                if thread.get("recencyAt") is not None
+                else thread.get("updatedAt")
+            ),
             "updated_at": self._iso_epoch(thread.get("updatedAt")),
         }
 
@@ -267,51 +536,72 @@ class CodexProtocolMapper:
         thread_id: str,
         turn_id: str | None,
         completed: bool,
-    ) -> dict[str, JsonValue] | None:
+    ) -> CodexTimelineItemEnvelope | None:
         item_id = self._string(item, "id")
         item_type = self._string(item, "type")
         if item_id is None or item_type is None:
             return None
-        base: dict[str, JsonValue] = {
+        status = "completed" if completed else "streaming"
+        header: dict[str, JsonValue] = {
             "item_id": item_id,
             "thread_id": thread_id,
             "turn_id": turn_id,
-            "status": "completed" if completed else "streaming",
+            "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+            "status": status,
         }
         if item_type == "userMessage":
-            base.update(
-                kind="user_message",
-                text=self._bounded(
+            detail: dict[str, JsonValue] = {
+                "kind": "user_message",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "text": self._bounded(
                     self._user_message_text(item.get("content")), MAX_PRODUCT_TEXT_CHARS
                 ),
-            )
+            }
         elif item_type == "agentMessage":
-            base.update(
-                kind="agent_message",
-                text=self._bounded(str(item.get("text") or ""), MAX_PRODUCT_TEXT_CHARS),
-            )
+            detail = {
+                "kind": "agent_message",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "text": self._bounded(str(item.get("text") or ""), MAX_PRODUCT_TEXT_CHARS),
+            }
         elif item_type == "reasoning":
             summaries = item.get("summary")
             text = (
                 "\n".join(str(value) for value in summaries) if isinstance(summaries, list) else ""
             )
-            base.update(kind="notice", text=self._bounded(text, MAX_PRODUCT_TEXT_CHARS))
+            detail = {
+                "kind": "notice",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "label": "推理摘要",
+                "text": self._bounded(text, MAX_PRODUCT_TEXT_CHARS),
+            }
+        elif item_type == "contextCompaction":
+            detail = {
+                "kind": "context_compaction",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "label": "上下文已压缩",
+            }
         elif item_type == "plan":
-            base.update(
-                kind="plan",
-                explanation=self._bounded(str(item.get("text") or ""), MAX_PRODUCT_TEXT_CHARS),
-                steps=[],
-            )
+            detail = {
+                "kind": "plan",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "explanation": self._bounded(
+                    str(item.get("text") or ""), MAX_PRODUCT_TEXT_CHARS
+                ),
+                "steps": [],
+            }
         elif item_type == "commandExecution":
-            base.update(
-                kind="command",
-                command=self._bounded(str(item.get("command") or ""), MAX_PRODUCT_TEXT_CHARS),
-                output=self._bounded(
+            detail = {
+                "kind": "command",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "command": self._bounded(
+                    str(item.get("command") or ""), MAX_PRODUCT_TEXT_CHARS
+                ),
+                "output": self._bounded(
                     str(item.get("aggregatedOutput") or ""),
                     MAX_PRODUCT_TEXT_CHARS,
                 ),
-                exit_code=item.get("exitCode"),
-            )
+                "exit_code": item.get("exitCode"),
+            }
         elif item_type == "fileChange":
             changes = item.get("changes")
             diffs = []
@@ -320,13 +610,17 @@ class CodexProtocolMapper:
                     mapping = self._mapping(change)
                     if mapping is not None and isinstance(mapping.get("diff"), str):
                         diffs.append(cast(str, mapping["diff"]))
-            base.update(
-                kind="diff",
-                diff=self._parse_diff("\n".join(diffs)).model_dump(mode="json"),
-            )
+            detail = {
+                "kind": "diff",
+                "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
+                "diff": self._parse_diff("\n".join(diffs)).model_dump(mode="json"),
+            }
         else:
-            base.update(kind="notice", text=item_type)
-        return base
+            return None
+        header["detail_kind"] = cast(str, detail["kind"])
+        return CodexTimelineItemEnvelope.model_validate(
+            {"header": header, "detail": detail}
+        )
 
     def to_thread_snapshot(
         self,
@@ -343,7 +637,7 @@ class CodexProtocolMapper:
         if thread_id is None:
             raise ValueError("thread/read响应缺少thread.id。")
         turns_payload: list[dict[str, JsonValue]] = []
-        items_payload: list[dict[str, JsonValue]] = []
+        items_payload: list[CodexTimelineItemEnvelope] = []
         turns = thread.get("turns")
         if isinstance(turns, list):
             for raw_turn in turns:
@@ -391,6 +685,7 @@ class CodexProtocolMapper:
             item_id=item_id,
             event_type=event_type,
             payload=payload,
+            occurred_at=source.occurred_at,
         )
 
     def _warning(self, source: CodexAgentRealtimeEvent, warning: str) -> CodexProductEvent:
@@ -428,6 +723,20 @@ class CodexProtocolMapper:
             status_type = mapping.get("type")
             if isinstance(status_type, str):
                 return "failed" if status_type == "systemError" else status_type
+        return "unknown"
+
+    def _thread_status(self, value: JsonValue | None) -> str:
+        """把上游运行时状态收敛为控制面会话状态。"""
+
+        status = self._status(value)
+        if status in {"active", "inProgress"}:
+            return "active"
+        if status in {"interrupted", "cancelled"}:
+            return "interrupted"
+        if status in {"failed", "systemError"}:
+            return "failed"
+        if status in {"idle", "completed"}:
+            return "idle"
         return "unknown"
 
     def _active_turn_id(self, thread: Mapping[str, JsonValue]) -> str | None:

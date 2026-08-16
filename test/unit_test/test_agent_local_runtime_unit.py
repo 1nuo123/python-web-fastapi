@@ -34,6 +34,8 @@ from src.core.codex_contract.device_authorization_contract import (
 )
 from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJournal
 from src.infrastructure.codex_agent.agent_configuration import (
+    AgentBootstrapConnectionSettings,
+    AgentBootstrapSettings,
     AgentProcessSettings,
     AgentProtocolSettings,
     AgentWorkspaceSettings,
@@ -64,6 +66,7 @@ from src.infrastructure.codex_agent.windows_dpapi_device_key_store import (
 FROZEN_SCHEMA_DIGEST = "a" * 64
 DEVICE_CODE = "device-code-0123456789abcdef0123456789abcdef"
 USER_CODE = "ABCD-EFGH"
+TEST_AGENT_VERSION = "0.1.0"
 
 
 class InMemoryDeviceKeyStore:
@@ -227,6 +230,7 @@ class TestAgentLocalRuntimeUnit:
             workspace_root: Path,
             workspace_key: str,
             workspace_name: str,
+            agent_version: str,
             codex_version: str,
             schema_digest: str,
         ) -> int:
@@ -238,6 +242,7 @@ class TestAgentLocalRuntimeUnit:
             assert workspace_root == tmp_path / "workspace"
             assert workspace_key == "work"
             assert workspace_name == "Workspace"
+            assert agent_version == TEST_AGENT_VERSION
             assert codex_version == "0.145.0"
             assert schema_digest == FROZEN_SCHEMA_DIGEST
             return 0
@@ -307,7 +312,33 @@ class TestAgentLocalRuntimeUnit:
 
         monkeypatch.setattr(cli_module, "AgentControlChannel", RecordingAgentControlChannel)
 
-        await CodexHostAgentCli().run_agent(self._settings(tmp_path))
+        async def skip_startup_update(
+            _self: CodexHostAgentCli,
+            **_kwargs: object,
+        ) -> int | None:
+            return None
+
+        monkeypatch.setattr(CodexHostAgentCli, "_apply_startup_update", skip_startup_update)
+
+        bootstrap = AgentBootstrapSettings(
+            deployment_state="configured",
+            connection=AgentBootstrapConnectionSettings(
+                api_url="https://control.acme.dev",
+                websocket_url="wss://control.acme.dev/internal/codex-agents/connect",
+                verification_url="https://control.acme.dev/codex/verify-device",
+                website_url="https://control.acme.dev",
+            ),
+            agent_version=TEST_AGENT_VERSION,
+            expected_codex_version="0.145.0",
+            app_server_schema_digest=FROZEN_SCHEMA_DIGEST,
+        )
+
+        await CodexHostAgentCli().run_agent(
+            self._settings(tmp_path),
+            config_path=tmp_path / "agent.toml",
+            bootstrap_path=tmp_path / "bootstrap.toml",
+            bootstrap=bootstrap,
+        )
 
         assert len(providers) == 1
         assert isinstance(providers[0], AgentConnectionTicketProvider)
@@ -345,6 +376,7 @@ class TestAgentLocalRuntimeUnit:
                 display_name="Workstation",
                 platform="windows",
                 expected_codex_version="0.145.0",
+                agent_version=TEST_AGENT_VERSION,
                 schema_digest=FROZEN_SCHEMA_DIGEST,
                 workspace=AgentWorkspaceSettings(
                     key="work",
@@ -402,6 +434,7 @@ class TestAgentLocalRuntimeUnit:
                     display_name="Denied",
                     platform="windows",
                     expected_codex_version="0.145.0",
+                    agent_version=TEST_AGENT_VERSION,
                     schema_digest=FROZEN_SCHEMA_DIGEST,
                     workspace=AgentWorkspaceSettings(
                         key="work",
@@ -441,7 +474,7 @@ class TestAgentLocalRuntimeUnit:
         ).run()
 
         assert healthy.exit_code is AgentDoctorExitCode.HEALTHY
-        assert healthy.codex_version == "codex-cli 0.145.0"
+        assert healthy.codex_version == "0.145.0"
         assert {check.state for check in healthy.checks} == {AgentDoctorCheckState.PASS}
 
         class MissingLegacySecretStore:

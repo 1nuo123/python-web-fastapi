@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Final
 from uuid import UUID, uuid4
 
 import pytest
@@ -11,8 +12,11 @@ from pydantic import JsonValue
 from src.core.codex_contract.agent_protocol_contract import CodexAgentCommand
 from src.core.codex_contract.agent_protocol_v2_contract import AgentCommandV2Detail
 from src.core.codex_contract.connection_session_contract import CodexConnectionProtocolVersion
+from src.core.codex_contract.host_contract import CodexApprovalPolicy, CodexSandboxMode
 from src.domain.codex.agent_command_policy import calculate_agent_request_digest
 from src.infrastructure.codex.agent_protocol_codec import (
+    THREAD_START_COMMAND_TYPE,
+    TURN_START_COMMAND_TYPE,
     AgentCommandV2Mapper,
     AgentProtocolCodecRegistry,
 )
@@ -84,6 +88,9 @@ COMMAND_ROUND_TRIP_CASES: tuple[tuple[str, dict[str, JsonValue]], ...] = (
         },
     ),
 )
+EXECUTION_POLICY_COMMAND_TYPES: Final = frozenset(
+    {THREAD_START_COMMAND_TYPE, TURN_START_COMMAND_TYPE}
+)
 
 
 class TestAgentCommandV2DigestContract:
@@ -115,6 +122,12 @@ class TestAgentCommandV2DigestContract:
         assert restored.request_digest == calculate_agent_request_digest(
             restored.command_type,
             restored.params,
+            sandbox_mode=(
+                restored.sandbox_mode.value if restored.sandbox_mode is not None else None
+            ),
+            approval_policy=(
+                restored.approval_policy.value if restored.approval_policy is not None else None
+            ),
         )
 
     @staticmethod
@@ -125,12 +138,22 @@ class TestAgentCommandV2DigestContract:
     ) -> CodexAgentCommand:
         """构建具有真实摘要的命令。"""
 
+        has_execution_policy = command_type in EXECUTION_POLICY_COMMAND_TYPES
+        sandbox_mode = CodexSandboxMode.WORKSPACE_WRITE if has_execution_policy else None
+        approval_policy = CodexApprovalPolicy.ON_REQUEST if has_execution_policy else None
         return CodexAgentCommand(
             command_id=uuid4(),
             operation_id=uuid4(),
             host_id=host_id,
-            request_digest=calculate_agent_request_digest(command_type, params),
+            request_digest=calculate_agent_request_digest(
+                command_type,
+                params,
+                sandbox_mode=sandbox_mode.value if sandbox_mode is not None else None,
+                approval_policy=approval_policy.value if approval_policy is not None else None,
+            ),
             command_type=command_type,
             params=params,
             deadline=datetime.now(UTC) + timedelta(seconds=30),
+            sandbox_mode=sandbox_mode,
+            approval_policy=approval_policy,
         )

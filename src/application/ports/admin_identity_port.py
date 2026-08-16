@@ -20,6 +20,7 @@ from src.application.admin.identity.shared.admin_identity_command import (
     AdminUserDeleteCommand,
     AdminUserPasswordResetCommand,
     AdminUserRoleReplaceCommand,
+    AdminUserScopeReplaceCommand,
     AdminUserUpdateCommand,
     InitialAdminCreateResult,
 )
@@ -119,7 +120,8 @@ class AdminUserSnapshot:
     username: str
     is_active: bool
     role_keys: list[str]
-    scope_codes: list[str]
+    direct_scope_codes: list[str]
+    effective_scope_codes: list[str]
 
 
 @dataclass(slots=True)
@@ -282,6 +284,12 @@ class AdminIdentityPort(Protocol):
         """
         替换管理员用户角色。
         """
+
+    def replace_admin_user_scopes(
+        self,
+        command: AdminUserScopeReplaceCommand,
+    ) -> AdminUserSnapshot:
+        """替换管理员用户直接 scope。"""
 
     def delete_admin_user(
         self,

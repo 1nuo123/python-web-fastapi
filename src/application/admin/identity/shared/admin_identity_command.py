@@ -153,6 +153,15 @@ class AdminUserRoleReplaceCommand:
 
 
 @dataclass(slots=True)
+class AdminUserScopeReplaceCommand:
+    """管理员用户直接 scope 替换命令。"""
+
+    actor_subject_id: str
+    subject_id: str
+    scope_codes: list[str]
+
+
+@dataclass(slots=True)
 class AdminUserDeleteCommand:
     """
     管理员用户停用命令。

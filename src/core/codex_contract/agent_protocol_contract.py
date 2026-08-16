@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from src.core.codex_contract.agent_protocol_v2_contract import AgentEventDetail
 from src.core.codex_contract.app_server_product_contract import (
     AppServerProductNotification,
 )
@@ -16,8 +17,11 @@ from src.core.codex_contract.approval_contract import (
     CodexApprovalKind,
     CodexApprovalRiskLevel,
 )
+from src.core.codex_contract.host_contract import CodexApprovalPolicy, CodexSandboxMode
+from src.core.codex_contract.thread_contract import CodexThreadTitleSource
 
 CODEX_AGENT_PROTOCOL_VERSION: Final = "1.0"
+CODEX_AGENT_CONVERSATION_SNAPSHOT_SCHEMA_VERSION: Final = "1.0"
 
 
 class CodexAgentHello(BaseModel):
@@ -66,6 +70,8 @@ class CodexAgentCommand(BaseModel):
     command_type: str = Field(min_length=1, max_length=64)
     params: dict[str, JsonValue] = Field(default_factory=dict)
     deadline: datetime
+    sandbox_mode: CodexSandboxMode | None = None
+    approval_policy: CodexApprovalPolicy | None = None
     expected_protocol_version: Literal["1.0"] = CODEX_AGENT_PROTOCOL_VERSION
 
 
@@ -101,8 +107,10 @@ class CodexAgentRealtimeEvent(BaseModel):
 
     host_id: UUID
     app_server_instance_id: str = Field(min_length=1, max_length=128)
+    occurred_at: datetime
     method: str = Field(min_length=1, max_length=128)
     params: JsonValue
+    detail: AgentEventDetail | None = None
     product_notification: AppServerProductNotification | None = None
 
 
@@ -136,6 +144,27 @@ class CodexAgentWorkspaceSnapshot(BaseModel):
     allow_write: bool
 
 
+class AgentConversationSnapshotDetail(BaseModel):
+    """Agent 仅向控制面发送的会话索引强类型扩展。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["conversation_snapshot"] = "conversation_snapshot"
+    schema_version: Literal["1.0"] = CODEX_AGENT_CONVERSATION_SNAPSHOT_SCHEMA_VERSION
+    thread_id: str = Field(min_length=1, max_length=256)
+    workspace_key: str = Field(min_length=1, max_length=128)
+    display_name: str = Field(min_length=1, max_length=256)
+    title_source: CodexThreadTitleSource
+    model_id: str | None = Field(default=None, max_length=128)
+    model_provider: str | None = Field(default=None, max_length=128)
+    status: str = Field(min_length=1, max_length=64)
+    active_turn_id: str | None = Field(default=None, max_length=256)
+    archived: bool
+    source_kind: str | None = Field(default=None, max_length=64)
+    created_at: datetime
+    recency_at: datetime
+
+
 class CodexAgentStateSnapshot(BaseModel):
     """Agent 重连后用于收敛控制面状态的权威快照。"""
 
@@ -144,7 +173,7 @@ class CodexAgentStateSnapshot(BaseModel):
     host_id: UUID
     app_server_instance_id: str = Field(min_length=1, max_length=128)
     workspaces: list[CodexAgentWorkspaceSnapshot]
-    threads: list[dict[str, JsonValue]]
+    threads: list[AgentConversationSnapshotDetail]
     omitted_thread_workspace_keys: list[str] = Field(default_factory=list)
     pending_commands: list[dict[str, JsonValue]] = Field(default_factory=list)
     captured_at: datetime

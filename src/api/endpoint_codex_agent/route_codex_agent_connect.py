@@ -335,11 +335,17 @@ class CodexAgentConnectRouteCatalog:
             ack: CodexAgentCommandAck,
             principal: AgentDevicePrincipal,
         ) -> None:
-            await asyncio.to_thread(
+            applied_projection = await asyncio.to_thread(
                 runtime.state_synchronizer.accept_command_ack,
                 ack,
                 principal,
             )
+            if applied_projection is not None:
+                await runtime.publish_thread_updated(
+                    owner_subject_id=principal.owner_subject_id,
+                    thread=applied_projection.thread,
+                    occurred_at=applied_projection.occurred_at,
+                )
 
         return observe
 
@@ -351,11 +357,17 @@ class CodexAgentConnectRouteCatalog:
             result: CodexAgentCommandResult,
             principal: AgentDevicePrincipal,
         ) -> None:
-            await asyncio.to_thread(
+            applied_projection = await asyncio.to_thread(
                 runtime.state_synchronizer.accept_command_result,
                 result,
                 principal,
             )
+            if applied_projection is not None:
+                await runtime.publish_thread_updated(
+                    owner_subject_id=principal.owner_subject_id,
+                    thread=applied_projection.thread,
+                    occurred_at=applied_projection.occurred_at,
+                )
 
         return observe
 
@@ -389,14 +401,21 @@ class CodexAgentConnectRouteCatalog:
         self,
         runtime: CodexControlRuntime,
     ) -> AgentDisconnectObserver:
-        async def observe(host_id: UUID, principal: AgentDevicePrincipal) -> None:
+        async def observe(
+            host_id: UUID,
+            principal: AgentDevicePrincipal,
+            connection_started_at: datetime,
+        ) -> None:
             if await runtime.connection_registry.read(host_id) is not None:
                 return
-            await asyncio.to_thread(
+            host = await asyncio.to_thread(
                 runtime.state_synchronizer.accept_disconnect,
                 host_id,
                 principal,
+                connection_started_at,
             )
+            if host is None:
+                return
             await runtime.publish_host_status_changed(
                 owner_subject_id=principal.owner_subject_id,
                 host_id=host_id,

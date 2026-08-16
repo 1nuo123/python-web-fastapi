@@ -38,6 +38,10 @@ KEY_MANAGEMENT_INITIALIZE_CAS_FAILED_MESSAGE = "密钥族初始化 CAS 写入失
 KEY_MANAGEMENT_ROTATION_CAS_FAILED_MESSAGE = "密钥族轮转 CAS 写入失败。"
 
 
+class KeyManagementKeyIdNotFoundError(HttpFaultException):
+    """Raised when a requested key id is not in the active compatibility window."""
+
+
 class KeyManagementService:
     """
     统一密钥管理服务。
@@ -171,7 +175,7 @@ class KeyManagementService:
         for key_descriptor in snapshot.keys:
             if key_descriptor.key_id == key_id:
                 return key_descriptor
-        raise HttpFaultException(
+        raise KeyManagementKeyIdNotFoundError(
             status_code=HTTPStatus.SERVICE_UNAVAILABLE,
             error_code=CoreErrorCode.RESOURCE_NOT_READY,
             message=KEY_MANAGEMENT_KEY_ID_MISSING_MESSAGE,

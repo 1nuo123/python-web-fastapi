@@ -45,10 +45,10 @@ def test_realtime_ticket_when_consumed_should_emit_new_epoch_and_authority_snaps
             ]
             websocket.close()
 
-    assert len({event.stream_epoch for event in events}) == 1
-    assert [event.cursor for event in events] == [None, None, None]
-    assert len({event.event_id for event in events}) == len(events)
-    assert [event.type.value for event in events] == [
+    assert len({event.header.stream_epoch for event in events}) == 1
+    assert [event.header.cursor for event in events] == [None, None, None]
+    assert len({event.header.event_id for event in events}) == len(events)
+    assert [event.header.detail_kind.value for event in events] == [
         "connection.ready",
         "host.snapshot",
         "workspace.snapshot",
@@ -90,9 +90,12 @@ def test_realtime_ticket_when_reused_or_origin_missing_should_reject_before_acce
 def test_thread_snapshot_interface_should_publish_history_capacity_status() -> None:
     app = TestAppFactory().create()
     schema = app.openapi()["components"]["schemas"]["CodexThreadAuthoritySnapshot"]
+    history_status_schema = app.openapi()["components"]["schemas"][
+        "CodexThreadHistoryStatus"
+    ]
 
     assert schema["properties"]["history_status"]["default"] == "complete"
-    assert schema["properties"]["history_status"]["enum"] == [
+    assert history_status_schema["enum"] == [
         "complete",
         "not_requested",
         "omitted_too_large",

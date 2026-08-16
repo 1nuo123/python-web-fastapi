@@ -55,7 +55,13 @@ class ArtifactReleaseOrchestrator:
         completed.append(ArtifactReleaseStep.STAGE)
         record = await self._activation.activate(identity, staged_path)
         completed.append(ArtifactReleaseStep.ACTIVATE)
-        if not await health_check(record):
+        try:
+            healthy = await health_check(record)
+        except Exception:
+            await self._activation.rollback(record)
+            completed.append(ArtifactReleaseStep.ROLLBACK)
+            raise
+        if not healthy:
             rolled_back = await self._activation.rollback(record)
             completed.append(ArtifactReleaseStep.ROLLBACK)
             return ArtifactReleaseResult(

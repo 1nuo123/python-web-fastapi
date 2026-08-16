@@ -16,6 +16,9 @@ from src.infrastructure.artifact_release.signed_activation import (
 )
 from src.infrastructure.artifact_release.staging_store import LocalArtifactStagingStore
 from src.infrastructure.artifact_release.tuf_catalog_adapter import TufArtifactCatalogAdapter
+from src.infrastructure.artifact_release.windows_authenticode_verifier import (
+    WindowsAuthenticodeArtifactVerifier,
+)
 from src.infrastructure.codex_agent.codex_agent_update_coordinator import (
     CodexAgentUpdateCoordinator,
 )
@@ -30,6 +33,7 @@ class CodexAgentReleaseRuntime:
     """共享 HTTP client 与通用发布编排的生命周期所有者。"""
 
     http_resource: SharedAsyncHttpClient
+    catalog: TufArtifactCatalogAdapter
     coordinator: CodexAgentUpdateCoordinator
 
     @classmethod
@@ -41,18 +45,25 @@ class CodexAgentReleaseRuntime:
                 max_keepalive_connections=ARTIFACT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
             )
         )
+        catalog = TufArtifactCatalogAdapter(settings=settings)
         orchestrator = ArtifactReleaseOrchestrator(
-            catalog=TufArtifactCatalogAdapter(settings=settings),
+            catalog=catalog,
             downloader=SafeArtifactDownloader(
                 client=http_resource.get_client(),
                 settings=settings,
             ),
-            verifier=CompositeArtifactVerifier(Sha256ArtifactVerifier()),
+            verifier=CompositeArtifactVerifier(
+                Sha256ArtifactVerifier(),
+                WindowsAuthenticodeArtifactVerifier(
+                    allowed_signer_sha256=settings.authenticode_signer_sha256_allowlist
+                ),
+            ),
             staging=LocalArtifactStagingStore(staging_root=settings.staging_root),
             activation=AtomicArtifactActivationAdapter(root=settings.staging_root),
         )
         return cls(
             http_resource=http_resource,
+            catalog=catalog,
             coordinator=CodexAgentUpdateCoordinator(
                 orchestrator=orchestrator,
                 rollout_policy=ArtifactRolloutPolicy(),
@@ -62,4 +73,5 @@ class CodexAgentReleaseRuntime:
     async def close(self) -> None:
         """关闭唯一共享 HTTP 资源。"""
 
+        self.catalog.close()
         await self.http_resource.close()

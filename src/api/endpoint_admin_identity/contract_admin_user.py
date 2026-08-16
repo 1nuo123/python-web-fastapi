@@ -23,6 +23,7 @@ from src.api.endpoint_admin_identity.contract_admin_identity_common import (
     ADMIN_USER_PASSWORD_RESET_KIND,
     ADMIN_USER_PAYLOAD_KIND,
     ADMIN_USER_ROLE_REPLACE_KIND,
+    ADMIN_USER_SCOPE_REPLACE_KIND,
     ADMIN_USER_STATUS_RESULT_KIND,
     ADMIN_USER_UPDATE_KIND,
 )
@@ -49,6 +50,8 @@ class AdminUserPayload(BaseModel):
     username: str
     is_active: bool
     role_keys: list[str]
+    direct_scope_codes: list[str]
+    effective_scope_codes: list[str]
 
     @classmethod
     def from_snapshot(cls, snapshot: AdminUserSnapshot) -> AdminUserPayload:
@@ -61,6 +64,8 @@ class AdminUserPayload(BaseModel):
             username=snapshot.username,
             is_active=snapshot.is_active,
             role_keys=snapshot.role_keys,
+            direct_scope_codes=snapshot.direct_scope_codes,
+            effective_scope_codes=snapshot.effective_scope_codes,
         )
 
 
@@ -154,6 +159,20 @@ class AdminUserRoleReplaceRequest(BaseModel):
     kind: Literal["admin_user_role_replace"] = ADMIN_USER_ROLE_REPLACE_KIND
     schema_version: Literal["1.0"] = ADMIN_IDENTITY_SCHEMA_VERSION
     role_keys: list[str] = Field(default_factory=list)
+    confirmation: str = Field(
+        min_length=ADMIN_IDENTITY_TEXT_MINIMUM_LENGTH,
+        max_length=ADMIN_IDENTITY_GRANT_CONFIRMATION_MAXIMUM_LENGTH,
+    )
+
+
+class AdminUserScopeReplaceRequest(BaseModel):
+    """管理员用户直接 scope 替换请求。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["admin_user_scope_replace"] = ADMIN_USER_SCOPE_REPLACE_KIND
+    schema_version: Literal["1.0"] = ADMIN_IDENTITY_SCHEMA_VERSION
+    scope_codes: list[str] = Field(default_factory=list)
     confirmation: str = Field(
         min_length=ADMIN_IDENTITY_TEXT_MINIMUM_LENGTH,
         max_length=ADMIN_IDENTITY_GRANT_CONFIRMATION_MAXIMUM_LENGTH,

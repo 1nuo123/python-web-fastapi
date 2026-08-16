@@ -10,12 +10,20 @@ import logging
 import os
 import shutil
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal, cast
 from uuid import uuid4
 
 from pydantic import JsonValue
 
+from src.core.codex_contract.agent_diagnostic_contract import (
+    AgentDiagnosticCode,
+    AgentDiagnosticEnvelope,
+    AgentDiagnosticHeader,
+    AgentProcessExitDiagnosticDetail,
+    AgentStderrDiagnosticDetail,
+)
 from src.core.codex_contract.app_server_jsonrpc_contract import (
     AppServerLineReaderPort,
     AppServerMessageTooLargeError,
@@ -27,16 +35,22 @@ from src.infrastructure.codex_agent.app_server_jsonrpc_client import (
     AppServerWarningHandler,
     BoundedAppServerLineReader,
 )
+from src.infrastructure.process.windows_subprocess_launcher import (
+    WindowsAppServerProcessExtension,
+    WindowsSubprocessLauncher,
+    WindowsSubprocessLogCategory,
+    WindowsSubprocessRequest,
+)
 
 CODEX_PARENT_PROCESS_VARIABLES: Final = frozenset(
     {
         "CODEX_CI",
         "CODEX_INTERNAL_ORIGINATOR_OVERRIDE",
-        "CODEX_PERMISSION_PROFILE",
         "CODEX_SHELL",
         "CODEX_THREAD_ID",
     }
 )
+UNBOUND_AGENT_DIAGNOSTIC_HOST_ID: Final = "unbound"
 
 
 class CodexProcessSupport:
@@ -106,6 +120,8 @@ class AppServerProcessSupervisor:
         request_handler: AppServerRequestHandler,
         warning_handler: AppServerWarningHandler,
         logger: logging.Logger,
+        host_id: str = UNBOUND_AGENT_DIAGNOSTIC_HOST_ID,
+        subprocess_launcher: WindowsSubprocessLauncher | None = None,
     ) -> None:
         self._codex_binary = codex_binary
         self._codex_command = CodexProcessSupport.resolve_command(codex_binary)
@@ -115,6 +131,8 @@ class AppServerProcessSupervisor:
         self._request_handler = request_handler
         self._warning_handler = warning_handler
         self._logger = logger
+        self._host_id = host_id
+        self._subprocess_launcher = subprocess_launcher or WindowsSubprocessLauncher()
         self._handle: AppServerProcessHandle | None = None
         self._stderr_task: asyncio.Task[None] | None = None
 
@@ -134,15 +152,17 @@ class AppServerProcessSupervisor:
         codex_version = await self._read_codex_version()
         if not any(fnmatch.fnmatch(codex_version, pattern) for pattern in self._allowed_versions):
             raise AppServerVersionMismatchError("本机Codex版本不在允许范围内。")
-        process = await asyncio.create_subprocess_exec(
-            *self._codex_command,
-            "app-server",
-            "--stdio",
+        process = await self._subprocess_launcher.create_async(
+            WindowsSubprocessRequest(
+                argv=(*self._codex_command, "app-server", "--stdio"),
+                environment=CodexProcessSupport.build_standalone_environment(),
+                stream_limit_bytes=self._max_line_bytes + 1,
+                log_category=WindowsSubprocessLogCategory.CODEX,
+                extension=WindowsAppServerProcessExtension(),
+            ),
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env=CodexProcessSupport.build_standalone_environment(),
-            limit=self._max_line_bytes + 1,
         )
         if process.stdin is None or process.stdout is None or process.stderr is None:
             process.kill()
@@ -159,15 +179,18 @@ class AppServerProcessSupervisor:
             request_handler=self._request_handler,
             warning_handler=self._warning_handler,
         )
+        instance_id = str(uuid4())
         self._stderr_task = asyncio.create_task(
             self._drain_stderr(
                 BoundedAppServerLineReader(
                     process.stderr,
                     max_line_bytes=self._max_line_bytes,
-                )
+                ),
+                instance_id=instance_id,
+                process_id=process.pid,
+                codex_version=codex_version,
             )
         )
-        instance_id = str(uuid4())
         provisional_handle = AppServerProcessHandle(
             instance_id=instance_id,
             codex_version=codex_version,
@@ -224,6 +247,22 @@ class AppServerProcessSupervisor:
         await asyncio.sleep(0)
         await handle.client.close()
         await self._stop_stderr_task()
+        if handle.process.returncode not in {None, 0}:
+            self._logger.warning(
+                AgentDiagnosticEnvelope(
+                    header=AgentDiagnosticHeader(
+                        detail_kind=AgentDiagnosticCode.APP_SERVER_EXIT_NON_ZERO,
+                        host_id=self._host_id,
+                        app_server_instance_id=handle.instance_id,
+                        process_id=handle.process.pid,
+                        codex_version=handle.codex_version,
+                        occurred_at=datetime.now(UTC),
+                    ),
+                    detail=AgentProcessExitDiagnosticDetail(
+                        exit_code=handle.process.returncode
+                    ),
+                ).to_log_line()
+            )
         CodexProcessSupport.close_windows_subprocess_transport(handle.process)
         del handle
         gc.collect()
@@ -238,41 +277,98 @@ class AppServerProcessSupervisor:
     async def _read_codex_version(self) -> str:
         """读取规范化的语义版本字符串。"""
 
-        process = await asyncio.create_subprocess_exec(
-            *self._codex_command,
-            "--version",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=CodexProcessSupport.build_standalone_environment(),
+        result = await self._subprocess_launcher.run_async(
+            WindowsSubprocessRequest(
+                argv=(*self._codex_command, "--version"),
+                environment=CodexProcessSupport.build_standalone_environment(),
+                log_category=WindowsSubprocessLogCategory.CODEX,
+            )
         )
-        stdout, _ = await process.communicate()
-        CodexProcessSupport.close_windows_subprocess_transport(process)
-        if process.returncode != 0:
+        if result.return_code != 0:
             raise RuntimeError("无法读取本机Codex版本。")
-        tokens = stdout.decode("utf-8", errors="replace").strip().split()
+        tokens = result.stdout.strip().split()
         if not tokens:
             raise RuntimeError("本机Codex未返回版本。")
         return tokens[-1]
 
-    async def _drain_stderr(self, reader: AppServerLineReaderPort) -> None:
+    async def _drain_stderr(
+        self,
+        reader: AppServerLineReaderPort,
+        *,
+        instance_id: str,
+        process_id: int | None,
+        codex_version: str,
+    ) -> None:
         """独立排空有界行长 stderr，避免阻塞 App Server。"""
 
+        line_number = 0
         while True:
+            line_number += 1
             try:
                 line = await reader.readline()
             except AppServerMessageTooLargeError:
-                self._logger.warning("Codex App Server标准错误单行超过4 MiB，已省略该行。")
+                self._log_stderr_diagnostic(
+                    code=AgentDiagnosticCode.APP_SERVER_STDERR_TOO_LONG,
+                    instance_id=instance_id,
+                    process_id=process_id,
+                    codex_version=codex_version,
+                    line_number=line_number,
+                    byte_count=self._max_line_bytes + 1,
+                    digest=None,
+                )
                 continue
             if not line:
                 return
             bounded_line = line[: self._max_line_bytes]
             if bounded_line.strip():
                 digest = hashlib.sha256(bounded_line).hexdigest()[:16]
-                self._logger.warning(
-                    "Codex App Server标准错误已脱敏：bytes=%d digest=%s",
-                    len(bounded_line),
-                    digest,
+                self._log_stderr_diagnostic(
+                    code=AgentDiagnosticCode.APP_SERVER_STDERR,
+                    instance_id=instance_id,
+                    process_id=process_id,
+                    codex_version=codex_version,
+                    line_number=line_number,
+                    byte_count=len(bounded_line),
+                    digest=digest,
                 )
+
+    def _log_stderr_diagnostic(
+        self,
+        *,
+        code: AgentDiagnosticCode,
+        instance_id: str,
+        process_id: int | None,
+        codex_version: str,
+        line_number: int,
+        byte_count: int,
+        digest: str | None,
+    ) -> None:
+        """记录一条不包含标准错误原文的结构化诊断。"""
+
+        self._logger.warning(
+            AgentDiagnosticEnvelope(
+                header=AgentDiagnosticHeader(
+                    detail_kind=code,
+                    host_id=self._host_id,
+                    app_server_instance_id=instance_id,
+                    process_id=process_id,
+                    codex_version=codex_version,
+                    occurred_at=datetime.now(UTC),
+                ),
+                detail=AgentStderrDiagnosticDetail(
+                    kind=cast(
+                        Literal[
+                            "agent.app_server.stderr",
+                            "agent.app_server.stderr_too_long",
+                        ],
+                        code.value,
+                    ),
+                    line_number=line_number,
+                    byte_count=byte_count,
+                    digest=digest,
+                ),
+            ).to_log_line()
+        )
 
     async def _stop_stderr_task(self) -> None:
         task = self._stderr_task

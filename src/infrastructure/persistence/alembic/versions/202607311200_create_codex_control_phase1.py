@@ -24,6 +24,7 @@ CODEX_SCOPE_ROWS = (
     ("codex:host_manage", "Codex主机管理"),
     ("codex:files", "Codex文件访问"),
     ("codex:terminal", "Codex终端访问"),
+    ("codex:network", "Codex联网访问"),
     ("codex:full_access", "Codex完全访问"),
     ("codex:admin_manage", "Codex租户管理"),
     ("codex:admin_content_access", "Codex跨租户内容访问"),

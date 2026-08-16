@@ -3685,6 +3685,15 @@ wheels = [
 ]
 
 [[package]]
+name = "types-pywin32"
+version = "312.0.0.20260724"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/ed/32b91cb4792f25ef30bc87a9aefc3d87867faa804d7fdd5071cef18c2d7c/types_pywin32-312.0.0.20260724.tar.gz", hash = "sha256:0ab44f2eaf24879929a934d4e989c6fbb4aa1df9e44e38eca6d47c680d7c1397", size = 335004, upload-time = "2026-07-24T04:59:09.95Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/89/15b040c0abf53d88ff3dba292e82038854745a8576cd57fc867a60b9517e/types_pywin32-312.0.0.20260724-py3-none-any.whl", hash = "sha256:00a66a2a8a5ccd18d2ac52798f2d1549e74125f0e3d0665e02a33d03fe6fcfcd", size = 397301, upload-time = "2026-07-24T04:59:08.806Z" },
+]
+
+[[package]]
 name = "types-pyyaml"
 version = "6.0.12.20260518"
 source = { registry = "https://pypi.org/simple" }
@@ -4021,6 +4030,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyjwt" },
     { name = "python-multipart" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "pyyaml" },
     { name = "redis" },
     { name = "rtoml" },
@@ -4049,6 +4059,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "types-passlib" },
+    { name = "types-pywin32" },
     { name = "types-pyyaml" },
 ]
 
@@ -4073,6 +4084,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pyjwt", specifier = ">=2.13.0" },
     { name = "python-multipart", specifier = ">=0.0.31" },
+    { name = "pywin32", marker = "sys_platform == 'win32'", specifier = ">=311" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "redis", specifier = ">=7.4.0" },
     { name = "rtoml", specifier = ">=0.13.0" },
@@ -4101,6 +4113,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.2.1" },
     { name = "ruff", specifier = ">=0.12.8" },
     { name = "types-passlib", specifier = ">=1.7.7.20250602" },
+    { name = "types-pywin32", specifier = ">=311.0.0.20260723" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260518" },
 ]
 

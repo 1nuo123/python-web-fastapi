@@ -10,6 +10,10 @@ from uuid import UUID, uuid4
 
 from pydantic import JsonValue
 
+from src.application.codex.operation_projection_service import (
+    CodexAppliedOperationProjection,
+    CodexOperationProjectionService,
+)
 from src.application.ports.codex_agent_command_dispatch_port import (
     CodexAgentCommandDispatchPort,
 )
@@ -17,6 +21,7 @@ from src.application.ports.codex_command_payload_cipher_port import (
     CodexCommandPayloadCipherPort,
 )
 from src.application.ports.codex_control_port import CodexControlPort
+from src.application.ports.codex_realtime_event_port import CodexRealtimeEventPort
 from src.core.codex_contract.agent_protocol_contract import CodexAgentCommand
 from src.core.codex_contract.command_outbox_contract import (
     CodexCommandOutboxSnapshot,
@@ -27,17 +32,25 @@ from src.core.codex_contract.host_contract import (
     CodexHostCompatibilityState,
     CodexHostSnapshot,
 )
-from src.core.codex_contract.operation_contract import CodexControlOperationSnapshot
+from src.core.codex_contract.operation_contract import (
+    CodexControlOperationSnapshot,
+    CodexOperationProjection,
+    CodexOperationProjectionHeader,
+    CodexOperationProjectionKind,
+    CodexTurnSubmissionProjectionDetail,
+)
 from src.core.codex_contract.product_command_contract import (
     CodexProductCommandCatalog,
     CodexProductCommandCode,
 )
+from src.core.codex_contract.thread_contract import CodexThreadTitleSource
 from src.core.codex_contract.turn_contract import CodexExecutionOptions, CodexOperationAccepted
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.persistence_contract.unit_of_work_contract import PersistenceSession, UnitOfWork
 from src.domain.codex.agent_command_policy import calculate_agent_request_digest
 from src.domain.codex.codex_error_code import CodexErrorCode
 from src.domain.codex.host_status import CodexOperationStatus
+from src.domain.codex.thread_title_policy import CodexThreadTitlePolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +62,21 @@ class PreparedCodexOperation:
     already_accepted: bool
 
 
+@dataclass(frozen=True, slots=True)
+class CodexManualTitleUpdate:
+    """在命令事务内先提交的手工标题。"""
+
+    display_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class CodexOperationStatusUpdate:
+    """operation 状态更新与同事务派生投影结果。"""
+
+    operation: CodexControlOperationSnapshot
+    applied_projection: CodexAppliedOperationProjection | None
+
+
 class ExecuteCodexThreadCommandUsecase:
     """把 HTTP 幂等与 Agent 副作用去重串联为两层保证。"""
 
@@ -58,15 +86,18 @@ class ExecuteCodexThreadCommandUsecase:
         control_port: CodexControlPort,
         dispatch_port: CodexAgentCommandDispatchPort,
         payload_cipher: CodexCommandPayloadCipherPort,
+        event_port: CodexRealtimeEventPort,
         ack_timeout_seconds: int,
         outbox_ttl_seconds: int,
     ) -> None:
         self._control_port = control_port
         self._dispatch_port = dispatch_port
         self._payload_cipher = payload_cipher
+        self._event_port = event_port
         self._ack_timeout_seconds = ack_timeout_seconds
         self._outbox_ttl_seconds = outbox_ttl_seconds
         self._command_catalog = CodexProductCommandCatalog()
+        self._projection_service = CodexOperationProjectionService(control_port)
 
     async def start_thread(
         self,
@@ -123,6 +154,15 @@ class ExecuteCodexThreadCommandUsecase:
             operation_type="turn.start",
             params=params,
             execution=execution,
+            operation_projection=CodexOperationProjection(
+                header=CodexOperationProjectionHeader(
+                    detail_kind=CodexOperationProjectionKind.TURN_SUBMISSION,
+                ),
+                detail=CodexTurnSubmissionProjectionDetail(
+                    display_name=CodexThreadTitlePolicy().normalize(message),
+                    occurred_at=datetime.now(UTC),
+                ),
+            ),
         )
         return await self._dispatch(prepared)
 
@@ -148,6 +188,15 @@ class ExecuteCodexThreadCommandUsecase:
                 "threadId": upstream_thread_id,
                 "input": [{"type": "text", "text": message, "text_elements": []}],
             },
+            operation_projection=CodexOperationProjection(
+                header=CodexOperationProjectionHeader(
+                    detail_kind=CodexOperationProjectionKind.TURN_SUBMISSION,
+                ),
+                detail=CodexTurnSubmissionProjectionDetail(
+                    display_name=None,
+                    occurred_at=datetime.now(UTC),
+                ),
+            ),
         )
         return await self._dispatch(prepared)
 
@@ -215,6 +264,81 @@ class ExecuteCodexThreadCommandUsecase:
         )
         return await self._dispatch(prepared)
 
+    async def rename_thread(
+        self,
+        *,
+        host_id: UUID,
+        upstream_thread_id: str,
+        display_name: str,
+        actor_subject_id: str,
+        idempotency_key: str,
+    ) -> CodexOperationAccepted:
+        """先保存手工标题，再可靠投递 ``thread/name/set``。"""
+
+        normalized_title = CodexThreadTitlePolicy().normalize(display_name)
+        if normalized_title is None:
+            raise HttpFaultException(
+                status_code=HTTPStatus.BAD_REQUEST,
+                error_code=CodexErrorCode.STATE_CONFLICT,
+                message="Codex会话标题不能为空白。",
+            )
+        prepared = await asyncio.to_thread(
+            self._prepare_thread_operation,
+            host_id=host_id,
+            upstream_thread_id=upstream_thread_id,
+            actor_subject_id=actor_subject_id,
+            idempotency_key=idempotency_key,
+            operation_type=CodexProductCommandCode.THREAD_NAME_SET.value,
+            params={
+                "threadId": upstream_thread_id,
+                "name": normalized_title,
+            },
+            local_title_update=CodexManualTitleUpdate(normalized_title),
+        )
+        return await self._dispatch(prepared)
+
+    async def archive_thread(
+        self,
+        *,
+        host_id: UUID,
+        upstream_thread_id: str,
+        actor_subject_id: str,
+        idempotency_key: str,
+    ) -> CodexOperationAccepted:
+        """投递归档命令，最终状态由成功结果或通知确认。"""
+
+        prepared = await asyncio.to_thread(
+            self._prepare_thread_operation,
+            host_id=host_id,
+            upstream_thread_id=upstream_thread_id,
+            actor_subject_id=actor_subject_id,
+            idempotency_key=idempotency_key,
+            operation_type=CodexProductCommandCode.THREAD_ARCHIVE.value,
+            params={"threadId": upstream_thread_id},
+        )
+        return await self._dispatch(prepared)
+
+    async def unarchive_thread(
+        self,
+        *,
+        host_id: UUID,
+        upstream_thread_id: str,
+        actor_subject_id: str,
+        idempotency_key: str,
+    ) -> CodexOperationAccepted:
+        """投递恢复归档命令，最终状态由成功结果或通知确认。"""
+
+        prepared = await asyncio.to_thread(
+            self._prepare_thread_operation,
+            host_id=host_id,
+            upstream_thread_id=upstream_thread_id,
+            actor_subject_id=actor_subject_id,
+            idempotency_key=idempotency_key,
+            operation_type=CodexProductCommandCode.THREAD_UNARCHIVE.value,
+            params={"threadId": upstream_thread_id},
+        )
+        return await self._dispatch(prepared)
+
     async def _dispatch(
         self,
         prepared: PreparedCodexOperation,
@@ -222,6 +346,11 @@ class ExecuteCodexThreadCommandUsecase:
         """重放终态直接返回；其余始终沿原 command id 投递。"""
 
         if prepared.already_accepted:
+            applied_projection = await asyncio.to_thread(
+                self._apply_accepted_operation_projection,
+                prepared.operation,
+            )
+            await self._publish_applied_projection(applied_projection)
             return self._to_acceptance(prepared.operation, replayed=True)
         try:
             ack = await self._dispatch_port.dispatch(
@@ -261,13 +390,15 @@ class ExecuteCodexThreadCommandUsecase:
             if ack.state in {"accepted", "completed", "received", "executing"}
             else CodexOperationStatus.FAILED
         )
-        updated = await asyncio.to_thread(
+        update_result = await asyncio.to_thread(
             self._update_operation_status,
             prepared.operation.operation_id,
             prepared.operation.owner_subject_id,
             target_status,
+            None,
         )
-        return self._to_acceptance(updated, replayed=ack.replayed)
+        await self._publish_applied_projection(update_result.applied_projection)
+        return self._to_acceptance(update_result.operation, replayed=ack.replayed)
 
     def _prepare_workspace_operation(
         self,
@@ -287,7 +418,11 @@ class ExecuteCodexThreadCommandUsecase:
             host = host_repository.get_by_id_and_owner(host_id, actor_subject_id)
             if host is None:
                 raise self._not_found()
-            self._validate_host_command(host, operation_type, execution)
+            self._validate_host_command(
+                host=host,
+                operation_type=operation_type,
+                execution=execution,
+            )
             workspace_repository = self._control_port.create_codex_workspace_repository(session)
             workspace = workspace_repository.get_by_id_and_owner(
                 workspace_id,
@@ -315,6 +450,7 @@ class ExecuteCodexThreadCommandUsecase:
                 idempotency_key=idempotency_key,
                 operation_type=operation_type,
                 params=command_params,
+                execution=execution,
             )
             unit_of_work.commit()
             return prepared
@@ -334,6 +470,8 @@ class ExecuteCodexThreadCommandUsecase:
         operation_type: str,
         params: dict[str, JsonValue],
         execution: CodexExecutionOptions | None = None,
+        local_title_update: CodexManualTitleUpdate | None = None,
+        operation_projection: CodexOperationProjection | None = None,
     ) -> PreparedCodexOperation:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
@@ -342,7 +480,11 @@ class ExecuteCodexThreadCommandUsecase:
             host = host_repository.get_by_id_and_owner(host_id, actor_subject_id)
             if host is None:
                 raise self._not_found()
-            self._validate_host_command(host, operation_type, execution)
+            self._validate_host_command(
+                host=host,
+                operation_type=operation_type,
+                execution=execution,
+            )
             thread_repository = self._control_port.create_codex_thread_repository(session)
             thread = thread_repository.get_by_upstream_id_and_owner(
                 host_id,
@@ -351,6 +493,16 @@ class ExecuteCodexThreadCommandUsecase:
             )
             if thread is None:
                 raise self._not_found()
+            if local_title_update is not None:
+                now = datetime.now(UTC)
+                thread = thread.model_copy(
+                    update={
+                        "display_name": local_title_update.display_name,
+                        "title_source": CodexThreadTitleSource.MANUAL,
+                        "updated_at": now,
+                    }
+                )
+                thread_repository.save(thread)
             workspace_repository = self._control_port.create_codex_workspace_repository(session)
             workspace = workspace_repository.get_by_id_and_owner(
                 thread.workspace_id,
@@ -370,6 +522,19 @@ class ExecuteCodexThreadCommandUsecase:
                 idempotency_key=idempotency_key,
                 operation_type=operation_type,
                 params=command_params,
+                execution=execution,
+                operation_projection=(
+                    operation_projection
+                    if operation_projection is None
+                    or thread.title_source is CodexThreadTitleSource.NEW_CONVERSATION
+                    else operation_projection.model_copy(
+                        update={
+                            "detail": operation_projection.detail.model_copy(
+                                update={"display_name": None}
+                            )
+                        }
+                    )
+                ),
             )
             unit_of_work.commit()
             return prepared
@@ -388,6 +553,7 @@ class ExecuteCodexThreadCommandUsecase:
         idempotency_key: str,
         operation_type: str,
         params: dict[str, JsonValue],
+        operation_projection: CodexOperationProjection | None = None,
     ) -> PreparedCodexOperation:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
@@ -397,7 +563,11 @@ class ExecuteCodexThreadCommandUsecase:
             )
             if host is None:
                 raise self._not_found()
-            self._validate_host_command(host, operation_type, None)
+            self._validate_host_command(
+                host=host,
+                operation_type=operation_type,
+                execution=None,
+            )
             thread_repository = self._control_port.create_codex_thread_repository(session)
             thread = thread_repository.get_by_upstream_id_and_owner(
                 host_id,
@@ -434,6 +604,8 @@ class ExecuteCodexThreadCommandUsecase:
                 idempotency_key=idempotency_key,
                 operation_type=operation_type,
                 params=command_params,
+                execution=None,
+                operation_projection=operation_projection,
             )
             unit_of_work.commit()
             return prepared
@@ -455,9 +627,16 @@ class ExecuteCodexThreadCommandUsecase:
         idempotency_key: str,
         operation_type: str,
         params: dict[str, JsonValue],
+        execution: CodexExecutionOptions | None,
+        operation_projection: CodexOperationProjection | None = None,
     ) -> PreparedCodexOperation:
         repository = self._control_port.create_codex_operation_repository(session)
-        request_digest = calculate_agent_request_digest(operation_type, params)
+        request_digest = calculate_agent_request_digest(
+            operation_type,
+            params,
+            sandbox_mode=execution.sandbox_mode.value if execution is not None else None,
+            approval_policy=(execution.approval_policy.value if execution is not None else None),
+        )
         existing = repository.get_by_actor_and_idempotency_key(
             actor_subject_id,
             idempotency_key,
@@ -509,6 +688,7 @@ class ExecuteCodexThreadCommandUsecase:
                 dispatch_attempt=1,
                 last_dispatched_at=now,
                 ack_deadline_at=now + timedelta(seconds=self._ack_timeout_seconds),
+                projection=operation_projection,
                 created_at=now,
                 updated_at=now,
             )
@@ -523,6 +703,8 @@ class ExecuteCodexThreadCommandUsecase:
             command_type=operation_type,
             params=params,
             deadline=now + timedelta(seconds=self._ack_timeout_seconds),
+            sandbox_mode=execution.sandbox_mode if execution is not None else None,
+            approval_policy=execution.approval_policy if execution is not None else None,
         )
         outbox_repository = self._control_port.create_codex_command_outbox_repository(session)
         if outbox_repository.get_by_command_id(operation.command_id) is None:
@@ -555,12 +737,11 @@ class ExecuteCodexThreadCommandUsecase:
         owner_subject_id: str,
         status: CodexOperationStatus,
         error_code: str | None = None,
-    ) -> CodexControlOperationSnapshot:
+    ) -> CodexOperationStatusUpdate:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
-            repository = self._control_port.create_codex_operation_repository(
-                unit_of_work.get_session()
-            )
+            session = unit_of_work.get_session()
+            repository = self._control_port.create_codex_operation_repository(session)
             operation = repository.get_by_id_and_owner(operation_id, owner_subject_id)
             if operation is None:
                 raise RuntimeError("Codex operation状态更新目标不存在。")
@@ -568,7 +749,10 @@ class ExecuteCodexThreadCommandUsecase:
                 CodexOperationStatus.COMPLETED.value,
                 CodexOperationStatus.FAILED.value,
             }:
-                return operation
+                return CodexOperationStatusUpdate(
+                    operation=operation,
+                    applied_projection=None,
+                )
             now = datetime.now(UTC)
             updated = operation.model_copy(
                 update={
@@ -584,13 +768,57 @@ class ExecuteCodexThreadCommandUsecase:
                 }
             )
             repository.save(updated)
+            applied_projection = (
+                self._projection_service.apply_accepted(
+                    session=session,
+                    operation=updated,
+                )
+                if status is CodexOperationStatus.ACKNOWLEDGED
+                else None
+            )
             unit_of_work.commit()
-            return updated
+            return CodexOperationStatusUpdate(
+                operation=updated,
+                applied_projection=applied_projection,
+            )
         except BaseException:
             unit_of_work.rollback()
             raise
         finally:
             unit_of_work.dispose()
+
+    def _apply_accepted_operation_projection(
+        self,
+        operation: CodexControlOperationSnapshot,
+    ) -> CodexAppliedOperationProjection | None:
+        """幂等补齐已受理操作的标题与活动时间投影。"""
+
+        unit_of_work = self._control_port.create_unit_of_work()
+        try:
+            applied_projection = self._projection_service.apply_accepted(
+                session=unit_of_work.get_session(),
+                operation=operation,
+            )
+            unit_of_work.commit()
+            return applied_projection
+        except BaseException:
+            unit_of_work.rollback()
+            raise
+        finally:
+            unit_of_work.dispose()
+
+    async def _publish_applied_projection(
+        self,
+        applied_projection: CodexAppliedOperationProjection | None,
+    ) -> None:
+        """仅在数据库投影提交后发布会话局部更新。"""
+
+        if applied_projection is None:
+            return
+        await self._event_port.publish_thread_updated(
+            applied_projection.thread,
+            occurred_at=applied_projection.occurred_at,
+        )
 
     def _to_acceptance(
         self,
@@ -614,6 +842,7 @@ class ExecuteCodexThreadCommandUsecase:
 
     def _validate_host_command(
         self,
+        *,
         host: CodexHostSnapshot,
         operation_type: str,
         execution: CodexExecutionOptions | None,

@@ -66,6 +66,12 @@ class ArtifactSignatureDetail(BaseModel):
 
     method: Literal["authenticode", "detached"]
     signer_subject: str | None = Field(default=None, max_length=256)
+    signer_sha256: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
     verified_at: datetime
 
 

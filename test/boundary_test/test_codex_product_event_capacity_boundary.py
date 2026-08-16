@@ -1,5 +1,6 @@
 """Codex 产品事件正文容量边界测试。"""
 
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from src.application.codex.codex_protocol_mapper import (
@@ -8,6 +9,7 @@ from src.application.codex.codex_protocol_mapper import (
     CodexProtocolMapper,
 )
 from src.core.codex_contract.agent_protocol_contract import CodexAgentRealtimeEvent
+from src.core.codex_contract.thread_contract import CodexCommandTimelineDetail
 
 TEN_MEBIBYTES = 10 * 1024 * 1024
 
@@ -17,6 +19,7 @@ def test_map_event_when_delta_is_ten_mebibytes_should_bound_browser_payload() ->
         CodexAgentRealtimeEvent(
             host_id=uuid4(),
             app_server_instance_id="instance-1",
+            occurred_at=datetime.now(UTC),
             method="item/commandExecution/outputDelta",
             params={
                 "threadId": "thread-1",
@@ -48,6 +51,5 @@ def test_to_item_when_output_is_ten_mebibytes_should_bound_snapshot_payload() ->
     )
 
     assert item is not None
-    output = item["output"]
-    assert isinstance(output, str)
-    assert len(output) == MAX_PRODUCT_TEXT_CHARS
+    assert isinstance(item.detail, CodexCommandTimelineDetail)
+    assert len(item.detail.output) == MAX_PRODUCT_TEXT_CHARS

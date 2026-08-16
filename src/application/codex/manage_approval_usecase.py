@@ -19,11 +19,13 @@ from src.application.ports.codex_command_payload_cipher_port import (
 from src.application.ports.codex_control_port import CodexControlPort
 from src.application.ports.codex_realtime_event_port import CodexRealtimeEventPort
 from src.application.ports.step_up_grant_port import StepUpGrantPort
+from src.core.auth_contract.authorization_policy_contract import RouteAuthorizationRequirement
 from src.core.auth_contract.step_up_grant_contract import StepUpGrantPurpose
 from src.core.codex_contract.agent_protocol_contract import CodexAgentCommand
 from src.core.codex_contract.approval_contract import (
     CodexApprovalAuditSnapshot,
     CodexApprovalCollection,
+    CodexApprovalDecision,
     CodexApprovalState,
 )
 from src.core.codex_contract.command_outbox_contract import (
@@ -35,6 +37,9 @@ from src.core.codex_contract.operation_contract import CodexControlOperationSnap
 from src.core.codex_contract.turn_contract import CodexOperationAccepted
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.domain.codex.agent_command_policy import calculate_agent_request_digest
+from src.domain.codex.codex_authorization_policy import (
+    build_codex_approval_decision_authorization_requirement,
+)
 from src.domain.codex.codex_error_code import CodexErrorCode
 from src.domain.codex.host_status import CodexOperationStatus
 
@@ -78,6 +83,29 @@ class ManageCodexApprovalUsecase:
                 unit_of_work.get_session()
             )
             return CodexApprovalCollection(items=repository.list_by_owner(owner_subject_id))
+        finally:
+            unit_of_work.dispose()
+
+    def read_decision_authorization_requirement(
+        self,
+        *,
+        approval_id: UUID,
+        owner_subject_id: str,
+        decision: str,
+    ) -> RouteAuthorizationRequirement:
+        """读取审批并返回接受该具体能力所需的额外 scope。"""
+
+        unit_of_work = self._control_port.create_unit_of_work()
+        try:
+            approval = self._control_port.create_codex_approval_repository(
+                unit_of_work.get_session()
+            ).get_by_id_and_owner(approval_id, owner_subject_id)
+            if approval is None:
+                raise self._not_found()
+            return build_codex_approval_decision_authorization_requirement(
+                approval,
+                CodexApprovalDecision(decision),
+            )
         finally:
             unit_of_work.dispose()
 
@@ -238,6 +266,12 @@ class ManageCodexApprovalUsecase:
                         message="审批已处理、过期或版本冲突。",
                     )
                 approval = claimed
+                self._control_port.create_codex_thread_repository(session).advance_activity(
+                    host_id=approval.host_id,
+                    upstream_thread_id=approval.thread_id,
+                    owner_subject_id=actor_subject_id,
+                    occurred_at=now,
+                )
                 operation = CodexControlOperationSnapshot(
                     operation_id=uuid4(),
                     command_id=uuid4(),
@@ -257,6 +291,7 @@ class ManageCodexApprovalUsecase:
                     updated_at=now,
                 )
                 operation_repository.add(operation)
+                unit_of_work.flush()
                 replayed = False
             command = CodexAgentCommand(
                 command_id=operation.command_id,

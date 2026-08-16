@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI
@@ -135,6 +136,7 @@ class TestCodexAgentEventCursorIntegration:
             seq=sequence,
             event_id=uuid4(),
             app_server_instance_id=uuid4(),
+            occurred_at=datetime.now(UTC),
             detail=AgentProtocolWarningEventDetail(
                 reason_code="event_cursor_integration",
                 method="test/event",

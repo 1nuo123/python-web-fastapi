@@ -29,6 +29,10 @@ from src.core.codex_contract.app_server_jsonrpc_contract import (
     AppServerRpcClientPort,
     AppServerRpcError,
 )
+from src.core.codex_contract.execution_root_binding_contract import (
+    ExecutionRootBinding,
+    RootKind,
+)
 from src.core.worktree_contract.worktree_contract import (
     GitWorktreeBindRequest,
     GitWorktreeCreateRequest,
@@ -41,9 +45,13 @@ from src.domain.codex.agent_command_policy import (
     read_upstream_identifiers,
 )
 from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJournal
+from src.infrastructure.codex_agent.agent_execution_root_store import (
+    AgentExecutionRootStore,
+)
 from src.infrastructure.codex_agent.agent_thread_history_capacity_registry import (
     AgentThreadHistoryCapacityRegistry,
 )
+from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspaceRegistry
 
 AgentCommandAckSender = Callable[[CodexAgentCommandAck], Awaitable[None]]
 AgentCommandResultSender = Callable[[CodexAgentCommandResult], Awaitable[None]]
@@ -58,6 +66,7 @@ class AgentWorktreeExecutionContext:
     worktree_id: str
     root: Path
     created: bool
+    root_kind: RootKind = RootKind.WORKSPACE
 
 
 class AgentCommandExecutor:
@@ -74,6 +83,8 @@ class AgentCommandExecutor:
         approval_reply_handler: AgentApprovalReplyHandler | None = None,
         history_capacity_registry: AgentThreadHistoryCapacityRegistry | None = None,
         worktree_port: GitWorktreePort | None = None,
+        execution_root_store: AgentExecutionRootStore | None = None,
+        workspace_registry: AgentWorkspaceRegistry | None = None,
     ) -> None:
         self._journal = journal
         self._client = client
@@ -83,6 +94,8 @@ class AgentCommandExecutor:
         self._approval_reply_handler = approval_reply_handler
         self._history_capacity_registry = history_capacity_registry
         self._worktree_port = worktree_port
+        self._execution_root_store = execution_root_store
+        self._workspace_registry = workspace_registry
 
     async def execute(self, command: CodexAgentCommand) -> None:
         """编排 digest 校验、账本登记、ack、RPC 与最终结果。"""
@@ -194,7 +207,7 @@ class AgentCommandExecutor:
                 )
             )
             return
-        except (RuntimeError, ValueError) as exc:
+        except (FileNotFoundError, PermissionError, RuntimeError, ValueError) as exc:
             await self._cleanup_failed_worktree(worktree_context)
             summary = AgentCommandResultSummary(outcome_code="command_rejected")
             self._journal.mark_failed(str(command.command_id), result_summary=summary)
@@ -258,7 +271,14 @@ class AgentCommandExecutor:
 
         if command.expected_protocol_version != CODEX_AGENT_PROTOCOL_VERSION:
             raise ValueError("Agent命令协议版本不兼容。")
-        expected_digest = calculate_agent_request_digest(command.command_type, command.params)
+        expected_digest = calculate_agent_request_digest(
+            command.command_type,
+            command.params,
+            sandbox_mode=(command.sandbox_mode.value if command.sandbox_mode is not None else None),
+            approval_policy=(
+                command.approval_policy.value if command.approval_policy is not None else None
+            ),
+        )
         if command.request_digest != expected_digest:
             raise ValueError("Agent命令request_digest不匹配。")
 
@@ -267,47 +287,85 @@ class AgentCommandExecutor:
         command: CodexAgentCommand,
     ) -> AgentWorktreeExecutionContext | None:
         port = self._worktree_port
-        if port is None:
-            return None
         workspace_key = command.params.get("workspace_key")
         if not isinstance(workspace_key, str) or not workspace_key:
             return None
+        registry = self._workspace_registry
+        if registry is None:
+            return None
+        workspace_root = registry.resolve_root(workspace_key)
         if command.command_type == "thread.start":
             policy_payload = command.params.get("worktree_policy")
-            if policy_payload is None:
-                return None
-            policy = GitWorktreePolicy.model_validate(policy_payload)
-            result = await asyncio.to_thread(
-                port.create,
-                GitWorktreeCreateRequest(
-                    workspace_key=workspace_key,
-                    thread_id=str(command.command_id),
-                    policy=policy,
-                ),
-            )
-            if not result.success or result.snapshot is None:
-                raise RuntimeError(result.message or "隔离工作树创建失败。")
+            if policy_payload is not None:
+                policy = GitWorktreePolicy.model_validate(policy_payload)
+                if policy.enabled:
+                    if port is None:
+                        raise RuntimeError("隔离工作树适配器未装配。")
+                    result = await asyncio.to_thread(
+                        port.create,
+                        GitWorktreeCreateRequest(
+                            workspace_key=workspace_key,
+                            thread_id=str(command.command_id),
+                            policy=policy,
+                        ),
+                    )
+                    if not result.success or result.snapshot is None:
+                        raise RuntimeError(result.message or "隔离工作树创建失败。")
+                    return AgentWorktreeExecutionContext(
+                        workspace_key=workspace_key,
+                        worktree_id=result.snapshot.worktree_id,
+                        root=result.snapshot.path,
+                        created=True,
+                        root_kind=RootKind.ISOLATED_WORKTREE,
+                    )
             return AgentWorktreeExecutionContext(
                 workspace_key=workspace_key,
-                worktree_id=result.snapshot.worktree_id,
-                root=result.snapshot.path,
-                created=True,
+                worktree_id=str(command.command_id),
+                root=workspace_root,
+                created=False,
+                root_kind=registry.resolve_root_kind(workspace_key),
             )
         thread_id = command.params.get("threadId")
         if not isinstance(thread_id, str) or not thread_id:
             return None
-        snapshot = await asyncio.to_thread(
-            port.find_by_thread,
-            workspace_key,
-            thread_id,
-        )
-        if snapshot is None:
-            return None
+        store = self._execution_root_store
+        if store is None:
+            return AgentWorktreeExecutionContext(
+                workspace_key=workspace_key,
+                worktree_id=thread_id,
+                root=workspace_root,
+                created=False,
+                root_kind=registry.resolve_root_kind(workspace_key),
+            )
+        binding = store.load(thread_id)
+        if binding is None:
+            return AgentWorktreeExecutionContext(
+                workspace_key=workspace_key,
+                worktree_id=thread_id,
+                root=workspace_root,
+                created=False,
+                root_kind=registry.resolve_root_kind(workspace_key),
+            )
+        if binding.workspace_key != workspace_key:
+            store.delete(thread_id)
+            raise RuntimeError("线程执行根与当前工作区不匹配。")
+        workspace_root = registry.resolve_root(workspace_key)
+        try:
+            selected_root = binding.execution_root.resolve(strict=True)
+        except OSError as exc:
+            store.delete(thread_id)
+            raise RuntimeError("线程执行根已失效。") from exc
+        if selected_root != workspace_root and not selected_root.is_relative_to(workspace_root):
+            store.delete(thread_id)
+            raise RuntimeError("线程执行根逃出工作区白名单。")
+        extension_worktree_id = getattr(binding.extension, "worktree_id", None)
+        worktree_id = extension_worktree_id if isinstance(extension_worktree_id, str) else thread_id
         return AgentWorktreeExecutionContext(
             workspace_key=workspace_key,
-            worktree_id=snapshot.worktree_id,
-            root=snapshot.path,
+            worktree_id=worktree_id,
+            root=selected_root,
             created=False,
+            root_kind=binding.root_kind,
         )
 
     async def _bind_created_worktree(
@@ -316,21 +374,47 @@ class AgentCommandExecutor:
         thread_id: str | None,
     ) -> None:
         port = self._worktree_port
-        if port is None or context is None or not context.created:
+        if context is None:
             return
         if thread_id is None:
             await self._cleanup_failed_worktree(context)
             return
-        result = await asyncio.to_thread(
-            port.bind_thread,
-            GitWorktreeBindRequest(
-                workspace_key=context.workspace_key,
-                worktree_id=context.worktree_id,
+        if context.created:
+            if port is None:
+                raise RuntimeError("隔离工作树适配器未装配。")
+            result = await asyncio.to_thread(
+                port.bind_thread,
+                GitWorktreeBindRequest(
+                    workspace_key=context.workspace_key,
+                    worktree_id=context.worktree_id,
+                    thread_id=thread_id,
+                ),
+            )
+            if not result.success or result.snapshot is None:
+                raise RuntimeError(result.message or "隔离工作树线程绑定失败。")
+            binding = ExecutionRootBinding.for_worktree(
                 thread_id=thread_id,
-            ),
-        )
-        if not result.success:
-            return
+                workspace_key=context.workspace_key,
+                execution_root=result.snapshot.path,
+                worktree_id=result.snapshot.worktree_id,
+            )
+        elif context.root_kind is RootKind.ISOLATED_WORKTREE:
+            binding = ExecutionRootBinding.for_worktree(
+                thread_id=thread_id,
+                workspace_key=context.workspace_key,
+                execution_root=context.root,
+                worktree_id=context.worktree_id,
+            )
+        else:
+            binding = ExecutionRootBinding.for_workspace(
+                thread_id=thread_id,
+                workspace_key=context.workspace_key,
+                execution_root=context.root,
+                root_kind=context.root_kind,
+            )
+        store = self._execution_root_store
+        if store is not None:
+            store.save(binding)
 
     async def _cleanup_failed_worktree(
         self,

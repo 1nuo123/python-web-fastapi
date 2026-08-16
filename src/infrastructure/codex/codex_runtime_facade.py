@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from src.application.ports.codex_agent_command_dispatch_port import (
     CodexAgentCommandDispatchPort,
 )
@@ -13,6 +15,7 @@ from src.core.codex_contract.agent_protocol_contract import (
 )
 from src.core.codex_contract.approval_contract import CodexApprovalAuditSnapshot
 from src.core.codex_contract.realtime_event_contract import CodexRealtimeEventType
+from src.core.codex_contract.thread_contract import CodexThreadIndexSnapshot
 from src.infrastructure.codex.codex_control_runtime import CodexControlRuntime
 from src.infrastructure.codex.codex_protocol_mapper import CodexProductEvent
 
@@ -65,4 +68,18 @@ class CodexRuntimeFacade(CodexAgentCommandDispatchPort, CodexRealtimeEventPort):
                 event_type=CodexRealtimeEventType.APPROVAL_RESOLVED,
                 payload={"approval": approval.model_dump(mode="json")},
             ),
+        )
+
+    async def publish_thread_updated(
+        self,
+        thread: CodexThreadIndexSnapshot,
+        *,
+        occurred_at: datetime,
+    ) -> None:
+        """向同一 owner 的所有浏览器发布数据库确认后的会话投影。"""
+
+        await self._runtime.publish_thread_updated(
+            owner_subject_id=thread.owner_subject_id,
+            thread=thread,
+            occurred_at=occurred_at,
         )

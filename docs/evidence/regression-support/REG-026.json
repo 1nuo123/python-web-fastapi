@@ -5,7 +5,7 @@
   "source_line": 3,
   "baseline_source_path": "..\\work_baseline_20260713_1019\\compose.production.yml",
   "baseline_sha256": "05ebe2b4615c50bcf734d716138286a3228651ed2b5ae3dad872029c38da96d3",
-  "current_sha256": "43c474765da90f1ac73f5b890290ee0c0a1ea8c82491cda6a59272bf1ef77ece",
+  "current_sha256": "f935a1f95d46f4e244c76d91b267c38fc41d2a525f1a934d94e0212bf0e240dd",
   "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
   "trigger_condition": "并行启动独立 production validation 项目。",
   "affected_scope": "Compose 隔离与容器生命周期。",

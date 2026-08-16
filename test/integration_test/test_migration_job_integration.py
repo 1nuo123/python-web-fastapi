@@ -84,6 +84,11 @@ APP_RUNNING_STATE = "running"
 APP_HEALTHY_STATE = "healthy"
 AUTH_ROLE_SCOPE_TABLE_NAME = "auth_role_scope"
 AUTH_ROLE_SCOPE_SCOPE_FK_NAME = "fk_auth_role_scope_scope_code_auth_scope"
+AUTH_USER_SCOPE_TABLE_NAME = "auth_user_scope"
+AUTH_USER_SCOPE_USER_FK_NAME = "fk_auth_user_scope_user_id_auth_user"
+AUTH_USER_SCOPE_SCOPE_FK_NAME = "fk_auth_user_scope_scope_code_auth_scope"
+AUTH_USER_SCOPE_PRIMARY_KEY_NAME = "pk_auth_user_scope"
+AUTH_USER_ID_COLUMN_NAME = "user_id"
 AUTH_SCOPE_TABLE_NAME = "auth_scope"
 AUTH_SCOPE_CODE_COLUMN_NAME = "scope_code"
 AUTH_SCOPE_KIND_COLUMN_NAME = "scope_kind"
@@ -200,6 +205,14 @@ class TestMigrationJobIntegration:
                 AUTH_ROLE_SCOPE_TABLE_NAME,
                 schema=settings.runtime.database.schema_name,
             )
+            user_scope_foreign_keys = inspector.get_foreign_keys(
+                AUTH_USER_SCOPE_TABLE_NAME,
+                schema=settings.runtime.database.schema_name,
+            )
+            user_scope_primary_key = inspector.get_pk_constraint(
+                AUTH_USER_SCOPE_TABLE_NAME,
+                schema=settings.runtime.database.schema_name,
+            )
             unique_constraints = inspector.get_unique_constraints(
                 TASK_EXECUTION_RECORD_TABLE_NAME,
                 schema=settings.runtime.database.schema_name,
@@ -215,6 +228,16 @@ class TestMigrationJobIntegration:
             foreign_key
             for foreign_key in foreign_keys
             if foreign_key[NAME_FIELD] == AUTH_ROLE_SCOPE_SCOPE_FK_NAME
+        ]
+        user_scope_user_fk = [
+            foreign_key
+            for foreign_key in user_scope_foreign_keys
+            if foreign_key[NAME_FIELD] == AUTH_USER_SCOPE_USER_FK_NAME
+        ]
+        user_scope_scope_fk = [
+            foreign_key
+            for foreign_key in user_scope_foreign_keys
+            if foreign_key[NAME_FIELD] == AUTH_USER_SCOPE_SCOPE_FK_NAME
         ]
         record_id_unique = [
             constraint
@@ -233,6 +256,17 @@ class TestMigrationJobIntegration:
         assert role_scope_fk[0][CONSTRAINED_COLUMNS_FIELD] == [AUTH_SCOPE_CODE_COLUMN_NAME]
         assert role_scope_fk[0][REFERRED_TABLE_FIELD] == AUTH_SCOPE_TABLE_NAME
         assert role_scope_fk[0][REFERRED_COLUMNS_FIELD] == [AUTH_SCOPE_CODE_COLUMN_NAME]
+        assert user_scope_user_fk
+        assert user_scope_user_fk[0][CONSTRAINED_COLUMNS_FIELD] == [AUTH_USER_ID_COLUMN_NAME]
+        assert user_scope_user_fk[0][REFERRED_TABLE_FIELD] == "auth_user"
+        assert user_scope_scope_fk
+        assert user_scope_scope_fk[0][CONSTRAINED_COLUMNS_FIELD] == [AUTH_SCOPE_CODE_COLUMN_NAME]
+        assert user_scope_scope_fk[0][REFERRED_TABLE_FIELD] == AUTH_SCOPE_TABLE_NAME
+        assert user_scope_primary_key[NAME_FIELD] == AUTH_USER_SCOPE_PRIMARY_KEY_NAME
+        assert user_scope_primary_key[CONSTRAINED_COLUMNS_FIELD] == [
+            AUTH_USER_ID_COLUMN_NAME,
+            AUTH_SCOPE_CODE_COLUMN_NAME,
+        ]
         assert record_id_unique
         assert record_id_unique[0][COLUMN_NAMES_FIELD] == [
             TASK_EXECUTION_RECORD_RECORD_ID_COLUMN_NAME

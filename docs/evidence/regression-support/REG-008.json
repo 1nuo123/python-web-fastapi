@@ -5,7 +5,7 @@
   "source_line": 3,
   "baseline_source_path": "..\\work_baseline_20260713_1019\\compose.yml",
   "baseline_sha256": "040849d539774fffaa3622357668d2bf91b0b7a84bcc771e17cca1be13273c2a",
-  "current_sha256": "2ab755e3ac208defd81e468c7123dc94a8d42baeebf7fe889f81953639fc7c55",
+  "current_sha256": "afda31d6b0f720ea0dea60ae9947718cbd1a35f09488e7339cbec6231aedd777",
   "baseline_observation": "旧版文件存在且摘要与当前实现不同；根因和修复见对应 finding。",
   "trigger_condition": "执行生产容器验证。",
   "affected_scope": "镜像、Compose 和容器生命周期。",

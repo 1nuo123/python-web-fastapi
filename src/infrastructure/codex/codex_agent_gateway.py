@@ -17,6 +17,7 @@ from src.application.ports.codex_agent_revocation_signal_port import (
 from src.core.codex_contract.agent_device_auth_contract import AgentDevicePrincipal
 from src.core.codex_contract.agent_protocol_contract import (
     CODEX_AGENT_PROTOCOL_VERSION,
+    AgentConversationSnapshotDetail,
     CodexAgentApprovalOpened,
     CodexAgentCommandAck,
     CodexAgentCommandResult,
@@ -47,12 +48,14 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentProtocolV2Detail,
     AgentStateSnapshotV2Detail,
     AgentThreadChangedEventDetail,
+    AgentThreadMetadataChangedEventDetail,
     AgentThreadReadCommandResult,
     AgentTurnChangedEventDetail,
 )
 from src.core.codex_contract.app_server_product_contract import (
     AppServerAgentMessageItem,
     AppServerCommandItem,
+    AppServerContextCompactionItem,
     AppServerDiffItem,
     AppServerPlanItem,
     AppServerProductTimelineItem,
@@ -109,7 +112,9 @@ AgentHeartbeatObserver = Callable[[CodexAgentHeartbeat, AgentDevicePrincipal], A
 AgentSnapshotObserver = Callable[[CodexAgentStateSnapshot, AgentDevicePrincipal], Awaitable[None]]
 AgentEventObserver = Callable[[CodexAgentRealtimeEvent, AgentDevicePrincipal], Awaitable[None]]
 AgentApprovalObserver = Callable[[CodexAgentApprovalOpened, AgentDevicePrincipal], Awaitable[None]]
-AgentDisconnectObserver = Callable[[UUID, AgentDevicePrincipal], Awaitable[None]]
+AgentDisconnectObserver = Callable[
+    [UUID, AgentDevicePrincipal, datetime], Awaitable[None]
+]
 AgentCompatibilityObserver = Callable[
     [UUID, AgentDevicePrincipal, CodexCompatibilityDecision], Awaitable[None]
 ]
@@ -208,7 +213,11 @@ class CodexAgentGatewayHandler:
                 await self._presence_adapter.release(self._presence)
                 self._presence = None
             self._lease = None
-            await self._disconnect_observer(lease.host_id, self._principal)
+            await self._disconnect_observer(
+                lease.host_id,
+                self._principal,
+                lease.connected_at,
+            )
 
     async def _accept_hello(
         self,
@@ -557,6 +566,8 @@ class CodexAgentGatewayHandler:
                 "type": "fileChange",
                 "changes": [{"diff": item.unified_diff}],
             }
+        if isinstance(item, AppServerContextCompactionItem):
+            return {"id": item.item_id, "type": "contextCompaction"}
         return {
             "id": item.item_id,
             "type": item.label,
@@ -601,8 +612,10 @@ class CodexAgentGatewayHandler:
             event = CodexAgentRealtimeEvent(
                 host_id=host_id,
                 app_server_instance_id=str(record.app_server_instance_id),
+                occurred_at=record.occurred_at,
                 method=self._to_v1_event_method(record.detail),
                 params=self._to_v1_event_params(record.detail),
+                detail=record.detail,
             )
             await self._event_observer(event, self._principal)
             try:
@@ -647,6 +660,13 @@ class CodexAgentGatewayHandler:
                 "threadId": thread.thread_id,
                 "status": thread.status,
             }
+        if isinstance(detail, AgentThreadMetadataChangedEventDetail):
+            params: dict[str, JsonValue] = {"threadId": detail.thread_id}
+            if detail.display_name is not None:
+                params["threadName"] = detail.display_name
+            if detail.archived is not None:
+                params["archived"] = detail.archived
+            return params
         if isinstance(detail, AgentTurnChangedEventDetail):
             return {
                 "threadId": detail.thread_id,
@@ -690,6 +710,7 @@ class CodexAgentGatewayHandler:
             detail,
             (
                 AgentThreadChangedEventDetail,
+                AgentThreadMetadataChangedEventDetail,
                 AgentTurnChangedEventDetail,
                 AgentItemChangedEventDetail,
                 AgentItemDeltaEventDetail,
@@ -738,14 +759,19 @@ class CodexAgentGatewayHandler:
                 for item in snapshot.workspaces
             ],
             threads=[
-                {
-                    "id": item.thread_id,
-                    "workspaceKey": item.workspace_key,
-                    "name": item.display_name,
-                    "status": item.status,
-                    "activeTurnId": item.active_turn_id,
-                    "updatedAt": item.updated_at.timestamp() if item.updated_at else None,
-                }
+                AgentConversationSnapshotDetail(
+                    thread_id=item.thread_id,
+                    workspace_key=item.workspace_key,
+                    display_name=item.display_name,
+                    title_source=item.title_source,
+                    model_id=item.model_id,
+                    model_provider=item.model_provider,
+                    status=item.status,
+                    active_turn_id=item.active_turn_id,
+                    archived=item.archived,
+                    created_at=item.created_at,
+                    recency_at=item.recency_at,
+                )
                 for item in snapshot.threads
             ],
             omitted_thread_workspace_keys=[],
@@ -839,6 +865,7 @@ class CodexAgentGatewayHandler:
         self,
         _host_id: UUID,
         _principal: AgentDevicePrincipal,
+        _connection_started_at: datetime,
     ) -> None:
         return None
 

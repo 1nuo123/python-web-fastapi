@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-08-07T23:06:40.795341Z",
-  "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
+  "generated_at": "2026-08-16T05:39:06.689084Z",
+  "code_baseline": "caaf79d5211d72b99e0a274db0ef7d0e95e46a7a3f3e5a56563d7282489b5854",
   "entries": [
     {
       "kind": "source",
@@ -31,7 +31,7 @@
     {
       "kind": "source",
       "path": "src\\api\\dependency_context_accessor.py",
-      "sha256": "8549310be2fb173120b594c262f88d1bf864c6a60b88e0ce2e67153affa1ef1a"
+      "sha256": "825f6fb7bab227474861c38d2fdbe288ca9bf4e26504f85d8d1189f7ef6e84a2"
     },
     {
       "kind": "source",
@@ -56,12 +56,12 @@
     {
       "kind": "source",
       "path": "src\\api\\endpoint_admin_identity\\contract_admin_identity_common.py",
-      "sha256": "0c7ccf1dd20f6bebf75c8545d408cbf544f20dd69e3389719c6553467c68b10b"
+      "sha256": "cd691168bc6efaa08ba4229728cc0a7f919266c0dab6bba75320a9072f120785"
     },
     {
       "kind": "source",
       "path": "src\\api\\endpoint_admin_identity\\contract_admin_identity_envelope.py",
-      "sha256": "0a603641ea3dd7e3b2418a86816d681c645c2ed128a31db857c4d1cd2d1d1f9f"
+      "sha256": "5b02b8288077966bd1eecd52e097ff5779cd1bbc70eef134cba909ac64915f19"
     },
     {
       "kind": "source",
@@ -76,7 +76,7 @@
     {
       "kind": "source",
       "path": "src\\api\\endpoint_admin_identity\\contract_admin_user.py",
-      "sha256": "0b6aac53e90fd64f71cb6a1c44fa3186922b0016a861960f9a4112620056041a"
+      "sha256": "d190eb15849fe0083d1adf07f7b2ce236bc049d5b66c69ee2c6a4c43464c8015"
     },
     {
       "kind": "source",
@@ -86,7 +86,7 @@
     {
       "kind": "source",
       "path": "src\\api\\endpoint_admin_identity\\route_admin_identity_common.py",
-      "sha256": "e33a338bb2ea762c98c310801de0be44a05a446f92a316aff406fe8aedce55d2"
+      "sha256": "d8f43798e43e49b81ce094e3533810b7e4055476a6a41ef4d1acd927c895298e"
     },
     {
       "kind": "source",
@@ -101,7 +101,7 @@
     {
       "kind": "source",
       "path": "src\\api\\endpoint_admin_identity\\route_admin_user.py",
-      "sha256": "cf16fb98839e014b9ef1870e0650b738e6c41e98c8d2f4117fa707769a162652"
+      "sha256": "ed3f449968672dbfbf3e27956ca3d9f5efaf9955400a11b044289894b61d6138"
     },
     {
       "kind": "source",
@@ -156,12 +156,22 @@
     {
       "kind": "source",
       "path": "src\\api\\endpoint_auth_access\\contract_auth_access.py",
-      "sha256": "b0ecc2b243b8df45af23e35f93d49b2c3aab1dcac25dda97f7bc2272a7f70cd3"
+      "sha256": "8ee8a7610ca7d1ed6e4e1a42b42fd2b0318d3c737e0482ea96b7db379957f69f"
     },
     {
       "kind": "source",
       "path": "src\\api\\endpoint_auth_access\\route_auth_access.py",
-      "sha256": "5af3e6d68721009ed3595a1fc9ac219db7ab3f9c2fbb1cc364ff1361ea46c486"
+      "sha256": "1189675a232ae22350c15fbdfd20f0d7aea4581433c13fdf8f5ea7af37283333"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_codex_admin\\__init__.py",
+      "sha256": "85653185527b51ca831b0155b35ba95fe5a8ed9d0ecf24060c5eb728b4bb831e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\api\\endpoint_codex_admin\\route_codex_admin.py",
+      "sha256": "2e4ff1dc3740d1ae199572dbbff29170eb4aabe682d8a2308a14bec2ce006b1a"
     },
     {
       "kind": "source",
@@ -171,7 +181,7 @@
     {
       "kind": "source",
       "path": "src\\api\\endpoint_codex_agent\\route_codex_agent_connect.py",
-      "sha256": "25f84c4cfe9f1a8a99cc570fcaff4129d825e65d0b467c0ee4af886d839405f3"
+      "sha256": "32b44b407e0ac3c6971f73c72ff48ac75c8315aecd4c3f3baa074f1089fb626e"
     },
     {
       "kind": "source",
@@ -191,12 +201,12 @@
     {
       "kind": "source",
       "path": "src\\api\\endpoint_codex_control\\route_codex_approval.py",
-      "sha256": "b9d3a439c7fb356df7dc9a4713af5a09727c9e85a4dc8aedff578e6cf54b0589"
+      "sha256": "71d94c8206fc326e872e1c9edb4d123ee853ed4dad0177b4448172397db9e922"
     },
     {
       "kind": "source",
       "path": "src\\api\\endpoint_codex_control\\route_codex_device_authorization.py",
-      "sha256": "75ae954839d845aeb55549fcecbcb47a03c34c15c6e0a9caca7f967d4981556d"
+      "sha256": "9c2e2f00a8bc49d7e335c3465e9841a8251a1275837af2c0b46fefb81d7ad4a5"
     },
     {
       "kind": "source",
@@ -206,12 +216,12 @@
     {
       "kind": "source",
       "path": "src\\api\\endpoint_codex_control\\route_codex_realtime.py",
-      "sha256": "47c7a94ed71deffc5d69e321dd983eeb4eccf8da8ed0ee21b45d0ced56bd1491"
+      "sha256": "cdb763243c26645c05150cb807e810cb82050f56ce9f3771e68e0942e24cae7a"
     },
     {
       "kind": "source",
       "path": "src\\api\\endpoint_codex_control\\route_codex_thread.py",
-      "sha256": "a7ff8c1dd629099fe46f6a4aab33dcffc1b75f1ed958669c3af12698c1ca52d8"
+      "sha256": "835d08378f71b37d915338f42e44910d1d5a51b713c463a644244d84f1c720b2"
     },
     {
       "kind": "source",
@@ -276,7 +286,7 @@
     {
       "kind": "source",
       "path": "src\\api\\fastapi_app_assembler.py",
-      "sha256": "31835a67cd787fa835297efc667638116468a938a37f05e928ccd048311ffd09"
+      "sha256": "5d650250f3e2554d87c1c9fd00024ee34c4e81bfb414f586d0fdd12d6e49eefa"
     },
     {
       "kind": "source",
@@ -326,7 +336,7 @@
     {
       "kind": "source",
       "path": "src\\api\\web_module_manifest.py",
-      "sha256": "75f1b6667aae47247f3298426126680e842adf6e052dda1f5e93a93cc028424d"
+      "sha256": "6e68589daf8730f0e6c775f13d229697af456c167b922d9700dd6cd81aec08eb"
     },
     {
       "kind": "source",
@@ -456,7 +466,7 @@
     {
       "kind": "source",
       "path": "src\\application\\admin\\identity\\shared\\admin_identity_command.py",
-      "sha256": "d43052b7a633310505e9a5296a365a0fc6f50852f62d3b21fed2219f6b245c21"
+      "sha256": "b4ab7f045a4d5905166cf3cbe72e4b13d3f5a1146c0296698315503466d10978"
     },
     {
       "kind": "source",
@@ -487,6 +497,11 @@
       "kind": "source",
       "path": "src\\application\\admin\\identity\\user\\replace_admin_user_roles_usecase.py",
       "sha256": "d8fcbfc78180df0f4751cd4d7f5451efa7831be361d9d1d2a635aefff3cdfa19"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\admin\\identity\\user\\replace_admin_user_scopes_usecase.py",
+      "sha256": "d4f1e102972f73525c243604e52e53df88694a28e00ad5fc8f9c051d4fee8450"
     },
     {
       "kind": "source",
@@ -541,7 +556,7 @@
     {
       "kind": "source",
       "path": "src\\application\\artifact_release_orchestrator.py",
-      "sha256": "36779bec07c95b0e25759702691e3360f1eaca4f785a3c44aa3373e0d089ec88"
+      "sha256": "b7febf2f635bfb76be88e880f6993e69ea489d59ee24b10cd5e6bc484a1ac79e"
     },
     {
       "kind": "source",
@@ -556,17 +571,17 @@
     {
       "kind": "source",
       "path": "src\\application\\codex\\codex_protocol_mapper.py",
-      "sha256": "a7dbd3f1d0968619485cefecc812976086ee54dc365f6d8b5782da4466f253bc"
+      "sha256": "d6b9c6692579ff1bceb5c4812210851deda08b113ee84c4bfecddd82b05a9efe"
     },
     {
       "kind": "source",
       "path": "src\\application\\codex\\execute_thread_command_usecase.py",
-      "sha256": "78602310f0ff704865773a545344f69769f525cb5de036f0a73934173b3f0d42"
+      "sha256": "b1dce22c06b82f26c919b8689a8dfe1c8af0ef7770732455b4de255dce20ea6e"
     },
     {
       "kind": "source",
       "path": "src\\application\\codex\\list_hosts_usecase.py",
-      "sha256": "9e04a8ae255cb7c084c2468eac9fd8d1d73aa969c21d0d9308d818ba0aa62b62"
+      "sha256": "eacd5208c80e067ef7b7691e283db71cdb94d147317be7006bf133e5f11e2013"
     },
     {
       "kind": "source",
@@ -576,12 +591,12 @@
     {
       "kind": "source",
       "path": "src\\application\\codex\\manage_approval_usecase.py",
-      "sha256": "bc269abf6f3aa340ee615dd9e49eaef4be12044a5215e4f69dc0b8844d10d52d"
+      "sha256": "d5e02de13acaf46d7c060068bfabf3195cfa4185bb3c6b34065160fbaa8bcd83"
     },
     {
       "kind": "source",
       "path": "src\\application\\codex\\manage_device_authorization_usecase.py",
-      "sha256": "aab90827caae928530f5a230a2ae83e8a573c6ef1adcb75e102aeb2b51afc036"
+      "sha256": "a2508d20380d01467ba0d4d53cd13996d3eda97d63811d37f02e5874052a8ecf"
     },
     {
       "kind": "source",
@@ -590,18 +605,33 @@
     },
     {
       "kind": "source",
+      "path": "src\\application\\codex\\manage_enrollment_intent_usecase.py",
+      "sha256": "ce90b17175714c9c4d055453e2834f696f8f16e26637840d866c902b4627666e"
+    },
+    {
+      "kind": "source",
       "path": "src\\application\\codex\\manage_host_usecase.py",
-      "sha256": "515dbeb939f297cb285361517fcdef93bb4298e892e8c2b301d05e2d2fc29bfb"
+      "sha256": "12a50b316156e63eb8271fa4a1c6402dccb8fd477706af0fd5c655c03ae8e31f"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\codex\\operation_projection_service.py",
+      "sha256": "a747dbcf5ce7f3de1bfb1935f58afa39f0a31fba5ecd5dc33d5056b9e32bfe66"
     },
     {
       "kind": "source",
       "path": "src\\application\\codex\\query_threads_usecase.py",
-      "sha256": "694ec56dbcab9572cfaa5f45e6af7651b645e70dd327765c84bc2a883e242ff9"
+      "sha256": "db76bda4ee871862855ba0dee1cf91a606c32fd9b4c02733f460dff1c29117ae"
     },
     {
       "kind": "source",
       "path": "src\\application\\codex\\read_thread_snapshot_usecase.py",
-      "sha256": "8f8ef5846916d05dcd7d011b54f7cdec4472acfe3a0f60f3227efe2b9186f524"
+      "sha256": "d9a6a248a7fbf8baa8d39d4f90b01115ef4c8218c2e16e705edb62cc602f89d2"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\codex\\revoke_subject_agent_access_usecase.py",
+      "sha256": "bd96f3f148ee6f91d886dce19b23abb55ff075b66d7a0254a745ab9e625c7862"
     },
     {
       "kind": "source",
@@ -611,12 +641,17 @@
     {
       "kind": "source",
       "path": "src\\application\\codex\\sync_agent_state_usecase.py",
-      "sha256": "f6bec546ef29ea5a3f4e847953692d1d6663168f9f6b03837ea9b8eeb77d1a35"
+      "sha256": "dc92c2c52de775830f99999bf3153de3e8f28aab2251f0e2ca1d2bb2ef019b88"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\codex\\update_thread_preference_usecase.py",
+      "sha256": "58015a3a775363720ec5f0137b8edaf5d9d7bd53acbe2dc1062cd6d3d82e7343"
     },
     {
       "kind": "source",
       "path": "src\\application\\codex\\update_workspace_usecase.py",
-      "sha256": "5796572bdcf15fa8e8c73132759df65243df2cf004392e03801782ea59bf51af"
+      "sha256": "a6a520e63bdf41598600a9a506e305dc03c648ff909280ac14b69e862c5f1da8"
     },
     {
       "kind": "source",
@@ -636,7 +671,7 @@
     {
       "kind": "source",
       "path": "src\\application\\issue_step_up_grant_usecase.py",
-      "sha256": "d158d25294ca51607671308a26bb0940666de2cb98a1c422b7696f41e24aa40d"
+      "sha256": "60bb569fab9598812be754176b7e1b858ac4e855e9119b5e0bbe390c71358ab3"
     },
     {
       "kind": "source",
@@ -651,7 +686,7 @@
     {
       "kind": "source",
       "path": "src\\application\\ports\\admin_identity_port.py",
-      "sha256": "6d1a31fbe575b8b5164ec45625f5f02b7f570df7183b88887445803faaff481c"
+      "sha256": "fb54b272593590678929ee628359f8ee8839917c0204b81e452b0e7b4c39e921"
     },
     {
       "kind": "source",
@@ -686,7 +721,7 @@
     {
       "kind": "source",
       "path": "src\\application\\ports\\artifact_release_port.py",
-      "sha256": "4e9357d471ed1bbdccc147dedecd5e9d50b9c04efc569089528db813140f9406"
+      "sha256": "99a955520b0664d9eb4923c964b1d234ff0d29ed1f936561e79b49939ab8131a"
     },
     {
       "kind": "source",
@@ -755,8 +790,13 @@
     },
     {
       "kind": "source",
+      "path": "src\\application\\ports\\codex_enrollment_intent_store_port.py",
+      "sha256": "97935e7d099ac93af20b49042f6cdf31b4ae8aaa38ef78e8f30ad8871f3e0157"
+    },
+    {
+      "kind": "source",
       "path": "src\\application\\ports\\codex_host_repository_port.py",
-      "sha256": "38a67906b541a71fd263776c55398c3aa8f1b0af5f8641f2d1a660f44f8d75e2"
+      "sha256": "da4310638fd212e11b6a584939d1e69d04d8483177e2413113973e2d7b9b740d"
     },
     {
       "kind": "source",
@@ -766,7 +806,7 @@
     {
       "kind": "source",
       "path": "src\\application\\ports\\codex_realtime_event_port.py",
-      "sha256": "2e3e28313fd1ece7897a364f726528e44e190a61beb0066dcb95603cce7d76e4"
+      "sha256": "2ea285e498f9b500fbf0017429e36cff39f6d6d18b9ccc87cc443473ee0d298b"
     },
     {
       "kind": "source",
@@ -776,12 +816,12 @@
     {
       "kind": "source",
       "path": "src\\application\\ports\\codex_thread_repository_port.py",
-      "sha256": "93cc128a7740e239ca0a5ccd67fdf0f3070a8d46a76d88a8fe2b4f453497d290"
+      "sha256": "2b4856c952f92965b14a1a548d82828ec397e79bea953f83a424175bb7cdaf34"
     },
     {
       "kind": "source",
       "path": "src\\application\\ports\\codex_workspace_repository_port.py",
-      "sha256": "862cb144bcd748bc9e8137911a219e04aa1194470eaf56ab6885b6b96d79c1b6"
+      "sha256": "c55088e39dd89eb0183a641618d4134c941c7c878028e94754600002f837b446"
     },
     {
       "kind": "source",
@@ -806,7 +846,7 @@
     {
       "kind": "source",
       "path": "src\\application\\ports\\step_up_grant_port.py",
-      "sha256": "256f7dccab4954a80e4247f58a4f02f812b91319b59685948764702c0c848c5c"
+      "sha256": "0b8027f77f00a11a443f83f39bb72acc4a4182c5bbc41cd16b76ea825c58b7c3"
     },
     {
       "kind": "source",
@@ -827,6 +867,11 @@
       "kind": "source",
       "path": "src\\application\\refresh_access_token_usecase.py",
       "sha256": "44f01633fdd5ea36e0ada698d82762ac221c7cef39bc0232e6ff30d5c1acb82e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\application\\register_user_usecase.py",
+      "sha256": "8b63262e12215dab13c66bd7d83f199ceb17555640095283cea2d26b3e745cd6"
     },
     {
       "kind": "source",
@@ -870,8 +915,23 @@
     },
     {
       "kind": "source",
-      "path": "src\\cli\\agent_launcher.py",
-      "sha256": "ed52b1eeed56fadc5e5834f3e143a4620566077f61b87defd0975969e2249a23"
+      "path": "src\\cli\\build_codex_agent_bootstrap.py",
+      "sha256": "d3c820af9a35d1fa076a4c6bd0ec58a9ecfef1b0a8d0ebc5d98fbf3c59a09942"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\build_codex_agent_installer_identity.py",
+      "sha256": "7ad5ddb5163ae362d601272e12507509a6567fcb4a47b609815e6c456681632e"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\build_codex_agent_release_assets.py",
+      "sha256": "b0eb1aff228aee7c17da15dc87f8b8931ec0b2d456421ca179d89eade83d1c1a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\build_codex_agent_windows_version_info.py",
+      "sha256": "2008a92a4dbfbacf02d4e21e4d2d627b7a2414bcea8bfcbf8917e5b1ea71dbc4"
     },
     {
       "kind": "source",
@@ -891,7 +951,7 @@
     {
       "kind": "source",
       "path": "src\\cli\\probe_codex_app_server.py",
-      "sha256": "8251b8e3f79a6ffb142470dce51eff51776ea575725cea86c21b4537bb0b8a18"
+      "sha256": "3e739f57fe5d676af1333ec9f399df054727b4cce25beb1e373739a3eab60bb3"
     },
     {
       "kind": "source",
@@ -906,7 +966,7 @@
     {
       "kind": "source",
       "path": "src\\cli\\run_codex_host_agent.py",
-      "sha256": "8339a793c4368fade50662207fac6773930192ffd531129e6b733754199cf7dc"
+      "sha256": "b4766906f65e64fc307f47084302c26e7b23941fa8ab87c07af4923757cd76f9"
     },
     {
       "kind": "source",
@@ -930,6 +990,21 @@
     },
     {
       "kind": "source",
+      "path": "src\\cli\\sign_codex_agent_tuf_repository.py",
+      "sha256": "6a94a200184767d0dc1b89b159c09d3cbe0746f04d9274e339e24eda8010e9fb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\stage_codex_agent_release_repository.py",
+      "sha256": "3add3f585e3bbc4af9f2fad9250012f5c338bd905dfa9dab42ef1fc8b20f5294"
+    },
+    {
+      "kind": "source",
+      "path": "src\\cli\\verify_codex_agent_tuf_metadata.py",
+      "sha256": "8d973febf3113d2245833ecafb907e838195d2c595a6b589b4ad45cdac1ed09d"
+    },
+    {
+      "kind": "source",
       "path": "src\\core\\__init__.py",
       "sha256": "27c16f1ae75cec6f0998e9e57765161aaff1a37ded0ac92adc24d0eea18b4ea4"
     },
@@ -941,12 +1016,12 @@
     {
       "kind": "source",
       "path": "src\\core\\artifact_release_contract\\artifact_contract.py",
-      "sha256": "b63b737c4236289a16f590f57612ccdd73383bd153a0feaeef170fa0426cbc6b"
+      "sha256": "bf4f1c70863d2504ee3caaedde509742821aad71761ba142468fe4ebdcb13aa9"
     },
     {
       "kind": "source",
       "path": "src\\core\\artifact_release_contract\\runtime_contract.py",
-      "sha256": "3f1856d689a5e65cfc2f78daf207235ec93d2e8f88ed96c121cffd32af39e94b"
+      "sha256": "9ec78040b7bcb3b25f29155aaed46969ec4e3099b877aa7bb951fd383597921f"
     },
     {
       "kind": "source",
@@ -987,6 +1062,11 @@
       "kind": "source",
       "path": "src\\core\\auth_contract\\refresh_token_invalidation_contract.py",
       "sha256": "00b6ad968caf5f19173751902aed9c27963d6cffe3a0acb07d59d54f160c4bf8"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\auth_contract\\step_up_grant_contract.py",
+      "sha256": "471393cf03ead949e6daf5923567d3c708dd18b26e29083adb408c08e98c86ae"
     },
     {
       "kind": "source",
@@ -1045,18 +1125,33 @@
     },
     {
       "kind": "source",
+      "path": "src\\core\\codex_contract\\agent_diagnostic_contract.py",
+      "sha256": "d1b0b2e5a0b55cfbe25674621f14a7bb144e0af70518bd1c6958222305102232"
+    },
+    {
+      "kind": "source",
       "path": "src\\core\\codex_contract\\agent_enrollment_contract.py",
       "sha256": "7c86793a2940afc93591f1cdb5cb58b3825c3c68db659408c0643cce6dcf650d"
     },
     {
       "kind": "source",
+      "path": "src\\core\\codex_contract\\agent_event_cursor_contract.py",
+      "sha256": "344fcadd96ed80ec6247004565457b64c4f2d223fb2a8209d2a7b9f129acf633"
+    },
+    {
+      "kind": "source",
       "path": "src\\core\\codex_contract\\agent_protocol_contract.py",
-      "sha256": "3b6aaa27a7fe3506f9569f4b242f5b13cdd9d7a79b8e3f186c666a6dee8d80f8"
+      "sha256": "27f971f16179161e3e3c3b0d12c2c2c224a66d2dea0a6b8a54e658f55849cfbd"
     },
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\agent_protocol_v2_contract.py",
-      "sha256": "5da090d969d742a8dc2607d7ba08b2614b729f2a4e2c5085b9cc639e44f94bb4"
+      "sha256": "4693a0b2612d4d8a37ae3b72c04126a87570767e82f5c31f1f57df84a70073cb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\codex_contract\\agent_release_manifest_contract.py",
+      "sha256": "198dbc6874d103e0e4d09086b389bacb9697edeb39900cfdceaf1bc0599affd4"
     },
     {
       "kind": "source",
@@ -1076,22 +1171,22 @@
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\app_server_product_contract.py",
-      "sha256": "b02c63f6bac3fa555c19391f830190d075b56ac48f408a09637343b6c8e3801d"
+      "sha256": "7d56d3ae6ec3077d18a9af2cf51c01e18a11adfd81c5022a20b9d63b0cca7af7"
     },
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\app_server_schema_manifest_contract.py",
-      "sha256": "a574b6e5873241b6c7de8f8cba84a6a52919c443c6db660b77444af9f908df1c"
+      "sha256": "1e085d61801e0e6bdafd4a87adb9134bf46ae20693d50e6884cd7491da860c2b"
     },
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\approval_contract.py",
-      "sha256": "6806b65359ea83a98dcebab83cc548c8f0ba71414d1950c2f975e3a7bb2cc6c4"
+      "sha256": "187c76546958705b410ad09ae59fde626ba675da22f282e5a3625a50b3c75e20"
     },
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\codex_runtime_contract.py",
-      "sha256": "510ac8bcf1bd34935b0aae18ab604b396807321636ee2f419bd697b75df0023c"
+      "sha256": "b69a2d5920fc483bc63257120317936eb028f0c18c1d6e39c30b4c0d5fae8908"
     },
     {
       "kind": "source",
@@ -1101,7 +1196,7 @@
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\connection_session_contract.py",
-      "sha256": "002daf0556d6a371a875d946e4ce631674dee3731d9907b91dcd373181272e1a"
+      "sha256": "df7847260366b6638309fb1e0d44cb0eae7e59e6ac049a30ac2e4729626814fa"
     },
     {
       "kind": "source",
@@ -1120,8 +1215,18 @@
     },
     {
       "kind": "source",
+      "path": "src\\core\\codex_contract\\enrollment_intent_contract.py",
+      "sha256": "895f723a357bbbcbf2f00b60d6ecc1bbf06c37778c4caf0a10fcf64f0734b728"
+    },
+    {
+      "kind": "source",
+      "path": "src\\core\\codex_contract\\execution_root_binding_contract.py",
+      "sha256": "2a89376fa1320601e58e9032df5ecc1046aa7137b09fd8857570e0a7fe0a2063"
+    },
+    {
+      "kind": "source",
       "path": "src\\core\\codex_contract\\host_contract.py",
-      "sha256": "2bd87f041c4afb1fd21cbaf9bc4c67dd47f740f1f5657e965b9eda3adc454a6c"
+      "sha256": "4759a63bb43e8e2930adcd1039ca5cdf6ed887e6d90e81526bc30814da1abfc2"
     },
     {
       "kind": "source",
@@ -1131,7 +1236,7 @@
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\operation_contract.py",
-      "sha256": "59f8695141035d894e2f287d2610ad7d7f9d5e49a86fac19faa9ad6cdcc6a2b0"
+      "sha256": "0206399ddd56ff44a8d9940a3159b1c063770ca88407c8a20361863ee811dcd7"
     },
     {
       "kind": "source",
@@ -1141,7 +1246,7 @@
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\product_command_contract.py",
-      "sha256": "7170176f711b28e09faf9cf535bdff5fce7cc7c4a4d9ea9b5c623d5bcc11600b"
+      "sha256": "bfc207bdbc172e67f1bc8f6aa0a8d27e332b4a60b1c26d7fd3282d0888be368c"
     },
     {
       "kind": "source",
@@ -1151,12 +1256,12 @@
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\realtime_event_contract.py",
-      "sha256": "2cb17fa26a9473e99cd301274e3919967c75548e9b542a78585875040228d043"
+      "sha256": "ccf3c96afe521fff29c4174be09005558c06ddd2efdfa58f791a569942c394f0"
     },
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\thread_contract.py",
-      "sha256": "3ad3a6f98bd16f70503475166db2b44ae7531e5e29a9d2ece0aaccfd5816e241"
+      "sha256": "6a3cdb663550512f9cfecb0073c4beaccb4cda904f8550379d7b1537c3fd93df"
     },
     {
       "kind": "source",
@@ -1166,7 +1271,7 @@
     {
       "kind": "source",
       "path": "src\\core\\codex_contract\\workspace_contract.py",
-      "sha256": "27264d5911c0885d205428690ce342f128e66291dcc8e96d84906612c726ae9e"
+      "sha256": "7a06734b53c3927c74d358fa02b7fad4b13a50148f3a732fa5e1f848d8a312f0"
     },
     {
       "kind": "source",
@@ -1271,7 +1376,7 @@
     {
       "kind": "source",
       "path": "src\\core\\http_contract\\web_bundle_contract.py",
-      "sha256": "05c18fff09da8e0278fe28cd9e2df46c82addfce7b80e209d4870146d659c358"
+      "sha256": "ae9e9e7f42c9fe264024fcc7eafb0904c05635b3914b9be7b0fc55f7f638cf21"
     },
     {
       "kind": "source",
@@ -1531,17 +1636,17 @@
     {
       "kind": "source",
       "path": "src\\domain\\auth\\auth_error_code.py",
-      "sha256": "6ef4e57a422d321164badf6478386323b535bacbfc75db1e22ec524fd2380a54"
+      "sha256": "30aef5da93458013ff87135f6fe4c7b71fb7b0c7d7bb18f4e4dafcb069ac0b45"
     },
     {
       "kind": "source",
       "path": "src\\domain\\auth\\auth_role_key.py",
-      "sha256": "e570bba5fc3db41947d314441303aa1d28c8bf1295f2785f8fde63c9ad5abd76"
+      "sha256": "d3cf110738e09e2972b18e106fdf3d54846738d890772fda964fda28a138b167"
     },
     {
       "kind": "source",
       "path": "src\\domain\\auth\\auth_scope_code.py",
-      "sha256": "496aa2599b081c43a3c841e7eb956f79526edb6d538404a71dd0e2ed79b978f9"
+      "sha256": "a0f8a1b3d15ff7848f894b329cda45eb0ab109f4bdd80a290fe0a82999d59fa6"
     },
     {
       "kind": "source",
@@ -1556,7 +1661,7 @@
     {
       "kind": "source",
       "path": "src\\domain\\codex\\agent_command_policy.py",
-      "sha256": "914e9243c63c62a6e5cbe055bb86982f51e5b2c1b13826357b765e452fcf29b7"
+      "sha256": "3ac37ebb7b140038e81247c9c6718563e0433cfc1eb11d9331423834eae608f7"
     },
     {
       "kind": "source",
@@ -1565,8 +1670,13 @@
     },
     {
       "kind": "source",
+      "path": "src\\domain\\codex\\codex_admin_authorization_policy.py",
+      "sha256": "f01e6fe22fd6f460fbb2f1b227aeb1b0b1ddfd3147d46d72e2f00ce46387e5db"
+    },
+    {
+      "kind": "source",
       "path": "src\\domain\\codex\\codex_authorization_policy.py",
-      "sha256": "c01589ea60f6dfde782df57b059f181371d5f38f99ede6639d343b0f89823d00"
+      "sha256": "e5764b306a44353833498c1e20a1f5e6219c292f7dcb75a769705886263f8613"
     },
     {
       "kind": "source",
@@ -1576,7 +1686,7 @@
     {
       "kind": "source",
       "path": "src\\domain\\codex\\codex_error_code.py",
-      "sha256": "9ab48852b085703c7fc0b54bc062fe52ade7db2eac6b5036e5ea128fd5788496"
+      "sha256": "7c6719d358c8eab1147fdb55be9ce4eb1735d637c24f3b6c3b2c64962f5a2f67"
     },
     {
       "kind": "source",
@@ -1592,6 +1702,11 @@
       "kind": "source",
       "path": "src\\domain\\codex\\production_rollout_policy.py",
       "sha256": "1399d60c17abd020aba43f0e5fb2a089fb1f1bc74c8e2f321230bab2de6bd2eb"
+    },
+    {
+      "kind": "source",
+      "path": "src\\domain\\codex\\thread_title_policy.py",
+      "sha256": "34ee8c1cb26b725ed61f7601b8d543eebcac36d7f308e7f06f1b9350982213a7"
     },
     {
       "kind": "source",
@@ -1616,7 +1731,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\artifact_release\\composite_verifier.py",
-      "sha256": "fe582216cc93180f5c084af14fd0c37235cd48b2387268b3c3c45f090276fc32"
+      "sha256": "e5bb1eb7b5c1edd5b92bddaded0aaf29be795adf9f4ab098d3552be75db3d331"
     },
     {
       "kind": "source",
@@ -1641,7 +1756,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\artifact_release\\signed_activation.py",
-      "sha256": "a1a50b5794e8761a0f1a8c4a3077a578474276530c69a58908f1deab41ffa228"
+      "sha256": "e314a9d63f0667e1ea48567bb331acea27e9642c9b0ffeb73f7ade96fcb96583"
     },
     {
       "kind": "source",
@@ -1651,12 +1766,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\artifact_release\\tuf_catalog_adapter.py",
-      "sha256": "2d0ea51b54c14d80fbf466d5f3d37d91b3c393402105f16fd3c6beda18755b1e"
+      "sha256": "6acf2a4a76b0f97c050aee06abfbae9ba0ca33b8962b601c303972017c45cb8d"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\artifact_release\\windows_authenticode_verifier.py",
-      "sha256": "348870772b1634260e3cd1b88cebd302cc57e330a54f42e2c92ab214e7fcb960"
+      "sha256": "fe698ef9dce699a91c6edf1da2588818ffd4188747ec29f6c72c39afe7aa600d"
     },
     {
       "kind": "source",
@@ -1681,7 +1796,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\auth\\jwt_token_service.py",
-      "sha256": "9f0757fae8dc394e0789c9fd1d0ff96531d1dc65d6bbe7889db8c45fca91ed7a"
+      "sha256": "1e3b4e426d399d6947afa0e54fc9dc141cb1bd1bbfa892d22025ef2cb4fe4f41"
     },
     {
       "kind": "source",
@@ -1692,6 +1807,11 @@
       "kind": "source",
       "path": "src\\infrastructure\\auth\\password_hasher.py",
       "sha256": "f862f79a03ac8737ee53941e1f8168afd09ae07c1cd4f5b6433ff95a458c878a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\auth\\public_registration_role_synchronizer.py",
+      "sha256": "bdf3406cbf22905e2c009383763d0d3d1d85dea30096e9828de15029d7de0274"
     },
     {
       "kind": "source",
@@ -1741,7 +1861,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex\\agent_protocol_codec.py",
-      "sha256": "a20fe1b8d25f784ebea19a0cc0b849356a62af13f92c5f3854f25dc1bcc7e05e"
+      "sha256": "a450a47e0ffa6766d9add431448fc11ea74017447794b6510385baac5a635151"
     },
     {
       "kind": "source",
@@ -1755,8 +1875,13 @@
     },
     {
       "kind": "source",
+      "path": "src\\infrastructure\\codex\\codex_agent_event_cursor_store.py",
+      "sha256": "ab0ddfff0982282b2e9da6759a6b8e0fed71f0db17a980a5f38a6b9c5a7f3164"
+    },
+    {
+      "kind": "source",
       "path": "src\\infrastructure\\codex\\codex_agent_gateway.py",
-      "sha256": "90fe52456a2deb656403bb76a7016df2a5246125c91d188526a9be4adee39234"
+      "sha256": "a337ef72f775cf4adf4b8d8e864470db0fa0c975593d519630c41dd164d7707f"
     },
     {
       "kind": "source",
@@ -1766,12 +1891,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex\\codex_browser_event_hub.py",
-      "sha256": "0013b704db77abc6f14fd000f430dece3afbd603a9e8a6d098e54f3d2a06b568"
+      "sha256": "c2de00b8c3beb7d7b22a176f03d44e398499bbbe521b484053425a431bef44c9"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex\\codex_command_outbox_dispatcher.py",
-      "sha256": "ea517ad691c7de2d3389d69a0310aaccd299c47800fdfc082ff3a7e69fe6d808"
+      "sha256": "1f33411aa7122e3079ab797c29df725f619fe889a2b00585118f2bf212848b0f"
     },
     {
       "kind": "source",
@@ -1786,12 +1911,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex\\codex_connection_session.py",
-      "sha256": "cf492ab4e63637873d2c74e9b3655646d19a102cc8bbc60609e1d58160af7458"
+      "sha256": "a9749d9868e29fa11f2c793bf2877074a9db7d99e66b911f7f82042824de8348"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex\\codex_control_runtime.py",
-      "sha256": "8173c2206ea5d4099d818cb11f4ebfcd98acb3433367a5a1f70fc5b3037cfb93"
+      "sha256": "e15e892409c6021c46925ad12579d72f19317201146c02f8a9b942e7f97a588d"
     },
     {
       "kind": "source",
@@ -1805,8 +1930,13 @@
     },
     {
       "kind": "source",
+      "path": "src\\infrastructure\\codex\\codex_enrollment_intent_store.py",
+      "sha256": "61dde11aa663a49dfbb76a164de5a7cf5570b1829155d23bc3432b6f124b153c"
+    },
+    {
+      "kind": "source",
       "path": "src\\infrastructure\\codex\\codex_host_actor.py",
-      "sha256": "bb2485b6bb44ba9198cae4841b0229700b1fa701b2ab0b47f1efbb2ec98693bc"
+      "sha256": "3da400136ed2929e84aeaf2eff87c68dc7e8de2a7ebc34688e3e0b7631505675"
     },
     {
       "kind": "source",
@@ -1831,17 +1961,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex\\codex_realtime_stream_adapter.py",
-      "sha256": "37c6e1514d084c75a21ed65a292e2735cf712e8497bc7ede5b0d446af7c28313"
+      "sha256": "6b158b630974fbdd7e0b01e3915b8fdfd42392410cc90ac30f7cf632f44cd072"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex\\codex_runtime_facade.py",
-      "sha256": "e9a5f544ac5b671607f4c3d85bea0504eef02d763a5a95d52224e986a61658e9"
-    },
-    {
-      "kind": "source",
-      "path": "src\\infrastructure\\codex\\codex_step_up_grant_service.py",
-      "sha256": "2dd8beb52f5d971654dd558f2e5f136c12dc2a290380a3d4b2ea6c3571d0a4cf"
+      "sha256": "03673e7f771b44b6bc32f8d3d9e4ca2da596aa72ba377ce3689ecdd10fd1872e"
     },
     {
       "kind": "source",
@@ -1851,7 +1976,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\agent_command_executor.py",
-      "sha256": "49699aa02a0c71d9e5e26a652fae029cba8d81e3a026e11782554b29524f5e0f"
+      "sha256": "68cc0f6ce9d746f3b1ec1c24f892e297f94672c6ee1919550d26d5265d6faa32"
     },
     {
       "kind": "source",
@@ -1861,7 +1986,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\agent_configuration.py",
-      "sha256": "a4253dd854bfb24e835a8f893ba87e30d9354b640380d212c13cbdc1c387797f"
+      "sha256": "0d079678f85ef386abbb6ee3ec0f18d21210890a702011a491f19ca8b9c6b23e"
     },
     {
       "kind": "source",
@@ -1871,12 +1996,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\agent_control_channel.py",
-      "sha256": "86c027ef83ace2ecefb57dcf5cf2c4f24ce384f543f2e12ffff09b0c6ffd2ee2"
+      "sha256": "b1cd0a0405c7cc3d2c5c0c987d3c121682f25c014196f3ac9989647cf882b9a4"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\agent_doctor.py",
-      "sha256": "e33720361ca79da87b47a977647e4612961813ffde69fc02df375d6f0cdc8a3f"
+      "sha256": "c41ae9fa1e1a67e39278fb8ff415858bdcc006c24e147ae855e18fc58f16641e"
     },
     {
       "kind": "source",
@@ -1890,23 +2015,48 @@
     },
     {
       "kind": "source",
+      "path": "src\\infrastructure\\codex_agent\\agent_executable_selector.py",
+      "sha256": "1e9e2f84ad6fef51317aad7728066d2da66fa5b795e4b6cc9578503bdba52ca7"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\codex_agent\\agent_execution_root_store.py",
+      "sha256": "b18e43b8b4973e613040630d909af8163da20ac8b685a0666e34432cc6fd7954"
+    },
+    {
+      "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\agent_release_runtime.py",
-      "sha256": "59440b1e96db5028db35c3819e62a9d441e981fd836bb9dfb857b35db66a5f7e"
+      "sha256": "3e9400f0276d6c8c307123f2846ab95386348c4787837ca974b9cadb6e188d7a"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\codex_agent\\agent_runtime_version.py",
+      "sha256": "14ae35adc69f804631eb3cae5e7c77c843e9fca9fa78fc0f54e53cc66131a0b7"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\agent_secret_store.py",
-      "sha256": "48361c0df3f06371763db295f7ed1407e4010eec9efd076dd50f9774698c1737"
+      "sha256": "f182a3082043a67d1282bedc1446e00f33a8710216e73e19589656cc3c9027d6"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\codex_agent\\agent_settings_ui.py",
+      "sha256": "926f6bd84a8e44d8ae13c9b963e63c6247466ff753b31c02c9cb1c99fc198d7e"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\agent_setup.py",
-      "sha256": "61c3926269e30e8d7a8d7960528553e512b63361e576aba052aecdb6bb5f0d3e"
+      "sha256": "15efa1a7dcb4948aa00a6587b35ecc9d233cd00b7364e861857de7dfdad3e275"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\agent_snapshot_builder.py",
-      "sha256": "3c4b7f1f71f202d4b05fb2839a9261d83fe68b8ab37544e59c696e210c747e14"
+      "sha256": "3b5863b8b047c942fca3a8d543308928b83fcf4e423c415278b8c1c25825ed67"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\codex_agent\\agent_startup_updater.py",
+      "sha256": "1141e7238f57ffc4a58b1fcc8a77f7e502129fee3767c7aecefd5b46ce0a9ac5"
     },
     {
       "kind": "source",
@@ -1915,8 +2065,13 @@
     },
     {
       "kind": "source",
+      "path": "src\\infrastructure\\codex_agent\\agent_workspace_configuration.py",
+      "sha256": "f773835ce8f6c50c54c01b93593daaaf137bd1508b63b93dad2d02018ef23328"
+    },
+    {
+      "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\agent_workspace_registry.py",
-      "sha256": "9ce61cc5be509944549d77088fad913e632e73ff793866ddc3ea1e3b03c0fa4b"
+      "sha256": "52c544dec1e503b00810de4c78ca6a9af734d1dd30661405cc438bbdd14f2925"
     },
     {
       "kind": "source",
@@ -1936,22 +2091,27 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\app_server_process_supervisor.py",
-      "sha256": "dfd0fdda57c7bad79a1157ad951c2ccf6756eb17f3eb6e32e828e5e30a0e6c2d"
+      "sha256": "bfd041e3004f1e7450bb16503634de102fdc1b2e7984b1f00cf63acfba4d67b0"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\app_server_protocol_adapter.py",
-      "sha256": "36342c9de3734111e890d36c8a015ececbe3dcc80a23900812751cf5a9e0e4a3"
+      "sha256": "84400c2be4c360695377dbee85ecd22e9c519fa78b1990f9a9e7460edc7e130e"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\codex_agent_update_coordinator.py",
-      "sha256": "88f07c7536735f79950c0cd8594d42c97e2475350d879636638725eab2535008"
+      "sha256": "6206b4a5e7edd928b09a01a25d0b54f1893284ce16fe4cd669854efaa5b00c2b"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\codex_agent\\windows_agent_task.py",
+      "sha256": "9b52315cca82e718e8b6145a92979d8ab788305ad1fe74d928e51a7d651bbd26"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\codex_agent\\windows_dpapi_device_key_store.py",
-      "sha256": "7166c07f5941fab5b797c8479b5c4d10803761db0dfd3f489987315a352eb61a"
+      "sha256": "16fb15a07925ff0c9b4e0f0d4515f78e321141da8657b33f1cb76988d436cf75"
     },
     {
       "kind": "source",
@@ -2106,7 +2266,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\key_management\\key_management_service.py",
-      "sha256": "b41ee9640c21e149b1474bc64df8b0ff57c6c3ce8ef99bc721bb157ccd0c1f1e"
+      "sha256": "6bc19b53f8da1fd0d786cb5a0e241a54014b85462e8fec25b2386bc13facb4a3"
     },
     {
       "kind": "source",
@@ -2181,7 +2341,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\middleware_chain\\authentication_binding_middleware.py",
-      "sha256": "73f655892f2a39e1e8c4566410f32fb5717e2f2dac04acd929edc243d189bc26"
+      "sha256": "31c4bae822813fc8bf01ddf3b3adaed837e5da330494da09b0e488d27fd3763e"
     },
     {
       "kind": "source",
@@ -2316,7 +2476,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\alembic\\versions\\202607311200_create_codex_control_phase1.py",
-      "sha256": "98629527a3ca9ba79399ca087c59a3162b0196b4275288015da2f25222d0a9e5"
+      "sha256": "615c7bd75bf284e332b7a668d6edf086fa9a919b48798fafe0bba1a56596b897"
     },
     {
       "kind": "source",
@@ -2340,6 +2500,36 @@
     },
     {
       "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608101000_harden_codex_device_ownership.py",
+      "sha256": "39ae18737ab9c456269a64f94ec6844396ce77666546f9c7f34348348774ae23"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608101100_add_auth_user_scope.py",
+      "sha256": "e0e0bd7756a68be0d13a630b3c99e68447103dc3fb91cd5012c0e37158f73a81"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608101300_repair_codex_approval_runtime_state.py",
+      "sha256": "d3ba299dbe9238c85f1dea920bdd84ebe55aaac00788d2a6308ebda0f256dfff"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608151820_unify_codex_conversation_index.py",
+      "sha256": "baa350c23e4990eeb52a51680e217aea58c061924b914a209b05e3dc0b626212"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608151940_normalize_codex_thread_status.py",
+      "sha256": "ea51be8dfbd25b2c8e7ccbe35a1e1e4602116ba5352753c8a39443ffb31d361c"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608161230_add_codex_operation_projection.py",
+      "sha256": "920419837e17769131922d43e75ee20b9b1ce81ac91d70b95554b80ced0b3fc0"
+    },
+    {
+      "kind": "source",
       "path": "src\\infrastructure\\persistence\\alembic_runner.py",
       "sha256": "a30bfd144b7978d14c765f93a4f03cd3c186b629ef3e6506311ec69534cc6201"
     },
@@ -2356,7 +2546,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\orm_model\\__init__.py",
-      "sha256": "8c971d69c86e863f3a1fb5a7ca9256bc02f7ec318e07cc6f44b5cbaed0395c8f"
+      "sha256": "b27bdb2de019c09abdf046daa6004fc57dd051a213a5d9372e838e1e457da687"
     },
     {
       "kind": "source",
@@ -2386,12 +2576,17 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\orm_model\\auth_user_orm_model.py",
-      "sha256": "67f9a9d395f75e1449f673f6a3684b5ebf12e2cc4b65124f0df7e79be642686f"
+      "sha256": "55f85d6f49798611c51b1d29869df7d779efcd3596f08935219caaf7fb914ed6"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\orm_model\\auth_user_role_orm_model.py",
       "sha256": "d6c1c4d20fa8dbc3aed136b5ccf1a531a37fb6e5ada08434c5d6ba1b801b35ea"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\persistence\\orm_model\\auth_user_scope_orm_model.py",
+      "sha256": "b8275e67e698ddf024a7d22d7abd3b8fd3e83780cd61b9b00e44687210527ef8"
     },
     {
       "kind": "source",
@@ -2411,7 +2606,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\orm_model\\codex_control_operation_orm_model.py",
-      "sha256": "eb37b9854b2ecf251239807e68a2c4822166e85c2f708b816431949812e20d79"
+      "sha256": "120efea3be359c1e79c101233ba357820afcb1ceb1ce09a9cc3372a207747247"
     },
     {
       "kind": "source",
@@ -2421,7 +2616,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\orm_model\\codex_host_device_key_orm_model.py",
-      "sha256": "3c85f318ce1fd5ba8e0c00d9f60333436475e6e7260c3feb4586b9ccc8ebde93"
+      "sha256": "25a21e48631345128f037f57adff24ae128fc69b78bbade5bd177659f0e19ecd"
     },
     {
       "kind": "source",
@@ -2431,12 +2626,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\orm_model\\codex_thread_index_orm_model.py",
-      "sha256": "24fc8b9139ca2fbfdb47d0b324153c315626d743cab1a581c695aff1a9057cb1"
+      "sha256": "e25124f4d8a5e18405fbf29a99091a0ffea77de4375cfa3c3da0156de7e6eb13"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\orm_model\\codex_workspace_orm_model.py",
-      "sha256": "bb1b313832e154c59fab385436b8d861f8fa85649104671a5bb2bc008805d7c7"
+      "sha256": "f1dc103a515325e4292e1a7ce7c1ef545a1d210d290250bd6c5dda0325b56812"
     },
     {
       "kind": "source",
@@ -2471,12 +2666,12 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\repository_impl\\admin_identity_repository_support.py",
-      "sha256": "bb866bf5b8daf33edb6c5144f55d790224ba283f760b0e59395dd881e55dda73"
+      "sha256": "eadbe6c2fd1a43f8936e9c942f972b3b7d8b5b39374b1f610e8b71bdfe0ce07f"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\repository_impl\\admin_role_repository.py",
-      "sha256": "6f3b688a46f4e0cd2c8af914740e2fcff75920efa599241a51d670edd7a651da"
+      "sha256": "f7f16e320188e70336de2d353cf344d3327cd0ebcf3fbf98d55653008cee7b42"
     },
     {
       "kind": "source",
@@ -2486,17 +2681,17 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\repository_impl\\admin_user_repository.py",
-      "sha256": "5710555632130aa5dc7970a9ea1beb3c2654672b547019f0a5172055e578ecd6"
+      "sha256": "fb83d71304b9e79472e70adf48104ae2b4c0b2981e88920b57dafb1f5ca4951c"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\repository_impl\\auth_identity_repository_impl.py",
-      "sha256": "78a1d28955c9e893cb91df9e8b84dfc3215e4d16d61c1070625669bfb125c0e5"
+      "sha256": "54ee1dc0505e4671da7eee91153c27c08c3ee1521cd722128fd1a87a5b45b12f"
     },
     {
       "kind": "source",
       "path": "src\\infrastructure\\persistence\\repository_impl\\codex_repository_impl.py",
-      "sha256": "0e65292e88c993ffae9dc4b106281bde71850fc99a207b9333f4d1e9335175ac"
+      "sha256": "3366088a2ebce8ac3ae45c5496bfe331a10fe7db489e9a4ad1810e415c510b84"
     },
     {
       "kind": "source",
@@ -2530,6 +2725,11 @@
     },
     {
       "kind": "source",
+      "path": "src\\infrastructure\\persistence\\repository_impl\\user_registration_repository.py",
+      "sha256": "11b68531e1d7b2d33225e2541abeb23cd21cb02b246145a8aabfd53b1948311f"
+    },
+    {
+      "kind": "source",
       "path": "src\\infrastructure\\persistence\\sqlalchemy_engine_factory.py",
       "sha256": "5e28138853080513542af3b5337ec372eddde53a4d0d32117e58c56618ccddbb"
     },
@@ -2545,6 +2745,16 @@
     },
     {
       "kind": "source",
+      "path": "src\\infrastructure\\process\\__init__.py",
+      "sha256": "8601e07bb1b32ceb0f062d794c68dffec42bd0c0bb23fc7c88f36bec149e7921"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\process\\windows_subprocess_launcher.py",
+      "sha256": "c5fb9020b345a5c8f6990ce4ab3197aac705c9dd897ccc613dc29f63ea45c544"
+    },
+    {
+      "kind": "source",
       "path": "src\\infrastructure\\request_execution_bridge.py",
       "sha256": "8d481fe63014d6135e4098808167bec283a95a7a15cd54add07f3e65be17c569"
     },
@@ -2556,7 +2766,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\resource_mount\\admin_identity_resource_facade.py",
-      "sha256": "2b54dd15291ff8a16997d10cf38fafcd04d583025feaa1ad1baa62fff71bf6fd"
+      "sha256": "d2313dbd3aa78f094a7053fb2f6fc3419653d14c23b6f857671e2d40f037730b"
     },
     {
       "kind": "source",
@@ -2581,7 +2791,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\resource_mount\\runtime_resource_bootstrapper.py",
-      "sha256": "ef9d91cb2fb058b6e828df882f313aa8e1cb7661194de5a4f67724e0b29368fb"
+      "sha256": "b407769063430a042800b0b39bfaf344b95b5a26ffe2c3e79b58ca43816b05f2"
     },
     {
       "kind": "source",
@@ -2606,7 +2816,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\resource_mount\\shared_resource_lifecycle.py",
-      "sha256": "d59fdf02d65d6db523f0ea4d6aaf1c32433106ec5c086be317817ba8d2df63c8"
+      "sha256": "9814c36b06a5ce52750470632afd7d88733678edcd4b9158b5702936ecee2c09"
     },
     {
       "kind": "source",
@@ -2617,6 +2827,11 @@
       "kind": "source",
       "path": "src\\infrastructure\\resource_mount\\task_resource_facade.py",
       "sha256": "1b4656caf89f2e372f5e8c42a87b210dcf6cda6ab2692fd0264cf13c3dfbbc53"
+    },
+    {
+      "kind": "source",
+      "path": "src\\infrastructure\\resource_mount\\user_registration_resource_facade.py",
+      "sha256": "06ae6518b0a6abc751bea7946274226016806100220683c24ab4aaf1ae6e0a4c"
     },
     {
       "kind": "source",
@@ -2650,8 +2865,13 @@
     },
     {
       "kind": "source",
+      "path": "src\\infrastructure\\security\\browser_origin_resolver.py",
+      "sha256": "ad30d1f2d8b85cdcbf75edb493679fd33adbf14901c4a9aa66fe175f35522e22"
+    },
+    {
+      "kind": "source",
       "path": "src\\infrastructure\\security\\client_ip_resolver.py",
-      "sha256": "4e41077f9f0d0c8a102fc590b5d8c1af3d7a1cac5ea219a67ded7b39becf8191"
+      "sha256": "95faa7df57722e11899eb5876009e8a81ab5a2296b15502303330146c07e785d"
     },
     {
       "kind": "source",
@@ -2711,7 +2931,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\settings\\application_settings.py",
-      "sha256": "7f6d0b58e85675470915ab76b2453fb8ffc61d1a29412a94c9a461c18fdc8380"
+      "sha256": "eb9349f48fa0ec9e7ee4302298d209c6374178235ea89190748b01857734490c"
     },
     {
       "kind": "source",
@@ -2736,7 +2956,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\settings\\raw_application_settings.py",
-      "sha256": "e4ff15ce0cbe229b502db646f78803bee77f502d813975ccb547096e9ce65e9c"
+      "sha256": "602feb813637b37957f72aa24742895b5db87f9c275b5869451df5aab5f6a66a"
     },
     {
       "kind": "source",
@@ -2776,7 +2996,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\shared_resource_mount.py",
-      "sha256": "d5b6151b9c60256225a5f32c390600ef1da5934f9108c9846b67d5c6df47e182"
+      "sha256": "caf627d70a7b4ddf023f9e47d42b0874bcef79b97336ea29714f2d50933d614a"
     },
     {
       "kind": "source",
@@ -2836,7 +3056,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\streaming\\stream_step_up_grant_adapter.py",
-      "sha256": "1e2f7196772020d72da255d5e89fd9118b82c366eb54d91efa77fdaa4c7c800a"
+      "sha256": "83a828adc1ed67809eac96c5dd2b8af787d546caea3ec55250464179a096bdf1"
     },
     {
       "kind": "source",
@@ -2976,7 +3196,7 @@
     {
       "kind": "source",
       "path": "src\\infrastructure\\worktree\\git_worktree_adapter.py",
-      "sha256": "d700c3582dc38618a70d8a9a894c9f7d76ff6b5981084f75edd7eb0e1a9f1994"
+      "sha256": "ceadb7dadb4d1ba3f37aa601bf18523706c8c518b457de0f5dd982df926e2356"
     },
     {
       "kind": "source",
@@ -2991,17 +3211,17 @@
     {
       "kind": "dependency",
       "path": "pyproject.toml",
-      "sha256": "fce58a273f81b75235df9fd61e7babf78cc9e495106244888180cd3746157b73"
+      "sha256": "73402080f2a0942a5df010aed162cfeac5d28c08e7b0c1b653ded537bc5831dc"
     },
     {
       "kind": "dependency",
       "path": "uv.lock",
-      "sha256": "9803913f3ef146ebf2db62cda16256e5490f4820c14dbaaa40cdbd7fff0e4cf6"
+      "sha256": "9920164d6a98ec1554d017020c3b32e29d8ebd211fa08fb8161f159084508724"
     },
     {
       "kind": "configuration",
       "path": "config\\app_base.toml",
-      "sha256": "8c90e939e00e593621ee4ada06cc1fccf102dffa890d5b6eec9a3fc4ec23d23b"
+      "sha256": "7967c48dad70a6b995747e5e7245ce82b3300c17e1086c17836d0dea52f3c95a"
     },
     {
       "kind": "configuration",
@@ -3021,17 +3241,22 @@
     {
       "kind": "configuration",
       "path": "config\\modules\\auth_module\\auth_module_base.toml",
-      "sha256": "73de6e7b2951236a5d6822562532a33f7b94dc722ea9fbf064fa51a843a172a1"
+      "sha256": "e22a093c7916d5e6478129e98d81ffde73473fd8a954e896a38549488ea25862"
     },
     {
       "kind": "configuration",
       "path": "config\\modules\\auth_module\\auth_module_development.toml",
-      "sha256": "490ed6330ea481054e75137e1acfa3f7a107fdf26658af7aa94c8fde1d27b74c"
+      "sha256": "f68802a2dc53992423855ebcbc810d70edd7223fbab066b8486ebdeca2c1e3f9"
+    },
+    {
+      "kind": "configuration",
+      "path": "config\\modules\\auth_module\\auth_module_production.toml",
+      "sha256": "a68ee2fcac7992bfe8a9cd48da47b966ff7dab241ba632ef6e38681dc85176e6"
     },
     {
       "kind": "configuration",
       "path": "config\\modules\\auth_module\\auth_module_test.toml",
-      "sha256": "490ed6330ea481054e75137e1acfa3f7a107fdf26658af7aa94c8fde1d27b74c"
+      "sha256": "f68802a2dc53992423855ebcbc810d70edd7223fbab066b8486ebdeca2c1e3f9"
     },
     {
       "kind": "configuration",
@@ -3081,7 +3306,7 @@
     {
       "kind": "configuration",
       "path": "config\\runtime\\artifact_release_runtime\\artifact_release_runtime_base.toml",
-      "sha256": "c834f7fb072b066cfc7a73bfd8f8eaea0071d4b50a726bf1a8b346a8fe853e2d"
+      "sha256": "3c7e3714b87c1fc56230c2097c586c9c23301970f542b6ce14cb9b277ed200c0"
     },
     {
       "kind": "configuration",
@@ -3111,7 +3336,7 @@
     {
       "kind": "configuration",
       "path": "config\\runtime\\codex_control_runtime\\codex_control_runtime_base.toml",
-      "sha256": "3beb63c5f0b476e590b437b062c7ec4188d40cb3f3e8de90250cb281cb71f96e"
+      "sha256": "cff1103fdff64515a3830949c930fecf56a675e5089121c885db26259016d234"
     },
     {
       "kind": "configuration",
@@ -3211,7 +3436,7 @@
     {
       "kind": "configuration",
       "path": "config\\runtime\\metrics_runtime\\metrics_runtime_production.toml",
-      "sha256": "d00cc5bc07cfbb8faef1bb65e34534ef14d4ecb5725a870ec3d40fdbcd5ecb48"
+      "sha256": "324cbcf20628e14a49053dea76be39895c81e05b96a49db3bf4ee5ec34310dea"
     },
     {
       "kind": "configuration",
@@ -3241,27 +3466,27 @@
     {
       "kind": "configuration",
       "path": "config\\runtime\\security_runtime\\security_runtime_base.toml",
-      "sha256": "4a2c03ab5078966249e045ad1a4eb50ca42f28e71cd1598f119ab62aa0590ac3"
+      "sha256": "bdc444421d61b3ae3fb80ac373abc64291366b725d3c81180664b291f9d6b13b"
     },
     {
       "kind": "configuration",
       "path": "config\\runtime\\security_runtime\\security_runtime_production.toml",
-      "sha256": "40a60356c92a5befa41529a0c67e3a588522b9455bb8b2b4a78771db52876f7d"
+      "sha256": "a3de33181992bf608380ad27ea925668a5980d1fe93edef7b1ce9369080f0b5c"
     },
     {
       "kind": "configuration",
       "path": "config\\runtime\\security_runtime\\security_runtime_test.toml",
-      "sha256": "27502db0d3bb5090f28616d45c911d604279ea7b2be82dfab8d7f3d5c4e072df"
+      "sha256": "e69e58ce316b1f1cfae932bbde69e5710aceadb7694f2d833852614a5efdaaf8"
     },
     {
       "kind": "configuration",
       "path": "config\\runtime\\stream_runtime\\stream_runtime_base.toml",
-      "sha256": "35b8a5a2a582f91d2b3d804f6c643192814522bb75cfe8f45f1a3e64592c39ad"
+      "sha256": "70466f13ce0118e17eb55bd0b1a34974ad42a4a7fe3ce34b1c6bae7e3d6c5e8d"
     },
     {
       "kind": "configuration",
       "path": "config\\runtime\\stream_runtime\\stream_runtime_production.toml",
-      "sha256": "91b9555727a432e0c998e3a34947cc45c2c3aa85bb76bdf7c000cb9ec426a69a"
+      "sha256": "6468b6d34edbfd00cb11a671f3895b5cacaf28321dd8206939727f69b3b5ada1"
     },
     {
       "kind": "configuration",
@@ -3291,7 +3516,7 @@
     {
       "kind": "configuration",
       "path": "config\\runtime\\web_runtime\\web_runtime_development.toml",
-      "sha256": "d8a7647edde90caf72fd50bae02109330b63f88decdfd3e3dbde041ca6d62077"
+      "sha256": "09ce3cedac70d3bd014d1ea845fcadc886eb090028e9d9c849130ea3c7176c52"
     },
     {
       "kind": "configuration",
@@ -3301,7 +3526,7 @@
     {
       "kind": "configuration",
       "path": "config\\runtime\\web_runtime\\web_runtime_test.toml",
-      "sha256": "f65fd9e7e2e18f4453910f66b87d8bcc57b62a0d5b9d2a934c63d2dfc7429817"
+      "sha256": "9d1583676bc37b79845352e0ce054a1a371e8ec34ef88f406bd83da70f639706"
     },
     {
       "kind": "migration",
@@ -3356,7 +3581,7 @@
     {
       "kind": "migration",
       "path": "src\\infrastructure\\persistence\\alembic\\versions\\202607311200_create_codex_control_phase1.py",
-      "sha256": "98629527a3ca9ba79399ca087c59a3162b0196b4275288015da2f25222d0a9e5"
+      "sha256": "615c7bd75bf284e332b7a668d6edf086fa9a919b48798fafe0bba1a56596b897"
     },
     {
       "kind": "migration",
@@ -3379,6 +3604,36 @@
       "sha256": "bee9fa3841245fa2ccda37ea677851fcc460f71f769b05ce2d11c8ca790da776"
     },
     {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608101000_harden_codex_device_ownership.py",
+      "sha256": "39ae18737ab9c456269a64f94ec6844396ce77666546f9c7f34348348774ae23"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608101100_add_auth_user_scope.py",
+      "sha256": "e0e0bd7756a68be0d13a630b3c99e68447103dc3fb91cd5012c0e37158f73a81"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608101300_repair_codex_approval_runtime_state.py",
+      "sha256": "d3ba299dbe9238c85f1dea920bdd84ebe55aaac00788d2a6308ebda0f256dfff"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608151820_unify_codex_conversation_index.py",
+      "sha256": "baa350c23e4990eeb52a51680e217aea58c061924b914a209b05e3dc0b626212"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608151940_normalize_codex_thread_status.py",
+      "sha256": "ea51be8dfbd25b2c8e7ccbe35a1e1e4602116ba5352753c8a39443ffb31d361c"
+    },
+    {
+      "kind": "migration",
+      "path": "src\\infrastructure\\persistence\\alembic\\versions\\202608161230_add_codex_operation_projection.py",
+      "sha256": "920419837e17769131922d43e75ee20b9b1ce81ac91d70b95554b80ced0b3fc0"
+    },
+    {
       "kind": "route",
       "path": "src\\api\\endpoint_admin_audit\\route_admin_audit.py",
       "sha256": "e5c40969be6158832df7721c5c12f47c6daeec4c2042dba7c2eabeb0418aaef4"
@@ -3391,7 +3646,7 @@
     {
       "kind": "route",
       "path": "src\\api\\endpoint_admin_identity\\route_admin_identity_common.py",
-      "sha256": "e33a338bb2ea762c98c310801de0be44a05a446f92a316aff406fe8aedce55d2"
+      "sha256": "d8f43798e43e49b81ce094e3533810b7e4055476a6a41ef4d1acd927c895298e"
     },
     {
       "kind": "route",
@@ -3406,7 +3661,7 @@
     {
       "kind": "route",
       "path": "src\\api\\endpoint_admin_identity\\route_admin_user.py",
-      "sha256": "cf16fb98839e014b9ef1870e0650b738e6c41e98c8d2f4117fa707769a162652"
+      "sha256": "ed3f449968672dbfbf3e27956ca3d9f5efaf9955400a11b044289894b61d6138"
     },
     {
       "kind": "route",
@@ -3426,22 +3681,27 @@
     {
       "kind": "route",
       "path": "src\\api\\endpoint_auth_access\\route_auth_access.py",
-      "sha256": "5af3e6d68721009ed3595a1fc9ac219db7ab3f9c2fbb1cc364ff1361ea46c486"
+      "sha256": "1189675a232ae22350c15fbdfd20f0d7aea4581433c13fdf8f5ea7af37283333"
+    },
+    {
+      "kind": "route",
+      "path": "src\\api\\endpoint_codex_admin\\route_codex_admin.py",
+      "sha256": "2e4ff1dc3740d1ae199572dbbff29170eb4aabe682d8a2308a14bec2ce006b1a"
     },
     {
       "kind": "route",
       "path": "src\\api\\endpoint_codex_agent\\route_codex_agent_connect.py",
-      "sha256": "25f84c4cfe9f1a8a99cc570fcaff4129d825e65d0b467c0ee4af886d839405f3"
+      "sha256": "32b44b407e0ac3c6971f73c72ff48ac75c8315aecd4c3f3baa074f1089fb626e"
     },
     {
       "kind": "route",
       "path": "src\\api\\endpoint_codex_control\\route_codex_approval.py",
-      "sha256": "b9d3a439c7fb356df7dc9a4713af5a09727c9e85a4dc8aedff578e6cf54b0589"
+      "sha256": "71d94c8206fc326e872e1c9edb4d123ee853ed4dad0177b4448172397db9e922"
     },
     {
       "kind": "route",
       "path": "src\\api\\endpoint_codex_control\\route_codex_device_authorization.py",
-      "sha256": "75ae954839d845aeb55549fcecbcb47a03c34c15c6e0a9caca7f967d4981556d"
+      "sha256": "9c2e2f00a8bc49d7e335c3465e9841a8251a1275837af2c0b46fefb81d7ad4a5"
     },
     {
       "kind": "route",
@@ -3451,12 +3711,12 @@
     {
       "kind": "route",
       "path": "src\\api\\endpoint_codex_control\\route_codex_realtime.py",
-      "sha256": "47c7a94ed71deffc5d69e321dd983eeb4eccf8da8ed0ee21b45d0ced56bd1491"
+      "sha256": "cdb763243c26645c05150cb807e810cb82050f56ce9f3771e68e0942e24cae7a"
     },
     {
       "kind": "route",
       "path": "src\\api\\endpoint_codex_control\\route_codex_thread.py",
-      "sha256": "a7ff8c1dd629099fe46f6a4aab33dcffc1b75f1ed958669c3af12698c1ca52d8"
+      "sha256": "835d08378f71b37d915338f42e44910d1d5a51b713c463a644244d84f1c720b2"
     },
     {
       "kind": "route",
@@ -3585,6 +3845,11 @@
     },
     {
       "kind": "task",
+      "path": "src\\infrastructure\\codex_agent\\windows_agent_task.py",
+      "sha256": "9b52315cca82e718e8b6145a92979d8ab788305ad1fe74d928e51a7d651bbd26"
+    },
+    {
+      "kind": "task",
       "path": "src\\infrastructure\\persistence\\alembic\\versions\\202605221609_create_task_execution_record_table.py",
       "sha256": "df776b9ac8e22fa75d7c082df309b01712546844939647ed5b46e5a776a0c147"
     },
@@ -3686,7 +3951,7 @@
     {
       "kind": "resource",
       "path": "src\\infrastructure\\resource_mount\\admin_identity_resource_facade.py",
-      "sha256": "2b54dd15291ff8a16997d10cf38fafcd04d583025feaa1ad1baa62fff71bf6fd"
+      "sha256": "d2313dbd3aa78f094a7053fb2f6fc3419653d14c23b6f857671e2d40f037730b"
     },
     {
       "kind": "resource",
@@ -3711,7 +3976,7 @@
     {
       "kind": "resource",
       "path": "src\\infrastructure\\resource_mount\\runtime_resource_bootstrapper.py",
-      "sha256": "ef9d91cb2fb058b6e828df882f313aa8e1cb7661194de5a4f67724e0b29368fb"
+      "sha256": "b407769063430a042800b0b39bfaf344b95b5a26ffe2c3e79b58ca43816b05f2"
     },
     {
       "kind": "resource",
@@ -3736,7 +4001,7 @@
     {
       "kind": "resource",
       "path": "src\\infrastructure\\resource_mount\\shared_resource_lifecycle.py",
-      "sha256": "d59fdf02d65d6db523f0ea4d6aaf1c32433106ec5c086be317817ba8d2df63c8"
+      "sha256": "9814c36b06a5ce52750470632afd7d88733678edcd4b9158b5702936ecee2c09"
     },
     {
       "kind": "resource",
@@ -3749,14 +4014,34 @@
       "sha256": "1b4656caf89f2e372f5e8c42a87b210dcf6cda6ab2692fd0264cf13c3dfbbc53"
     },
     {
+      "kind": "resource",
+      "path": "src\\infrastructure\\resource_mount\\user_registration_resource_facade.py",
+      "sha256": "06ae6518b0a6abc751bea7946274226016806100220683c24ab4aaf1ae6e0a4c"
+    },
+    {
       "kind": "test",
       "path": "test\\boundary_test\\test_agent_command_security_policy_boundary.py",
       "sha256": "2f0e0c24d03a8153218b51c8b01cd89965e019c121a612f6f8e91fcbc0d1bfeb"
     },
     {
       "kind": "test",
+      "path": "test\\boundary_test\\test_agent_command_v2_mapper_boundary.py",
+      "sha256": "004fc606cc7382ec3a03d05b86a9c708281687acc578776d2eb589bd09e34d3e"
+    },
+    {
+      "kind": "test",
+      "path": "test\\boundary_test\\test_agent_control_channel_reconnect_boundary.py",
+      "sha256": "96ed2b1b7f33180459033f68e826b872d14e84fad10d18627895ab56c75d983a"
+    },
+    {
+      "kind": "test",
       "path": "test\\boundary_test\\test_app_server_jsonrpc_capacity_boundary.py",
       "sha256": "9b6216981d453784640156df227f2b03db622d53b9faaabacac8ca0794200707"
+    },
+    {
+      "kind": "test",
+      "path": "test\\boundary_test\\test_codex_agent_event_cursor_store_boundary.py",
+      "sha256": "c6eaf5c7c2b189256080f5d7c2361c6beac5458343852d6809bfe38bf720da4e"
     },
     {
       "kind": "test",
@@ -3766,7 +4051,7 @@
     {
       "kind": "test",
       "path": "test\\boundary_test\\test_codex_product_event_capacity_boundary.py",
-      "sha256": "4794295202f16650bcfe55e0db105fcea58501d02042dd21ccc751eec863d76d"
+      "sha256": "c6df15b873559747eee95b0b7faa3c9a9161e47d8e7c409754736ebf7ac96e9a"
     },
     {
       "kind": "test",
@@ -3781,7 +4066,7 @@
     {
       "kind": "test",
       "path": "test\\boundary_test\\test_hard_migration_module_boundary.py",
-      "sha256": "eaf9ec4d89d4e449ba49f6e4f7c1b7256a6b5c75a4ee537b15e01abbb7514238"
+      "sha256": "d4febdd0d134354aac02980105896b09ee26a47146c81075100c4ac8e8a272df"
     },
     {
       "kind": "test",
@@ -3831,7 +4116,7 @@
     {
       "kind": "test",
       "path": "test\\contract_test\\admin_identity\\test_admin_identity_contract.py",
-      "sha256": "4f72e2e6e25097e731e3ebf2e4d0e672188247348d469e665b83d3a592b12780"
+      "sha256": "facb516d57cdfe8c8bb2516e82ceacc994048863a24ec47838da22c70d6f4e89"
     },
     {
       "kind": "test",
@@ -3850,13 +4135,28 @@
     },
     {
       "kind": "test",
+      "path": "test\\contract_test\\test_agent_command_v2_digest_contract.py",
+      "sha256": "0d8bc2f9a2726fb55405b5311f799697bca99c9298398f4dbff4952890fab52a"
+    },
+    {
+      "kind": "test",
       "path": "test\\contract_test\\test_alert_rule_contract.py",
       "sha256": "cbaf621af14023448acb17c9e8da6f90c1540eae2ea2a99ac4251504fd2d3ae3"
     },
     {
       "kind": "test",
+      "path": "test\\contract_test\\test_codex_agent_event_cursor_contract.py",
+      "sha256": "ee5349bfef9f3f675f416b381c5c311669040882fe0b52073e4d8e392070ab7f"
+    },
+    {
+      "kind": "test",
       "path": "test\\contract_test\\test_codex_agent_protocol_phase2_contract.py",
-      "sha256": "5464ead41e32151b87024d697151f8f6afe7d089536bf6858efb675ffbd216f9"
+      "sha256": "2cf1cb3c7088914975336ea71c519bdfa77988d3c3b19af9cb578f3a6a820b3d"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_codex_agent_windows_installer_contract.py",
+      "sha256": "08e4eed6af841b0a55a52b2fc1e7951a477c6f6337001fd0be75a2c4c183742a"
     },
     {
       "kind": "test",
@@ -3866,7 +4166,7 @@
     {
       "kind": "test",
       "path": "test\\contract_test\\test_codex_app_server_schema_drift_contract.py",
-      "sha256": "6442bec2c1ef415ef1bfb3e40a235dfbbd32d2179cdce55a8501da75909a70ae"
+      "sha256": "58e79cca4da4ea97a954a2e4a8377dffc65bb43394bf74c76c7f3a4c791f3112"
     },
     {
       "kind": "test",
@@ -3876,7 +4176,7 @@
     {
       "kind": "test",
       "path": "test\\contract_test\\test_codex_caddy_deployment_contract.py",
-      "sha256": "498eb1e3b6a1a5576c73cd96d0d05d7ee830010cb494b759a4591e70fb232b28"
+      "sha256": "dbabf59cd6af4743e38e0cf3886ec5f567607a3f4db4c2929e1d4b276ebcd128"
     },
     {
       "kind": "test",
@@ -3885,8 +4185,13 @@
     },
     {
       "kind": "test",
+      "path": "test\\contract_test\\test_codex_operation_projection_contract.py",
+      "sha256": "ace92bb132b63c9eac24cf213ef9dd4e4cb9a15325ee9cb4720a401af0d82710"
+    },
+    {
+      "kind": "test",
       "path": "test\\contract_test\\test_codex_phase1_contract.py",
-      "sha256": "39efc64a5b6d23718718063d072419cc9bf7ab4215f3458db90e67f8083f7c7a"
+      "sha256": "e54cffc20ce86958a1fc9363497e97fb2c04bcf0de3a9ab30aea210cf2186841"
     },
     {
       "kind": "test",
@@ -3895,8 +4200,23 @@
     },
     {
       "kind": "test",
+      "path": "test\\contract_test\\test_codex_remote_product_contract.py",
+      "sha256": "c297c90d28b98becd3019b0c6b6e46af02e7c44043d43b4123a40ecc5f39007f"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_codex_thread_contract.py",
+      "sha256": "afe03d74ec161ba4bba377752bbd9b06b23e8cce4b894ab56728422d90e2ee20"
+    },
+    {
+      "kind": "test",
       "path": "test\\contract_test\\test_distributed_lock_contract.py",
       "sha256": "c6c16d244628d06052785c418e584726cde841a78998edde734abff5e38ca901"
+    },
+    {
+      "kind": "test",
+      "path": "test\\contract_test\\test_execution_root_binding_contract.py",
+      "sha256": "6741b93c2402a765d5f3e881e26be03f31d7d0d9b8ca834d865688e2b12a8a3e"
     },
     {
       "kind": "test",
@@ -3970,6 +4290,11 @@
     },
     {
       "kind": "test",
+      "path": "test\\contract_test\\test_user_registration_contract.py",
+      "sha256": "6f5df5c6865f2aa282f820da7b89c0501c6e4771cac0bdac51e317cc0fe0a577"
+    },
+    {
+      "kind": "test",
       "path": "test\\convention_usage_test\\test_end_to_end_usage.py",
       "sha256": "19cab69bc793fb1ec5d973edf50bdb5f3de4a335a55019d3c0b0b7e7f7f45d19"
     },
@@ -3982,6 +4307,21 @@
       "kind": "test",
       "path": "test\\exception_test\\test_agent_command_security_policy_exception.py",
       "sha256": "8239971a20bc60ba59b1d4c81c4a12a16d818345eeb8de3030330fdc80b23da0"
+    },
+    {
+      "kind": "test",
+      "path": "test\\exception_test\\test_agent_command_v2_mapper_exception.py",
+      "sha256": "79951f3128a19a459919dd31e1a3dcfdf5ddc71f52c51f403e1a457facee5fdd"
+    },
+    {
+      "kind": "test",
+      "path": "test\\exception_test\\test_agent_control_channel_reconnect_exception.py",
+      "sha256": "fd852617a2005181629bdff2e73029abf74bb84c24bd95de51a04405fda428c2"
+    },
+    {
+      "kind": "test",
+      "path": "test\\exception_test\\test_codex_agent_event_cursor_store_exception.py",
+      "sha256": "28754f0d5bd617437037f517c42599e3d717646c7424c0060a2408dfc42674cf"
     },
     {
       "kind": "test",
@@ -4026,7 +4366,7 @@
     {
       "kind": "test",
       "path": "test\\initialization_test\\test_bootstrap_initialization.py",
-      "sha256": "ee1890b671722140f15dcf32babaf7d25783f15130ed607821820e0c4307a867"
+      "sha256": "2147f4734c301a116a712254bf0d8fa7351c7e1c8d42180ed6a3981eafc3fe0a"
     },
     {
       "kind": "test",
@@ -4041,7 +4381,7 @@
     {
       "kind": "test",
       "path": "test\\initialization_test\\test_codex_settings_initialization.py",
-      "sha256": "b47dd5cde5f4d4becef28e5ad094883756eb8cd77d95ebe0af35a10fb4f40b0b"
+      "sha256": "cb60d3b2afe4e5930f20aeb59580459dc5b3d32926c3d86e137a7b928ab4aef7"
     },
     {
       "kind": "test",
@@ -4101,7 +4441,7 @@
     {
       "kind": "test",
       "path": "test\\integration_test\\admin_identity\\test_admin_scope_usecase_integration.py",
-      "sha256": "f46f71d425b592be6d0cbafb0d715a15b56be1bf53c725cf1f85fbf6854a37aa"
+      "sha256": "3f8d41977836b197d8ddf79b329adb76113f63718878ab8ed932c155f053a7ef"
     },
     {
       "kind": "test",
@@ -4111,7 +4451,7 @@
     {
       "kind": "test",
       "path": "test\\integration_test\\admin_identity\\test_admin_user_usecase_integration.py",
-      "sha256": "d82e170c85806fa9554bafdbf2ef96227e5865c0d9dde163587b4a2e3b89f730"
+      "sha256": "f073407024ce1c8d6a362396fdcc3c09f68bb700050df56b1d6a5ea507db4e12"
     },
     {
       "kind": "test",
@@ -4136,7 +4476,7 @@
     {
       "kind": "test",
       "path": "test\\integration_test\\test_app_integration.py",
-      "sha256": "c1895464d7d68a8da7366b129daab420266105f693c728eedcc4a3a7c12df6a3"
+      "sha256": "0406290227aae16a1533eacece43969d384e50c03a77df2af3b5a0f9521fb11a"
     },
     {
       "kind": "test",
@@ -4155,23 +4495,53 @@
     },
     {
       "kind": "test",
+      "path": "test\\integration_test\\test_codex_agent_event_cursor_integration.py",
+      "sha256": "1720e5714591ea733ab023814586eb32ce95345af87792b6e311e629baa66753"
+    },
+    {
+      "kind": "test",
       "path": "test\\integration_test\\test_codex_approval_mvp_integration.py",
-      "sha256": "2492cd930e94787ef8deaff446eda8c2dadfa204370878350a420f80d71403b4"
+      "sha256": "2012d0195c74560412b5dcd2450a4d268d289bde91c26b71426a33d73765ceb9"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_codex_approval_runtime_migration_integration.py",
+      "sha256": "0f72604d0227b4d573e54e5682a669cb690aa1af0814f953e509c59d3dd5f91a"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_codex_command_outbox_persistence_integration.py",
+      "sha256": "3f18e9d469cc57b406256bfaa3bda81e20174e2881d73a412417b09abe8d35ef"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_codex_conversation_index_integration.py",
+      "sha256": "42746e0386305fe9801a2e8b55b5f7aa6a3c99b91168b7103b589f699f19b6cc"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_codex_enrollment_intent_redis_integration.py",
+      "sha256": "8fbf522daf0c0e4ee8477f42cb60061c32bde66e5c819afed5eb41e9f853d8ce"
     },
     {
       "kind": "test",
       "path": "test\\integration_test\\test_codex_phase1_persistence_integration.py",
-      "sha256": "3d90520896113724dfb6d34edf632869cfae908243def2316570f9e81c57029b"
+      "sha256": "2ad565e9b92f6e192605e14d551eb273bdd06219fef55e6db68172a0748bdd2a"
     },
     {
       "kind": "test",
       "path": "test\\integration_test\\test_codex_realtime_pipeline_integration.py",
-      "sha256": "aecd31e0afb56aab2e2da9a72610c8941365abe25248240038b6ce6097fcf78b"
+      "sha256": "a4ab7f693d218efbf6967231c6779114ca536e403da6693257fa2b6c21e84a3b"
+    },
+    {
+      "kind": "test",
+      "path": "test\\integration_test\\test_codex_stability_persistence_integration.py",
+      "sha256": "ea3c80a24d1d40dc0c2182359fe2c18381f41d8be5b2a675d4e354f564371bfb"
     },
     {
       "kind": "test",
       "path": "test\\integration_test\\test_codex_turn_control_mvp_integration.py",
-      "sha256": "650212cc438342a4b58c8b104b8a92dfbcd650fa1e27bb917882609880718841"
+      "sha256": "14691a4b4313e6d32d555356065f441709a4b32f5b0a53bd30255d96526c3acc"
     },
     {
       "kind": "test",
@@ -4191,7 +4561,7 @@
     {
       "kind": "test",
       "path": "test\\integration_test\\test_git_worktree_adapter_integration.py",
-      "sha256": "f9d4d26cd228106f5fad2934ebc5583e8f59065b2a6418a5a1948cee47c0ac51"
+      "sha256": "675f28a4ff5252ffb02816be47f0ec39d9c92c975ddd2aa9eb730ccd4added8b"
     },
     {
       "kind": "test",
@@ -4201,7 +4571,7 @@
     {
       "kind": "test",
       "path": "test\\integration_test\\test_migration_job_integration.py",
-      "sha256": "7212aab00be409ad0aba1f475dd0451997a45fce7b2b1fec780e7c2c7707aa47"
+      "sha256": "e0f16568172bbbf5b59b6712e053a9d2065ba172ade837f498623ede8190f330"
     },
     {
       "kind": "test",
@@ -4246,7 +4616,7 @@
     {
       "kind": "test",
       "path": "test\\interface_test\\admin_identity\\test_admin_role_interface.py",
-      "sha256": "59c928e589d1c4ae2a7479a3df3270bbf1ae6288d37bfd02d8135478c4502816"
+      "sha256": "0c6db2e65c684e5a29b98767170fc354340261115e77755dc17182f220138617"
     },
     {
       "kind": "test",
@@ -4285,13 +4655,23 @@
     },
     {
       "kind": "test",
+      "path": "test\\interface_test\\test_codex_admin_enrollment_interface.py",
+      "sha256": "f2de14565a40b7ef77ac4080cfecd0fca266022e47185ecb30c89db6493136cb"
+    },
+    {
+      "kind": "test",
       "path": "test\\interface_test\\test_codex_agent_enrollment_mvp_interface.py",
-      "sha256": "5ed1be40403b6a36d5284cdd4b8126ca7871c337a160cd10214f18a2e8d4dd87"
+      "sha256": "c15eb58075ba53a0b01677b8cbde7f04134f418cf39b05ad51af54908ab74032"
     },
     {
       "kind": "test",
       "path": "test\\interface_test\\test_codex_agent_gateway_phase2_interface.py",
-      "sha256": "b5e3aaf8a26c82f4ef17dbbe295a1b4210a03c7e7b108aa358e5cbd95b5a441a"
+      "sha256": "1315679a07732c5094fb89664c64730c1f794a443642386dee870091dc43fddd"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_codex_conversation_interface.py",
+      "sha256": "0b927e858e7272cf0a88c560840b7ef3e2a5324a708bad4d08d9230bf71d4803"
     },
     {
       "kind": "test",
@@ -4301,7 +4681,12 @@
     {
       "kind": "test",
       "path": "test\\interface_test\\test_codex_realtime_mvp_interface.py",
-      "sha256": "961ccfe73a044a5d24d937be104f4c9f89a672131a837f22b657aa5d2dba17ba"
+      "sha256": "68c8680a0887927db7e51fa0c71ead03df79da77ca0d03277ab243bcf80d1232"
+    },
+    {
+      "kind": "test",
+      "path": "test\\interface_test\\test_codex_scope_authorization_interface.py",
+      "sha256": "27af7920857cfb76226f3e644108d1d07b8594802f8bd13fd336fee9174f1767"
     },
     {
       "kind": "test",
@@ -4350,13 +4735,28 @@
     },
     {
       "kind": "test",
+      "path": "test\\interface_test\\test_user_registration_interface.py",
+      "sha256": "1c65797ea5884531386361aba0a724daa4c7abede27488c7bb0539bc5a2d371d"
+    },
+    {
+      "kind": "test",
       "path": "test\\path_test\\test_agent_command_security_policy_path.py",
       "sha256": "69043bee710c4e6be7443a09ff5f705cdfb15b11a9b344a3111342f469aa750c"
     },
     {
       "kind": "test",
+      "path": "test\\path_test\\test_agent_command_v2_mapper_path.py",
+      "sha256": "74c11c614c39975007202d648cbcb6e7dd1fe5c88c4297c7c9b50ea46376b37a"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_agent_control_channel_reconnect_path.py",
+      "sha256": "c6704a3bdebeddca6aaaa2d5bd25b36f67b58e102b79f5c0aa0b454329124488"
+    },
+    {
+      "kind": "test",
       "path": "test\\path_test\\test_agent_snapshot_capacity_path.py",
-      "sha256": "9dab063c014ba90d80e1d6af0271c97263599aff73d6c6ed5b1d7789a869e4bc"
+      "sha256": "3325adeb29fec2cc67bb6f2c6e566c44f70e5f39f4fb6f453e9929a8a5d77323"
     },
     {
       "kind": "test",
@@ -4367,6 +4767,16 @@
       "kind": "test",
       "path": "test\\path_test\\test_cache_runtime_path.py",
       "sha256": "90829e16b5c943c6e34c13547b8ac49f6c3063913a72fc5ad08f086d1431bf6f"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_codex_agent_event_cursor_store_path.py",
+      "sha256": "ab2e372bdd16ff8bc79cc08009323da4684da1c8fe6bb0ed77621676eaa2dd66"
+    },
+    {
+      "kind": "test",
+      "path": "test\\path_test\\test_codex_enrollment_intent_path.py",
+      "sha256": "355f6df5e07f0b2d655db15f506c682b7410c725ff0924f02a86998765d6b0c3"
     },
     {
       "kind": "test",
@@ -4381,7 +4791,7 @@
     {
       "kind": "test",
       "path": "test\\path_test\\test_git_worktree_adapter_path.py",
-      "sha256": "f537bc798ee769f930fc1a7e4a5709e3d442684e2435f75e2291d573e7c3253d"
+      "sha256": "91927b519de877604b14280de16afbff8688a0ace219cd928591081914ca932c"
     },
     {
       "kind": "test",
@@ -4465,13 +4875,18 @@
     },
     {
       "kind": "test",
+      "path": "test\\unit_test\\test_agent_approval_display_unit.py",
+      "sha256": "91f20f208fdc0775e71c375481599940cf8016784007a6afb903a338a39bacd2"
+    },
+    {
+      "kind": "test",
       "path": "test\\unit_test\\test_agent_approval_reply_unit.py",
       "sha256": "94dc4b91a94d4e68aa4fd2fa25fb08daffc2bc6b1416a2e15fe2bca6d6f92f90"
     },
     {
       "kind": "test",
       "path": "test\\unit_test\\test_agent_command_executor_phase2_unit.py",
-      "sha256": "b138fe7915b3be382cabd03e7afe3a5901f964233c6b818039b6fcd90032ce6b"
+      "sha256": "de1f7b644456fd74a41474ca231adcfdfc3d46963c6bc294923330473eeca4ab"
     },
     {
       "kind": "test",
@@ -4485,8 +4900,13 @@
     },
     {
       "kind": "test",
+      "path": "test\\unit_test\\test_agent_command_v2_mapper_unit.py",
+      "sha256": "a2d598db8a8a7a98d391fc9516d93fddb423e1f07863fdc89f708f9ee2686637"
+    },
+    {
+      "kind": "test",
       "path": "test\\unit_test\\test_agent_control_channel_connection_unit.py",
-      "sha256": "60c49acbadeb2cdfb36b67562d2346d2efc2015590eef90f3c976f51a05ab394"
+      "sha256": "d2a1dba1bb862afee4d3a46da67d8aa14bfe1d3560e1f68ed0b3d81751545280"
     },
     {
       "kind": "test",
@@ -4495,13 +4915,23 @@
     },
     {
       "kind": "test",
+      "path": "test\\unit_test\\test_agent_execution_root_store_unit.py",
+      "sha256": "621aa688ec1108f2186b7e9dbe844793d42d4a1c1d549e0c85875ed58610c4a4"
+    },
+    {
+      "kind": "test",
       "path": "test\\unit_test\\test_agent_local_runtime_unit.py",
-      "sha256": "84efa5ba43b5042395c41ab049b4e95c772805edf5b8ca80281033ed8d6ed361"
+      "sha256": "8979e412600c32df94383e80d933ed0f9db5b8afaeeff79a5086908933b1a273"
     },
     {
       "kind": "test",
       "path": "test\\unit_test\\test_agent_secret_store_phase2_unit.py",
-      "sha256": "8624b18e2469776c328271824d2592c409b59f077c1bc52169fe9823948af54b"
+      "sha256": "bbf3ecd745696201585f83b108cf1f9f5c84a2b58fb507e64f51171faec143cc"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_agent_settings_unit.py",
+      "sha256": "bc2e9651941bfb6f946777e1f732c39498b2f61ad98f0395826aab6776b8acb7"
     },
     {
       "kind": "test",
@@ -4521,12 +4951,12 @@
     {
       "kind": "test",
       "path": "test\\unit_test\\test_app_server_process_supervisor_unit.py",
-      "sha256": "581afc99c6a48be0b559adb12d8bb6ef2e2f7c6b8804df58b63262d96ce069b1"
+      "sha256": "ba7a2b03fe06c8c8d93259f0fcbf5b36edfd61308880f129b97b32bba9a2ea88"
     },
     {
       "kind": "test",
       "path": "test\\unit_test\\test_app_server_protocol_adapter_unit.py",
-      "sha256": "4e2051066f13a53bab57f20193b85e09bdbf4f9cade50157d7ff7cee73685fc6"
+      "sha256": "5f98c65f40c7d5cc343f9754363829e9566e40140fc7526a49998b8633ad0b38"
     },
     {
       "kind": "test",
@@ -4536,12 +4966,12 @@
     {
       "kind": "test",
       "path": "test\\unit_test\\test_artifact_release_pipeline_unit.py",
-      "sha256": "7d2e0355e6f70068c66e286829af8b672d4ded07ed6097d8c1cb88dafabf41f0"
+      "sha256": "cf411d52fe56acbb46ec2e42355f40e2ec0e61a229de73607980bf7e8b8bf14b"
     },
     {
       "kind": "test",
       "path": "test\\unit_test\\test_auth_persistence_unit.py",
-      "sha256": "88b658762229692d5d4438419868a842445ff0ff4b1607102591743343f5181c"
+      "sha256": "81d4d3ba4f2f388e22e9ca828f682a12a5faa79142eaa6aad99d2a3cdf5cde73"
     },
     {
       "kind": "test",
@@ -4556,12 +4986,47 @@
     {
       "kind": "test",
       "path": "test\\unit_test\\test_codex_agent_event_buffer_phase2_unit.py",
-      "sha256": "15ad6faadc7e7a31f0607d0b5683aedf8471bc688a91d1c3b984a43cbc8f78e3"
+      "sha256": "39368b6b2b3a75795a92af799cd132bfbd895a1fb2621571c2fd230c1cff789c"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_codex_agent_event_cursor_store_unit.py",
+      "sha256": "b243e028133f827c9d7848712d63fcf57e7f7c12d336585bf83e11eeb38f452b"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_codex_agent_gateway_result_mapping_unit.py",
+      "sha256": "f14faf1154806a2deddd5fd5d32633a080ee0beb3437f0a8bb7d485d2950dd53"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_codex_agent_release_manifest_unit.py",
+      "sha256": "953c36864f4a50c13f4c3bb043a0e2f714d5f2b780561901fff4aca599267217"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_codex_agent_tuf_metadata_verifier_unit.py",
+      "sha256": "cc9f0180570bcebe9a9659d115c3ca8c4ef58a29553491fb97f7436cd0597ffe"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_codex_agent_tuf_repository_signer_unit.py",
+      "sha256": "433d6a24fdd372063cb53146fa40d2b75bc33c463f5fff66b23014fd4e8a94ee"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_codex_agent_windows_distribution_unit.py",
+      "sha256": "170ed17002e216976c8062232e3024541a8a79962179be7cd0e9001dcd296c79"
     },
     {
       "kind": "test",
       "path": "test\\unit_test\\test_codex_browser_event_hub_unit.py",
-      "sha256": "e140c6ec323bb5d45e607fa2f26a7202ce86c5d0f0eb285abe10f993993c22b1"
+      "sha256": "2f16b0499bfef12c12e77202db361f03c98957b1559ae93c4a3a854f48ec7998"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_codex_browser_realtime_session_unit.py",
+      "sha256": "a8b8f6299830029ebffb9694951875f988ec6969c0023eec36ef25d20393b40c"
     },
     {
       "kind": "test",
@@ -4571,12 +5036,17 @@
     {
       "kind": "test",
       "path": "test\\unit_test\\test_codex_connection_session_unit.py",
-      "sha256": "1d0d4398fe4fb4a07bfee46871111b118aefe7b82950b5be7f956c15b4a74074"
+      "sha256": "e04193c79144afea34d2dc7254f848406bd508bf8df06fa9a442b78bf173dbe3"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_codex_conversation_cursor_unit.py",
+      "sha256": "68bad3c767bf8967afb3266ec7193c4efaafcffb07c7bed8b9a8daa4f90297c7"
     },
     {
       "kind": "test",
       "path": "test\\unit_test\\test_codex_host_actor_unit.py",
-      "sha256": "4082038dddce09b9ea159c4083872f12af6bdd09e484d8de7aa5f02d245935d3"
+      "sha256": "b8ea7b0a613e0a326fa586f33cf435072393030de9e2701dfe9dc9e026a882c8"
     },
     {
       "kind": "test",
@@ -4586,7 +5056,12 @@
     {
       "kind": "test",
       "path": "test\\unit_test\\test_codex_protocol_mapper_unit.py",
-      "sha256": "9af059b3543f4f298e480417331c69b40d86e7602700c3c910a8212dca41506a"
+      "sha256": "9b194fee8becd6453fe73703bdb9a5c6592dfef4e9036f709de6e2ef2ce69149"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_codex_scope_authorization_unit.py",
+      "sha256": "9fe32aa70944cc656a2c0c216cb12becf5fe16bbe67954201c13e88ff2a33f99"
     },
     {
       "kind": "test",
@@ -4710,6 +5185,11 @@
     },
     {
       "kind": "test",
+      "path": "test\\unit_test\\test_probe_codex_app_server_unit.py",
+      "sha256": "0115400ad32b0d765f9d4cfaedb387c1c524f6fd1b509ae9d0eec506299f882f"
+    },
+    {
+      "kind": "test",
       "path": "test\\unit_test\\test_probe_codex_phase0_unit.py",
       "sha256": "0de0670cb2ca77ce287ec318cbd9f13efb9e58479105f84ab8cdd175afa42669"
     },
@@ -4735,6 +5215,11 @@
     },
     {
       "kind": "test",
+      "path": "test\\unit_test\\test_register_user_usecase_unit.py",
+      "sha256": "18207608f3b43c0d7af70a5301976b2dc435e599a5fe734249894adbd11639d1"
+    },
+    {
+      "kind": "test",
       "path": "test\\unit_test\\test_request_execution_bridge_unit.py",
       "sha256": "8632de4bc07263322b99aecff6eba2f7cf852bc4e12205609b136a607ae3a447"
     },
@@ -4742,6 +5227,11 @@
       "kind": "test",
       "path": "test\\unit_test\\test_resource_mount_lifecycle_unit.py",
       "sha256": "a133dfb427204570ce9c0f233d42ffc4965d67ffd9cca1cfc21603e707d131d2"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_revoke_codex_subject_agent_access_usecase_unit.py",
+      "sha256": "3dc9bf435542fa1329e494e02f219ffea4babb1d2edde7e77642605da5ce456c"
     },
     {
       "kind": "test",
@@ -4766,7 +5256,7 @@
     {
       "kind": "test",
       "path": "test\\unit_test\\test_settings_security_unit.py",
-      "sha256": "6a72066926d48f77b378af6b0021e6b9b8f01bd1e6dcdb881ebadea3c69fc96e"
+      "sha256": "71e8c3ce7abce8bb6dbf7231cf5b21a1024cea1fbab2812199c000cd24cb5257"
     },
     {
       "kind": "test",
@@ -4836,7 +5326,12 @@
     {
       "kind": "test",
       "path": "test\\unit_test\\test_test_database_isolation_unit.py",
-      "sha256": "18777f223c365909002202d42d741e65f6b779675e06d84fd504910211bdd943"
+      "sha256": "f9f3b84ab42270c0cacf6e2ad160249cea839aa443e04752c4f812aab50938da"
+    },
+    {
+      "kind": "test",
+      "path": "test\\unit_test\\test_thread_title_policy_unit.py",
+      "sha256": "0ec263e1338a80776e7518f624993ae95447bc7e07771f570e3b9c69e35889dd"
     },
     {
       "kind": "test",
@@ -4855,8 +5350,13 @@
     },
     {
       "kind": "test",
+      "path": "test\\unit_test\\test_windows_subprocess_launcher_unit.py",
+      "sha256": "3072591196e4b6d3337c467741b36be826c65b98b06f33e5bb602fb80af42bae"
+    },
+    {
+      "kind": "test",
       "path": "test\\unit_test\\test_workspace_evidence_catalog_unit.py",
-      "sha256": "c52bab6ace83f534cdaa9ff4bd24504db1663fa7c5318956cea30e86e02d4897"
+      "sha256": "bd8bbac9fdf34fe50f4aafbe2cd8c7e519bc1b1840990fde17d7e64cef824f4c"
     }
   ]
 }

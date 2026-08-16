@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import keyring
 import pytest
+from keyring.errors import PasswordDeleteError
 
 from src.infrastructure.codex_agent.agent_secret_store import (
     AGENT_CREDENTIAL_SERVICE_NAME,
@@ -36,3 +38,15 @@ def test_secret_store_when_write_read_delete_should_keep_token_out_of_config() -
 
     with pytest.raises(AgentSecretNotFoundError):
         store.read("credential-1")
+
+
+def test_secret_store_when_system_credential_missing_should_keep_delete_idempotent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        keyring,
+        "delete_password",
+        lambda _service, _username: (_ for _ in ()).throw(PasswordDeleteError()),
+    )
+
+    WindowsAgentSecretStore().delete("missing-credential")

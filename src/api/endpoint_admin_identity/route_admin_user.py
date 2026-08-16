@@ -19,6 +19,7 @@ from src.api.endpoint_admin_identity.contract_admin_user import (
     AdminUserPasswordResetRequest,
     AdminUserPayload,
     AdminUserRoleReplaceRequest,
+    AdminUserScopeReplaceRequest,
     AdminUserStatusResultPayload,
     AdminUserUpdateRequest,
 )
@@ -28,6 +29,7 @@ from src.api.endpoint_admin_identity.route_admin_identity_common import (
     ADMIN_IDENTITY_METHOD_GET,
     ADMIN_IDENTITY_METHOD_PATCH,
     ADMIN_IDENTITY_METHOD_POST,
+    ADMIN_IDENTITY_METHOD_PUT,
     ADMIN_IDENTITY_OFFSET_DESCRIPTION,
     ADMIN_IDENTITY_PAGE_SIZE_DESCRIPTION,
     ADMIN_IDENTITY_REQUEST_EXECUTION_NAME,
@@ -46,6 +48,8 @@ from src.api.endpoint_admin_identity.route_admin_identity_common import (
     ADMIN_USER_PASSWORD_RESET_SUCCESS_MESSAGE,
     ADMIN_USER_ROLE_REPLACE_SUCCESS_MESSAGE,
     ADMIN_USER_ROLES_PATH,
+    ADMIN_USER_SCOPE_REPLACE_SUCCESS_MESSAGE,
+    ADMIN_USER_SCOPES_PATH,
     ADMIN_USER_UPDATE_SUCCESS_MESSAGE,
     ADMIN_USERS_PATH,
     AdminIdentityRouteSupport,
@@ -55,6 +59,7 @@ from src.application.admin.identity.shared.admin_identity_command import (
     AdminUserDeleteCommand,
     AdminUserPasswordResetCommand,
     AdminUserRoleReplaceCommand,
+    AdminUserScopeReplaceCommand,
     AdminUserUpdateCommand,
 )
 from src.application.ports.admin_identity_port import (
@@ -296,6 +301,41 @@ class AdminUserRouteCatalog(AdminIdentityRouteSupport):
             detail=AdminUserPayload.from_snapshot(snapshot),
         )
 
+    async def replace_user_scopes(
+        self,
+        request: Request,
+        command: AdminIdentityEnvelope,
+        subject_id: str = Path(description=ADMIN_IDENTITY_SUBJECT_ID_DESCRIPTION),
+    ) -> ResponseEnvelope[AdminIdentityEnvelope]:
+        """替换管理员用户直接 scope。"""
+
+        principal = self._read_grant_admin_principal(request)
+        detail = self._read_detail(command, AdminUserScopeReplaceRequest)
+        self._assert_grant_confirmation(detail.confirmation)
+        snapshot = await self._accessor.read_request_execution_bridge(request).run_sync(
+            execution_name=ADMIN_IDENTITY_REQUEST_EXECUTION_NAME,
+            callable_object=self._accessor.read_replace_admin_user_scopes_usecase(request).execute,
+            command=AdminUserScopeReplaceCommand(
+                actor_subject_id=principal.subject_id,
+                subject_id=subject_id,
+                scope_codes=detail.scope_codes,
+            ),
+        )
+        self._record_identity_change(
+            request=request,
+            principal=principal,
+            operation_name=AdminIdentityOperationName.USER_SCOPE_REPLACE,
+            target_kind=ADMIN_IDENTITY_TARGET_USER,
+            target_id=subject_id,
+        )
+        return self._build_response(
+            request=request,
+            message=ADMIN_USER_SCOPE_REPLACE_SUCCESS_MESSAGE,
+            kind=AdminIdentityPayloadKind.USER,
+            operation_name=AdminIdentityOperationName.USER_SCOPE_REPLACE,
+            detail=AdminUserPayload.from_snapshot(snapshot),
+        )
+
     async def disable_user(
         self,
         request: Request,
@@ -316,6 +356,9 @@ class AdminUserRouteCatalog(AdminIdentityRouteSupport):
                 subject_id=subject_id,
                 reason=detail.reason,
             ),
+        )
+        await self._accessor.read_revoke_codex_subject_agent_access_usecase(request).execute(
+            subject_id=subject_id
         )
         self._record_identity_change(
             request=request,
@@ -430,6 +473,13 @@ class AdminUserRouteCatalog(AdminIdentityRouteSupport):
             ADMIN_USER_ROLES_PATH,
             self.replace_user_roles,
             methods=[ADMIN_IDENTITY_METHOD_POST],
+            response_model=ResponseEnvelope[AdminIdentityEnvelope],
+            dependencies=[Depends(self.require_identity_grant_admin)],
+        )
+        self.router.add_api_route(
+            ADMIN_USER_SCOPES_PATH,
+            self.replace_user_scopes,
+            methods=[ADMIN_IDENTITY_METHOD_PUT],
             response_model=ResponseEnvelope[AdminIdentityEnvelope],
             dependencies=[Depends(self.require_identity_grant_admin)],
         )

@@ -110,3 +110,18 @@ class ListCodexHostsUsecase:
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
+
+
+class ListAllCodexHostsUsecase:
+    """列出管理控制面可见的全部 Codex 主机。"""
+
+    def __init__(self, control_port: CodexControlPort) -> None:
+        self._control_port = control_port
+
+    def execute(self) -> CodexHostCollection:
+        unit_of_work = self._control_port.create_unit_of_work()
+        try:
+            repository = self._control_port.create_codex_host_repository(unit_of_work.get_session())
+            return CodexHostCollection(items=repository.list_all())
+        finally:
+            unit_of_work.dispose()

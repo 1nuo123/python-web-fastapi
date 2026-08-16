@@ -43,6 +43,30 @@ class CodexApprovalDecision(StrEnum):
     CANCEL = "cancel"
 
 
+class CodexApprovalCommandAction(BaseModel):
+    """Structured, display-safe command action supplied by the Agent."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    action_type: str = Field(min_length=1, max_length=64)
+    command: str = Field(min_length=1, max_length=1_024)
+    path: str | None = Field(default=None, max_length=1_024)
+    name: str | None = Field(default=None, max_length=128)
+    query: str | None = Field(default=None, max_length=256)
+
+
+class CodexApprovalFileChange(BaseModel):
+    """Workspace-relative file target when the upstream protocol provides it."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: str = Field(min_length=1, max_length=1_024)
+    change_kind: str = Field(min_length=1, max_length=64)
+    added_lines: int | None = Field(default=None, ge=0)
+    deleted_lines: int | None = Field(default=None, ge=0)
+    sensitive: bool = False
+
+
 class CodexApprovalDisplaySummary(BaseModel):
     """Agent 清洗后的审批展示字段，禁止包含原始 JSON 或绝对路径。"""
 
@@ -53,10 +77,16 @@ class CodexApprovalDisplaySummary(BaseModel):
     workspace_name: str | None = Field(default=None, max_length=128)
     risk_level: CodexApprovalRiskLevel
     command_summary: str | None = Field(default=None, max_length=256)
+    command: str | None = Field(default=None, max_length=1_024)
+    command_actions: tuple[CodexApprovalCommandAction, ...] = Field(default=(), max_length=32)
+    working_directory: str | None = Field(default=None, max_length=1_024)
+    read_only: bool = False
     file_scope: tuple[str, ...] = Field(default=(), max_length=64)
+    file_changes: tuple[CodexApprovalFileChange, ...] = Field(default=(), max_length=64)
     permission_names: tuple[str, ...] = Field(default=(), max_length=64)
     network_requested: bool = False
     extra_root_requested: bool = False
+    risk_reason: str | None = Field(default=None, max_length=256)
 
 
 class CodexApprovalAuditSnapshot(BaseModel):

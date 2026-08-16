@@ -10,10 +10,15 @@ from src.core.artifact_release_contract.artifact_contract import (
 
 
 class CompositeArtifactVerifier(ArtifactVerifierPort):
-    """摘要通过后要求 envelope 声明签名结果，签名算法仍由平台适配器负责。"""
+    """按摘要、TUF 结果和平台签名顺序执行组合校验。"""
 
-    def __init__(self, digest_verifier: ArtifactVerifierPort) -> None:
+    def __init__(
+        self,
+        digest_verifier: ArtifactVerifierPort,
+        signature_verifier: ArtifactVerifierPort,
+    ) -> None:
         self._digest_verifier = digest_verifier
+        self._signature_verifier = signature_verifier
 
     async def verify(
         self,
@@ -21,6 +26,12 @@ class CompositeArtifactVerifier(ArtifactVerifierPort):
         content: bytes,
     ) -> ArtifactVerificationResult:
         result = await self._digest_verifier.verify(envelope, content)
-        if envelope.signature is None:
-            raise ValueError("制品缺少受审签名摘要。")
-        return result.model_copy(update={"signature_verified": True})
+        if envelope.tuf_target is None:
+            raise ValueError("制品缺少已经验证的TUF target元数据。")
+        signature_result = await self._signature_verifier.verify(envelope, content)
+        return result.model_copy(
+            update={
+                "signature_verified": signature_result.signature_verified,
+                "signature": signature_result.signature,
+            }
+        )

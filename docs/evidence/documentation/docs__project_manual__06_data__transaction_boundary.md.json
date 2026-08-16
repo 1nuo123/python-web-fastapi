@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/06_data/transaction_boundary.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
-    "verified_at": "2026-08-07T23:06:48.601713Z"
+    "code_baseline": "caaf79d5211d72b99e0a274db0ef7d0e95e46a7a3f3e5a56563d7282489b5854",
+    "verified_at": "2026-08-16T05:39:22.880480Z"
   },
   "kind": "migration",
   "detail": {
@@ -13,7 +13,7 @@
     "evidence_path": "docs\\project_manual\\06_data\\transaction_boundary.md",
     "status": "current",
     "replacement_path": null,
-    "content_sha256": "6afc337c57a9cb69099554213a1b4df16a69d89e5d6f07b0aa23c5eefda7963a",
+    "content_sha256": "be7f81547da63e3edb57ccbb012e966612ac55f2887b03a9ce02a49bdef5f04f",
     "validation_status": "verified",
     "validation_summary": "关键事实与当前源码、迁移或测试入口一致。",
     "fact_evidence_paths": [

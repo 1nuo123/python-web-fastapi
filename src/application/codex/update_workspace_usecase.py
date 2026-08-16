@@ -52,6 +52,11 @@ class UpdateCodexWorkspaceUsecase:
                     "enabled": (
                         request.enabled if request.enabled is not None else current.enabled
                     ),
+                    "is_pinned": (
+                        request.is_pinned
+                        if request.is_pinned is not None
+                        else current.is_pinned
+                    ),
                     "worktree_policy": (
                         request.worktree_policy.to_policy(
                             managed_root=current.worktree_policy.managed_root

@@ -1,0 +1,245 @@
+name: Codex Agent Verified Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      signed_build_run_id:
+        description: Run ID of Codex Agent Signed Build
+        required: true
+      version:
+        description: Exact version produced by the signed build
+        required: true
+      public_origin:
+        description: Public HTTPS origin for API, WSS, device verification, and website
+        required: true
+      expected_codex_version:
+        description: Frozen Codex CLI version
+        required: true
+        default: "0.145.0"
+      app_server_schema_digest:
+        description: Frozen App Server schema SHA-256
+        required: true
+      release_repository:
+        description: Public repository that stores the MSI and TUF repository
+        required: true
+        default: "1nuo123/codex-remote-agent-releases"
+      release_repository_branch:
+        description: Public release repository branch
+        required: true
+        default: "master"
+      release_base_url:
+        description: Exact public HTTPS base URL used by TUF and release manifests
+        required: true
+        default: "https://raw.githubusercontent.com/1nuo123/codex-remote-agent-releases/master"
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+jobs:
+  verify-package-and-publish:
+    runs-on: windows-2025
+    steps:
+      - name: Resolve the signed build source revision
+        id: signed-build-run
+        uses: actions/github-script@v7
+        env:
+          SIGNED_BUILD_RUN_ID: ${{ inputs.signed_build_run_id }}
+        with:
+          script: |
+            const runId = Number(process.env.SIGNED_BUILD_RUN_ID);
+            if (!Number.isSafeInteger(runId) || runId <= 0) {
+              core.setFailed("The signed build run ID is invalid.");
+              return;
+            }
+            const run = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+            if (run.data.conclusion !== "success") {
+              core.setFailed("The selected signed build did not complete successfully.");
+              return;
+            }
+            if (run.data.event !== "workflow_dispatch") {
+              core.setFailed("The selected run is not an authorized manual signed build.");
+              return;
+            }
+            const expectedRepository = `${context.repo.owner}/${context.repo.repo}`;
+            if (run.data.head_repository?.full_name !== expectedRepository) {
+              core.setFailed("The signed build came from a different repository.");
+              return;
+            }
+            core.setOutput("head_sha", run.data.head_sha);
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.signed-build-run.outputs.head_sha }}
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --all-groups
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Download the exact signed build
+        uses: actions/download-artifact@v4
+        with:
+          name: codex-agent-signed-build-${{ inputs.version }}
+          path: dist/signed-build
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.signed_build_run_id }}
+      - name: Materialize offline trust material
+        shell: pwsh
+        env:
+          TUF_TRUSTED_ROOT_BASE64: ${{ secrets.TUF_TRUSTED_ROOT_BASE64 }}
+          TUF_SIGNED_METADATA_ZIP_BASE64: ${{ secrets.TUF_SIGNED_METADATA_ZIP_BASE64 }}
+        run: |
+          if (-not $env:TUF_TRUSTED_ROOT_BASE64) { throw "Missing offline-signed TUF trusted root." }
+          if (-not $env:TUF_SIGNED_METADATA_ZIP_BASE64) { throw "Missing TUF metadata signed for this build." }
+          New-Item -ItemType Directory -Force dist/trust,dist/metadata | Out-Null
+          [IO.File]::WriteAllBytes("dist/trust/root.json", [Convert]::FromBase64String($env:TUF_TRUSTED_ROOT_BASE64))
+          [IO.File]::WriteAllBytes("dist/tuf-metadata.zip", [Convert]::FromBase64String($env:TUF_SIGNED_METADATA_ZIP_BASE64))
+          Expand-Archive -LiteralPath dist/tuf-metadata.zip -DestinationPath dist/metadata -Force
+          Remove-Item -LiteralPath dist/tuf-metadata.zip
+      - name: Verify TUF signatures and exact signed target
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_REVISION: ${{ steps.signed-build-run.outputs.head_sha }}
+          RELEASE_BASE_URL: ${{ inputs.release_base_url }}
+        run: |
+          uv run python -m src.cli.verify_codex_agent_tuf_metadata `
+            --trusted-root dist/trust/root.json `
+            --metadata-directory dist/metadata `
+            --target-file dist/signed-build/codex-remote-agent.exe `
+            --version "$env:RELEASE_VERSION" `
+            --release-manifest dist/signed-build/codex-agent-release.json `
+            --build-record dist/signed-build/release-build.json `
+            --expected-source-repository "$env:SOURCE_REPOSITORY" `
+            --expected-source-revision "$env:SOURCE_REVISION" `
+            --expected-release-base-url "$env:RELEASE_BASE_URL"
+      - name: Install pinned WiX Toolset
+        shell: pwsh
+        run: dotnet tool install wix --tool-path .tools --version 6.0.2
+      - name: Stage production installer payload
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          PUBLIC_ORIGIN: ${{ inputs.public_origin }}
+          EXPECTED_CODEX_VERSION: ${{ inputs.expected_codex_version }}
+          APP_SERVER_SCHEMA_DIGEST: ${{ inputs.app_server_schema_digest }}
+        run: |
+          New-Item -ItemType Directory -Force dist/installer-payload | Out-Null
+          Copy-Item -LiteralPath dist/signed-build/codex-remote-agent.exe -Destination dist/installer-payload/codex-remote-agent.exe
+          Copy-Item packaging/windows/scripts/register_task_scheduler.ps1,packaging/windows/scripts/unregister_task_scheduler.ps1,packaging/windows/scripts/purge_agent_state.ps1 dist/installer-payload/
+          Copy-Item -LiteralPath dist/trust/root.json -Destination dist/installer-payload/root.json
+          $buildRecord = Get-Content -Raw -Encoding UTF8 dist/signed-build/release-build.json | ConvertFrom-Json
+          $repositoryHost = ([Uri]$buildRecord.cdn_base_url).DnsSafeHost.ToLowerInvariant()
+          uv run python -m src.cli.build_codex_agent_bootstrap `
+            --output dist/installer-payload/agent-bootstrap.toml `
+            --public-origin "$env:PUBLIC_ORIGIN" `
+            --agent-version "$env:RELEASE_VERSION" `
+            --expected-codex-version "$env:EXPECTED_CODEX_VERSION" `
+            --app-server-schema-digest "$env:APP_SERVER_SCHEMA_DIGEST" `
+            --release-repository-url "$($buildRecord.cdn_base_url)" `
+            --repository-host "$repositoryHost" `
+            --authenticode-signer-sha256 "$($buildRecord.authenticode_signer_sha256)" `
+            --trusted-root-file-name root.json `
+            --minimum-security-version "$($buildRecord.minimum_security_version)" `
+            --enable-release
+      - name: Build per-user MSI
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          New-Item -ItemType Directory -Force dist/publish | Out-Null
+          uv run python -m src.cli.build_codex_agent_installer_identity `
+            --version "$env:RELEASE_VERSION" `
+            --output dist/windows-installer-identity.json
+          $identity = Get-Content -Raw -Encoding UTF8 dist/windows-installer-identity.json | ConvertFrom-Json
+          .tools/wix.exe build packaging/windows/wix/Product.wxs `
+            -arch x64 `
+            -d AgentSource="$env:GITHUB_WORKSPACE/dist/installer-payload" `
+            -d ProductVersion="$env:RELEASE_VERSION" `
+            -d ProductCode="$($identity.product_code)" `
+            -d IncludeTrustedRoot=1 `
+            -o dist/publish/CodexRemoteAgent.msi
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Sign MSI with managed certificate
+        timeout-minutes: 15
+        shell: pwsh
+        env:
+          AZURE_KEY_VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
+          AZURE_CERTIFICATE_NAME: ${{ secrets.AZURE_CERTIFICATE_NAME }}
+        run: packaging/windows/scripts/sign_release.ps1 -InputPath dist/publish/CodexRemoteAgent.msi
+      - name: Verify MSI uses the pinned release certificate
+        shell: pwsh
+        run: |
+          $buildRecord = Get-Content -Raw -Encoding UTF8 dist/signed-build/release-build.json | ConvertFrom-Json
+          $signature = Get-AuthenticodeSignature -LiteralPath dist/publish/CodexRemoteAgent.msi
+          if ($signature.Status -ne "Valid" -or $null -eq $signature.SignerCertificate) {
+            throw "The MSI does not have a valid Authenticode signature."
+          }
+          $msiSignerSha256 = $signature.SignerCertificate.GetCertHashString("SHA256").ToLowerInvariant()
+          if ($msiSignerSha256 -ne $buildRecord.authenticode_signer_sha256) {
+            throw "The MSI and Agent executable were signed by different certificates."
+          }
+      - name: Check out the public release repository
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ inputs.release_repository }}
+          ref: ${{ inputs.release_repository_branch }}
+          token: ${{ secrets.CODEX_AGENT_RELEASE_REPOSITORY_TOKEN }}
+          path: dist/release-repository
+          fetch-depth: 1
+      - name: Stage and verify one atomic public release commit
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_REVISION: ${{ steps.signed-build-run.outputs.head_sha }}
+          RELEASE_BASE_URL: ${{ inputs.release_base_url }}
+        run: |
+          uv run python -m src.cli.stage_codex_agent_release_repository `
+            --repository-root dist/release-repository `
+            --trusted-root dist/trust/root.json `
+            --metadata-directory dist/metadata `
+            --signed-build-directory dist/signed-build `
+            --installer dist/publish/CodexRemoteAgent.msi `
+            --version "$env:RELEASE_VERSION" `
+            --expected-source-repository "$env:SOURCE_REPOSITORY" `
+            --expected-source-revision "$env:SOURCE_REVISION" `
+            --expected-release-base-url "$env:RELEASE_BASE_URL"
+          git -C dist/release-repository diff --check
+          if ($LASTEXITCODE -ne 0) { throw "The staged release repository failed git diff validation." }
+      - name: Publish the verified release as one Git commit
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          SOURCE_REVISION: ${{ steps.signed-build-run.outputs.head_sha }}
+          RELEASE_BRANCH: ${{ inputs.release_repository_branch }}
+        run: |
+          git -C dist/release-repository config user.name "github-actions[bot]"
+          git -C dist/release-repository config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C dist/release-repository add --all
+          if (-not (git -C dist/release-repository status --porcelain)) {
+            throw "Release version $env:RELEASE_VERSION is already published with identical bytes."
+          }
+          git -C dist/release-repository commit `
+            -m "release: Codex Remote Agent $env:RELEASE_VERSION" `
+            -m "Source-Revision: $env:SOURCE_REVISION"
+          if ($LASTEXITCODE -ne 0) { throw "Failed to create the atomic release commit." }
+          git -C dist/release-repository push origin "HEAD:$env:RELEASE_BRANCH"
+          if ($LASTEXITCODE -ne 0) { throw "Failed to advance the public release repository." }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codex-agent-published-${{ inputs.version }}
+          path: |
+            dist/publish/
+            dist/metadata/
+            dist/release-repository/releases/${{ inputs.version }}/
+          if-no-files-found: error

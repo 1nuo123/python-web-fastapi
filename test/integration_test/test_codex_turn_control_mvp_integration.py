@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from http import HTTPStatus
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.api.testing.test_app_factory import TestAppFactory
@@ -16,9 +17,19 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentHello,
 )
 from src.core.codex_contract.agent_protocol_v2_contract import (
+    AgentThreadChangedEventDetail,
+    AgentTurnChangedEventDetail,
     AgentTurnInterruptCommandDetail,
     AgentTurnSteerCommandDetail,
 )
+from src.core.codex_contract.app_server_product_contract import (
+    AppServerThreadProductSnapshot,
+)
+from src.core.codex_contract.app_server_schema_manifest_contract import (
+    AppServerNotificationName,
+)
+from src.core.codex_contract.thread_contract import CodexThreadTitleSource
+from src.domain.codex.host_status import CodexThreadStatus
 from src.infrastructure.persistence.orm_model.codex_control_operation_orm_model import (
     CodexControlOperationOrmModel,
 )
@@ -35,8 +46,14 @@ from test.fixtures.codex_device_authorization_test_support import (
     CodexDeviceAuthorizationTestSupport,
 )
 
+APP_SERVER_ACTIVE_TURN_STATUS = "inProgress"
 
-def test_active_turn_commands_should_reach_agent_with_stable_identity_and_expected_turn() -> None:
+
+@pytest.mark.integration
+@pytest.mark.postgres
+@pytest.mark.docker
+@pytest.mark.usefixtures("integration_database")
+def test_active_turn_event_order_should_preserve_turn_and_allow_commands() -> None:
     app = TestAppFactory().create()
     host_id = uuid4()
     workspace_id = uuid4()
@@ -63,6 +80,7 @@ def test_active_turn_commands_should_reach_agent_with_stable_identity_and_expect
                     version=1,
                 )
             )
+            unit_of_work.flush()
             session.add(
                 CodexWorkspaceOrmModel(
                     workspace_id=workspace_id,
@@ -74,6 +92,7 @@ def test_active_turn_commands_should_reach_agent_with_stable_identity_and_expect
                     version=1,
                 )
             )
+            unit_of_work.flush()
             now = datetime.now(UTC)
             session.add(
                 CodexThreadIndexOrmModel(
@@ -82,9 +101,13 @@ def test_active_turn_commands_should_reach_agent_with_stable_identity_and_expect
                     workspace_id=workspace_id,
                     owner_subject_id="user-admin",
                     upstream_thread_id=thread_id,
-                    status="active",
-                    active_turn_id=active_turn_id,
+                    display_name="Control thread",
+                    title_source=CodexThreadTitleSource.APP_SERVER.value,
+                    status=CodexThreadStatus.IDLE.value,
+                    active_turn_id=None,
                     archived=False,
+                    created_at=now,
+                    recency_at=now,
                     updated_at=now,
                     last_synced_at=now,
                 )
@@ -108,6 +131,33 @@ def test_active_turn_commands_should_reach_agent_with_stable_identity_and_expect
             connection = CodexDeviceAuthorizationTestSupport.connect_v2(
                 agent_websocket,
                 device,
+            )
+            app_server_instance_id = uuid4()
+            CodexDeviceAuthorizationTestSupport.send_v2_event(
+                agent_websocket,
+                connection,
+                AgentTurnChangedEventDetail(
+                    method=AppServerNotificationName.TURN_STARTED,
+                    thread_id=thread_id,
+                    turn_id=active_turn_id,
+                    status=APP_SERVER_ACTIVE_TURN_STATUS,
+                ),
+                sequence=1,
+                app_server_instance_id=app_server_instance_id,
+            )
+            CodexDeviceAuthorizationTestSupport.send_v2_event(
+                agent_websocket,
+                connection,
+                AgentThreadChangedEventDetail(
+                    method=AppServerNotificationName.THREAD_STATUS_CHANGED,
+                    thread=AppServerThreadProductSnapshot(
+                        thread_id=thread_id,
+                        display_name="Control thread",
+                        status=CodexThreadStatus.ACTIVE.value,
+                    ),
+                ),
+                sequence=2,
+                app_server_instance_id=app_server_instance_id,
             )
             with ThreadPoolExecutor(max_workers=1) as executor:
                 steer_future = executor.submit(
@@ -145,7 +195,13 @@ def test_active_turn_commands_should_reach_agent_with_stable_identity_and_expect
 
         check_uow = resource_mount.create_unit_of_work()
         try:
-            operations = check_uow.get_session().query(CodexControlOperationOrmModel).all()
+            check_session = check_uow.get_session()
+            operations = (
+                check_session.query(CodexControlOperationOrmModel)
+                .filter_by(host_id=host_id, thread_id=thread_id)
+                .all()
+            )
+            thread = check_session.get(CodexThreadIndexOrmModel, thread_index_id)
         finally:
             check_uow.dispose()
 
@@ -155,6 +211,9 @@ def test_active_turn_commands_should_reach_agent_with_stable_identity_and_expect
     assert steer_command.detail.turn_id == active_turn_id
     assert isinstance(interrupt_command.detail, AgentTurnInterruptCommandDetail)
     assert interrupt_command.detail.turn_id == active_turn_id
+    assert thread is not None
+    assert thread.status == CodexThreadStatus.ACTIVE.value
+    assert thread.active_turn_id == active_turn_id
     assert steer_command.header.command_id != interrupt_command.header.command_id
     assert {operation.operation_type for operation in operations} == {
         "turn.steer",
@@ -188,6 +247,7 @@ def test_thread_read_should_restore_authoritative_turn_and_final_item_without_pa
                     version=1,
                 )
             )
+            unit_of_work.flush()
             session.add(
                 CodexWorkspaceOrmModel(
                     workspace_id=workspace_id,
@@ -199,6 +259,7 @@ def test_thread_read_should_restore_authoritative_turn_and_final_item_without_pa
                     version=1,
                 )
             )
+            unit_of_work.flush()
             now = datetime.now(UTC)
             session.add(
                 CodexThreadIndexOrmModel(
@@ -208,9 +269,12 @@ def test_thread_read_should_restore_authoritative_turn_and_final_item_without_pa
                     owner_subject_id="user-admin",
                     upstream_thread_id=thread_id,
                     display_name="Snapshot",
+                    title_source=CodexThreadTitleSource.APP_SERVER.value,
                     status="active",
                     active_turn_id="019-stale-active-turn",
                     archived=False,
+                    created_at=now,
+                    recency_at=now,
                     updated_at=now,
                     last_synced_at=now,
                 )
@@ -415,7 +479,8 @@ def test_thread_read_should_restore_authoritative_turn_and_final_item_without_pa
     assert snapshot["thread"]["active_turn_id"] is None
     assert snapshot["turns"][0]["status"] == "completed"
     assert snapshot["turns"][1]["status"] == "interrupted"
-    assert snapshot["items"][0]["text"] == "final answer"
+    assert snapshot["items"][0]["header"]["detail_kind"] == "agent_message"
+    assert snapshot["items"][0]["detail"]["text"] == "final answer"
     assert "cwd" not in response.text
     assert "C:\\private\\workspace" not in response.text
     assert omitted_response.status_code == HTTPStatus.OK

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 
 from src.core.codex_contract.approval_contract import CodexApprovalAuditSnapshot
+from src.core.codex_contract.thread_contract import CodexThreadIndexSnapshot
 
 
 class CodexRealtimeEventPort(Protocol):
@@ -13,4 +15,11 @@ class CodexRealtimeEventPort(Protocol):
     async def publish_approval_resolved(
         self,
         approval: CodexApprovalAuditSnapshot,
+    ) -> None: ...
+
+    async def publish_thread_updated(
+        self,
+        thread: CodexThreadIndexSnapshot,
+        *,
+        occurred_at: datetime,
     ) -> None: ...

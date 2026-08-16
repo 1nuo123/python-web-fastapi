@@ -11,6 +11,7 @@ from pydantic import JsonValue
 
 from src.core.codex_contract.agent_command_contract import AgentCommandJournalState
 from src.core.codex_contract.agent_protocol_contract import (
+    AgentConversationSnapshotDetail,
     CodexAgentStateSnapshot,
     CodexAgentWorkspaceSnapshot,
 )
@@ -25,6 +26,7 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
 from src.core.codex_contract.app_server_jsonrpc_contract import (
     AppServerMessageTooLargeError,
 )
+from src.domain.codex.thread_title_policy import CodexThreadTitlePolicy
 from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJournal
 from src.infrastructure.codex_agent.agent_thread_history_capacity_registry import (
     AgentThreadHistoryCapacityRegistry,
@@ -60,7 +62,7 @@ class AgentSnapshotBuilder:
         """逐工作区查询 thread/list，并标注本地 workspace_key。"""
 
         workspace_snapshots: list[CodexAgentWorkspaceSnapshot] = []
-        thread_snapshots: list[dict[str, JsonValue]] = []
+        thread_snapshots: list[AgentConversationSnapshotDetail] = []
         omitted_thread_workspace_keys: list[str] = []
         for workspace in self._workspace_registry.list_workspaces():
             workspace_snapshots.append(
@@ -72,11 +74,25 @@ class AgentSnapshotBuilder:
                 )
             )
             try:
-                workspace_threads = await self._list_workspace_threads(workspace.key)
+                active_threads = await self._list_workspace_threads(
+                    workspace.key,
+                    archived=False,
+                    limit=THREAD_SNAPSHOT_LIMIT,
+                )
+                remaining = THREAD_SNAPSHOT_LIMIT - len(active_threads)
+                archived_threads = (
+                    await self._list_workspace_threads(
+                        workspace.key,
+                        archived=True,
+                        limit=remaining,
+                    )
+                    if remaining > 0
+                    else []
+                )
             except AppServerMessageTooLargeError:
                 omitted_thread_workspace_keys.append(workspace.key)
                 continue
-            thread_snapshots.extend(workspace_threads)
+            thread_snapshots.extend((*active_threads, *archived_threads))
         return CodexAgentStateSnapshot(
             host_id=self._host_id,
             app_server_instance_id=self._app_server_instance_id,
@@ -163,26 +179,24 @@ class AgentSnapshotBuilder:
             captured_at=legacy.captured_at,
         )
 
-    def _to_v2_thread(self, item: dict[str, JsonValue]) -> AgentThreadSnapshot:
-        status_value = item.get("status")
-        if isinstance(status_value, Mapping):
-            raw_type = cast(Mapping[str, object], status_value).get("type")
-            status = raw_type if isinstance(raw_type, str) else "unknown"
-        else:
-            status = status_value if isinstance(status_value, str) else "unknown"
-        updated_value = item.get("updatedAt")
-        updated_at = (
-            datetime.fromtimestamp(float(updated_value), tz=UTC)
-            if isinstance(updated_value, (int, float)) and not isinstance(updated_value, bool)
-            else None
-        )
+    def _to_v2_thread(
+        self,
+        item: AgentConversationSnapshotDetail,
+    ) -> AgentThreadSnapshot:
+        """把 v1 会话索引扩展转换为同语义 v2 快照。"""
+
         return AgentThreadSnapshot(
-            thread_id=str(item["id"]),
-            workspace_key=str(item["workspaceKey"]),
-            display_name=(str(item["name"]) if isinstance(item.get("name"), str) else None),
-            status=status,
-            active_turn_id=None,
-            updated_at=updated_at,
+            thread_id=item.thread_id,
+            workspace_key=item.workspace_key,
+            display_name=item.display_name,
+            title_source=item.title_source,
+            status=item.status,
+            active_turn_id=item.active_turn_id,
+            archived=item.archived,
+            model_id=item.model_id,
+            model_provider=item.model_provider,
+            created_at=item.created_at,
+            recency_at=item.recency_at,
         )
 
     def _read_v2_journal_state(
@@ -202,18 +216,27 @@ class AgentSnapshotBuilder:
             )
         return "unknown"
 
-    async def _list_workspace_threads(self, workspace_key: str) -> list[dict[str, JsonValue]]:
+    async def _list_workspace_threads(
+        self,
+        workspace_key: str,
+        *,
+        archived: bool,
+        limit: int,
+    ) -> list[AgentConversationSnapshotDetail]:
         """从状态库分页读取有界线程元数据，不扫描或转发历史正文。"""
 
         root = self._workspace_registry.resolve_root(workspace_key)
-        snapshots: list[dict[str, JsonValue]] = []
+        snapshots: list[AgentConversationSnapshotDetail] = []
         cursor: str | None = None
         seen_cursors: set[str] = set()
-        while len(snapshots) < THREAD_SNAPSHOT_LIMIT:
+        while len(snapshots) < limit:
             params: dict[str, JsonValue] = {
                 "cwd": str(root),
-                "limit": min(THREAD_LIST_PAGE_SIZE, THREAD_SNAPSHOT_LIMIT - len(snapshots)),
+                "limit": min(THREAD_LIST_PAGE_SIZE, limit - len(snapshots)),
                 "useStateDbOnly": True,
+                "sortKey": "recency_at",
+                "sortDirection": "desc",
+                "archived": archived,
             }
             if cursor is not None:
                 params["cursor"] = cursor
@@ -224,7 +247,12 @@ class AgentSnapshotBuilder:
             )
             threads, next_cursor = self._read_thread_page(result)
             snapshots.extend(
-                self._build_thread_metadata(thread, workspace_key) for thread in threads
+                self._build_thread_metadata(
+                    thread,
+                    workspace_key,
+                    archived=archived,
+                )
+                for thread in threads
             )
             if next_cursor is None:
                 break
@@ -238,36 +266,65 @@ class AgentSnapshotBuilder:
         self,
         thread: Mapping[str, JsonValue],
         workspace_key: str,
-    ) -> dict[str, JsonValue]:
-        """只保留控制面索引所需字段，排除路径、preview 和 turns。"""
+        *,
+        archived: bool,
+    ) -> AgentConversationSnapshotDetail:
+        """本地消费 preview 后只输出有界标题与索引字段。"""
 
         thread_id = thread.get("id")
         if not isinstance(thread_id, str) or not thread_id:
             raise ValueError("thread/list响应线程缺少id。")
         if self._history_capacity_registry is not None:
             self._history_capacity_registry.register(thread_id, thread.get("path"))
-        snapshot: dict[str, JsonValue] = {
-            "id": thread_id,
-            "workspaceKey": workspace_key,
-        }
-        name = thread.get("name")
-        if isinstance(name, str) and name:
-            snapshot["name"] = name[:256]
+        created_at = self._read_timestamp(thread.get("createdAt"))
+        updated_at = self._read_timestamp(thread.get("updatedAt"))
+        recency_at = self._read_timestamp(thread.get("recencyAt"))
+        if created_at is None:
+            created_at = updated_at
+        if created_at is None:
+            raise ValueError("thread/list响应线程缺少有效createdAt。")
+        if recency_at is None:
+            recency_at = updated_at or created_at
+        name_value = thread.get("name")
+        name = name_value if isinstance(name_value, str) else None
+        preview_value = thread.get("preview")
+        preview = preview_value if isinstance(preview_value, str) else None
+        title = CodexThreadTitlePolicy().resolve(
+            created_at=created_at,
+            app_server_title=name,
+            first_user_message=preview,
+        )
         model_provider = thread.get("modelProvider")
-        if isinstance(model_provider, str):
-            snapshot["modelProvider"] = model_provider[:128]
         status = thread.get("status")
         if isinstance(status, str):
-            snapshot["status"] = status
+            normalized_status = status
         elif isinstance(status, Mapping):
             status_type = cast(Mapping[str, object], status).get("type")
-            if isinstance(status_type, str):
-                snapshot["status"] = {"type": status_type}
-        for field_name in ("createdAt", "updatedAt"):
-            value = thread.get(field_name)
-            if isinstance(value, (int, float)) and not isinstance(value, bool):
-                snapshot[field_name] = value
-        return snapshot
+            normalized_status = status_type if isinstance(status_type, str) else "unknown"
+        else:
+            normalized_status = "unknown"
+        return AgentConversationSnapshotDetail(
+            thread_id=thread_id,
+            workspace_key=workspace_key,
+            display_name=title.display_name,
+            title_source=title.source,
+            model_id=None,
+            model_provider=(
+                model_provider[:128] if isinstance(model_provider, str) else None
+            ),
+            status=normalized_status,
+            active_turn_id=None,
+            archived=archived,
+            created_at=created_at,
+            recency_at=recency_at,
+        )
+
+    def _read_timestamp(self, value: JsonValue | None) -> datetime | None:
+        """把 App Server 秒级时间戳收敛为 UTC 时间。"""
+
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return None
+        return datetime.fromtimestamp(float(value), tz=UTC)
 
     def _read_thread_page(
         self,

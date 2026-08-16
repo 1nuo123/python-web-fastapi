@@ -37,6 +37,7 @@ from src.api.endpoint_admin_identity.contract_admin_user import (
     AdminUserPasswordResetRequest,
     AdminUserPayload,
     AdminUserRoleReplaceRequest,
+    AdminUserScopeReplaceRequest,
     AdminUserStatusResultPayload,
     AdminUserUpdateRequest,
 )
@@ -59,6 +60,7 @@ AdminIdentityDetailUnion = Annotated[
     | AdminUserUpdateRequest
     | AdminUserPasswordResetRequest
     | AdminUserRoleReplaceRequest
+    | AdminUserScopeReplaceRequest
     | AdminUserDisableRequest
     | AdminUserEnableRequest
     | AdminUserStatusResultPayload

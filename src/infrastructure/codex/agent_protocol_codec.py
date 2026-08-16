@@ -29,11 +29,14 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentProtocolV2Detail,
     AgentProtocolV2Envelope,
     AgentProtocolV2Header,
+    AgentThreadArchiveCommandDetail,
     AgentThreadCompactCommandDetail,
     AgentThreadListCommandDetail,
+    AgentThreadNameSetCommandDetail,
     AgentThreadReadCommandDetail,
     AgentThreadResumeCommandDetail,
     AgentThreadStartCommandDetail,
+    AgentThreadUnarchiveCommandDetail,
     AgentTurnInterruptCommandDetail,
     AgentTurnStartCommandDetail,
     AgentTurnSteerCommandDetail,
@@ -42,12 +45,16 @@ from src.core.codex_contract.connection_session_contract import (
     CodexConnectionFrame,
     CodexConnectionProtocolVersion,
 )
+from src.core.codex_contract.host_contract import CodexApprovalPolicy, CodexSandboxMode
 
 APPROVAL_DECISION_COMMAND_TYPE: Final = "approval.decision"
 THREAD_LIST_COMMAND_TYPE: Final = "thread.list"
 THREAD_READ_COMMAND_TYPE: Final = "thread.read"
 THREAD_START_COMMAND_TYPE: Final = "thread.start"
 THREAD_RESUME_COMMAND_TYPE: Final = "thread.resume"
+THREAD_NAME_SET_COMMAND_TYPE: Final = "thread.name_set"
+THREAD_ARCHIVE_COMMAND_TYPE: Final = "thread.archive"
+THREAD_UNARCHIVE_COMMAND_TYPE: Final = "thread.unarchive"
 THREAD_COMPACT_COMMAND_TYPE: Final = "thread.compact"
 TURN_START_COMMAND_TYPE: Final = "turn.start"
 TURN_STEER_COMMAND_TYPE: Final = "turn.steer"
@@ -63,6 +70,7 @@ INCLUDE_TURNS_PARAM: Final = "includeTurns"
 INPUT_PARAM: Final = "input"
 LIMIT_PARAM: Final = "limit"
 MODEL_PARAM: Final = "model"
+NAME_PARAM: Final = "name"
 TEXT_PARAM: Final = "text"
 TEXT_ELEMENTS_PARAM: Final = "text_elements"
 THREAD_ID_PARAM: Final = "threadId"
@@ -77,9 +85,12 @@ INCLUDE_TURNS_DETAIL_FIELD: Final = "include_turns"
 LIMIT_DETAIL_FIELD: Final = "limit"
 MESSAGE_DETAIL_FIELD: Final = "message"
 MODEL_DETAIL_FIELD: Final = "model"
+DISPLAY_NAME_DETAIL_FIELD: Final = "display_name"
 REASONING_EFFORT_DETAIL_FIELD: Final = "reasoning_effort"
 THREAD_ID_DETAIL_FIELD: Final = "thread_id"
 WORKTREE_POLICY_DETAIL_FIELD: Final = "worktree_policy"
+SANDBOX_MODE_DETAIL_FIELD: Final = "sandbox_mode"
+APPROVAL_POLICY_DETAIL_FIELD: Final = "approval_policy"
 
 AGENT_COMMAND_PARAM_NAMES: Final = {
     APPROVAL_DECISION_COMMAND_TYPE: frozenset(
@@ -91,6 +102,11 @@ AGENT_COMMAND_PARAM_NAMES: Final = {
     ),
     THREAD_START_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, MODEL_PARAM, WORKTREE_POLICY_PARAM}),
     THREAD_RESUME_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, THREAD_ID_PARAM}),
+    THREAD_NAME_SET_COMMAND_TYPE: frozenset(
+        {WORKSPACE_KEY_PARAM, THREAD_ID_PARAM, NAME_PARAM}
+    ),
+    THREAD_ARCHIVE_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, THREAD_ID_PARAM}),
+    THREAD_UNARCHIVE_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, THREAD_ID_PARAM}),
     THREAD_COMPACT_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, THREAD_ID_PARAM}),
     TURN_START_COMMAND_TYPE: frozenset(
         {WORKSPACE_KEY_PARAM, THREAD_ID_PARAM, INPUT_PARAM, MODEL_PARAM, EFFORT_PARAM}
@@ -253,6 +269,7 @@ class AgentProtocolCodecRegistry:
             header=AgentProtocolV2Header(
                 message_id=message_id,
                 message_type=AgentProtocolMessageType(detail.kind),
+                detail_kind=AgentProtocolMessageType(detail.kind),
                 host_id=host_id,
                 key_id=key_id,
                 sent_at=sent_at or datetime.now(UTC),
@@ -288,6 +305,14 @@ class AgentCommandV2Mapper:
         """仅在 Agent mapper 边界把 v2 typed detail 转为现有执行器输入。"""
 
         command_type, params = self._to_v1_request(command.detail)
+        sandbox_mode = None
+        approval_policy = None
+        if isinstance(
+            command.detail,
+            (AgentThreadStartCommandDetail, AgentTurnStartCommandDetail),
+        ):
+            sandbox_mode = command.detail.sandbox_mode
+            approval_policy = command.detail.approval_policy
         return CodexAgentCommand(
             command_id=command.header.command_id,
             operation_id=command.header.operation_id,
@@ -296,6 +321,8 @@ class AgentCommandV2Mapper:
             command_type=command_type,
             params=params,
             deadline=command.header.deadline,
+            sandbox_mode=sandbox_mode,
+            approval_policy=approval_policy,
         )
 
     def _to_v1_request(
@@ -305,6 +332,9 @@ class AgentCommandV2Mapper:
             | AgentThreadReadCommandDetail
             | AgentThreadStartCommandDetail
             | AgentThreadResumeCommandDetail
+            | AgentThreadNameSetCommandDetail
+            | AgentThreadArchiveCommandDetail
+            | AgentThreadUnarchiveCommandDetail
             | AgentThreadCompactCommandDetail
             | AgentTurnStartCommandDetail
             | AgentTurnSteerCommandDetail
@@ -338,6 +368,18 @@ class AgentCommandV2Mapper:
                     else None
                 )
         elif isinstance(detail, AgentThreadResumeCommandDetail):
+            params[THREAD_ID_PARAM] = detail.thread_id
+        elif isinstance(detail, AgentThreadNameSetCommandDetail):
+            params.update(
+                {
+                    THREAD_ID_PARAM: detail.thread_id,
+                    NAME_PARAM: detail.display_name,
+                }
+            )
+        elif isinstance(
+            detail,
+            (AgentThreadArchiveCommandDetail, AgentThreadUnarchiveCommandDetail),
+        ):
             params[THREAD_ID_PARAM] = detail.thread_id
         elif isinstance(detail, AgentThreadCompactCommandDetail):
             params[THREAD_ID_PARAM] = detail.thread_id
@@ -384,6 +426,9 @@ class AgentCommandV2Mapper:
         | AgentThreadReadCommandDetail
         | AgentThreadStartCommandDetail
         | AgentThreadResumeCommandDetail
+        | AgentThreadNameSetCommandDetail
+        | AgentThreadArchiveCommandDetail
+        | AgentThreadUnarchiveCommandDetail
         | AgentThreadCompactCommandDetail
         | AgentTurnStartCommandDetail
         | AgentTurnSteerCommandDetail
@@ -433,6 +478,8 @@ class AgentCommandV2Mapper:
         if command.command_type == THREAD_START_COMMAND_TYPE:
             start_detail_values: dict[str, JsonValue] = {
                 WORKSPACE_KEY_PARAM: workspace_key,
+                SANDBOX_MODE_DETAIL_FIELD: self._read_command_sandbox_mode(command).value,
+                APPROVAL_POLICY_DETAIL_FIELD: self._read_command_approval_policy(command).value,
             }
             if MODEL_PARAM in params:
                 start_detail_values[MODEL_DETAIL_FIELD] = self._read_optional_string(
@@ -447,6 +494,22 @@ class AgentCommandV2Mapper:
                 workspace_key=workspace_key,
                 thread_id=self._read_required_string(params, THREAD_ID_PARAM),
             )
+        if command.command_type == THREAD_NAME_SET_COMMAND_TYPE:
+            return AgentThreadNameSetCommandDetail(
+                workspace_key=workspace_key,
+                thread_id=self._read_required_string(params, THREAD_ID_PARAM),
+                display_name=self._read_required_string(params, NAME_PARAM),
+            )
+        if command.command_type == THREAD_ARCHIVE_COMMAND_TYPE:
+            return AgentThreadArchiveCommandDetail(
+                workspace_key=workspace_key,
+                thread_id=self._read_required_string(params, THREAD_ID_PARAM),
+            )
+        if command.command_type == THREAD_UNARCHIVE_COMMAND_TYPE:
+            return AgentThreadUnarchiveCommandDetail(
+                workspace_key=workspace_key,
+                thread_id=self._read_required_string(params, THREAD_ID_PARAM),
+            )
         if command.command_type == THREAD_COMPACT_COMMAND_TYPE:
             return AgentThreadCompactCommandDetail(
                 workspace_key=workspace_key,
@@ -457,6 +520,8 @@ class AgentCommandV2Mapper:
                 WORKSPACE_KEY_PARAM: workspace_key,
                 THREAD_ID_DETAIL_FIELD: self._read_required_string(params, THREAD_ID_PARAM),
                 MESSAGE_DETAIL_FIELD: self._read_input_message(params),
+                SANDBOX_MODE_DETAIL_FIELD: self._read_command_sandbox_mode(command).value,
+                APPROVAL_POLICY_DETAIL_FIELD: self._read_command_approval_policy(command).value,
             }
             if MODEL_PARAM in params:
                 turn_start_detail_values[MODEL_DETAIL_FIELD] = self._read_optional_string(
@@ -485,6 +550,19 @@ class AgentCommandV2Mapper:
                 turn_id=self._read_required_string(params, TURN_ID_PARAM),
             )
         raise ValueError("Agent command无法映射到v2强类型detail。")
+
+    def _read_command_sandbox_mode(self, command: CodexAgentCommand) -> CodexSandboxMode:
+        if command.sandbox_mode is None:
+            raise ValueError("Agent command缺少用户确认的沙箱限制。")
+        return command.sandbox_mode
+
+    def _read_command_approval_policy(
+        self,
+        command: CodexAgentCommand,
+    ) -> CodexApprovalPolicy:
+        if command.approval_policy is None:
+            raise ValueError("Agent command缺少用户确认的审批限制。")
+        return command.approval_policy
 
     def _validate_parameter_keys(
         self,

@@ -32,6 +32,8 @@ class CodexRuntimeSettings(BaseModel):
     agent_reconnect_min_seconds: int = Field(gt=0)
     agent_reconnect_max_seconds: int = Field(gt=0)
     max_connected_agents: int = Field(gt=0)
+    max_hosts_per_user: int = Field(gt=0, le=100)
+    max_workspaces_per_host: int = Field(gt=0, le=1_000)
     max_active_turns_per_host: int = Field(gt=0)
     max_active_write_turns_per_workspace: int = Field(gt=0)
     agent_outgoing_queue_size: int = Field(gt=0)
@@ -54,6 +56,7 @@ class CodexRuntimeSettings(BaseModel):
     instance_control_stream_max_events: int = Field(gt=0, le=100_000)
     instance_control_read_limit: int = Field(gt=0, le=1_000)
     device_authorization_ttl_seconds: int = Field(gt=0, le=1_800)
+    enrollment_intent_ttl_seconds: int = Field(gt=0, le=900)
     device_authorization_poll_interval_seconds: int = Field(gt=0, le=60)
     device_authorization_create_attempts: int = Field(gt=0, le=20)
     device_authorization_max_poll_attempts: int = Field(gt=0, le=1_000)
@@ -66,6 +69,10 @@ class CodexRuntimeSettings(BaseModel):
     allow_legacy_agent_bearer: bool = False
     allow_experimental_app_server_api: bool = False
     allowed_codex_versions: list[str] = Field(min_length=1)
+    agent_release_version: str = Field(min_length=1, max_length=64)
+    agent_release_download_url: str = Field(min_length=1, max_length=2_048)
+    agent_release_manifest_url: str = Field(min_length=1, max_length=2_048)
+    agent_release_minimum_security_version: str = Field(min_length=1, max_length=64)
 
     @model_validator(mode="after")
     def validate_runtime_boundaries(self) -> CodexRuntimeSettings:
@@ -77,8 +84,14 @@ class CodexRuntimeSettings(BaseModel):
             raise ValueError("agent_reconnect_max_seconds 不得小于 agent_reconnect_min_seconds。")
         if any(version.strip() == "" for version in self.allowed_codex_versions):
             raise ValueError("allowed_codex_versions 不允许空字符串。")
+        if not self.agent_release_download_url.startswith("https://"):
+            raise ValueError("Agent下载地址必须使用HTTPS。")
+        if not self.agent_release_manifest_url.startswith("https://"):
+            raise ValueError("Agent发布清单地址必须使用HTTPS。")
         if self.device_authorization_poll_interval_seconds >= self.device_authorization_ttl_seconds:
             raise ValueError("设备授权轮询间隔必须小于授权有效期。")
+        if self.enrollment_intent_ttl_seconds > self.device_authorization_ttl_seconds:
+            raise ValueError("注册意图有效期不得大于设备授权有效期。")
         if self.device_challenge_ttl_seconds >= self.device_authorization_ttl_seconds:
             raise ValueError("设备挑战有效期必须小于设备授权有效期。")
         if self.command_outbox_retry_seconds >= self.operation_idempotency_ttl_seconds:

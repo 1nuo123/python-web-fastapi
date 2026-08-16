@@ -10,7 +10,9 @@ from uuid import UUID, uuid4
 from pydantic import JsonValue
 
 from src.core.codex_contract.realtime_event_contract import (
+    CodexRealtimeDetailFactory,
     CodexRealtimeEvent,
+    CodexRealtimeEventHeader,
     CodexRealtimeEventType,
 )
 from src.infrastructure.codex.codex_protocol_mapper import CodexProductEvent
@@ -41,15 +43,19 @@ class CodexBrowserSubscription:
         turn_id: str | None = None,
         item_id: str | None = None,
     ) -> CodexRealtimeEvent:
+        detail = CodexRealtimeDetailFactory().build(event_type, payload)
         event = CodexRealtimeEvent(
-            event_id=str(uuid4()),
-            host_id=host_id,
-            workspace_id=workspace_id,
-            thread_id=thread_id,
-            turn_id=turn_id,
-            item_id=item_id,
-            type=event_type,
-            payload=payload,
+            header=CodexRealtimeEventHeader(
+                event_id=str(uuid4()),
+                occurred_at=datetime.now(UTC),
+                host_id=host_id,
+                workspace_id=workspace_id,
+                thread_id=thread_id,
+                turn_id=turn_id,
+                item_id=item_id,
+                detail_kind=event_type,
+            ),
+            detail=detail,
         )
         return event
 
@@ -97,7 +103,11 @@ class CodexBrowserEventHub:
                 owner_subject_id=subject_id,
                 event=realtime_event,
             )
-            realtime_event = realtime_event.model_copy(update={"cursor": cursor})
+            realtime_event = realtime_event.model_copy(
+                update={
+                    "header": realtime_event.header.model_copy(update={"cursor": cursor})
+                }
+            )
         for subscription in subscriptions:
             self._enqueue(subscription, realtime_event)
 
@@ -126,14 +136,20 @@ class CodexBrowserEventHub:
         product_event: CodexProductEvent,
     ) -> CodexRealtimeEvent:
         return CodexRealtimeEvent(
-            event_id=str(uuid4()),
-            type=product_event.event_type,
-            host_id=product_event.host_id,
-            workspace_id=product_event.workspace_id,
-            thread_id=product_event.thread_id,
-            turn_id=product_event.turn_id,
-            item_id=product_event.item_id,
-            payload=product_event.payload,
+            header=CodexRealtimeEventHeader(
+                event_id=str(uuid4()),
+                occurred_at=product_event.occurred_at or datetime.now(UTC),
+                detail_kind=product_event.event_type,
+                host_id=product_event.host_id,
+                workspace_id=product_event.workspace_id,
+                thread_id=product_event.thread_id,
+                turn_id=product_event.turn_id,
+                item_id=product_event.item_id,
+            ),
+            detail=CodexRealtimeDetailFactory().build(
+                product_event.event_type,
+                product_event.payload,
+            ),
         )
 
     def _enqueue(
@@ -148,10 +164,10 @@ class CodexBrowserEventHub:
             subscription.queue.get_nowait()
         gap = subscription.build_local_event(
             event_type=CodexRealtimeEventType.STREAM_GAP_DETECTED,
-            host_id=event.host_id,
-            workspace_id=event.workspace_id,
-            thread_id=event.thread_id,
-            turn_id=event.turn_id,
+            host_id=event.header.host_id,
+            workspace_id=event.header.workspace_id,
+            thread_id=event.header.thread_id,
+            turn_id=event.header.turn_id,
             payload={
                 "reason": "browser_queue_overflow",
                 "server_time": datetime.now(UTC).isoformat(),

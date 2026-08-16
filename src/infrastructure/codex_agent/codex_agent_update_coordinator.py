@@ -13,7 +13,7 @@ from src.core.artifact_release_contract.artifact_contract import (
 )
 from src.infrastructure.artifact_release.rollout_policy import ArtifactRolloutPolicy
 
-AGENT_ARTIFACT_NAME = "codex-remote-agent"
+AGENT_ARTIFACT_NAME = "codex-remote-agent.exe"
 CODEX_ARTIFACT_NAME = "codex"
 
 
@@ -37,6 +37,7 @@ class CodexAgentUpdateCoordinator:
         target_url: str,
         rollout_percent: int,
         rollout_subject_digest: str,
+        forced: bool,
         health_check: ArtifactHealthCallback,
     ) -> ArtifactReleaseResult:
         identity = ArtifactIdentity(
@@ -52,7 +53,7 @@ class CodexAgentUpdateCoordinator:
             rollout_subject_digest=rollout_subject_digest,
             rollout_percent=rollout_percent,
             paused=False,
-            forced=False,
+            forced=forced,
         ):
             raise PermissionError("Agent更新尚未进入当前灰度桶。")
         return await self._orchestrator.execute(

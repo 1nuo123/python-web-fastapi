@@ -61,11 +61,12 @@ class CodexWorkspaceWorktreePolicyUpdate(BaseModel):
 
 
 class CodexWorkspaceUpdateRequest(BaseModel):
-    """工作区名称、启用状态与隔离策略的更新请求。"""
+    """工作区名称、置顶、启用状态与隔离策略的更新请求。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     display_name: str | None = Field(default=None, min_length=1, max_length=128)
+    is_pinned: bool | None = None
     enabled: bool | None = None
     worktree_policy: CodexWorkspaceWorktreePolicyUpdate | None = None
 
@@ -83,6 +84,7 @@ class CodexWorkspaceSnapshot(BaseModel):
     repo_fingerprint: str | None = Field(default=None, max_length=128)
     default_branch: str | None = Field(default=None, max_length=256)
     worktree_policy: GitWorktreePolicy = Field(default_factory=GitWorktreePolicy)
+    is_pinned: bool
     enabled: bool
     created_at: datetime
     updated_at: datetime

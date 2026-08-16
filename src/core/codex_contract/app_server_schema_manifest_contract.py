@@ -39,6 +39,9 @@ class AppServerMethodName(StrEnum):
     THREAD_READ = "thread/read"
     THREAD_START = "thread/start"
     THREAD_RESUME = "thread/resume"
+    THREAD_NAME_SET = "thread/name/set"
+    THREAD_ARCHIVE = "thread/archive"
+    THREAD_UNARCHIVE = "thread/unarchive"
     THREAD_DELETE = "thread/delete"
     THREAD_COMPACT_START = "thread/compact/start"
     TURN_START = "turn/start"
@@ -54,6 +57,9 @@ class AppServerNotificationName(StrEnum):
 
     THREAD_STARTED = "thread/started"
     THREAD_STATUS_CHANGED = "thread/status/changed"
+    THREAD_NAME_UPDATED = "thread/name/updated"
+    THREAD_ARCHIVED = "thread/archived"
+    THREAD_UNARCHIVED = "thread/unarchived"
     TURN_STARTED = "turn/started"
     TURN_COMPLETED = "turn/completed"
     ITEM_STARTED = "item/started"
@@ -78,6 +84,9 @@ class AppServerCapabilityCode(StrEnum):
     THREAD_READ = "thread.read"
     THREAD_START = "thread.start"
     THREAD_RESUME = "thread.resume"
+    THREAD_NAME_SET = "thread.name_set"
+    THREAD_ARCHIVE = "thread.archive"
+    THREAD_UNARCHIVE = "thread.unarchive"
     THREAD_DELETE = "thread.delete"
     THREAD_COMPACT = "thread.compact"
     TURN_START = "turn.start"
@@ -221,6 +230,13 @@ class AppServerDefaultCatalog:
         mutation_methods = (
             (AppServerMethodName.THREAD_START, AppServerCapabilityCode.THREAD_START, False),
             (AppServerMethodName.THREAD_RESUME, AppServerCapabilityCode.THREAD_RESUME, False),
+            (AppServerMethodName.THREAD_NAME_SET, AppServerCapabilityCode.THREAD_NAME_SET, False),
+            (AppServerMethodName.THREAD_ARCHIVE, AppServerCapabilityCode.THREAD_ARCHIVE, False),
+            (
+                AppServerMethodName.THREAD_UNARCHIVE,
+                AppServerCapabilityCode.THREAD_UNARCHIVE,
+                False,
+            ),
             (AppServerMethodName.THREAD_DELETE, AppServerCapabilityCode.THREAD_DELETE, True),
             (
                 AppServerMethodName.THREAD_COMPACT_START,

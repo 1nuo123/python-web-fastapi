@@ -1,17 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="Codex Remote Agent" Manufacturer="Codex Remote" Version="1.0.0.0" UpgradeCode="8A0A4D2E-ED6E-4C7D-BF9A-5F03C80A15E6" Scope="perUser">
-    <MajorUpgrade DowngradeErrorMessage="不允许安装更低版本。" />
+  <Package Name="Codex Remote Agent" Manufacturer="Codex Remote" Version="$(var.ProductVersion)" ProductCode="$(var.ProductCode)" UpgradeCode="8A0A4D2E-ED6E-4C7D-BF9A-5F03C80A15E6" Scope="perUser">
+    <MajorUpgrade AllowSameVersionUpgrades="no" DowngradeErrorMessage="已安装更新版本，不能安装此版本。" Schedule="afterInstallInitialize" />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Property Id="ARPCOMMENTS" Value="连接本机 Codex 与受信任的远程控制网站。" />
+    <Property Id="REBOOT" Value="ReallySuppress" />
+
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="INSTALLFOLDER" Name="CodexRemoteAgent" />
     </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Codex Remote Agent" />
+    </StandardDirectory>
+
     <Feature Id="MainFeature" Title="Codex Remote Agent" Level="1">
       <ComponentGroupRef Id="AgentFiles" />
+      <ComponentRef Id="CodexRemoteUriScheme" />
+      <ComponentRef Id="ApplicationShortcuts" />
     </Feature>
+
+    <CustomAction Id="RegisterAgentTask" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="yes" Return="check" ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]register_task_scheduler.ps1&quot; -InstallRoot &quot;[INSTALLFOLDER].&quot;" />
+    <CustomAction Id="RollbackAgentTask" Directory="INSTALLFOLDER" Execute="rollback" Impersonate="yes" Return="ignore" ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]unregister_task_scheduler.ps1&quot; -InstallRoot &quot;[INSTALLFOLDER].&quot;" />
+    <CustomAction Id="UnregisterAgentTask" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="yes" Return="check" ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]unregister_task_scheduler.ps1&quot; -InstallRoot &quot;[INSTALLFOLDER].&quot;" />
+    <CustomAction Id="PurgeAgentState" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="yes" Return="check" ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]purge_agent_state.ps1&quot; -InstallRoot &quot;[INSTALLFOLDER].&quot;" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RollbackAgentTask" Before="RegisterAgentTask" Condition="(NOT Installed) AND NOT (REMOVE~=&quot;ALL&quot;)" />
+      <Custom Action="RegisterAgentTask" After="InstallFiles" Condition="NOT (REMOVE~=&quot;ALL&quot;)" />
+      <Custom Action="UnregisterAgentTask" Before="PurgeAgentState" Condition="REMOVE~=&quot;ALL&quot;" />
+      <Custom Action="PurgeAgentState" Before="RemoveFiles" Condition="(REMOVE~=&quot;ALL&quot;) AND (NOT UPGRADINGPRODUCTCODE)" />
+    </InstallExecuteSequence>
   </Package>
+
   <Fragment>
     <ComponentGroup Id="AgentFiles" Directory="INSTALLFOLDER">
-      <Files Include="$(var.AgentSource)\**" />
+      <Component Id="AgentExecutable" Guid="E5D5402F-E39E-4D93-BF20-0CB55FB72A5C">
+        <File Id="AgentExecutableFile" Source="$(var.AgentSource)\codex-remote-agent.exe" />
+        <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\CodexRemoteAgent\Components" Name="AgentExecutable" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Id="AgentBootstrap" Guid="81A098F4-D442-4A4A-869F-DA6F08E4C3C9">
+        <File Id="AgentBootstrapFile" Source="$(var.AgentSource)\agent-bootstrap.toml" />
+        <RegistryValue Root="HKCU" Key="Software\CodexRemoteAgent\Components" Name="AgentBootstrap" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Id="AgentTaskRegistrationScript" Guid="7EBAD341-F420-414C-8EF9-0CB7B3B4BE6D">
+        <File Id="AgentTaskRegistrationScriptFile" Source="$(var.AgentSource)\register_task_scheduler.ps1" />
+        <RegistryValue Root="HKCU" Key="Software\CodexRemoteAgent\Components" Name="AgentTaskRegistrationScript" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Id="AgentTaskUnregistrationScript" Guid="5D5C1686-5037-4F73-80FD-801DC17B55A8">
+        <File Id="AgentTaskUnregistrationScriptFile" Source="$(var.AgentSource)\unregister_task_scheduler.ps1" />
+        <RegistryValue Root="HKCU" Key="Software\CodexRemoteAgent\Components" Name="AgentTaskUnregistrationScript" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Id="AgentStatePurgeScript" Guid="7D04784C-BCAE-4942-A444-1CF2CE99DE11">
+        <File Id="AgentStatePurgeScriptFile" Source="$(var.AgentSource)\purge_agent_state.ps1" />
+        <RegistryValue Root="HKCU" Key="Software\CodexRemoteAgent\Components" Name="AgentStatePurgeScript" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <?if $(var.IncludeTrustedRoot) = 1 ?>
+      <Component Id="AgentTrustedUpdateRoot" Guid="4B94F031-32F9-4654-A047-D70598F93C9E">
+        <File Id="AgentTrustedUpdateRootFile" Source="$(var.AgentSource)\root.json" />
+        <RegistryValue Root="HKCU" Key="Software\CodexRemoteAgent\Components" Name="AgentTrustedUpdateRoot" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <?endif?>
     </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="CodexRemoteUriScheme" Directory="INSTALLFOLDER" Guid="D14A91EB-4DD3-4FBF-87C1-44CB3D75CB13">
+      <RegistryValue Root="HKCU" Key="Software\Classes\codexremote" Value="URL:Codex Remote Agent" Type="string" KeyPath="yes" />
+      <RegistryValue Root="HKCU" Key="Software\Classes\codexremote" Name="URL Protocol" Value="" Type="string" />
+      <RegistryValue Root="HKCU" Key="Software\Classes\codexremote\shell\open\command" Value="&quot;[INSTALLFOLDER]codex-remote-agent.exe&quot; --config &quot;[INSTALLFOLDER]agent.toml&quot; --bootstrap &quot;[INSTALLFOLDER]agent-bootstrap.toml&quot; launch uri &quot;%1&quot;" Type="string" />
+    </Component>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="ApplicationShortcuts" Directory="ApplicationProgramsFolder" Guid="8BB4D0F4-A07F-48BA-A09A-64C291C1D24C">
+      <Shortcut Id="AgentSettingsShortcut" Name="Codex Remote Agent 设置" Target="[INSTALLFOLDER]codex-remote-agent.exe" Arguments="--config &quot;[INSTALLFOLDER]agent.toml&quot; --bootstrap &quot;[INSTALLFOLDER]agent-bootstrap.toml&quot; launch settings" WorkingDirectory="INSTALLFOLDER" />
+      <Shortcut Id="AgentUninstallShortcut" Name="卸载 Codex Remote Agent" Target="[SystemFolder]msiexec.exe" Arguments="/x [ProductCode]" />
+      <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\CodexRemoteAgent" Name="StartMenuShortcuts" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
   </Fragment>
 </Wix>

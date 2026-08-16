@@ -21,6 +21,7 @@ from src.application.admin.identity.shared.admin_identity_command import (
     AdminUserDeleteCommand,
     AdminUserPasswordResetCommand,
     AdminUserRoleReplaceCommand,
+    AdminUserScopeReplaceCommand,
     AdminUserUpdateCommand,
     InitialAdminCreateResult,
 )
@@ -352,6 +353,31 @@ class AdminIdentityResourceFacade(SharedResourceLifecycle):
             session = unit_of_work.get_session()
             repository = self.create_admin_identity_repository(session)
             snapshot = repository.replace_user_roles(command)
+            self.create_refresh_token_repository(
+                session
+            ).revoke_active_token_sessions_by_subject_id(
+                subject_id=command.subject_id,
+                revoked_at=datetime.now(UTC),
+            )
+            unit_of_work.commit()
+            return snapshot
+        except Exception:
+            unit_of_work.rollback()
+            raise
+        finally:
+            unit_of_work.dispose()
+
+    def replace_admin_user_scopes(
+        self,
+        command: AdminUserScopeReplaceCommand,
+    ) -> AdminUserSnapshot:
+        """替换管理员用户直接 scope。"""
+
+        unit_of_work = self.create_unit_of_work()
+        try:
+            session = unit_of_work.get_session()
+            repository = self.create_admin_identity_repository(session)
+            snapshot = repository.replace_user_scopes(command)
             self.create_refresh_token_repository(
                 session
             ).revoke_active_token_sessions_by_subject_id(

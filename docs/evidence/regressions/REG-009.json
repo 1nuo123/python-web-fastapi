@@ -17,7 +17,7 @@
   "rerun_scope": "full-suite",
   "evidence": {
     "source_path": "test\\integration_test\\conftest.py",
-    "source_line": 173,
+    "source_line": 3,
     "trigger_condition": "执行显式 PostgreSQL 集成夹具。",
     "affected_scope": "迁移、事务、约束和资源释放。",
     "reproduction_command": "pytest -q -m postgres",
@@ -39,7 +39,7 @@
     },
     {
       "status": "fixed",
-      "changed_at": "2026-07-16T10:15:01.229546Z",
+      "changed_at": "2026-08-16T05:39:10.385985Z",
       "evidence_path": "docs\\evidence\\regression-support\\REG-009.json"
     }
   ],

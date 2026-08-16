@@ -26,6 +26,9 @@ if TYPE_CHECKING:
     from src.infrastructure.persistence.orm_model.auth_user_role_orm_model import (
         AuthUserRoleOrmModel,
     )
+    from src.infrastructure.persistence.orm_model.auth_user_scope_orm_model import (
+        AuthUserScopeOrmModel,
+    )
 
 
 class AuthUserOrmModel(AuditTimestampMixin, OrmModelBase):
@@ -70,6 +73,10 @@ class AuthUserOrmModel(AuditTimestampMixin, OrmModelBase):
     password_hash: Mapped[str] = mapped_column(Text(), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=True)
     user_roles: Mapped[list[AuthUserRoleOrmModel]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    user_scopes: Mapped[list[AuthUserScopeOrmModel]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )

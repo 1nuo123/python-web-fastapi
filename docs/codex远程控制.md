@@ -2478,3 +2478,147 @@ ADR-013 审批APPLIED表示回复已写入App Server，不虚构第二个上游�
 14. 现有单操作流式handler保持专注，长期双向控制通道在独立连接会话层实现。
 
 本文件完成后，后续开发以本文的阶段、契约、目录、数据边界、安全规则和验收标准为准。若App Server 0.145.0生成schema与本文方法名或字段不一致，应先更新协议映射和本文，再继续实现，禁止在前端散落版本兼容分支。
+
+## 37. 2026-08-15 权威路由与 Agent 生命周期定稿
+
+### 37.1 工作区路由恢复
+
+Codex 页面不再使用首个 workspace 作为隐式回退。项目详情的“查看任务”显式携带 `hostId` 和
+`workspaceId`；任务列表与线程详情依次加载 host、可见 workspace 和 thread，再依据路由参数或
+`thread.workspace_id` 恢复选择。
+
+当 workspace 已撤销、不可见、与 thread 不匹配或路由标识无效时，Store 清理失效选择并返回明确错误，
+不得展示其他项目的线程。浏览器刷新、直接 URL、前进、后退及实时重连都必须保持服务端权威的
+host/workspace/thread 组合。
+
+### 37.2 执行根规则
+
+普通目录、Git 仓库和隔离 worktree 使用统一的 `ExecutionRootBinding` 契约。未开启 worktree 隔离时，
+Agent 直接使用 workspace root 且 Git worktree 调用次数为零；开启隔离时，必须从持久化 binding 或 marker
+恢复 execution root，并在执行前校验真实路径仍位于 workspace 白名单内。不得通过 UI 默认值或
+`git rev-parse` 猜测线程归属。
+
+### 37.3 Windows Agent 生命周期
+
+Agent 0.1.10 的稳定入口在 MSI 内置可执行文件中直接执行 `launch run`，不再为常驻 worker 设置 30 秒
+超时，也不再额外派生长期 launcher 进程。外部在线更新版本可独立启动，但其生命周期超时为 `None`。
+所有短命令与 App Server 子进程仍通过统一 Windows 无窗口启动器，保留 stdout/stderr、取消、超时和
+退出码诊断。
+
+本机安装、升级、同版本维护、降级拒绝、卸载和重装已完成；当前仅存在 PyInstaller 父子两个进程，
+它们构成一个逻辑 Agent。自签名 MSI 仅用于本地验收，正式发布边界见
+`docs/project_manual/04_infrastructure/codex_agent_production_release.md`。
+
+### 37.4 浏览器闭环证据
+
+用户 `nuo` 在 Host `156b8869-0e35-4215-850f-c70b229fe827` 的普通工作区
+`0a6665af-cac0-495e-a6c5-29ae5b8fba84`（`test`）完成真实闭环。线程
+`01a003f9-eed1-74e0-8617-315160c31850`、turn
+`01a003fa-50f7-7b73-9be4-b07e9aa1fc94` 最终为空闲并返回成功结果；审批记录包含一次文件变更和
+两次只读命令。`turn.start` operation ID 为 `9f186ae0-0e8d-4fff-9904-9a18c1637a10`，command ID 为
+`00fe437c-81b8-407c-908b-fab177eee6d2`。验证过程中没有出现错误 workspace 回退、401、403、422、
+502、消息失败或审批状态错误。
+
+临时产物固定为
+`C:\Users\ThinkPad\Desktop\test\docs\codex_agent_browser_e2e_暂时.md`，只记录非敏感验证内容。
+注册角色同步器的边界同时冻结为：`registered_user` 仅首次创建时写入默认 scopes，已有角色重启时不修改
+任何 scope；该规则不得扩展为其他鉴权兼容逻辑。
+
+## 38. 2026-08-15 会话体验与协议定稿
+
+### 38.1 用户术语与信息架构
+
+界面术语统一为“会话”，本文旧章节中的“任务”仅保留为历史记录；技术路由 `/codex/tasks`、协议实体
+`thread` 和源码命名不迁移。桌面端唯一导航路径是“主机 -> 项目 -> 会话 -> 当前工作”，布局为项目栏、
+会话栏、会话正文和按需上下文栏。移动 Remote 使用主机、项目、会话逐层全屏导航，不压缩桌面侧栏，
+不再提供独立“最近任务”或第二套任务中心。
+
+### 38.2 标题、排序与状态机
+
+标题来源是封闭枚举 `manual`、`app_server`、`first_user_message`、`new_conversation`，优先级按该顺序
+递减。手工名称是控制面 UI 权威值，后续快照不得覆盖。原始 `preview` 不跨出 Agent，本地只发送有界
+派生短标题。
+
+稳定排序为 `is_pinned DESC, recency_at DESC, created_at DESC, upstream_thread_id DESC`；同步时间
+`last_synced_at` 不参与排序。会话公开状态只允许 `idle`、`active`、`interrupted`、`failed`、`unknown`、
+`archived`。历史 `notLoaded` 由 `202608151940_normalize_codex_thread_status.py` 迁移为 `unknown`，界面
+显示“状态未知”，不得显示成正在同步。
+
+归档状态机固定为：提交 operation -> command outbox 投递 -> Agent 调用 App Server -> 上游成功结果或通知
+确认 -> 控制面更新 `archived`。失败保留 operation 诊断，不乐观移除会话。归档会话禁止发起新 turn，恢复
+后重新校验 owner、host、workspace 和 thread 归属。
+
+### 38.3 API 与强类型事件
+
+会话列表支持 `workspace_id`、`archived`、`search_term`、键集 `cursor` 和有界 `limit`。重命名、会话
+置顶、归档、恢复及项目置顶均复用现有用户鉴权、UoW 和资源不可见策略。App Server `0.145.0` 的
+`thread/name/set`、`thread/archive`、`thread/unarchive` 是上游事实；置顶是控制面偏好，不伪造上游字段。
+
+时间线、浏览器实时事件和 Agent protocol v2 统一使用“公共头字段 + 强类型 detail”。每个 detail 都包含
+`kind`、`schema_version` 并启用 `extra="forbid"`；外层 `detail_kind/schema_version` 必须与内层一致。
+未知字段、未知枚举、缺少 detail 或版本不一致均直接拒绝，不增加旧帧兼容分支。
+
+### 38.4 生产回归基线
+
+生产 Compose 必须显式传入 `.env.production.local`、项目名和 `compose.caddy.yml`，禁止 `down -v`。
+当前 migration head 为 `202608161230`，Agent 为 `0.1.11`、协议 `2.0`。后端全量测试
+`1327 passed, 241 warnings`，Ruff 与 mypy 通过；前端 `pnpm verify` 通过，Vitest `178 passed`，
+Playwright `9 passed`。根入口和 `/health/ready` 返回 `200`，生产卷保持不变。桌面
+`1440/1280/1024/820` 与手机 `360/390/430` 的应用内真实浏览器回归因本机 `localhost` 安全策略阻断，
+未形成可验收的人工点击证据。
+
+## 39. 2026-08-16 会话稳定性契约定稿
+
+### 39.1 主机版本与连接代次
+
+Host 的 `version` 只服务用户配置和生命周期 CAS。心跳、握手观测、在线时间等运行态更新不得增长该
+版本，也不得使用整行 merge 覆盖用户名称。重命名和撤销必须由数据库条件更新完成；旧连接断开只有在
+连接代次仍匹配时才能写离线状态。
+
+### 39.2 活动时间与标题投影
+
+Agent 事件头必须携带 `occurred_at`，应用层直接解析判别联合 detail。`recency_at` 只通过单调条件更新
+前进；消息受理、turn 开始/完成和审批打开/处理属于活动事件，文本 delta 不属于持久化活动边界。
+
+操作投影使用 `CodexOperationProjection` 公共头和 `CodexTurnSubmissionProjectionDetail` 强类型扩展，
+只包含派生短标题与发生时间。迁移 `202608161230_add_codex_operation_projection.py` 增加 JSONB 列；
+原始用户消息不得进入 operation、日志或线程索引。标题来源仍按
+`manual > app_server > first_user_message > new_conversation` 单调提升。
+
+### 39.3 实时合并与关闭状态机
+
+前端时间线条目来源封闭为 `optimistic/realtime/snapshot`。普通快照只合并，不删除已经确认的实时命令、
+输出和审批；`history_status` 只表达历史容量，不决定替换策略。只有 stream gap 的权威恢复屏障可以执行
+替换。
+
+浏览器实时连接由单写者持有 WebSocket，状态为 `OPEN/CLOSING/CLOSED`。断开时停止写者并等待任务结束，
+随后退订和释放 lease；客户端断开、心跳并发、业务事件并发和重复关闭均不得产生关闭后发送。
+
+### 39.4 产品文案与诊断
+
+审批 decision 的主文案固定为允许、拒绝、取消，交付 state 作为次级状态。上下文压缩使用专用
+`context_compaction` detail，界面只显示“上下文已压缩”。未知 App Server 条目只写脱敏协议告警。
+
+Agent 诊断码固定为：
+
+- `agent.app_server.stderr`
+- `agent.app_server.stderr_too_long`
+- `agent.app_server.protocol_warning`
+- `agent.app_server.exit_non_zero`
+
+诊断日志使用中文 `key=value` 单行，允许记录 host、App Server 代次、PID、Codex 版本、行号、字节数、
+摘要、退出码和时间；禁止记录 stderr 原文，无法可靠关联时禁止填写 thread 或 operation。
+该实现已通过源码测试；当前生产 Agent `0.1.11` 仍使用旧诊断格式，必须经正式签名和 TUF/MSI 发布门禁
+升级后才能作为生产运行证据。
+
+### 39.5 2026-08-16 回归基线
+
+后端 Codex 集成与接口测试 `37 passed`，全量 `1327 passed, 241 warnings`，Ruff 与 mypy 通过。前端
+`pnpm verify` 通过，Vitest `32` 个文件 `178 passed`，Playwright `9 passed`。生产 migration head 为
+`202608161230`，全部容器 healthy，根入口和 `/health/ready` 返回 `200`，未删除数据卷。
+
+用户 `nuo` 同源 API 登录成功，活动会话 `57` 条、空标题 `0`，排序满足
+`is_pinned DESC, recency_at DESC, created_at DESC, upstream_thread_id DESC`；全库空标题和空活动时间均为
+`0`。在线主机多轮心跳期间 `last_seen_at` 持续前进，配置 `version` 保持 `10493` 不变。应用日志未再
+出现 WebSocket 关闭后发送异常。应用内浏览器因本机 URL 安全策略被阻断，本轮未重复
+手工点击回归；归档与连接新电脑明确排除。

@@ -11,6 +11,7 @@ enabled = [
   "admin_identity",
   "admin_audit",
   "codex_control",
+  "codex_admin",
   "codex_agent_gateway",
 ]
 
@@ -157,6 +158,8 @@ restart_required = [
   "runtime.codex_control.agent_reconnect_min_seconds",
   "runtime.codex_control.agent_reconnect_max_seconds",
   "runtime.codex_control.max_connected_agents",
+  "runtime.codex_control.max_hosts_per_user",
+  "runtime.codex_control.max_workspaces_per_host",
   "runtime.codex_control.max_active_turns_per_host",
   "runtime.codex_control.max_active_write_turns_per_workspace",
   "runtime.codex_control.agent_outgoing_queue_size",
@@ -170,6 +173,7 @@ restart_required = [
   "runtime.codex_control.operation_idempotency_ttl_seconds",
   "runtime.codex_control.allow_experimental_app_server_api",
   "runtime.codex_control.allowed_codex_versions",
+  "runtime.codex_control.enrollment_intent_ttl_seconds",
   "modules.codex_control.personal_mvp_only",
   "modules.auth.bootstrap_admin.enabled",
   "modules.auth.bootstrap_admin.username",

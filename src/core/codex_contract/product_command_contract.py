@@ -19,6 +19,9 @@ class CodexProductCommandCode(StrEnum):
     THREAD_READ = "thread.read"
     THREAD_START = "thread.start"
     THREAD_RESUME = "thread.resume"
+    THREAD_NAME_SET = "thread.name_set"
+    THREAD_ARCHIVE = "thread.archive"
+    THREAD_UNARCHIVE = "thread.unarchive"
     THREAD_COMPACT = "thread.compact"
     TURN_START = "turn.start"
     TURN_STEER = "turn.steer"
@@ -80,6 +83,27 @@ class CodexProductCommandCatalog:
                 command=CodexProductCommandCode.THREAD_RESUME,
                 app_server_method=AppServerMethodName.THREAD_RESUME,
                 required_capability=AppServerCapabilityCode.THREAD_RESUME,
+                ownership_scope=CodexProductOwnershipScope.THREAD,
+                mutation=True,
+            ),
+            CodexProductCommandPolicy(
+                command=CodexProductCommandCode.THREAD_NAME_SET,
+                app_server_method=AppServerMethodName.THREAD_NAME_SET,
+                required_capability=AppServerCapabilityCode.THREAD_NAME_SET,
+                ownership_scope=CodexProductOwnershipScope.THREAD,
+                mutation=True,
+            ),
+            CodexProductCommandPolicy(
+                command=CodexProductCommandCode.THREAD_ARCHIVE,
+                app_server_method=AppServerMethodName.THREAD_ARCHIVE,
+                required_capability=AppServerCapabilityCode.THREAD_ARCHIVE,
+                ownership_scope=CodexProductOwnershipScope.THREAD,
+                mutation=True,
+            ),
+            CodexProductCommandPolicy(
+                command=CodexProductCommandCode.THREAD_UNARCHIVE,
+                app_server_method=AppServerMethodName.THREAD_UNARCHIVE,
+                required_capability=AppServerCapabilityCode.THREAD_UNARCHIVE,
                 ownership_scope=CodexProductOwnershipScope.THREAD,
                 mutation=True,
             ),

@@ -40,6 +40,9 @@ from src.infrastructure.cache.cache_service import CacheService
 from src.infrastructure.persistence.orm_model.auth_role_orm_model import AuthRoleOrmModel
 from src.infrastructure.persistence.orm_model.auth_scope_orm_model import AuthScopeOrmModel
 from src.infrastructure.persistence.orm_model.auth_user_orm_model import AuthUserOrmModel
+from src.infrastructure.persistence.orm_model.auth_user_scope_orm_model import (
+    AuthUserScopeOrmModel,
+)
 from src.infrastructure.settings.application_settings import (
     AuthRuntimeSettings,
     PasswordHashAlgorithm,
@@ -291,6 +294,32 @@ class TestAuthPersistenceUnit:
 
                 assert AuthScopeCode.AUTH_READ not in snapshot.scopes
                 assert decision.allowed is False
+            finally:
+                unit_of_work.rollback()
+                unit_of_work.dispose()
+
+    def test_auth_identity_repository_should_union_role_and_direct_scopes(self) -> None:
+        """验证主体 scope 是角色授权与用户直接授权的有效并集。"""
+
+        app = TestAppFactory().create()
+        with TestClient(app):
+            resource_mount = app.state.container.resource_mount
+            unit_of_work = resource_mount.create_unit_of_work()
+            try:
+                session = unit_of_work.get_session()
+                user = session.query(AuthUserOrmModel).filter_by(subject_id=ADMIN_SUBJECT_ID).one()
+                user.user_scopes.append(
+                    AuthUserScopeOrmModel(scope_code=AuthScopeCode.CODEX_NETWORK.value)
+                )
+                unit_of_work.flush()
+
+                repository = resource_mount.create_auth_identity_repository(session)
+                snapshot = repository.get_authorization_snapshot_by_subject_id(ADMIN_SUBJECT_ID)
+
+                assert snapshot is not None
+                assert AuthScopeCode.AUTH_READ in snapshot.scopes
+                assert AuthScopeCode.CODEX_NETWORK in snapshot.scopes
+                assert snapshot.scopes.count(AuthScopeCode.CODEX_NETWORK) == 1
             finally:
                 unit_of_work.rollback()
                 unit_of_work.dispose()

@@ -22,6 +22,7 @@ from src.infrastructure.evidence.workspace_audit_catalog_builder import (
 
 EXPECTED_FINDING_RELATION_COUNT = 19
 EXPECTED_AUDIT_DIMENSION_COUNT = 16
+EXPECTED_MIGRATION_HEAD = "202608161230"
 
 
 class TestWorkspaceEvidenceCatalogUnit:
@@ -58,7 +59,7 @@ class TestWorkspaceEvidenceCatalogUnit:
 
         assert snapshot.routes
         assert snapshot.configuration
-        assert snapshot.migration_heads == ("202608081000",)
+        assert snapshot.migration_heads == (EXPECTED_MIGRATION_HEAD,)
         assert snapshot.task_contracts
         assert comparison.compatible is True
         assert comparison.changed_sections == ()
@@ -93,7 +94,7 @@ class TestWorkspaceEvidenceCatalogUnit:
             comparison_path.read_text(encoding="utf-8")
         )
 
-        assert baseline.migration_heads == ("202608081000",)
+        assert baseline.migration_heads == (EXPECTED_MIGRATION_HEAD,)
         assert comparison.compatible is True
         assert comparison.changed_sections == ()
 

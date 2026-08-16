@@ -74,6 +74,7 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}@rabbitmq:5672/${RABBITMQ_VHOST_ENCODED:-%2F}
 
   task-worker:
+    profiles: !reset []
     read_only: true
     tmpfs:
       - /tmp:size=128m,mode=1777

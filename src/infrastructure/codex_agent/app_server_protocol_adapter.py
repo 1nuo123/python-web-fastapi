@@ -11,6 +11,7 @@ from src.core.codex_contract.app_server_product_contract import (
     APP_SERVER_PRODUCT_MAX_TEXT_CHARS,
     AppServerAgentMessageItem,
     AppServerCommandItem,
+    AppServerContextCompactionItem,
     AppServerDiffChangedDetail,
     AppServerDiffItem,
     AppServerItemChangedDetail,
@@ -25,6 +26,7 @@ from src.core.codex_contract.app_server_product_contract import (
     AppServerProtocolAdaptationResult,
     AppServerProtocolWarningReason,
     AppServerThreadChangedDetail,
+    AppServerThreadMetadataChangedDetail,
     AppServerThreadProductSnapshot,
     AppServerThreadReadProductResult,
     AppServerTurnChangedDetail,
@@ -41,6 +43,10 @@ APP_SERVER_RESPONSE_HISTORY_STATUS_FIELD = "historyStatus"
 APP_SERVER_RESPONSE_HISTORY_OMITTED = "omitted_too_large"
 APP_SERVER_RESPONSE_HISTORY_COMPLETE = "complete"
 APP_SERVER_PRODUCT_TEXT_TRUNCATION_MARKER = "\n\n[内容已截断，请在本机 Codex 中查看完整内容。]"
+
+
+class AppServerUnknownItemTypeError(ValueError):
+    """App Server 返回了尚未冻结的条目类型。"""
 
 
 class AppServerProtocolAdapter:
@@ -75,6 +81,11 @@ class AppServerProtocolAdapter:
                     ),
                     detail=detail,
                 )
+            )
+        except AppServerUnknownItemTypeError:
+            return AppServerProtocolAdaptationResult(
+                warning_reason=AppServerProtocolWarningReason.UNKNOWN_ENUM,
+                warning_method=method,
             )
         except (KeyError, TypeError, ValueError, ValidationError):
             return self._malformed(method)
@@ -116,6 +127,7 @@ class AppServerProtocolAdapter:
         params: Mapping[str, JsonValue],
     ) -> (
         AppServerThreadChangedDetail
+        | AppServerThreadMetadataChangedDetail
         | AppServerTurnChangedDetail
         | AppServerItemChangedDetail
         | AppServerItemDeltaDetail
@@ -132,6 +144,19 @@ class AppServerProtocolAdapter:
             status = self._read_status(params.get("status", thread.get("status")))
             return AppServerThreadChangedDetail(
                 thread=self._to_thread_snapshot(thread, thread_id, status=status)
+            )
+        if method == AppServerNotificationName.THREAD_NAME_UPDATED:
+            return AppServerThreadMetadataChangedDetail(
+                thread_id=self._read_string(params, "threadId"),
+                display_name=self._read_optional_string(params.get("threadName")),
+            )
+        if method in {
+            AppServerNotificationName.THREAD_ARCHIVED,
+            AppServerNotificationName.THREAD_UNARCHIVED,
+        }:
+            return AppServerThreadMetadataChangedDetail(
+                thread_id=self._read_string(params, "threadId"),
+                archived=method is AppServerNotificationName.THREAD_ARCHIVED,
             )
         if method in {
             AppServerNotificationName.TURN_STARTED,
@@ -242,10 +267,13 @@ class AppServerProtocolAdapter:
         return AppServerThreadProductSnapshot(
             thread_id=thread_id,
             display_name=self._read_optional_string(thread.get("name") or thread.get("preview")),
+            model_id=None,
             model_provider=self._read_optional_string(thread.get("modelProvider")),
             status=status or self._read_status(thread.get("status")),
+            archived=False,
             created_at=self._read_optional_timestamp(thread.get("createdAt")),
             updated_at=self._read_optional_timestamp(thread.get("updatedAt")),
+            recency_at=self._read_optional_timestamp(thread.get("recencyAt")),
         )
 
     def _to_thread_read_turn(
@@ -262,17 +290,21 @@ class AppServerProtocolAdapter:
         if isinstance(error, Mapping):
             error_mapping = cast(Mapping[str, JsonValue], error)
             error_message = self._bounded_optional_text(error_mapping.get("message"), limit=512)
+        items: list[AppServerProductTimelineItem] = []
+        for raw_item in raw_items:
+            if not isinstance(raw_item, Mapping):
+                continue
+            try:
+                items.append(self._to_timeline_item(cast(Mapping[str, JsonValue], raw_item)))
+            except AppServerUnknownItemTypeError:
+                continue
         return AppServerTurnProductSnapshot(
             turn_id=self._read_string(turn, "id"),
             status=self._read_status(turn.get("status")),
             started_at=self._read_optional_timestamp(turn.get("startedAt")),
             completed_at=self._read_optional_timestamp(turn.get("completedAt")),
             error_message=error_message,
-            items=tuple(
-                self._to_timeline_item(cast(Mapping[str, JsonValue], raw_item))
-                for raw_item in raw_items
-                if isinstance(raw_item, Mapping)
-            ),
+            items=tuple(items),
         )
 
     def _to_timeline_item(
@@ -305,6 +337,8 @@ class AppServerProtocolAdapter:
                 label="reasoning",
                 text=self._bounded_text(summary_text),
             )
+        if item_type == "contextCompaction":
+            return AppServerContextCompactionItem(item_id=item_id)
         if item_type == "plan":
             return AppServerPlanItem(
                 item_id=item_id,
@@ -332,7 +366,7 @@ class AppServerProtocolAdapter:
                 item_id=item_id,
                 unified_diff=self._bounded_text("\n".join(diffs)),
             )
-        return AppServerNoticeItem(item_id=item_id, label=item_type, text="")
+        raise AppServerUnknownItemTypeError("App Server条目类型尚未纳入产品契约。")
 
     def _to_plan_steps(self, values: list[JsonValue]) -> tuple[AppServerPlanStep, ...]:
         """把官方计划数组转换为封闭状态集合。"""

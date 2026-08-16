@@ -34,11 +34,13 @@ from src.core.codex_contract.approval_contract import (
     CodexApprovalDisplaySummary as AgentApprovalDisplaySummary,
 )
 from src.core.codex_contract.host_contract import CodexApprovalPolicy, CodexSandboxMode
+from src.core.codex_contract.thread_contract import CodexThreadTitleSource
 from src.core.worktree_contract.worktree_contract import GitWorktreePolicy
 
 AGENT_PROTOCOL_V2_KIND: Final = "codex_agent_protocol"
 AGENT_PROTOCOL_V2_SCHEMA_VERSION: Final = "2.0"
 AGENT_COMMAND_DETAIL_KIND_FIELD: Final = "kind"
+AGENT_COMMAND_DETAIL_SCHEMA_VERSION_FIELD: Final = "schema_version"
 
 
 class AgentProtocolMessageType(StrEnum):
@@ -65,12 +67,21 @@ class AgentProtocolV2Header(BaseModel):
     schema_version: Literal["2.0"] = AGENT_PROTOCOL_V2_SCHEMA_VERSION
     message_id: UUID
     message_type: AgentProtocolMessageType
+    detail_kind: AgentProtocolMessageType
     host_id: UUID
     key_id: UUID | None = None
     sent_at: datetime
 
 
-class AgentHelloV2Detail(BaseModel):
+class AgentProtocolV2DetailBase(BaseModel):
+    """所有 Agent protocol v2 扩展字段共享的版本约束。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["2.0"] = AGENT_PROTOCOL_V2_SCHEMA_VERSION
+
+
+class AgentHelloV2Detail(AgentProtocolV2DetailBase):
     """Agent 版本、schema 和 capability 声明。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -87,7 +98,7 @@ class AgentHelloV2Detail(BaseModel):
     agent_event_epoch: UUID
 
 
-class AgentHelloAckV2Detail(BaseModel):
+class AgentHelloAckV2Detail(AgentProtocolV2DetailBase):
     """控制面握手确认与累计 ACK 起点。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -100,7 +111,7 @@ class AgentHelloAckV2Detail(BaseModel):
     after_seq: int = Field(default=0, ge=0)
 
 
-class AgentHeartbeatV2Detail(BaseModel):
+class AgentHeartbeatV2Detail(AgentProtocolV2DetailBase):
     """Agent 心跳与本地 App Server 代次。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -122,7 +133,7 @@ class AgentCommandHeader(BaseModel):
     deadline: datetime
 
 
-class AgentCommandDetailBase(BaseModel):
+class AgentCommandDetailBase(AgentProtocolV2DetailBase):
     """只把原命令中真实存在的可选字段编码到 v2 帧。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -135,7 +146,10 @@ class AgentCommandDetailBase(BaseModel):
         """保留可选字段的缺省语义，避免跨协议往返改变请求摘要。"""
 
         payload = cast(dict[str, JsonValue], handler(self))
-        included_fields = self.model_fields_set | {AGENT_COMMAND_DETAIL_KIND_FIELD}
+        included_fields = self.model_fields_set | {
+            AGENT_COMMAND_DETAIL_KIND_FIELD,
+            AGENT_COMMAND_DETAIL_SCHEMA_VERSION_FIELD,
+        }
         return {
             field_name: value
             for field_name, value in payload.items()
@@ -167,6 +181,8 @@ class AgentThreadStartCommandDetail(AgentCommandDetailBase):
     kind: Literal["thread.start"] = "thread.start"
     workspace_key: str = Field(min_length=1, max_length=128)
     model: str | None = Field(default=None, min_length=1, max_length=128)
+    sandbox_mode: CodexSandboxMode
+    approval_policy: CodexApprovalPolicy
     worktree_policy: GitWorktreePolicy | None = None
 
 
@@ -174,6 +190,31 @@ class AgentThreadResumeCommandDetail(AgentCommandDetailBase):
     """恢复受限工作区线程。"""
 
     kind: Literal["thread.resume"] = "thread.resume"
+    workspace_key: str = Field(min_length=1, max_length=128)
+    thread_id: str = Field(min_length=1, max_length=256)
+
+
+class AgentThreadNameSetCommandDetail(AgentCommandDetailBase):
+    """设置会话手工标题。"""
+
+    kind: Literal["thread.name_set"] = "thread.name_set"
+    workspace_key: str = Field(min_length=1, max_length=128)
+    thread_id: str = Field(min_length=1, max_length=256)
+    display_name: str = Field(min_length=1, max_length=256)
+
+
+class AgentThreadArchiveCommandDetail(AgentCommandDetailBase):
+    """归档会话。"""
+
+    kind: Literal["thread.archive"] = "thread.archive"
+    workspace_key: str = Field(min_length=1, max_length=128)
+    thread_id: str = Field(min_length=1, max_length=256)
+
+
+class AgentThreadUnarchiveCommandDetail(AgentCommandDetailBase):
+    """恢复归档会话。"""
+
+    kind: Literal["thread.unarchive"] = "thread.unarchive"
     workspace_key: str = Field(min_length=1, max_length=128)
     thread_id: str = Field(min_length=1, max_length=256)
 
@@ -195,6 +236,8 @@ class AgentTurnStartCommandDetail(AgentCommandDetailBase):
     message: str = Field(min_length=1, max_length=200_000)
     model: str | None = Field(default=None, min_length=1, max_length=128)
     reasoning_effort: str | None = Field(default=None, min_length=1, max_length=64)
+    sandbox_mode: CodexSandboxMode
+    approval_policy: CodexApprovalPolicy
 
 
 class AgentTurnSteerCommandDetail(AgentCommandDetailBase):
@@ -230,6 +273,9 @@ AgentCommandDetail = Annotated[
     | AgentThreadReadCommandDetail
     | AgentThreadStartCommandDetail
     | AgentThreadResumeCommandDetail
+    | AgentThreadNameSetCommandDetail
+    | AgentThreadArchiveCommandDetail
+    | AgentThreadUnarchiveCommandDetail
     | AgentThreadCompactCommandDetail
     | AgentTurnStartCommandDetail
     | AgentTurnSteerCommandDetail
@@ -239,7 +285,7 @@ AgentCommandDetail = Annotated[
 ]
 
 
-class AgentCommandV2Detail(BaseModel):
+class AgentCommandV2Detail(AgentProtocolV2DetailBase):
     """command 公共头与强类型扩展字段。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -248,8 +294,16 @@ class AgentCommandV2Detail(BaseModel):
     header: AgentCommandHeader
     detail: AgentCommandDetail
 
+    @model_validator(mode="after")
+    def validate_detail_identity(self) -> AgentCommandV2Detail:
+        """命令扩展版本必须与命令信封一致。"""
 
-class AgentCommandAckV2Detail(BaseModel):
+        if self.schema_version != self.detail.schema_version:
+            raise ValueError("Agent命令信封与扩展版本不一致。")
+        return self
+
+
+class AgentCommandAckV2Detail(AgentProtocolV2DetailBase):
     """命令 durable commit 后的 ACK。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -287,7 +341,7 @@ AgentCommandResultPayload = Annotated[
 ]
 
 
-class AgentCommandResultV2Detail(BaseModel):
+class AgentCommandResultV2Detail(AgentProtocolV2DetailBase):
     """命令最终结果；未知结果禁止自动重放 mutation。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -302,24 +356,31 @@ class AgentCommandResultV2Detail(BaseModel):
     error_summary: str | None = Field(default=None, max_length=512)
 
 
-class AgentThreadSnapshot(BaseModel):
+class AgentThreadSnapshot(AgentProtocolV2DetailBase):
     """Agent snapshot 中稳定线程索引字段。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    kind: Literal["conversation_snapshot"] = "conversation_snapshot"
     thread_id: str = Field(min_length=1, max_length=256)
     workspace_key: str = Field(min_length=1, max_length=128)
-    display_name: str | None = Field(default=None, max_length=256)
+    display_name: str = Field(min_length=1, max_length=256)
+    title_source: CodexThreadTitleSource
     status: str = Field(min_length=1, max_length=64)
     active_turn_id: str | None = Field(default=None, max_length=256)
-    updated_at: datetime | None = None
+    archived: bool
+    model_id: str | None = Field(default=None, max_length=128)
+    model_provider: str | None = Field(default=None, max_length=128)
+    created_at: datetime
+    recency_at: datetime
 
 
-class AgentWorkspaceSnapshot(BaseModel):
+class AgentWorkspaceSnapshot(AgentProtocolV2DetailBase):
     """Agent snapshot 中脱敏工作区字段。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    kind: Literal["workspace_snapshot"] = "workspace_snapshot"
     workspace_key: str = Field(min_length=1, max_length=128)
     display_name: str = Field(min_length=1, max_length=128)
     repo_fingerprint: str | None = Field(default=None, pattern=SHA256_HEX_PATTERN)
@@ -327,11 +388,12 @@ class AgentWorkspaceSnapshot(BaseModel):
     allow_write: bool
 
 
-class AgentPendingCommandSnapshot(BaseModel):
+class AgentPendingCommandSnapshot(AgentProtocolV2DetailBase):
     """本地 journal 未完成命令摘要。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    kind: Literal["pending_command_snapshot"] = "pending_command_snapshot"
     command_id: UUID
     operation_id: UUID
     command_kind: str = Field(min_length=1, max_length=64)
@@ -339,11 +401,12 @@ class AgentPendingCommandSnapshot(BaseModel):
     recovery_required: bool
 
 
-class AgentPendingApprovalSnapshot(BaseModel):
+class AgentPendingApprovalSnapshot(AgentProtocolV2DetailBase):
     """仍可回复的审批代次摘要。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    kind: Literal["pending_approval_snapshot"] = "pending_approval_snapshot"
     approval_id: UUID
     app_server_instance_id: UUID
     approval_kind: Literal["command", "file_change", "permissions"]
@@ -356,17 +419,18 @@ class AgentPendingApprovalSnapshot(BaseModel):
     display: AgentApprovalDisplaySummary
 
 
-class AgentSnapshotOmission(BaseModel):
+class AgentSnapshotOmission(AgentProtocolV2DetailBase):
     """快照容量超限时的显式省略信息。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    kind: Literal["snapshot_omission"] = "snapshot_omission"
     section: Literal["threads", "pending_commands", "pending_approvals"]
     omitted_count: int = Field(gt=0)
     reason: Literal["frame_capacity", "page_capacity"]
 
 
-class AgentStateSnapshotV2Detail(BaseModel):
+class AgentStateSnapshotV2Detail(AgentProtocolV2DetailBase):
     """可分页且受 frame 上限约束的权威快照。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -387,6 +451,7 @@ class AgentEventType(StrEnum):
     """Agent 到控制面的稳定产品事件类型。"""
 
     THREAD_CHANGED = "thread.changed"
+    THREAD_METADATA_CHANGED = "thread.metadata_changed"
     TURN_CHANGED = "turn.changed"
     ITEM_CHANGED = "item.changed"
     ITEM_DELTA = "item.delta"
@@ -397,7 +462,7 @@ class AgentEventType(StrEnum):
     GAP = "gap"
 
 
-class AgentThreadChangedEventDetail(BaseModel):
+class AgentThreadChangedEventDetail(AgentProtocolV2DetailBase):
     """线程状态变更。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -410,7 +475,21 @@ class AgentThreadChangedEventDetail(BaseModel):
     thread: AppServerThreadProductSnapshot
 
 
-class AgentTurnChangedEventDetail(BaseModel):
+class AgentThreadMetadataChangedEventDetail(AgentProtocolV2DetailBase):
+    """线程名称或归档状态变更。"""
+
+    kind: Literal["thread.metadata_changed"] = "thread.metadata_changed"
+    method: Literal[
+        AppServerNotificationName.THREAD_NAME_UPDATED,
+        AppServerNotificationName.THREAD_ARCHIVED,
+        AppServerNotificationName.THREAD_UNARCHIVED,
+    ]
+    thread_id: str = Field(min_length=1, max_length=256)
+    display_name: str | None = Field(default=None, max_length=256)
+    archived: bool | None = None
+
+
+class AgentTurnChangedEventDetail(AgentProtocolV2DetailBase):
     """turn 状态变更。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -425,7 +504,7 @@ class AgentTurnChangedEventDetail(BaseModel):
     status: str = Field(min_length=1, max_length=64)
 
 
-class AgentItemDeltaEventDetail(BaseModel):
+class AgentItemDeltaEventDetail(AgentProtocolV2DetailBase):
     """允许批处理的文本 delta。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -442,7 +521,7 @@ class AgentItemDeltaEventDetail(BaseModel):
     delta: str = Field(max_length=APP_SERVER_PRODUCT_MAX_DELTA_CHARS)
 
 
-class AgentItemChangedEventDetail(BaseModel):
+class AgentItemChangedEventDetail(AgentProtocolV2DetailBase):
     """item 创建或完成的稳定索引。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -458,7 +537,7 @@ class AgentItemChangedEventDetail(BaseModel):
     item: AppServerProductTimelineItem
 
 
-class AgentPlanChangedEventDetail(BaseModel):
+class AgentPlanChangedEventDetail(AgentProtocolV2DetailBase):
     """计划步骤结构化变更。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -470,7 +549,7 @@ class AgentPlanChangedEventDetail(BaseModel):
     steps: tuple[AppServerPlanStep, ...]
 
 
-class AgentDiffChangedEventDetail(BaseModel):
+class AgentDiffChangedEventDetail(AgentProtocolV2DetailBase):
     """diff 完成或截断状态，不在该摘要中重复正文。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -482,7 +561,7 @@ class AgentDiffChangedEventDetail(BaseModel):
     truncated: bool
 
 
-class AgentApprovalOpenedEventDetail(BaseModel):
+class AgentApprovalOpenedEventDetail(AgentProtocolV2DetailBase):
     """审批打开事件。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -491,7 +570,7 @@ class AgentApprovalOpenedEventDetail(BaseModel):
     approval: AgentPendingApprovalSnapshot
 
 
-class AgentProtocolWarningEventDetail(BaseModel):
+class AgentProtocolWarningEventDetail(AgentProtocolV2DetailBase):
     """不携带未知原始 payload 的协议告警。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -501,7 +580,7 @@ class AgentProtocolWarningEventDetail(BaseModel):
     method: str | None = Field(default=None, max_length=128)
 
 
-class AgentGapEventDetail(BaseModel):
+class AgentGapEventDetail(AgentProtocolV2DetailBase):
     """replay buffer trim 后的 gap。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -513,6 +592,7 @@ class AgentGapEventDetail(BaseModel):
 
 AgentEventDetail = Annotated[
     AgentThreadChangedEventDetail
+    | AgentThreadMetadataChangedEventDetail
     | AgentTurnChangedEventDetail
     | AgentItemChangedEventDetail
     | AgentItemDeltaEventDetail
@@ -534,10 +614,11 @@ class AgentEventRecord(BaseModel):
     seq: int = Field(ge=1)
     event_id: UUID
     app_server_instance_id: UUID
+    occurred_at: datetime
     detail: AgentEventDetail
 
 
-class AgentEventBatchV2Detail(BaseModel):
+class AgentEventBatchV2Detail(AgentProtocolV2DetailBase):
     """连续事件批次。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -561,7 +642,7 @@ class AgentEventBatchV2Detail(BaseModel):
         return self
 
 
-class AgentEventAckV2Detail(BaseModel):
+class AgentEventAckV2Detail(AgentProtocolV2DetailBase):
     """控制面对 Agent 事件的累计 ACK。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -571,7 +652,7 @@ class AgentEventAckV2Detail(BaseModel):
     after_seq: int = Field(ge=0)
 
 
-class AgentReplayRequestV2Detail(BaseModel):
+class AgentReplayRequestV2Detail(AgentProtocolV2DetailBase):
     """控制面请求从累计 ACK 后重放。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -610,4 +691,8 @@ class AgentProtocolV2Envelope(BaseModel):
 
         if self.header.message_type.value != self.detail.kind:
             raise ValueError("Agent protocol v2消息头与detail类型不一致。")
+        if self.header.detail_kind != self.header.message_type:
+            raise ValueError("Agent protocol v2消息头类型字段不一致。")
+        if self.header.schema_version != self.detail.schema_version:
+            raise ValueError("Agent protocol v2消息头与detail版本不一致。")
         return self

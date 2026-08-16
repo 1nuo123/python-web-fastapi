@@ -299,8 +299,9 @@ class CodexCommandOutboxDispatcher(AsyncReliableOutboxAdapterPort[CodexCommandOu
     def _decrypt_command(self, record: CodexCommandOutboxSnapshot) -> CodexAgentCommand:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
+            session = unit_of_work.get_session()
             operation = self._control_port.create_codex_operation_repository(
-                unit_of_work.get_session()
+                session
             ).get_by_id_and_owner(record.operation_id, record.owner_subject_id)
             if operation is None:
                 raise RuntimeError("Codex outbox关联operation不存在。")
@@ -313,11 +314,12 @@ class CodexCommandOutboxDispatcher(AsyncReliableOutboxAdapterPort[CodexCommandOu
                 params={},
                 deadline=record.expires_at,
             )
-            return self._payload_cipher.decrypt(
+            command = self._payload_cipher.decrypt(
                 record.payload,
                 reference,
                 record.owner_subject_id,
             )
+            return command
         finally:
             unit_of_work.dispose()
 

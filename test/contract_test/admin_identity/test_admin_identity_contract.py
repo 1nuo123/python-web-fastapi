@@ -184,7 +184,8 @@ class TestAdminIdentityContract:
             username=CONTRACT_USERNAME,
             is_active=True,
             role_keys=[BusinessAdminRoleKey.CUSTOMER_SERVICE.value],
-            scope_codes=["auth:read"],
+            direct_scope_codes=[AuthScopeCode.CODEX_READ.value],
+            effective_scope_codes=["auth:read", AuthScopeCode.CODEX_READ.value],
         )
         payload = AdminUserPayload.from_snapshot(snapshot)
         list_payload = AdminUserListPayload.from_page(
@@ -200,6 +201,8 @@ class TestAdminIdentityContract:
 
         assert payload.subject_id == CONTRACT_SUBJECT_ID
         assert list_payload.users[0].role_keys == [BusinessAdminRoleKey.CUSTOMER_SERVICE.value]
+        assert payload.direct_scope_codes == [AuthScopeCode.CODEX_READ.value]
+        assert payload.effective_scope_codes == ["auth:read", AuthScopeCode.CODEX_READ.value]
         assert PASSWORD_FIELD_NAME not in dumped_payload
         assert PASSWORD_HASH_FIELD_NAME not in dumped_payload
         assert CONTRACT_PASSWORD not in dumped_json
@@ -390,7 +393,8 @@ class TestAdminIdentityContract:
                 username=CONTRACT_USERNAME,
                 is_active=True,
                 role_keys=[BusinessAdminRoleKey.CUSTOMER_SERVICE.value],
-                scope_codes=["auth:read"],
+                direct_scope_codes=[],
+                effective_scope_codes=["auth:read"],
             ),
             reason=CONTRACT_ENABLE_REASON,
         )

@@ -23,6 +23,12 @@ from websockets.exceptions import ConnectionClosed, InvalidHandshake, InvalidSta
 from src.application.ports.agent_connection_ticket_provider_port import (
     AgentConnectionTicketProviderPort,
 )
+from src.core.codex_contract.agent_diagnostic_contract import (
+    AgentDiagnosticCode,
+    AgentDiagnosticEnvelope,
+    AgentDiagnosticHeader,
+    AgentProtocolWarningDiagnosticDetail,
+)
 from src.core.codex_contract.agent_protocol_contract import (
     CODEX_AGENT_PROTOCOL_VERSION,
     CodexAgentApprovalOpened,
@@ -58,6 +64,7 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentProtocolWarningEventDetail,
     AgentReplayRequestV2Detail,
     AgentThreadChangedEventDetail,
+    AgentThreadMetadataChangedEventDetail,
     AgentThreadReadCommandResult,
     AgentTurnChangedEventDetail,
 )
@@ -69,6 +76,7 @@ from src.core.codex_contract.app_server_product_contract import (
     AppServerPlanChangedDetail,
     AppServerProductNotificationDetail,
     AppServerThreadChangedDetail,
+    AppServerThreadMetadataChangedDetail,
     AppServerTurnChangedDetail,
     AppServerWarningDetail,
 )
@@ -77,6 +85,8 @@ from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerNotificationName,
 )
 from src.core.codex_contract.approval_contract import (
+    CodexApprovalCommandAction,
+    CodexApprovalFileChange,
     CodexApprovalKind,
     CodexApprovalRiskLevel,
 )
@@ -87,7 +97,12 @@ from src.core.codex_contract.connection_session_contract import (
     CodexConnectionTransportPort,
     CodexOutboundFrameSenderPort,
 )
-from src.domain.codex.agent_command_policy import AgentCommandPolicy, read_upstream_identifiers
+from src.core.codex_contract.host_contract import CodexApprovalPolicy
+from src.domain.codex.agent_command_policy import (
+    AgentAppServerSecurityPolicy,
+    AgentCommandPolicy,
+    read_upstream_identifiers,
+)
 from src.infrastructure.codex.agent_protocol_codec import (
     AgentCommandV2Mapper,
     AgentProtocolCodecRegistry,
@@ -105,6 +120,7 @@ from src.infrastructure.codex_agent.agent_event_replay_buffer import (
     AgentBufferedEvent,
     AgentEventReplayBuffer,
 )
+from src.infrastructure.codex_agent.agent_execution_root_store import AgentExecutionRootStore
 from src.infrastructure.codex_agent.agent_secret_store import AgentSecretStorePort
 from src.infrastructure.codex_agent.agent_snapshot_builder import AgentSnapshotBuilder
 from src.infrastructure.codex_agent.agent_thread_history_capacity_registry import (
@@ -121,9 +137,12 @@ from src.infrastructure.worktree.git_worktree_adapter import GitWorktreeAdapter
 INTERNAL_PROTOCOL_WARNING_METHOD = "internal/protocol.warning"
 UNRESOLVED_WORKSPACE_KEY = "unresolved"
 RETRYABLE_AGENT_HANDSHAKE_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
+RETRY_AFTER_HEADER_NAME: Final = "Retry-After"
 AGENT_HELLO_ACK_TIMEOUT_SECONDS: Final = 10.0
 AGENT_SEND_ENQUEUE_TIMEOUT_SECONDS: Final = 1.0
 AGENT_RETRY_MIN_WAIT_SECONDS: Final = 0.01
+AGENT_METADATA_REFRESH_DEBOUNCE_SECONDS: Final = 0.2
+AGENT_METADATA_REFRESH_TIMEOUT_SECONDS: Final = 10.0
 
 
 class AgentControlConnectionPolicy:
@@ -166,6 +185,23 @@ class AgentControlConnectionPolicy:
         if isinstance(legacy_status_code, int):
             return legacy_status_code
         return None
+
+    @staticmethod
+    def read_retry_after_seconds(exc: BaseException) -> int | None:
+        """读取服务端返回的秒级 Retry-After，非法值按未提供处理。"""
+
+        response = getattr(exc, "response", None)
+        headers = getattr(response, "headers", None)
+        if headers is None:
+            return None
+        raw_value = headers.get(RETRY_AFTER_HEADER_NAME)
+        if not isinstance(raw_value, str):
+            return None
+        try:
+            seconds = int(raw_value)
+        except ValueError:
+            return None
+        return seconds if seconds > 0 else None
 
 
 class AgentEventCursorRegressionError(ConnectionError):
@@ -239,6 +275,9 @@ class AgentControlChannel:
         self._connection_ticket_provider = connection_ticket_provider
         self._workspace_registry = workspace_registry
         self._worktree_port = GitWorktreeAdapter(workspace_registry)
+        self._execution_root_store = AgentExecutionRootStore.from_state_directory(
+            settings.agent.state_database.parent
+        )
         self._journal = journal
         self._logger = logger
         self._protocol_version = settings.protocol.agent_schema_version
@@ -253,6 +292,7 @@ class AgentControlChannel:
         self._event_buffer = AgentEventReplayBuffer(capacity=settings.agent.max_buffered_events)
         self._event_batcher = self._build_event_batcher()
         self._batch_flush_task: asyncio.Task[None] | None = None
+        self._metadata_refresh_tasks: dict[str, asyncio.Task[None]] = {}
         self._pending_approvals: dict[UUID, PendingAgentApproval] = {}
         self._history_capacity_registry = AgentThreadHistoryCapacityRegistry(
             max_source_bytes=settings.agent.max_app_server_line_bytes
@@ -266,6 +306,7 @@ class AgentControlChannel:
             request_handler=self._accept_app_server_request,
             warning_handler=self._accept_protocol_warning,
             logger=logger,
+            host_id=str(settings.agent.host_id),
         )
 
     async def run(self) -> None:
@@ -303,9 +344,13 @@ class AgentControlChannel:
                     self._logger.warning("Agent控制通道连接失败，将重试：%s", exc)
                     try:
                         jitter = delay * self._settings.agent.reconnect_jitter_ratio
+                        retry_after_seconds = (
+                            AgentControlConnectionPolicy.read_retry_after_seconds(exc) or 0
+                        )
                         wait_seconds = max(
                             AGENT_RETRY_MIN_WAIT_SECONDS,
                             delay + random.uniform(-jitter, jitter),
+                            retry_after_seconds,
                         )
                         await asyncio.wait_for(
                             self._shutdown_event.wait(),
@@ -319,12 +364,26 @@ class AgentControlChannel:
                 self._batch_flush_task.cancel()
                 await asyncio.gather(self._batch_flush_task, return_exceptions=True)
                 self._batch_flush_task = None
+            for task in self._metadata_refresh_tasks.values():
+                task.cancel()
+            await asyncio.gather(
+                *self._metadata_refresh_tasks.values(),
+                return_exceptions=True,
+            )
+            self._metadata_refresh_tasks.clear()
             await self._supervisor.stop()
 
     def request_shutdown(self) -> None:
         """请求停止新连接与新命令。"""
 
         self._shutdown_event.set()
+
+    def _raise_if_connection_closed_unexpectedly(self) -> None:
+        """把非停机导致的正常关闭转换为可退避重试的连接异常。"""
+
+        if self._shutdown_event.is_set():
+            return
+        raise CodexConnectionTransportClosed("控制面WebSocket连接意外关闭，Agent将按退避策略重连。")
 
     async def _run_connection(
         self,
@@ -376,6 +435,7 @@ class AgentControlChannel:
                     await client_wait_task
                     raise ConnectionError("Codex App Server JSON-RPC读取循环停止。")
                 await session_task
+                self._raise_if_connection_closed_unexpectedly()
             finally:
                 if heartbeat_task is not None:
                     if not heartbeat_task.done():
@@ -486,7 +546,7 @@ class AgentControlChannel:
             client=self._supervisor.handle.client,
             command_policy=AgentCommandPolicy(
                 self._workspace_registry,
-                self._settings.app_server_security.to_policy(),
+                self._resolve_command_security_policy(command),
             ),
             ack_sender=lambda ack: self._send_command_ack(sender, ack),
             result_sender=lambda result: self._send_command_result(
@@ -497,10 +557,34 @@ class AgentControlChannel:
             approval_reply_handler=self._reply_approval,
             history_capacity_registry=self._history_capacity_registry,
             worktree_port=self._worktree_port,
+            execution_root_store=self._execution_root_store,
+            workspace_registry=self._workspace_registry,
         )
         await executor.execute(command)
         if command.command_type in {"thread.start", "thread.resume"}:
             await self._send_snapshot(self._supervisor.handle, sender)
+
+    def _resolve_command_security_policy(
+        self,
+        command: CodexAgentCommand,
+    ) -> AgentAppServerSecurityPolicy:
+        """从具体命令参数构建本次 App Server 安全策略。"""
+
+        local_policy = self._settings.app_server_security.to_policy()
+        if command.command_type not in {"thread.start", "turn.start"}:
+            return local_policy
+        if command.sandbox_mode is None or command.approval_policy is None:
+            raise PermissionError("Agent命令缺少用户确认的执行限制。")
+        if command.approval_policy == CodexApprovalPolicy.NEVER:
+            raise PermissionError("Agent不支持禁用审批的远程命令。")
+        return AgentAppServerSecurityPolicy(
+            approval_policy=cast(
+                Literal["untrusted", "on-request"],
+                command.approval_policy.value,
+            ),
+            approvals_reviewer=local_policy.approvals_reviewer,
+            sandbox_mode=command.sandbox_mode.value,
+        )
 
     async def _send_snapshot(
         self,
@@ -574,7 +658,7 @@ class AgentControlChannel:
                 key_id=self._settings.agent.key_id,
                 message_id=uuid4(),
                 detail=AgentHelloV2Detail(
-                    agent_version="2.0.0",
+                    agent_version=self._settings.protocol.agent_version,
                     codex_version=handle.codex_version,
                     app_server_schema_digest=self._settings.protocol.app_server_schema_digest,
                     capabilities=AppServerDefaultCatalog().build_capabilities(),
@@ -585,7 +669,7 @@ class AgentControlChannel:
             )
         hello = CodexAgentHello(
             host_id=self._settings.agent.host_id,
-            agent_version="1.0.0",
+            agent_version=self._settings.protocol.agent_version,
             codex_version=handle.codex_version,
             agent_protocol_version=CODEX_AGENT_PROTOCOL_VERSION,
             app_server_schema_digest=self._settings.protocol.app_server_schema_digest,
@@ -615,6 +699,11 @@ class AgentControlChannel:
             else:
                 detail = self._map_product_notification(adapted.notification.detail, method)
             await self._queue_v2_event(detail)
+            if (
+                isinstance(detail, AgentTurnChangedEventDetail)
+                and detail.method is AppServerNotificationName.TURN_COMPLETED
+            ):
+                self._schedule_metadata_refresh(detail.thread_id)
             return
         if adapted.notification is not None:
             event_method = method
@@ -632,11 +721,50 @@ class AgentControlChannel:
         event = CodexAgentRealtimeEvent(
             host_id=self._settings.agent.host_id,
             app_server_instance_id=self._supervisor.handle.instance_id,
+            occurred_at=datetime.now(UTC),
             method=event_method,
             params=event_params,
             product_notification=product_notification,
         )
         await self._send_or_buffer(self._build_model_frame("realtime.event", event))
+
+    def _schedule_metadata_refresh(self, thread_id: str) -> None:
+        """按会话合并 turn 完成后的权威元数据刷新。"""
+
+        existing = self._metadata_refresh_tasks.get(thread_id)
+        if existing is not None and not existing.done():
+            return
+        task = asyncio.create_task(self._refresh_thread_metadata(thread_id))
+        self._metadata_refresh_tasks[thread_id] = task
+
+    async def _refresh_thread_metadata(self, thread_id: str) -> None:
+        """从 App Server 校准标题和 recencyAt，不读取会话正文。"""
+
+        try:
+            await asyncio.sleep(AGENT_METADATA_REFRESH_DEBOUNCE_SECONDS)
+            result = await self._supervisor.handle.client.request(
+                "thread/read",
+                {"threadId": thread_id, "includeTurns": False},
+                timeout_seconds=AGENT_METADATA_REFRESH_TIMEOUT_SECONDS,
+            )
+            snapshot = self._app_server_protocol_adapter.adapt_thread_read_result(result)
+            await self._queue_v2_event(
+                AgentThreadChangedEventDetail(
+                    method=AppServerNotificationName.THREAD_STATUS_CHANGED,
+                    thread=snapshot.thread,
+                )
+            )
+        except asyncio.CancelledError:
+            raise
+        except (ConnectionError, RuntimeError, TimeoutError, ValueError):
+            self._logger.warning(
+                "Agent会话权威元数据刷新失败：thread_id=%s",
+                thread_id,
+            )
+        finally:
+            current = self._metadata_refresh_tasks.get(thread_id)
+            if current is asyncio.current_task():
+                self._metadata_refresh_tasks.pop(thread_id, None)
 
     async def _accept_app_server_request(
         self,
@@ -737,36 +865,52 @@ class AgentControlChannel:
         risk_level: Literal["normal", "high"],
         reason: JsonValue | None,
     ) -> AgentApprovalDisplaySummary:
-        """仅从官方字段生成不含绝对路径和原始命令的展示摘要。"""
+        """从官方字段生成结构化、工作区相对的展示摘要。"""
 
         cwd = mapping.get("cwd")
         grant_root = mapping.get("grantRoot")
         workspace_name = self._path_name(cwd)
-        file_scope = tuple(value for value in (self._path_name(grant_root),) if value is not None)
+        file_changes = self._build_file_changes(mapping.get("fileChanges"), cwd)
+        relative_grant_root = self._relative_path(grant_root, cwd)
+        file_scope = tuple(
+            dict.fromkeys(
+                [
+                    *(change.path for change in file_changes),
+                    *([relative_grant_root] if relative_grant_root is not None else []),
+                ]
+            )
+        )
         permissions = mapping.get("permissions")
         permission_names = (
             tuple(str(key) for key, value in permissions.items() if value is not None)
             if isinstance(permissions, Mapping)
             else ()
         )
-        command_actions = mapping.get("commandActions")
-        action_names: list[str] = []
-        if isinstance(command_actions, list):
-            for raw_action in command_actions[:8]:
-                if not isinstance(raw_action, Mapping):
-                    continue
-                action = cast(Mapping[str, JsonValue], raw_action)
-                action_type = action.get("type")
-                action_name = action.get("name")
-                if isinstance(action_name, str) and action_name:
-                    action_names.append(action_name[:64])
-                elif isinstance(action_type, str) and action_type:
-                    action_names.append(action_type[:64])
+        command = mapping.get("command")
+        display_command = command[:1_024] if isinstance(command, str) and command else None
+        command_actions = self._build_command_actions(mapping.get("commandActions"), cwd)
         command_summary = (
-            "、".join(action_names)[:256]
-            if action_names
+            " | ".join(action.command for action in command_actions)[:256]
+            if command_actions
+            else display_command[:256]
+            if display_command is not None
             else "需要执行本机命令"
             if approval_kind == "command"
+            else None
+        )
+        read_only = bool(command_actions) and all(
+            action.action_type in {"read", "listFiles", "search"} for action in command_actions
+        )
+        network_requested = mapping.get("networkApprovalContext") is not None or (
+            isinstance(permissions, Mapping) and permissions.get("network") is not None
+        )
+        risk_reason = (
+            "network_access"
+            if network_requested
+            else "extra_workspace_root"
+            if grant_root is not None
+            else "permission_elevation"
+            if approval_kind == "permissions"
             else None
         )
         return AgentApprovalDisplaySummary(
@@ -781,14 +925,115 @@ class AgentControlChannel:
             workspace_name=workspace_name,
             risk_level=CodexApprovalRiskLevel(risk_level),
             command_summary=command_summary,
+            command=display_command,
+            command_actions=command_actions,
+            working_directory="." if isinstance(cwd, str) and cwd else None,
+            read_only=read_only,
             file_scope=file_scope,
+            file_changes=file_changes,
             permission_names=permission_names,
-            network_requested=(
-                mapping.get("networkApprovalContext") is not None
-                or (isinstance(permissions, Mapping) and permissions.get("network") is not None)
-            ),
+            network_requested=network_requested,
             extra_root_requested=grant_root is not None,
+            risk_reason=risk_reason,
         )
+
+    def _build_command_actions(
+        self,
+        value: JsonValue | None,
+        cwd: JsonValue | None,
+    ) -> tuple[CodexApprovalCommandAction, ...]:
+        if not isinstance(value, list):
+            return ()
+        actions: list[CodexApprovalCommandAction] = []
+        for raw_action in value[:32]:
+            if not isinstance(raw_action, Mapping):
+                continue
+            action = cast(Mapping[str, JsonValue], raw_action)
+            action_type = action.get("type")
+            command = action.get("command")
+            if not isinstance(action_type, str) or not action_type:
+                continue
+            if not isinstance(command, str) or not command:
+                continue
+            name = action.get("name")
+            query = action.get("query")
+            actions.append(
+                CodexApprovalCommandAction(
+                    action_type=action_type[:64],
+                    command=command[:1_024],
+                    path=self._relative_path(action.get("path"), cwd),
+                    name=name[:128] if isinstance(name, str) and name else None,
+                    query=query[:256] if isinstance(query, str) and query else None,
+                )
+            )
+        return tuple(actions)
+
+    def _build_file_changes(
+        self,
+        value: JsonValue | None,
+        cwd: JsonValue | None,
+    ) -> tuple[CodexApprovalFileChange, ...]:
+        if not isinstance(value, Mapping):
+            return ()
+        changes: list[CodexApprovalFileChange] = []
+        for raw_path, raw_change in list(value.items())[:64]:
+            if not isinstance(raw_path, str) or not raw_path:
+                continue
+            change = (
+                cast(Mapping[str, JsonValue], raw_change) if isinstance(raw_change, Mapping) else {}
+            )
+            relative_path = self._relative_path(raw_path, cwd) or self._path_name(raw_path)
+            if relative_path is None:
+                continue
+            change_kind = change.get("type") or change.get("kind") or "modified"
+            added_lines = change.get("addedLines", change.get("added_lines"))
+            deleted_lines = change.get("deletedLines", change.get("deleted_lines"))
+            changes.append(
+                CodexApprovalFileChange(
+                    path=relative_path,
+                    change_kind=str(change_kind)[:64],
+                    added_lines=(
+                        added_lines
+                        if isinstance(added_lines, int)
+                        and not isinstance(added_lines, bool)
+                        and added_lines >= 0
+                        else None
+                    ),
+                    deleted_lines=(
+                        deleted_lines
+                        if isinstance(deleted_lines, int)
+                        and not isinstance(deleted_lines, bool)
+                        and deleted_lines >= 0
+                        else None
+                    ),
+                    sensitive=self._is_sensitive_path(relative_path),
+                )
+            )
+        return tuple(changes)
+
+    def _relative_path(
+        self,
+        value: JsonValue | None,
+        cwd: JsonValue | None,
+    ) -> str | None:
+        if not isinstance(value, str) or not value:
+            return None
+        candidate = PureWindowsPath(value)
+        if isinstance(cwd, str) and cwd:
+            root = PureWindowsPath(cwd)
+            try:
+                relative = candidate.relative_to(root)
+            except ValueError:
+                relative = None
+            if relative is not None:
+                normalized = str(relative)
+                return normalized[:1_024] if normalized not in {"", "."} else "."
+        name = candidate.name
+        return name[:1_024] if name else None
+
+    def _is_sensitive_path(self, value: str) -> bool:
+        segments = {segment.lower() for segment in PureWindowsPath(value).parts}
+        return bool(segments & {".env", ".git", ".ssh", "secrets", "credentials"})
 
     def _path_name(self, value: JsonValue | None) -> str | None:
         """把官方绝对路径收敛为单个目录名。"""
@@ -829,6 +1074,23 @@ class AgentControlChannel:
 
     async def _accept_protocol_warning(self, warning: str) -> None:
         warning_digest = hashlib.sha256(warning.encode("utf-8")).hexdigest()[:16]
+        handle = self._supervisor.handle
+        self._logger.warning(
+            AgentDiagnosticEnvelope(
+                header=AgentDiagnosticHeader(
+                    detail_kind=AgentDiagnosticCode.APP_SERVER_PROTOCOL_WARNING,
+                    host_id=str(self._settings.agent.host_id),
+                    app_server_instance_id=handle.instance_id,
+                    process_id=handle.process.pid,
+                    codex_version=handle.codex_version,
+                    occurred_at=datetime.now(UTC),
+                ),
+                detail=AgentProtocolWarningDiagnosticDetail(
+                    byte_count=len(warning.encode("utf-8")),
+                    digest=warning_digest,
+                ),
+            ).to_log_line()
+        )
         if self._protocol_version == CodexConnectionProtocolVersion.V2:
             await self._queue_v2_event(
                 AgentProtocolWarningEventDetail(
@@ -840,6 +1102,7 @@ class AgentControlChannel:
         event = CodexAgentRealtimeEvent(
             host_id=self._settings.agent.host_id,
             app_server_instance_id=self._supervisor.handle.instance_id,
+            occurred_at=datetime.now(UTC),
             method="internal/protocol.warning",
             params={"warning_digest": warning_digest},
         )
@@ -898,6 +1161,7 @@ class AgentControlChannel:
                 gap = CodexAgentRealtimeEvent(
                     host_id=self._settings.agent.host_id,
                     app_server_instance_id=self._supervisor.handle.instance_id,
+                    occurred_at=datetime.now(UTC),
                     method="internal/event.gap",
                     params={"snapshotRequired": True},
                 )
@@ -1037,6 +1301,7 @@ class AgentControlChannel:
             seq=self._journal.next_event_seq(),
             event_id=uuid4(),
             app_server_instance_id=UUID(self._supervisor.handle.instance_id),
+            occurred_at=datetime.now(UTC),
             detail=detail,
         )
 
@@ -1152,6 +1417,20 @@ class AgentControlChannel:
                     AppServerNotificationName(method),
                 ),
                 thread=detail.thread,
+            )
+        if isinstance(detail, AppServerThreadMetadataChangedDetail):
+            return AgentThreadMetadataChangedEventDetail(
+                method=cast(
+                    Literal[
+                        AppServerNotificationName.THREAD_NAME_UPDATED,
+                        AppServerNotificationName.THREAD_ARCHIVED,
+                        AppServerNotificationName.THREAD_UNARCHIVED,
+                    ],
+                    AppServerNotificationName(method),
+                ),
+                thread_id=detail.thread_id,
+                display_name=detail.display_name,
+                archived=detail.archived,
             )
         if isinstance(detail, AppServerTurnChangedDetail):
             return AgentTurnChangedEventDetail(

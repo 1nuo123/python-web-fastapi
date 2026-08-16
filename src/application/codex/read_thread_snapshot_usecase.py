@@ -5,9 +5,9 @@ from __future__ import annotations
 import base64
 import binascii
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import JsonValue
@@ -21,13 +21,23 @@ from src.core.codex_contract.agent_protocol_contract import CodexAgentCommand
 from src.core.codex_contract.connection_session_contract import CodexHostOfflineError
 from src.core.codex_contract.thread_contract import (
     CodexThreadAuthoritySnapshot,
+    CodexThreadHistoryStatus,
     CodexThreadIndexSnapshot,
-    CodexTimelineItemSnapshot,
+    CodexThreadStatus,
+    CodexTimelineItemEnvelope,
     CodexTurnSnapshot,
 )
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.domain.codex.agent_command_policy import calculate_agent_request_digest
 from src.domain.codex.codex_error_code import CodexErrorCode
+
+
+@dataclass(frozen=True, slots=True)
+class OwnedCodexThreadContext:
+    """已通过所有权校验的线程读取上下文。"""
+
+    thread: CodexThreadIndexSnapshot
+    workspace_key: str
 
 
 class ReadCodexThreadSnapshotUsecase:
@@ -55,15 +65,16 @@ class ReadCodexThreadSnapshotUsecase:
         history_cursor: str | None = None,
         history_limit: int = 100,
     ) -> CodexThreadAuthoritySnapshot:
-        thread, workspace_key = self._read_owned_thread(
+        context = self._read_owned_thread(
             host_id,
             upstream_thread_id,
             owner_subject_id,
         )
+        thread = context.thread
         params: dict[str, JsonValue] = {
             "threadId": upstream_thread_id,
             "includeTurns": include_history or history_cursor is not None,
-            "workspace_key": workspace_key,
+            "workspace_key": context.workspace_key,
         }
         command = CodexAgentCommand(
             command_id=uuid4(),
@@ -96,7 +107,7 @@ class ReadCodexThreadSnapshotUsecase:
                     thread=thread,
                     turns=[],
                     items=[],
-                    history_status="omitted_too_large",
+                    history_status=CodexThreadHistoryStatus.OMITTED_TOO_LARGE,
                 )
             # Codex 0.145 can acknowledge a brand-new thread before its rollout
             # is loadable by thread/read. The control-plane index is still the
@@ -107,7 +118,7 @@ class ReadCodexThreadSnapshotUsecase:
                     thread=thread,
                     turns=[],
                     items=[],
-                    history_status="not_available_yet",
+                    history_status=CodexThreadHistoryStatus.NOT_AVAILABLE_YET,
                 )
             raise HttpFaultException(
                 status_code=HTTPStatus.BAD_GATEWAY,
@@ -124,13 +135,15 @@ class ReadCodexThreadSnapshotUsecase:
             if include_history or history_cursor is not None
             else []
         )
-        history_status: Literal["complete", "not_requested", "omitted_too_large"] = (
-            "complete" if include_history or history_cursor is not None else "not_requested"
+        history_status: CodexThreadHistoryStatus = (
+            CodexThreadHistoryStatus.COMPLETE
+            if include_history or history_cursor is not None
+            else CodexThreadHistoryStatus.NOT_REQUESTED
         )
         if isinstance(result.result, Mapping):
             marker = result.result.get("historyStatus")
             if marker == "omitted_too_large":
-                history_status = "omitted_too_large"
+                history_status = CodexThreadHistoryStatus.OMITTED_TOO_LARGE
         offset = self._decode_history_cursor(history_cursor)
         bounded_limit = max(1, min(history_limit, 500))
         page_items = mapped.items[offset : offset + bounded_limit]
@@ -143,7 +156,7 @@ class ReadCodexThreadSnapshotUsecase:
             thread=self._merge_authoritative_thread(thread, mapped.thread, turns),
             turns=turns,
             items=(
-                [CodexTimelineItemSnapshot.model_validate(value) for value in page_items]
+                [CodexTimelineItemEnvelope.model_validate(value) for value in page_items]
                 if include_history or history_cursor is not None
                 else []
             ),
@@ -182,7 +195,7 @@ class ReadCodexThreadSnapshotUsecase:
             thread=thread,
             turns=[],
             items=[],
-            history_status="not_available_yet",
+            history_status=CodexThreadHistoryStatus.NOT_AVAILABLE_YET,
         )
 
     @staticmethod
@@ -191,35 +204,34 @@ class ReadCodexThreadSnapshotUsecase:
         mapped: dict[str, JsonValue],
         turns: list[CodexTurnSnapshot],
     ) -> CodexThreadIndexSnapshot:
-        """Preserve ownership fields while converging volatile state from thread/read."""
+        """保留索引权威字段，仅合并 ``thread/read`` 的易失状态。"""
 
         mapped_status = mapped.get("status")
         status = mapped_status if isinstance(mapped_status, str) else indexed.status
-        active_turn_id: str | None = None
+        active_turn_id = indexed.active_turn_id
         if turns:
             latest = turns[-1]
             if latest.status in {"active", "inProgress"}:
-                status = "active"
+                status = CodexThreadStatus.ACTIVE
                 active_turn_id = latest.turn_id
             elif latest.status in {"interrupted", "cancelled"}:
-                status = "interrupted"
+                status = CodexThreadStatus.INTERRUPTED
+                active_turn_id = None
             elif latest.status == "completed":
-                status = "idle"
+                status = CodexThreadStatus.IDLE
+                active_turn_id = None
             elif latest.status in {"failed", "systemError"}:
-                status = "failed"
+                status = CodexThreadStatus.FAILED
+                active_turn_id = None
             else:
-                status = "unknown"
-        elif status == "notLoaded" and indexed.status == "active":
-            status = "unknown"
+                status = CodexThreadStatus.UNKNOWN
+        elif status == "notLoaded" and indexed.status == CodexThreadStatus.ACTIVE:
+            status = CodexThreadStatus.UNKNOWN
 
         updates: dict[str, object] = {
             "status": status,
             "active_turn_id": active_turn_id,
         }
-        for field_name in ("display_name", "model", "created_at", "updated_at"):
-            value = mapped.get(field_name)
-            if value is not None:
-                updates[field_name] = value
         return CodexThreadIndexSnapshot.model_validate({**indexed.model_dump(), **updates})
 
     def _read_owned_thread(
@@ -227,7 +239,7 @@ class ReadCodexThreadSnapshotUsecase:
         host_id: UUID,
         upstream_thread_id: str,
         owner_subject_id: str,
-    ) -> tuple[CodexThreadIndexSnapshot, str]:
+    ) -> OwnedCodexThreadContext:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
             session = unit_of_work.get_session()
@@ -253,6 +265,9 @@ class ReadCodexThreadSnapshotUsecase:
                     error_code=CodexErrorCode.RESOURCE_NOT_FOUND,
                     message="Codex资源不存在。",
                 )
-            return thread, workspace.agent_workspace_key
+            return OwnedCodexThreadContext(
+                thread=thread,
+                workspace_key=workspace.agent_workspace_key,
+            )
         finally:
             unit_of_work.dispose()

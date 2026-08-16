@@ -17,7 +17,10 @@ from src.application.admin.identity.shared.admin_identity_command import (
     AdminScopeDeleteCommand,
     AdminScopeUpdateCommand,
 )
-from src.application.ports.admin_identity_port import AdminScopeListQuery
+from src.application.ports.admin_identity_port import (
+    ADMIN_IDENTITY_QUERY_LIMIT_MAXIMUM,
+    AdminScopeListQuery,
+)
 from src.domain.auth.auth_scope_code import AuthScopeCode
 from src.infrastructure.persistence.orm_model.auth_role_orm_model import AuthRoleOrmModel
 from src.infrastructure.persistence.orm_model.auth_role_scope_orm_model import (
@@ -32,7 +35,7 @@ pytestmark = [
     pytest.mark.usefixtures("integration_database"),
 ]
 
-SCOPE_UNIT_LIMIT = 20
+SCOPE_UNIT_LIMIT = ADMIN_IDENTITY_QUERY_LIMIT_MAXIMUM
 SCOPE_UNIT_NAME = "单元 scope"
 SCOPE_UNIT_UPDATED_NAME = "单元 scope 更新"
 SCOPE_UNIT_DESCRIPTION = "单元 scope 描述"

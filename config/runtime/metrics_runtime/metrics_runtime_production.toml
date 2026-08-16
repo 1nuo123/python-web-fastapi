@@ -1,5 +1,5 @@
 [runtime.header]
-enabled = false
+enabled = true
 
 [runtime.detail]
 include_security_metrics = true

@@ -13,7 +13,9 @@ from src.api.endpoint_auth_access.contract_auth_access import (
 from src.core.auth_contract.step_up_grant_contract import StepUpGrantPurpose
 from src.core.codex_contract.host_contract import CodexHostSnapshot
 from src.core.codex_contract.realtime_event_contract import (
+    CodexHostStatusChangedDetail,
     CodexRealtimeEvent,
+    CodexRealtimeEventHeader,
     CodexRealtimeEventType,
 )
 
@@ -67,20 +69,28 @@ class TestCodexPhase1Contract:
             )
 
     def test_realtime_event_should_expose_product_event_without_jsonrpc_fields(self) -> None:
+        host_id = uuid4()
         event = CodexRealtimeEvent(
-            event_id="event-1",
-            type=CodexRealtimeEventType.HOST_STATUS_CHANGED,
-            host_id=uuid4(),
-            stream_epoch="stream-epoch-1",
-            cursor="1-0",
-            payload={"host_id": str(uuid4()), "status": "online"},
+            header=CodexRealtimeEventHeader(
+                event_id="event-1",
+                occurred_at=datetime.now(UTC),
+                detail_kind=CodexRealtimeEventType.HOST_STATUS_CHANGED,
+                host_id=host_id,
+                stream_epoch="stream-epoch-1",
+                cursor="1-0",
+            ),
+            detail=CodexHostStatusChangedDetail(
+                host_id=host_id,
+                status="online",
+            ),
         )
 
         dumped = event.model_dump(mode="json")
         assert "jsonrpc" not in dumped
         assert "method" not in dumped
         assert "params" not in dumped
-        assert dumped["kind"] == "codex_realtime_event"
-        assert dumped["stream_epoch"] == "stream-epoch-1"
-        assert dumped["cursor"] == "1-0"
-        assert dumped["type"] == "host.status_changed"
+        assert dumped["header"]["kind"] == "codex_realtime_event"
+        assert dumped["header"]["stream_epoch"] == "stream-epoch-1"
+        assert dumped["header"]["cursor"] == "1-0"
+        assert dumped["header"]["detail_kind"] == "host.status_changed"
+        assert dumped["detail"]["kind"] == "host.status_changed"

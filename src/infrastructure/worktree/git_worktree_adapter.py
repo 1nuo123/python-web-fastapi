@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
-import subprocess
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -20,6 +19,11 @@ from src.core.worktree_contract.worktree_contract import (
     GitWorktreeSnapshot,
     WorktreeCleanupReason,
     WorktreeLifecycleState,
+)
+from src.infrastructure.process.windows_subprocess_launcher import (
+    WindowsSubprocessLauncher,
+    WindowsSubprocessLogCategory,
+    WindowsSubprocessRequest,
 )
 
 WORKTREE_MARKER_FILENAME: Final = ".codex-worktree.json"
@@ -44,8 +48,13 @@ class WorkspaceRootResolverPort(Protocol):
 class GitWorktreeAdapter:
     """在受控仓库根内执行 argv 形式 Git worktree 命令。"""
 
-    def __init__(self, workspace_roots: WorkspaceRootResolverPort) -> None:
+    def __init__(
+        self,
+        workspace_roots: WorkspaceRootResolverPort,
+        launcher: WindowsSubprocessLauncher | None = None,
+    ) -> None:
         self._workspace_roots = workspace_roots
+        self._launcher = launcher or WindowsSubprocessLauncher()
 
     def create(self, request: GitWorktreeCreateRequest) -> GitWorktreeOperationResult:
         """在仓库受管目录内创建隔离 worktree。"""
@@ -393,7 +402,7 @@ class GitWorktreeAdapter:
         arguments.append(str(target))
         try:
             self._run_git(repository_root, *arguments)
-        except (OSError, RuntimeError, subprocess.SubprocessError):
+        except (OSError, RuntimeError):
             if marker_content is not None and target.is_dir():
                 marker.write_text(marker_content, encoding="utf-8")
             raise
@@ -410,17 +419,14 @@ class GitWorktreeAdapter:
             raise OSError("磁盘使用率达到工作树创建水位。")
 
     def _run_git(self, cwd: Path, *arguments: str) -> str:
-        completed = subprocess.run(
-            ["git", "-C", str(cwd), *arguments],
-            check=False,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=GIT_COMMAND_TIMEOUT_SECONDS,
-            shell=False,
+        completed = self._launcher.run(
+            WindowsSubprocessRequest(
+                argv=("git", "-C", str(cwd), *arguments),
+                timeout_seconds=GIT_COMMAND_TIMEOUT_SECONDS,
+                log_category=WindowsSubprocessLogCategory.GIT,
+            )
         )
-        if completed.returncode != 0:
+        if completed.return_code != 0:
             raise RuntimeError(f"Git工作树操作失败：{completed.stderr[:GIT_ERROR_MESSAGE_LIMIT]}")
         return completed.stdout
 

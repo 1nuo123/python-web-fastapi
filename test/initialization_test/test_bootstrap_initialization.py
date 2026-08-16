@@ -13,7 +13,11 @@ from src.api.testing.test_app_factory import TestAppFactory
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.http_contract.runtime_resource_contract import RuntimeResourceStatus
 from src.domain.auth.auth_role_key import AuthRoleKey
+from src.domain.auth.auth_scope_code import AuthScopeCode
 from src.infrastructure.persistence.orm_model.auth_role_orm_model import AuthRoleOrmModel
+from src.infrastructure.persistence.orm_model.auth_role_scope_orm_model import (
+    AuthRoleScopeOrmModel,
+)
 from src.infrastructure.resource_mount.shared_resource_constants import (
     RESOURCE_CACHE,
     RESOURCE_DATABASE,
@@ -27,6 +31,7 @@ from src.infrastructure.resource_mount.shared_resource_constants import (
 from src.infrastructure.testing.sqlite_test_engine_factory import SqliteTestEngineFactory
 
 BOOTSTRAP_RESTART_DATABASE_FILENAME = "bootstrap_restart.sqlite3"
+PUBLIC_ROLE_RESTART_DATABASE_FILENAME = "public_role_restart.sqlite3"
 
 
 class TestBootstrapInitialization:
@@ -112,7 +117,7 @@ class TestBootstrapInitialization:
                 unit_of_work.dispose()
 
     def test_startup_should_prepare_public_registration_role(self) -> None:
-        """验证启动期准备无授权 scope 的普通注册角色。"""
+        """验证普通注册用户可查看 Codex 并登记自己的电脑。"""
 
         app = TestAppFactory().create()
         with TestClient(app):
@@ -124,6 +129,98 @@ class TestBootstrapInitialization:
                 )
                 role = (
                     session.query(AuthRoleOrmModel)
+                    .filter_by(role_key=AuthRoleKey.REGISTERED_USER.value)
+                    .one()
+                )
+                assert {
+                    scope.scope_code for scope in role.role_scopes
+                } == {
+                    AuthScopeCode.CODEX_READ.value,
+                    AuthScopeCode.CODEX_HOST_MANAGE.value,
+                }
+            finally:
+                unit_of_work.dispose()
+
+    def test_public_registration_role_scope_should_survive_restart(self, tmp_path: Path) -> None:
+        """验证启动同步不会清空已持久化的公开注册角色 scope。"""
+
+        database_engine_factory = SqliteTestEngineFactory(
+            database_url=SqliteTestEngineFactory.build_file_database_url(
+                tmp_path / PUBLIC_ROLE_RESTART_DATABASE_FILENAME
+            )
+        )
+        app = TestAppFactory().create(database_engine_factory=database_engine_factory)
+        with TestClient(app):
+            resource_mount = app.state.container.resource_mount
+            unit_of_work = resource_mount.create_unit_of_work()
+            try:
+                session = unit_of_work.get_session()
+                role = (
+                    session.query(AuthRoleOrmModel)
+                    .filter_by(role_key=AuthRoleKey.REGISTERED_USER.value)
+                    .one()
+                )
+                role.role_scopes.append(AuthRoleScopeOrmModel(scope_code="auth:read"))
+                unit_of_work.commit()
+            finally:
+                unit_of_work.dispose()
+
+        restarted_app = TestAppFactory().create(database_engine_factory=database_engine_factory)
+        with TestClient(restarted_app):
+            resource_mount = restarted_app.state.container.resource_mount
+            unit_of_work = resource_mount.create_unit_of_work()
+            try:
+                role = (
+                    unit_of_work.get_session()
+                    .query(AuthRoleOrmModel)
+                    .filter_by(role_key=AuthRoleKey.REGISTERED_USER.value)
+                    .one()
+                )
+                assert {
+                    scope.scope_code for scope in role.role_scopes
+                } == {
+                    "auth:read",
+                    AuthScopeCode.CODEX_READ.value,
+                    AuthScopeCode.CODEX_HOST_MANAGE.value,
+                }
+            finally:
+                unit_of_work.dispose()
+
+    def test_removed_public_registration_role_scope_should_not_return_after_restart(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """验证管理员删除的公开注册角色 scope 不会在重启时被补回。"""
+
+        database_engine_factory = SqliteTestEngineFactory(
+            database_url=SqliteTestEngineFactory.build_file_database_url(
+                tmp_path / PUBLIC_ROLE_RESTART_DATABASE_FILENAME
+            )
+        )
+        app = TestAppFactory().create(database_engine_factory=database_engine_factory)
+        with TestClient(app):
+            resource_mount = app.state.container.resource_mount
+            unit_of_work = resource_mount.create_unit_of_work()
+            try:
+                role = (
+                    unit_of_work.get_session()
+                    .query(AuthRoleOrmModel)
+                    .filter_by(role_key=AuthRoleKey.REGISTERED_USER.value)
+                    .one()
+                )
+                role.role_scopes.clear()
+                unit_of_work.commit()
+            finally:
+                unit_of_work.dispose()
+
+        restarted_app = TestAppFactory().create(database_engine_factory=database_engine_factory)
+        with TestClient(restarted_app):
+            resource_mount = restarted_app.state.container.resource_mount
+            unit_of_work = resource_mount.create_unit_of_work()
+            try:
+                role = (
+                    unit_of_work.get_session()
+                    .query(AuthRoleOrmModel)
                     .filter_by(role_key=AuthRoleKey.REGISTERED_USER.value)
                     .one()
                 )

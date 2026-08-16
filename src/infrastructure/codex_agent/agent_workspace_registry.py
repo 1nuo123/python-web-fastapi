@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 import hashlib
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Protocol
+
+from src.core.codex_contract.execution_root_binding_contract import (
+    RootKind,
+    WorktreeIsolationMode,
+)
+from src.infrastructure.process.windows_subprocess_launcher import (
+    WindowsSubprocessLauncher,
+    WindowsSubprocessLogCategory,
+    WindowsSubprocessRequest,
+)
 
 WINDOWS_BROAD_ACL_IDENTIFIERS: Final = ("S-1-1-0", "S-1-5-32-545", "Everyone", "BUILTIN\\Users")
 WINDOWS_WRITE_ACL_MARKERS: Final = ("(F)", "(M)", "(W)")
@@ -29,17 +38,20 @@ class AgentConfigPermissionVerifierPort(Protocol):
 class WindowsAgentConfigPermissionVerifier:
     """使用 icacls 拒绝 Everyone 或普通 Users 的写权限。"""
 
+    def __init__(self, launcher: WindowsSubprocessLauncher | None = None) -> None:
+        self._launcher = launcher or WindowsSubprocessLauncher()
+
     def verify(self, path: Path) -> None:
         """校验配置文件只允许受信任 Windows 主体修改。"""
 
-        completed = subprocess.run(
-            ["icacls", str(path)],
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
+        completed = self._launcher.run(
+            WindowsSubprocessRequest(
+                argv=("icacls", str(path)),
+                log_category=WindowsSubprocessLogCategory.WINDOWS,
+            )
         )
+        if completed.return_code != 0:
+            raise AgentConfigPermissionError("Agent配置文件权限无法读取。")
         for line in completed.stdout.splitlines():
             if any(
                 identifier.lower() in line.lower() for identifier in WINDOWS_BROAD_ACL_IDENTIFIERS
@@ -56,12 +68,19 @@ class AgentWorkspaceDefinition:
     display_name: str
     root: Path
     allow_write: bool
+    worktree_isolation_mode: WorktreeIsolationMode = WorktreeIsolationMode.DISABLED
 
     def __post_init__(self) -> None:
         if not self.key.strip() or not self.display_name.strip():
             raise ValueError("工作区key和display_name不能为空。")
         if not self.root.is_absolute():
             raise ValueError("工作区root必须是绝对路径。")
+
+    @property
+    def worktree_isolation_enabled(self) -> bool:
+        """返回是否允许该工作区执行隔离 worktree 操作。"""
+
+        return self.worktree_isolation_mode is WorktreeIsolationMode.ENABLED
 
 
 class AgentWorkspaceRegistry:
@@ -85,6 +104,17 @@ class AgentWorkspaceRegistry:
         if require_write and not workspace.allow_write:
             raise AgentWorkspaceAccessError("工作区未授权远程写入。")
         return workspace.root.resolve(strict=True)
+
+    def is_worktree_isolation_enabled(self, workspace_key: str) -> bool:
+        """读取工作区隔离开关，不触发任何 Git 命令。"""
+
+        return self._read_workspace(workspace_key).worktree_isolation_enabled
+
+    def resolve_root_kind(self, workspace_key: str) -> RootKind:
+        """按本地白名单根的静态事实区分普通目录与 Git 仓库。"""
+
+        root = self.resolve_root(workspace_key)
+        return RootKind.GIT_REPOSITORY if (root / ".git").exists() else RootKind.WORKSPACE
 
     def resolve_path(
         self,

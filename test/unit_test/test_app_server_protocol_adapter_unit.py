@@ -6,6 +6,7 @@ from pydantic import JsonValue
 
 from src.core.codex_contract.app_server_product_contract import (
     AppServerAgentMessageItem,
+    AppServerContextCompactionItem,
     AppServerDiffChangedDetail,
     AppServerItemChangedDetail,
     AppServerItemDeltaDetail,
@@ -183,6 +184,17 @@ class TestAppServerProtocolAdapterUnit:
             assert result.warning_reason is AppServerProtocolWarningReason.MALFORMED_PAYLOAD
             assert result.warning_method == method
 
+        unknown_item = adapter.adapt_notification(
+            method="item/completed",
+            params={
+                "threadId": THREAD_ID,
+                "turnId": TURN_ID,
+                "item": {"id": ITEM_ID, "type": "futureInternalItem"},
+            },
+        )
+        assert unknown_item.notification is None
+        assert unknown_item.warning_reason is AppServerProtocolWarningReason.UNKNOWN_ENUM
+
     def test_thread_read_should_preserve_typed_turn_and_item_content(self) -> None:
         adapter = AppServerProtocolAdapter()
 
@@ -207,7 +219,16 @@ class TestAppServerProtocolAdapterUnit:
                                     "id": ITEM_ID,
                                     "type": "agentMessage",
                                     "text": "REMOTE_CODEX_OK",
-                                }
+                                },
+                                {
+                                    "id": "context-compaction",
+                                    "type": "contextCompaction",
+                                },
+                                {
+                                    "id": "future-item",
+                                    "type": "futureInternalItem",
+                                    "secret": "never-expose",
+                                },
                             ],
                         }
                     ],
@@ -219,3 +240,5 @@ class TestAppServerProtocolAdapterUnit:
         assert result.turns[0].turn_id == TURN_ID
         assert isinstance(result.turns[0].items[0], AppServerAgentMessageItem)
         assert result.turns[0].items[0].text == "REMOTE_CODEX_OK"
+        assert isinstance(result.turns[0].items[1], AppServerContextCompactionItem)
+        assert len(result.turns[0].items) == 2

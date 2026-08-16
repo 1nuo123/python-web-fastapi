@@ -3,7 +3,7 @@ enabled = true
 username = "admin"
 subject_id = "user-admin"
 role_bindings = [
-  { kind = "bootstrap_role_binding", schema_version = "v1", role_key = "admin", scope_codes = ["auth:read", "auth:manage", "auth:user_manage", "auth:role_manage", "auth:scope_manage", "auth:password_reset", "auth:grant_admin", "security:manage", "task:dispatch", "system:read", "codex:read", "codex:operate", "codex:approve", "codex:host_manage"] },
+  { kind = "bootstrap_role_binding", schema_version = "v1", role_key = "admin", scope_codes = ["auth:read", "auth:manage", "auth:user_manage", "auth:role_manage", "auth:scope_manage", "auth:password_reset", "auth:grant_admin", "security:manage", "task:dispatch", "system:read", "codex:read", "codex:operate", "codex:approve", "codex:host_manage", "codex:files", "codex:terminal", "codex:network", "codex:full_access", "codex:admin_manage"] },
   { kind = "bootstrap_role_binding", schema_version = "v1", role_key = "customer_service", scope_codes = ["auth:read"] },
   { kind = "bootstrap_role_binding", schema_version = "v1", role_key = "business_operator", scope_codes = ["auth:read"] },
 ]

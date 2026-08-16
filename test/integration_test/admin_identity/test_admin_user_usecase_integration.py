@@ -17,6 +17,7 @@ from src.application.admin.identity.shared.admin_identity_command import (
     AdminUserDeleteCommand,
     AdminUserPasswordResetCommand,
     AdminUserRoleReplaceCommand,
+    AdminUserScopeReplaceCommand,
     AdminUserUpdateCommand,
 )
 from src.application.ports.admin_identity_port import BusinessAdminRoleKey
@@ -156,6 +157,58 @@ class TestAdminUserUsecaseIntegration:
                 )
 
         assert getattr(fault.value, "status_code", None) == HTTPStatus.CONFLICT
+
+    def test_user_direct_scope_replace_should_update_effective_authorization(self) -> None:
+        """验证用户直接 scope 替换后成为主体授权事实。"""
+
+        username = self._build_username("direct-scope")
+        subject_id = self._build_subject_id("direct-scope")
+        app = TestAppFactory().create()
+        with TestClient(app):
+            resource_mount = app.state.container.resource_mount
+            try:
+                resource_mount.create_admin_user(
+                    AdminUserCreateCommand(
+                        username=username,
+                        password_plain=USER_UNIT_PASSWORD,
+                        role_keys=[CUSTOMER_SERVICE_ROLE],
+                        subject_id=subject_id,
+                    )
+                )
+                snapshot = resource_mount.replace_admin_user_scopes(
+                    AdminUserScopeReplaceCommand(
+                        actor_subject_id=DEFAULT_ADMIN_SUBJECT_ID,
+                        subject_id=subject_id,
+                        scope_codes=[
+                            AuthScopeCode.CODEX_READ.value,
+                            AuthScopeCode.CODEX_NETWORK.value,
+                            AuthScopeCode.CODEX_READ.value,
+                        ],
+                    )
+                )
+                unit_of_work = resource_mount.create_unit_of_work()
+                try:
+                    principal_snapshot = resource_mount.create_auth_identity_repository(
+                        unit_of_work.get_session()
+                    ).get_authorization_snapshot_by_subject_id(subject_id)
+                finally:
+                    unit_of_work.dispose()
+            finally:
+                self._cleanup(
+                    resource_mount=resource_mount,
+                    subject_ids=[subject_id],
+                    usernames=[username],
+                )
+
+        assert snapshot.direct_scope_codes == [
+            AuthScopeCode.CODEX_NETWORK.value,
+            AuthScopeCode.CODEX_READ.value,
+        ]
+        assert AuthScopeCode.CODEX_READ.value in snapshot.effective_scope_codes
+        assert AuthScopeCode.CODEX_NETWORK.value in snapshot.effective_scope_codes
+        assert principal_snapshot is not None
+        assert AuthScopeCode.CODEX_READ in principal_snapshot.scopes
+        assert AuthScopeCode.CODEX_NETWORK in principal_snapshot.scopes
 
     def test_user_replace_roles_when_role_missing_should_return_invalid(self) -> None:
         """

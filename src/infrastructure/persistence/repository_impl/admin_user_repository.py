@@ -12,6 +12,7 @@ from src.application.admin.identity.shared.admin_identity_command import (
     AdminUserDeleteCommand,
     AdminUserPasswordResetCommand,
     AdminUserRoleReplaceCommand,
+    AdminUserScopeReplaceCommand,
     AdminUserUpdateCommand,
     InitialAdminCreateReason,
     InitialAdminCreateResult,
@@ -27,6 +28,9 @@ from src.infrastructure.persistence.orm_model.auth_role_orm_model import AuthRol
 from src.infrastructure.persistence.orm_model.auth_user_orm_model import AuthUserOrmModel
 from src.infrastructure.persistence.orm_model.auth_user_role_orm_model import (
     AuthUserRoleOrmModel,
+)
+from src.infrastructure.persistence.orm_model.auth_user_scope_orm_model import (
+    AuthUserScopeOrmModel,
 )
 from src.infrastructure.persistence.repository_impl.admin_identity_repository_support import (
     ADMIN_IDENTITY_DISABLED_STATUS,
@@ -238,12 +242,35 @@ class AdminUserRepository(AdminIdentityRepositorySupport):
         if user is None:
             self._raise_not_found(USER_NOT_FOUND_MESSAGE)
         role_models = self._get_required_business_role_rows(command.role_keys)
-        if command.actor_subject_id == user.subject_id and not self._role_models_grant_manage(
-            role_models
+        if command.actor_subject_id == user.subject_id and not self._role_models_retain_manage(
+            user=user,
+            role_models=role_models,
         ):
             self._raise_self_lock()
         self._lock_user_table_for_admin_access_invariant()
         self._replace_user_role_rows(user=user, role_models=role_models)
+        self._session.flush()
+        self._assert_admin_access_invariant()
+        return self.get_user(command.subject_id)
+
+    def replace_user_scopes(
+        self,
+        command: AdminUserScopeReplaceCommand,
+    ) -> AdminUserSnapshot:
+        """替换用户直接 scope。"""
+
+        user = self._get_user_row(command.subject_id)
+        if user is None:
+            self._raise_not_found(USER_NOT_FOUND_MESSAGE)
+        scope_codes = self._normalize_unique_values(command.scope_codes)
+        self._validate_scope_codes_enabled(scope_codes)
+        if command.actor_subject_id == user.subject_id and not self._scope_codes_retain_manage(
+            user=user,
+            direct_scope_codes=scope_codes,
+        ):
+            self._raise_self_lock()
+        self._lock_user_table_for_admin_access_invariant()
+        self._replace_user_scope_rows(user=user, scope_codes=scope_codes)
         self._session.flush()
         self._assert_admin_access_invariant()
         return self.get_user(command.subject_id)
@@ -276,7 +303,8 @@ class AdminUserRepository(AdminIdentityRepositorySupport):
         return select(AuthUserOrmModel).options(
             selectinload(AuthUserOrmModel.user_roles)
             .selectinload(AuthUserRoleOrmModel.role)
-            .selectinload(AuthRoleOrmModel.role_scopes)
+            .selectinload(AuthRoleOrmModel.role_scopes),
+            selectinload(AuthUserOrmModel.user_scopes),
         )
 
     def _build_user_list_statement(
@@ -408,18 +436,25 @@ class AdminUserRepository(AdminIdentityRepositorySupport):
         role_keys = [
             user_role.role.role_key for user_role in user.user_roles if user_role.role is not None
         ]
-        scope_codes = [
+        role_scope_codes = [
             role_scope.scope_code
             for user_role in user.user_roles
             if user_role.role is not None
             for role_scope in user_role.role.role_scopes
         ]
+        direct_scope_codes = [user_scope.scope_code for user_scope in user.user_scopes]
+        effective_scope_codes = [*role_scope_codes, *direct_scope_codes]
         return AdminUserSnapshot(
             subject_id=user.subject_id,
             username=user.username,
             is_active=user.is_active,
             role_keys=sorted(self._normalize_unique_values(role_keys)),
-            scope_codes=sorted(self._normalize_unique_values(scope_codes)),
+            direct_scope_codes=sorted(self._normalize_unique_values(direct_scope_codes)),
+            effective_scope_codes=sorted(
+                scope_code
+                for scope_code in self._normalize_unique_values(effective_scope_codes)
+                if self._is_scope_code_enabled(scope_code)
+            ),
         )
 
     def _replace_user_role_rows(
@@ -435,6 +470,18 @@ class AdminUserRepository(AdminIdentityRepositorySupport):
         user.user_roles[:] = [
             AuthUserRoleOrmModel(role=role)
             for role in sorted(role_models, key=lambda role: role.role_key)
+        ]
+
+    def _replace_user_scope_rows(
+        self,
+        *,
+        user: AuthUserOrmModel,
+        scope_codes: list[str],
+    ) -> None:
+        """替换用户直接 scope 关联。"""
+
+        user.user_scopes[:] = [
+            AuthUserScopeOrmModel(scope_code=scope_code) for scope_code in sorted(scope_codes)
         ]
 
     def _matches_user_query(

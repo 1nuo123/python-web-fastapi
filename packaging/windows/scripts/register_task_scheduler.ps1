@@ -1,7 +1,73 @@
+[CmdletBinding()]
 param(
-  [Parameter(Mandatory = $true)][string]$ExecutablePath
+  [Parameter(Mandatory = $true)][string]$InstallRoot
 )
-$action = New-ScheduledTaskAction -Execute $ExecutablePath -WorkingDirectory (Split-Path $ExecutablePath)
-$trigger = New-ScheduledTaskTrigger -AtLogOn
-$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName "CodexRemoteAgent" -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+$resolvedInstallRoot = [IO.Path]::GetFullPath($InstallRoot).TrimEnd('\')
+$resolvedExecutablePath = [IO.Path]::GetFullPath(
+  (Join-Path $resolvedInstallRoot "codex-remote-agent.exe")
+)
+$resolvedBootstrapPath = [IO.Path]::GetFullPath(
+  (Join-Path $resolvedInstallRoot "agent-bootstrap.toml")
+)
+$expectedPrefix = $resolvedInstallRoot + [IO.Path]::DirectorySeparatorChar
+foreach ($path in @($resolvedExecutablePath, $resolvedBootstrapPath)) {
+  if (-not $path.StartsWith($expectedPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Scheduled-task files must stay inside the Agent installation directory."
+  }
+  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+    throw "Required scheduled-task file does not exist: $path"
+  }
+}
+
+$currentIdentity = (& "$env:SystemRoot\System32\whoami.exe" /user /fo csv /nh) |
+  ConvertFrom-Csv -Header UserName, Sid
+$currentUser = [string]$currentIdentity.UserName
+$currentUserSid = [string]$currentIdentity.Sid
+if ([string]::IsNullOrWhiteSpace($currentUser) -or
+    $currentUserSid -notmatch '^S-1-(?:\d+-)+\d+$') {
+  throw "Unable to resolve the current Windows user and SID."
+}
+$taskName = "CodexRemoteAgent-$currentUserSid"
+$legacyTask = Get-ScheduledTask -TaskName "CodexRemoteAgent" -ErrorAction SilentlyContinue
+if ($null -ne $legacyTask -and
+    ($legacyTask.Principal.UserId -ieq $currentUser -or
+     $legacyTask.Principal.UserId -ieq $currentUserSid)) {
+  Stop-ScheduledTask -TaskName "CodexRemoteAgent" -ErrorAction SilentlyContinue
+  Unregister-ScheduledTask -TaskName "CodexRemoteAgent" -Confirm:$false
+}
+$configPath = Join-Path $resolvedInstallRoot "agent.toml"
+$arguments = @(
+  "--config", ('"{0}"' -f $configPath),
+  "--bootstrap", ('"{0}"' -f $resolvedBootstrapPath),
+  "launch", "run"
+) -join " "
+$action = New-ScheduledTaskAction `
+  -Execute $resolvedExecutablePath `
+  -Argument $arguments `
+  -WorkingDirectory $resolvedInstallRoot
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
+$principal = New-ScheduledTaskPrincipal `
+  -UserId $currentUser `
+  -LogonType Interactive `
+  -RunLevel Limited
+$settings = New-ScheduledTaskSettingsSet `
+  -ExecutionTimeLimit ([TimeSpan]::Zero) `
+  -RestartCount 3 `
+  -RestartInterval (New-TimeSpan -Minutes 1) `
+  -MultipleInstances IgnoreNew `
+  -StartWhenAvailable `
+  -AllowStartIfOnBatteries `
+  -DontStopIfGoingOnBatteries
+Register-ScheduledTask `
+  -TaskName $taskName `
+  -Action $action `
+  -Trigger $trigger `
+  -Principal $principal `
+  -Settings $settings `
+  -Force | Out-Null
+if (Test-Path -LiteralPath $configPath -PathType Leaf) {
+  Start-ScheduledTask -TaskName $taskName
+}

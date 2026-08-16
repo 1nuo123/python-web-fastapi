@@ -35,6 +35,7 @@ class AuthScopeCode(StrEnum):
     CODEX_HOST_MANAGE = "codex:host_manage"
     CODEX_FILES = "codex:files"
     CODEX_TERMINAL = "codex:terminal"
+    CODEX_NETWORK = "codex:network"
     CODEX_FULL_ACCESS = "codex:full_access"
     CODEX_ADMIN_MANAGE = "codex:admin_manage"
     CODEX_ADMIN_CONTENT_ACCESS = "codex:admin_content_access"

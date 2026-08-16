@@ -17,6 +17,12 @@ class CodexWorkspaceRepositoryPort(Protocol):
         owner_subject_id: str,
     ) -> list[CodexWorkspaceSnapshot]: ...
 
+    def count_enabled_by_host_and_owner(
+        self,
+        host_id: UUID,
+        owner_subject_id: str,
+    ) -> int: ...
+
     def get_by_id_and_owner(
         self,
         workspace_id: UUID,

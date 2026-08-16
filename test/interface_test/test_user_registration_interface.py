@@ -16,6 +16,7 @@ from src.api.endpoint_auth_access.route_auth_access import (
 from src.api.testing.test_app_factory import TestAppFactory
 from src.domain.auth.auth_error_code import AuthErrorCode
 from src.domain.auth.auth_role_key import AuthRoleKey
+from src.domain.auth.auth_scope_code import AuthScopeCode
 
 AUTHORIZATION_HEADER = "Authorization"
 BEARER_PREFIX = "Bearer"
@@ -57,7 +58,10 @@ class TestUserRegistrationInterface:
         assert login_response.status_code == HTTPStatus.OK
         assert me_response.status_code == HTTPStatus.OK
         assert me_response.json()[DATA_FIELD]["roles"] == [AuthRoleKey.REGISTERED_USER.value]
-        assert me_response.json()[DATA_FIELD]["scopes"] == []
+        assert set(me_response.json()[DATA_FIELD]["scopes"]) == {
+            AuthScopeCode.CODEX_READ.value,
+            AuthScopeCode.CODEX_HOST_MANAGE.value,
+        }
         assert me_response.json()[DATA_FIELD]["is_admin"] is False
 
     def test_register_when_username_exists_should_return_conflict(self) -> None:

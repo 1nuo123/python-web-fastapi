@@ -70,6 +70,9 @@ from src.application.admin.identity.user.list_admin_users_usecase import (
 from src.application.admin.identity.user.replace_admin_user_roles_usecase import (
     ReplaceAdminUserRolesUsecase,
 )
+from src.application.admin.identity.user.replace_admin_user_scopes_usecase import (
+    ReplaceAdminUserScopesUsecase,
+)
 from src.application.admin.identity.user.reset_admin_user_password_usecase import (
     ResetAdminUserPasswordUsecase,
 )
@@ -108,6 +111,12 @@ from src.application.codex.query_threads_usecase import QueryCodexThreadsUsecase
 from src.application.codex.read_thread_snapshot_usecase import (
     ReadCodexThreadSnapshotUsecase,
 )
+from src.application.codex.revoke_subject_agent_access_usecase import (
+    RevokeCodexSubjectAgentAccessUsecase,
+)
+from src.application.codex.update_thread_preference_usecase import (
+    UpdateCodexThreadPreferenceUsecase,
+)
 from src.application.codex.update_workspace_usecase import UpdateCodexWorkspaceUsecase
 from src.application.health_probe_usecase import HealthProbeUsecase
 from src.application.issue_access_token_usecase import IssueAccessTokenUsecase
@@ -118,6 +127,7 @@ from src.core.auth_contract.authenticated_principal_contract import Authenticate
 from src.core.auth_contract.authorization_policy_contract import (
     RouteAuthorizationRequirement,
 )
+from src.core.auth_contract.token_payload_contract import TokenPayload
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.http_contract.request_scope_contract import RequestScope
 from src.core.http_contract.response_envelope_contract import ResponseEnvelopeFactory
@@ -178,10 +188,13 @@ class RouteDependencyContext:
     update_admin_user_usecase: UpdateAdminUserUsecase
     reset_admin_user_password_usecase: ResetAdminUserPasswordUsecase
     replace_admin_user_roles_usecase: ReplaceAdminUserRolesUsecase
+    replace_admin_user_scopes_usecase: ReplaceAdminUserScopesUsecase
     delete_admin_user_usecase: DeleteAdminUserUsecase
+    revoke_codex_subject_agent_access_usecase: RevokeCodexSubjectAgentAccessUsecase
     list_codex_hosts_usecase: ListCodexHostsUsecase
     list_codex_workspaces_usecase: ListCodexWorkspacesUsecase
     update_codex_workspace_usecase: UpdateCodexWorkspaceUsecase
+    update_codex_thread_preference_usecase: UpdateCodexThreadPreferenceUsecase
     query_codex_threads_usecase: QueryCodexThreadsUsecase
     execute_codex_thread_command_usecase: ExecuteCodexThreadCommandUsecase
     read_codex_thread_snapshot_usecase: ReadCodexThreadSnapshotUsecase
@@ -255,10 +268,17 @@ class DependencyContextAccessor:
             update_admin_user_usecase=container.update_admin_user_usecase,
             reset_admin_user_password_usecase=(container.reset_admin_user_password_usecase),
             replace_admin_user_roles_usecase=(container.replace_admin_user_roles_usecase),
+            replace_admin_user_scopes_usecase=(container.replace_admin_user_scopes_usecase),
             delete_admin_user_usecase=container.delete_admin_user_usecase,
+            revoke_codex_subject_agent_access_usecase=(
+                container.revoke_codex_subject_agent_access_usecase
+            ),
             list_codex_hosts_usecase=container.list_codex_hosts_usecase,
             list_codex_workspaces_usecase=container.list_codex_workspaces_usecase,
             update_codex_workspace_usecase=container.update_codex_workspace_usecase,
+            update_codex_thread_preference_usecase=(
+                container.update_codex_thread_preference_usecase
+            ),
             query_codex_threads_usecase=container.query_codex_threads_usecase,
             execute_codex_thread_command_usecase=(container.execute_codex_thread_command_usecase),
             read_codex_thread_snapshot_usecase=(container.read_codex_thread_snapshot_usecase),
@@ -718,6 +738,14 @@ class DependencyContextAccessor:
 
         return self.read_route_context(request).replace_admin_user_roles_usecase
 
+    def read_replace_admin_user_scopes_usecase(
+        self,
+        request: Request,
+    ) -> ReplaceAdminUserScopesUsecase:
+        """读取管理员用户直接 scope 替换用例。"""
+
+        return self.read_route_context(request).replace_admin_user_scopes_usecase
+
     def read_delete_admin_user_usecase(
         self,
         request: Request,
@@ -727,6 +755,14 @@ class DependencyContextAccessor:
         """
 
         return self.read_route_context(request).delete_admin_user_usecase
+
+    def read_revoke_codex_subject_agent_access_usecase(
+        self,
+        request: Request,
+    ) -> RevokeCodexSubjectAgentAccessUsecase:
+        """读取按主体撤销 Codex Agent 在线访问用例。"""
+
+        return self.read_route_context(request).revoke_codex_subject_agent_access_usecase
 
     def read_list_codex_hosts_usecase(self, request: Request) -> ListCodexHostsUsecase:
         """读取 Codex 主机列表用例。"""
@@ -753,6 +789,14 @@ class DependencyContextAccessor:
         """读取 Codex 线程索引查询用例。"""
 
         return self.read_route_context(request).query_codex_threads_usecase
+
+    def read_update_codex_thread_preference_usecase(
+        self,
+        request: Request,
+    ) -> UpdateCodexThreadPreferenceUsecase:
+        """读取 Codex 会话置顶偏好更新用例。"""
+
+        return self.read_route_context(request).update_codex_thread_preference_usecase
 
     def read_execute_codex_thread_command_usecase(
         self,
@@ -794,6 +838,19 @@ class DependencyContextAccessor:
                 message=MISSING_ACCESS_TOKEN_MESSAGE,
             )
         return principal
+
+    def read_access_token_payload(self, request: Request) -> TokenPayload:
+        """读取已验证的访问令牌载荷。"""
+
+        self.read_authenticated_principal(request)
+        payload = getattr(request.state, "access_token_payload", None)
+        if not isinstance(payload, TokenPayload):
+            raise HttpFaultException(
+                status_code=HTTPStatus.UNAUTHORIZED,
+                error_code=AuthErrorCode.TOKEN_INVALID,
+                message=MISSING_ACCESS_TOKEN_MESSAGE,
+            )
+        return payload
 
     def read_authorized_principal(
         self,

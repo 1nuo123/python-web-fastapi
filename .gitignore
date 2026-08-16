@@ -1,60 +1,70 @@
+# Environment variables and local secrets
 .env
 .env.*
-!.env.docker.example
-!.env.production.example
-.idea/
-.mypy_cache/
-.nox/
-.pytest_cache/
-.ruff_cache/
-.tmp/
-.uv-cache/
+!.env.example
+!.env.*.example
+.envrc
+.direnv/
+
+# Virtual environments and dependency caches
 .venv/
-__pycache__/
-*.py[cod]
-*.db
-*.log
-coverage.xml
-htmlcov/
-logs/
-tmp_pycache/
-
-# Editors and operating systems
-.vscode/
-*.swp
-*.swo
-.DS_Store
-.AppleDouble
-.LSOverride
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-
-# Python build and test artifacts
-.tox/
-.coverage
-.coverage.*
-coverage.json
-junit*.xml
-test-results/
-build/
-dist/
-site/
-*.egg-info/
-.eggs/
+venv/
+env/
+.uv-cache/
 pip-wheel-metadata/
 
-# Local databases and temporary files
+# Python bytecode and tool caches
+__pycache__/
+*.py[codz]
+*$py.class
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.pyre/
+.pytype/
+.pyright/
+.tox/
+.nox/
+.import_linter_cache/
+.dmypy.json
+dmypy.json
+
+# Coverage, tests, and reports
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+htmlcov/
+junit*.xml
+/test-results/
+
+# Build and packaging output
+/.build/
+/build/
+/dist/
+/site/
+*.egg-info/
+.eggs/
+
+# Project-local generated and runtime data
+/.codex-tmp/
+/.tmp/
+/tmp_pycache/
+/logs/
+*.log
+*.pid
+*.tmp
+*.temp
+*.bak
+
+# Local databases
+*.db
 *.sqlite
 *.sqlite3
 *.db-journal
 *.db-shm
 *.db-wal
-*.pid
-*.tmp
-*.temp
-*.bak
 
 # Local keys and certificates
 *.pem
@@ -62,8 +72,23 @@ pip-wheel-metadata/
 *.p12
 *.pfx
 
-# KC-Chat 运行时产物（插件自动生成，请勿入库）
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cursor/KC-Chat local runtime data
 .cursor/mcp.json
 .cursor/kc-mcp/
 .cursor/kc-mcp-messages/
 .cursor/kc-chat-exports/
+
+# Operating systems
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/

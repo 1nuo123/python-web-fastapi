@@ -14,9 +14,18 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentCommandAck,
     CodexAgentCommandResult,
 )
+from src.core.worktree_contract.worktree_contract import (
+    GitWorktreeBindRequest,
+    GitWorktreeCreateRequest,
+    GitWorktreeListResult,
+    GitWorktreeOperationResult,
+    GitWorktreeRemoveRequest,
+    GitWorktreeSnapshot,
+)
 from src.domain.codex.agent_command_policy import AgentCommandPolicy, calculate_agent_request_digest
 from src.infrastructure.codex_agent.agent_command_executor import AgentCommandExecutor
 from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJournal
+from src.infrastructure.codex_agent.agent_execution_root_store import AgentExecutionRootStore
 from src.infrastructure.codex_agent.agent_thread_history_capacity_registry import (
     AgentThreadHistoryCapacityRegistry,
 )
@@ -43,6 +52,41 @@ class RecordingAppServerClient:
         if self.timeout:
             raise TimeoutError
         return {"thread": {"id": "thread-1"}, "turn": {"id": "turn-1"}}
+
+
+class RecordingWorktreePort:
+    """记录所有 Git worktree 端口调用。"""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def create(self, request: GitWorktreeCreateRequest) -> GitWorktreeOperationResult:
+        self.calls.append(f"create:{request.workspace_key}")
+        return GitWorktreeOperationResult(success=False, message="测试不允许创建。")
+
+    def list(self, workspace_key: str) -> GitWorktreeListResult:
+        self.calls.append(f"list:{workspace_key}")
+        return GitWorktreeListResult(items=())
+
+    def remove(self, request: GitWorktreeRemoveRequest) -> GitWorktreeOperationResult:
+        self.calls.append(f"remove:{request.worktree_id}")
+        return GitWorktreeOperationResult(success=True)
+
+    def prune(self, workspace_key: str) -> GitWorktreeListResult:
+        self.calls.append(f"prune:{workspace_key}")
+        return GitWorktreeListResult(items=())
+
+    def find_by_thread(
+        self,
+        workspace_key: str,
+        thread_id: str,
+    ) -> GitWorktreeSnapshot | None:
+        self.calls.append(f"find:{workspace_key}:{thread_id}")
+        return None
+
+    def bind_thread(self, request: GitWorktreeBindRequest) -> GitWorktreeOperationResult:
+        self.calls.append(f"bind:{request.worktree_id}")
+        return GitWorktreeOperationResult(success=False, message="测试不允许绑定。")
 
 
 def build_command(host_id, params: dict[str, JsonValue]) -> CodexAgentCommand:
@@ -195,3 +239,58 @@ async def test_execute_when_thread_history_source_is_too_large_should_request_me
     assert results[0].outcome == "completed"
     assert results[0].result is not None
     assert results[0].result["historyStatus"] == "omitted_too_large"
+
+
+@pytest.mark.asyncio
+async def test_execute_when_workspace_is_not_isolated_should_skip_all_git_calls(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "ordinary-workspace"
+    workspace.mkdir()
+    registry = AgentWorkspaceRegistry(
+        [AgentWorkspaceDefinition("ordinary", "Ordinary", workspace, True)]
+    )
+    journal = AgentCommandJournal(tmp_path / "state.sqlite")
+    execution_root_store = AgentExecutionRootStore(tmp_path / "execution-roots.json")
+    worktree_port = RecordingWorktreePort()
+    client = RecordingAppServerClient()
+
+    async def ignore_ack(_ack: CodexAgentCommandAck) -> None:
+        return
+
+    async def ignore_result(_result: CodexAgentCommandResult) -> None:
+        return
+
+    params: dict[str, JsonValue] = {
+        "workspace_key": "ordinary",
+        "threadId": "thread-1",
+        "includeTurns": True,
+    }
+    command = CodexAgentCommand(
+        command_id=uuid4(),
+        operation_id=uuid4(),
+        host_id=uuid4(),
+        request_digest=calculate_agent_request_digest("thread.read", params),
+        command_type="thread.read",
+        params=params,
+        deadline=datetime.now(UTC) + timedelta(seconds=10),
+    )
+    executor = AgentCommandExecutor(
+        journal=journal,
+        client=client,
+        command_policy=AgentCommandPolicy(registry),
+        ack_sender=ignore_ack,
+        result_sender=ignore_result,
+        worktree_port=worktree_port,
+        execution_root_store=execution_root_store,
+        workspace_registry=registry,
+    )
+    try:
+        await executor.execute(command)
+    finally:
+        journal.close()
+
+    assert worktree_port.calls == []
+    assert client.calls[0][0] == "thread/read"
+    assert "cwd" not in client.calls[0][1]
+    assert execution_root_store.require("thread-1").execution_root == workspace

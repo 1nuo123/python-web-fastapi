@@ -24,7 +24,10 @@ from src.core.auth_contract.token_payload_contract import (
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.domain.auth.access_token_policy import AccessTokenPolicy
 from src.domain.auth.auth_error_code import AuthErrorCode
-from src.infrastructure.key_management.key_management_service import KeyManagementService
+from src.infrastructure.key_management.key_management_service import (
+    KeyManagementKeyIdNotFoundError,
+    KeyManagementService,
+)
 
 JWT_TOKEN_ID_CLAIM = "jti"
 JWT_TOKEN_SESSION_ID_CLAIM = "sid"
@@ -312,10 +315,18 @@ class JwtTokenService:
         key_id = headers.get(JWT_KEY_ID_HEADER)
         if not isinstance(key_id, str) or key_id.strip() == "":
             raise jwt.InvalidTokenError("JWT 缺少 key id。")
-        return self._key_management_service.get_key_by_id(
-            self._key_family_name,
-            key_id,
-        ).key_material
+        try:
+            return self._key_management_service.get_key_by_id(
+                self._key_family_name,
+                key_id,
+            ).key_material
+        except KeyManagementKeyIdNotFoundError as exc:
+            raise HttpFaultException(
+                status_code=HTTPStatus.UNAUTHORIZED,
+                error_code=AuthErrorCode.TOKEN_INVALID,
+                message="令牌无效。",
+                detail=exc.detail,
+            ) from exc
 
     def _validate_payload(
         self,

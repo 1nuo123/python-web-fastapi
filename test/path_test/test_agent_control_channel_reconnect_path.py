@@ -33,6 +33,15 @@ class TestAgentControlChannelReconnectPath:
             session_task.cancel()
             await asyncio.gather(session_task, return_exceptions=True)
 
+    def test_connected_session_when_shutdown_requested_should_end_without_retry(self) -> None:
+        """验证主动停机关闭连接时不会进入重连。"""
+
+        channel = self._build_channel()
+        channel._shutdown_event = asyncio.Event()
+        channel._shutdown_event.set()
+
+        channel._raise_if_connection_closed_unexpectedly()
+
     def _build_channel(self) -> AgentControlChannel:
         """构建只包含握手状态的控制通道。"""
 

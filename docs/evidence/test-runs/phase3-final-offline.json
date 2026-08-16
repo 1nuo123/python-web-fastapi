@@ -2,9 +2,9 @@
   "header": {
     "schema_version": "1.0",
     "run_id": "phase3-final-offline",
-    "code_baseline": "76aa9c2fe796fff5ff28117fe53180e018b0b879730ace50794384d347a460f2",
+    "code_baseline": "7a39cd7c430887beb86ee0c090a6ff73247617594b4acb97eea9bcbe5353cc08",
     "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
-    "started_at": "2026-08-08T10:00:43.848654Z",
+    "started_at": "2026-08-12T19:43:24.671038Z",
     "command_entry": "nox -s offline"
   },
   "kind": "unit",
@@ -13,8 +13,8 @@
     "status": "passed",
     "command": "nox -s offline",
     "exit_code": 0,
-    "test_count": 981,
-    "duration_seconds": 475.353897099998,
+    "test_count": 1079,
+    "duration_seconds": 425.20639329997357,
     "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
     "failure_summary": null,
     "evidence_path": "docs\\evidence\\test-runs\\phase3-final-offline.json",
@@ -25,16 +25,16 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": "docs\\evidence\\test-runs\\phase3-final-offline.json",
-        "started_at": "2026-08-08T10:00:43.848654Z",
-        "finished_at": "2026-08-08T10:08:39.202551Z",
-        "duration_seconds": 475.353897099998
+        "started_at": "2026-08-12T19:43:24.671038Z",
+        "finished_at": "2026-08-12T19:50:29.877431Z",
+        "duration_seconds": 425.20639329997357
       }
     ],
     "artifacts": [
       {
         "kind": "junit",
         "path": "docs\\evidence\\test-artifacts\\phase3-final-offline.xml",
-        "sha256": "909950064ea7590d1c25de5cea471d51399d7682a74f5fba9ea7632a5607e9a5",
+        "sha256": "b33a3c5986d863e9750c3949e77356d4bc1e9b69b41556e6b648529ae6885a17",
         "command_index": 0
       }
     ],

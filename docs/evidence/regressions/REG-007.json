@@ -17,7 +17,7 @@
   "rerun_scope": "full-suite",
   "evidence": {
     "source_path": "src\\infrastructure\\resource_mount\\shared_resource_lifecycle.py",
-    "source_line": 782,
+    "source_line": 785,
     "trigger_condition": "关闭包含 Outbox 的任务运行时。",
     "affected_scope": "publisher、dispatcher、后台线程和测试资源。",
     "reproduction_command": "pytest -q test/unit_test -k outbox",
@@ -39,7 +39,7 @@
     },
     {
       "status": "fixed",
-      "changed_at": "2026-08-07T21:34:57.333550Z",
+      "changed_at": "2026-08-11T17:18:31.855564Z",
       "evidence_path": "docs\\evidence\\regression-support\\REG-007.json"
     }
   ],

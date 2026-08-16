@@ -51,6 +51,15 @@ class TestAgentControlChannelReconnectException:
 
         assert session_task.done() is True
 
+    def test_connected_session_when_remote_closes_should_request_backoff_retry(self) -> None:
+        """验证已完成握手的连接意外结束时不会立即重新连接。"""
+
+        channel = self._build_channel()
+        channel._shutdown_event = asyncio.Event()
+
+        with pytest.raises(CodexConnectionTransportClosed, match="退避策略重连"):
+            channel._raise_if_connection_closed_unexpectedly()
+
     def _build_channel(self) -> AgentControlChannel:
         """构建只包含握手状态的控制通道。"""
 

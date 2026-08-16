@@ -46,6 +46,9 @@ ADMIN_AUDIT_PROVIDER_IMPORT_PATH = (
 CODEX_CONTROL_PROVIDER_IMPORT_PATH = (
     "src.api.endpoint_codex_control.route_codex_host.CodexControlBundleProvider"
 )
+CODEX_ADMIN_PROVIDER_IMPORT_PATH = (
+    "src.api.endpoint_codex_admin.route_codex_admin.CodexAdminBundleProvider"
+)
 CODEX_AGENT_GATEWAY_PROVIDER_IMPORT_PATH = (
     "src.api.endpoint_codex_agent.route_codex_agent_connect.CodexAgentGatewayBundleProvider"
 )
@@ -59,6 +62,7 @@ ADMIN_LOG_ROUTE_TAG = "admin_log"
 ADMIN_IDENTITY_ROUTE_TAG = "admin_identity"
 ADMIN_AUDIT_ROUTE_TAG = "admin_audit"
 CODEX_CONTROL_ROUTE_TAG = "codex"
+CODEX_ADMIN_ROUTE_TAG = "codex_admin"
 CODEX_AGENT_GATEWAY_ROUTE_TAG = "codex_agent_gateway"
 ADMIN_BOUNDARY_POLICY_MISMATCH_MESSAGE = "Web 模块清单的后台边界策略与集中授权要求不一致。"
 
@@ -187,6 +191,15 @@ class WebModuleManifestRegistry:
                 detail=RouterProviderDetail(
                     provider_import_path=CODEX_CONTROL_PROVIDER_IMPORT_PATH,
                     route_tags=[CODEX_CONTROL_ROUTE_TAG],
+                    admin_boundary_policy=AdminBoundaryPolicy.AUTHENTICATED_USER,
+                    authentication_mode=AuthenticationMode.USER_BEARER,
+                ),
+            ),
+            WebModuleManifestEnvelope(
+                header=WebModuleHeader(module_name=ApplicationModuleName.CODEX_ADMIN.value),
+                detail=RouterProviderDetail(
+                    provider_import_path=CODEX_ADMIN_PROVIDER_IMPORT_PATH,
+                    route_tags=[CODEX_ADMIN_ROUTE_TAG],
                     admin_boundary_policy=AdminBoundaryPolicy.AUTHENTICATED_USER,
                     authentication_mode=AuthenticationMode.USER_BEARER,
                 ),

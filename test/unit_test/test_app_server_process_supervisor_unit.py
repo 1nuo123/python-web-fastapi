@@ -229,11 +229,19 @@ class TestAppServerProcessSupervisorUnit:
             logger=logger,
         )
         with caplog.at_level(logging.WARNING, logger=logger.name):
-            await supervisor._drain_stderr(SequenceLineReader())  # noqa: SLF001
+            await supervisor._drain_stderr(  # noqa: SLF001
+                SequenceLineReader(),
+                instance_id="instance-stderr",
+                process_id=1234,
+                codex_version=FROZEN_CODEX_VERSION,
+            )
 
         messages = [record.getMessage() for record in caplog.records]
-        assert any("单行超过" in message for message in messages)
+        assert any("agent.app_server.stderr_too_long" in message for message in messages)
         assert any("digest=" in message for message in messages)
+        assert any("host_id=unbound" in message for message in messages)
+        assert any("App_Server代次=instance-stderr" in message for message in messages)
+        assert any("PID=1234" in message for message in messages)
         assert all("sensitive stderr" not in message for message in messages)
 
     def test_windows_transport_close_should_delegate_only_on_windows(

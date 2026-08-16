@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Annotated, Final, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerCapabilityDetail,
 )
+
+CODEX_HOST_OBSERVATION_SCHEMA_VERSION: Final = "1.0"
 
 
 class CodexSandboxMode(StrEnum):
@@ -58,6 +61,15 @@ class CodexHostDoctorState(StrEnum):
     BLOCKED = "blocked"
 
 
+class CodexHostObservationType(StrEnum):
+    """不会改变用户配置版本的主机运行观测类型。"""
+
+    HELLO = "hello"
+    COMPATIBILITY = "compatibility"
+    HEARTBEAT = "heartbeat"
+    DISCONNECT = "disconnect"
+
+
 class CodexHostCapabilities(BaseModel):
     """主机已协商的封闭 capability 明细。"""
 
@@ -101,6 +113,87 @@ class CodexHostDoctorDetail(BaseModel):
     state: CodexHostDoctorState = CodexHostDoctorState.UNKNOWN
     checked_at: datetime | None = None
     issue_codes: tuple[str, ...] = ()
+
+
+class CodexHostObservationHeader(BaseModel):
+    """主机运行观测的公共定位头。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["codex_host_observation"] = "codex_host_observation"
+    schema_version: Literal["1.0"] = CODEX_HOST_OBSERVATION_SCHEMA_VERSION
+    detail_kind: CodexHostObservationType
+    host_id: UUID
+    owner_subject_id: str = Field(min_length=1, max_length=128)
+    observed_at: datetime
+
+
+class CodexHostObservationDetailBase(BaseModel):
+    """主机运行观测强类型扩展字段基类。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["1.0"] = CODEX_HOST_OBSERVATION_SCHEMA_VERSION
+
+
+class CodexHostHelloObservationDetail(CodexHostObservationDetailBase):
+    """Agent hello 上报的运行时与能力快照。"""
+
+    kind: Literal["hello"] = "hello"
+    agent_version: str = Field(min_length=1, max_length=64)
+    codex_version: str = Field(min_length=1, max_length=64)
+    agent_protocol_version: str = Field(min_length=1, max_length=64)
+    app_server_schema_digest: str = Field(min_length=1, max_length=128)
+    capabilities: CodexHostCapabilities
+
+
+class CodexHostCompatibilityObservationDetail(CodexHostObservationDetailBase):
+    """Agent 与控制面协商后的兼容性观测。"""
+
+    kind: Literal["compatibility"] = "compatibility"
+    compatibility: CodexHostCompatibilityDetail
+
+
+class CodexHostHeartbeatObservationDetail(CodexHostObservationDetailBase):
+    """当前连接代次的在线心跳观测。"""
+
+    kind: Literal["heartbeat"] = "heartbeat"
+    app_server_instance_id: str = Field(min_length=1, max_length=128)
+
+
+class CodexHostDisconnectObservationDetail(CodexHostObservationDetailBase):
+    """权威连接释放后的离线观测。"""
+
+    kind: Literal["disconnect"] = "disconnect"
+    connection_started_at: datetime
+
+
+CodexHostObservationDetail = Annotated[
+    CodexHostHelloObservationDetail
+    | CodexHostCompatibilityObservationDetail
+    | CodexHostHeartbeatObservationDetail
+    | CodexHostDisconnectObservationDetail,
+    Field(discriminator="kind"),
+]
+
+
+class CodexHostObservation(BaseModel):
+    """不增长 ``version`` 的主机运行观测信封。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    header: CodexHostObservationHeader
+    detail: CodexHostObservationDetail
+
+    @model_validator(mode="after")
+    def validate_detail_identity(self) -> Self:
+        """拒绝公共头与扩展字段类型或版本不一致。"""
+
+        if self.header.detail_kind.value != self.detail.kind:
+            raise ValueError("主机运行观测头与扩展类型不一致。")
+        if self.header.schema_version != self.detail.schema_version:
+            raise ValueError("主机运行观测头与扩展版本不一致。")
+        return self
 
 
 class CodexHostSnapshot(BaseModel):

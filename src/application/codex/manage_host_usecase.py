@@ -16,7 +16,6 @@ from src.core.auth_contract.step_up_grant_contract import StepUpGrantPurpose
 from src.core.codex_contract.host_contract import CodexHostSnapshot
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.domain.codex.codex_error_code import CodexErrorCode
-from src.domain.codex.host_status import CodexHostStatus
 
 
 class RenameCodexHostUsecase:
@@ -55,17 +54,16 @@ class RenameCodexHostUsecase:
             host = repository.get_by_id_and_owner(host_id, owner_subject_id)
             if host is None:
                 raise self._not_found()
-            if host.version != expected_version:
-                raise self._version_conflict()
             now = datetime.now(UTC)
-            renamed = host.model_copy(
-                update={
-                    "display_name": display_name,
-                    "updated_at": now,
-                    "version": host.version + 1,
-                }
+            renamed = repository.rename_if_version(
+                host_id=host_id,
+                owner_subject_id=owner_subject_id,
+                expected_version=expected_version,
+                display_name=display_name,
+                updated_at=now,
             )
-            repository.save(renamed)
+            if renamed is None:
+                raise self._version_conflict()
             unit_of_work.commit()
             return renamed
         except BaseException:
@@ -149,22 +147,19 @@ class RevokeCodexHostUsecase:
                     error_code=CodexErrorCode.RESOURCE_NOT_FOUND,
                     message="Codex主机不存在。",
                 )
-            if host.version != expected_version:
+            now = datetime.now(UTC)
+            revoked = host_repository.revoke_if_version(
+                host_id=host_id,
+                owner_subject_id=owner_subject_id,
+                expected_version=expected_version,
+                revoked_at=now,
+            )
+            if revoked is None:
                 raise HttpFaultException(
                     status_code=HTTPStatus.PRECONDITION_FAILED,
                     error_code=CodexErrorCode.VERSION_CONFLICT,
                     message="Codex主机版本已经变化。",
                 )
-            now = datetime.now(UTC)
-            revoked = host.model_copy(
-                update={
-                    "status": CodexHostStatus.REVOKED.value,
-                    "revoked_at": now,
-                    "updated_at": now,
-                    "version": host.version + 1,
-                }
-            )
-            host_repository.save(revoked)
             self._control_port.create_codex_device_key_repository(
                 session
             ).revoke_all_by_host_and_owner(

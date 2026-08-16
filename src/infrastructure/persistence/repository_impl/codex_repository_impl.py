@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import cast
+from typing import Final, cast
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
@@ -44,17 +44,36 @@ from src.core.codex_contract.device_key_contract import CodexDeviceKeySnapshot, 
 from src.core.codex_contract.host_contract import (
     CodexHostCapabilities,
     CodexHostCompatibilityDetail,
+    CodexHostCompatibilityObservationDetail,
     CodexHostCompatibilityState,
+    CodexHostDisconnectObservationDetail,
+    CodexHostHeartbeatObservationDetail,
+    CodexHostHelloObservationDetail,
+    CodexHostObservation,
     CodexHostSnapshot,
 )
-from src.core.codex_contract.operation_contract import CodexControlOperationSnapshot
-from src.core.codex_contract.thread_contract import CodexThreadIndexSnapshot
+from src.core.codex_contract.operation_contract import (
+    CodexControlOperationSnapshot,
+    CodexOperationProjection,
+)
+from src.core.codex_contract.thread_contract import (
+    CodexActiveTurnUpdateMode,
+    CodexConversationCursor,
+    CodexConversationCursorDetail,
+    CodexConversationListQuery,
+    CodexConversationPage,
+    CodexThreadIndexSnapshot,
+    CodexThreadRuntimeStateUpdate,
+    CodexThreadStatus,
+    CodexThreadTitleSource,
+)
 from src.core.codex_contract.workspace_contract import CodexWorkspaceSnapshot
 from src.core.cryptography_contract.aead_envelope_contract import (
     AeadAlgorithm,
     AeadEnvelope,
 )
 from src.core.worktree_contract.worktree_contract import GitWorktreePolicy
+from src.domain.codex.host_status import CodexHostStatus
 from src.infrastructure.persistence.orm_model.codex_agent_credential_orm_model import (
     CodexAgentCredentialOrmModel,
 )
@@ -80,6 +99,24 @@ from src.infrastructure.persistence.orm_model.codex_thread_index_orm_model impor
 from src.infrastructure.persistence.orm_model.codex_workspace_orm_model import (
     CodexWorkspaceOrmModel,
 )
+
+CODEX_TITLE_PROMOTION_SOURCES: Final[
+    dict[CodexThreadTitleSource, tuple[CodexThreadTitleSource, ...]]
+] = {
+    CodexThreadTitleSource.MANUAL: (
+        CodexThreadTitleSource.NEW_CONVERSATION,
+        CodexThreadTitleSource.FIRST_USER_MESSAGE,
+        CodexThreadTitleSource.APP_SERVER,
+        CodexThreadTitleSource.MANUAL,
+    ),
+    CodexThreadTitleSource.APP_SERVER: (
+        CodexThreadTitleSource.NEW_CONVERSATION,
+        CodexThreadTitleSource.FIRST_USER_MESSAGE,
+        CodexThreadTitleSource.APP_SERVER,
+    ),
+    CodexThreadTitleSource.FIRST_USER_MESSAGE: (CodexThreadTitleSource.NEW_CONVERSATION,),
+    CodexThreadTitleSource.NEW_CONVERSATION: (),
+}
 
 
 class CodexRepositoryDatetimeConverter:
@@ -109,10 +146,28 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
     def list_by_owner(self, owner_subject_id: str) -> list[CodexHostSnapshot]:
         statement = (
             select(CodexHostOrmModel)
-            .where(CodexHostOrmModel.owner_subject_id == owner_subject_id)
+            .where(
+                CodexHostOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.revoked_at.is_(None),
+            )
             .order_by(CodexHostOrmModel.updated_at.desc())
         )
         return [self._to_snapshot(row) for row in self._session.scalars(statement).all()]
+
+    def list_all(self) -> list[CodexHostSnapshot]:
+        statement = select(CodexHostOrmModel).order_by(CodexHostOrmModel.updated_at.desc())
+        return [self._to_snapshot(row) for row in self._session.scalars(statement).all()]
+
+    def count_active_by_owner(self, owner_subject_id: str) -> int:
+        statement = (
+            select(func.count())
+            .select_from(CodexHostOrmModel)
+            .where(
+                CodexHostOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.revoked_at.is_(None),
+            )
+        )
+        return int(self._session.scalar(statement) or 0)
 
     def get_by_id_and_owner(
         self,
@@ -122,6 +177,7 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
         statement = select(CodexHostOrmModel).where(
             CodexHostOrmModel.host_id == host_id,
             CodexHostOrmModel.owner_subject_id == owner_subject_id,
+            CodexHostOrmModel.revoked_at.is_(None),
         )
         row = self._session.scalars(statement).one_or_none()
         return None if row is None else self._to_snapshot(row)
@@ -173,6 +229,134 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
                 version=snapshot.version,
             )
         )
+
+    def apply_observation(
+        self,
+        observation: CodexHostObservation,
+    ) -> CodexHostSnapshot | None:
+        """字段级写入运行观测，不增长用户配置版本。"""
+
+        detail = observation.detail
+        conditions = (
+            CodexHostOrmModel.host_id == observation.header.host_id,
+            CodexHostOrmModel.owner_subject_id == observation.header.owner_subject_id,
+            CodexHostOrmModel.revoked_at.is_(None),
+        )
+        statement = update(CodexHostOrmModel).where(*conditions)
+        if isinstance(detail, CodexHostHelloObservationDetail):
+            statement = statement.values(
+                agent_version=detail.agent_version,
+                codex_version=detail.codex_version,
+                agent_protocol_version=detail.agent_protocol_version,
+                app_server_schema_digest=detail.app_server_schema_digest,
+                status=CodexHostStatus.ONLINE.value,
+                capabilities=detail.capabilities.model_dump(mode="json"),
+                last_seen_at=observation.header.observed_at,
+                updated_at=CodexHostOrmModel.updated_at,
+            )
+        elif isinstance(detail, CodexHostCompatibilityObservationDetail):
+            statement = statement.values(
+                compatibility_state=detail.compatibility.state.value,
+                compatibility_reason_code=detail.compatibility.reason_code,
+                updated_at=CodexHostOrmModel.updated_at,
+            )
+        elif isinstance(detail, CodexHostHeartbeatObservationDetail):
+            statement = statement.values(
+                status=CodexHostStatus.ONLINE.value,
+                last_seen_at=observation.header.observed_at,
+                updated_at=CodexHostOrmModel.updated_at,
+            )
+        elif isinstance(detail, CodexHostDisconnectObservationDetail):
+            statement = statement.where(
+                or_(
+                    CodexHostOrmModel.last_seen_at.is_(None),
+                    CodexHostOrmModel.last_seen_at <= detail.connection_started_at,
+                )
+            ).values(
+                status=CodexHostStatus.OFFLINE.value,
+                updated_at=CodexHostOrmModel.updated_at,
+            )
+        else:
+            raise ValueError("主机运行观测类型不受支持。")
+        result = cast(
+            CursorResult[tuple[object, ...]],
+            self._session.execute(statement),
+        )
+        if int(result.rowcount or 0) != 1:
+            return None
+        return self.get_by_id_and_owner(
+            observation.header.host_id,
+            observation.header.owner_subject_id,
+        )
+
+    def rename_if_version(
+        self,
+        *,
+        host_id: UUID,
+        owner_subject_id: str,
+        expected_version: int,
+        display_name: str,
+        updated_at: datetime,
+    ) -> CodexHostSnapshot | None:
+        """以数据库 CAS 原子更新主机显示名。"""
+
+        result = cast(
+            CursorResult[tuple[object, ...]],
+            self._session.execute(
+                update(CodexHostOrmModel)
+                .where(
+                    CodexHostOrmModel.host_id == host_id,
+                    CodexHostOrmModel.owner_subject_id == owner_subject_id,
+                    CodexHostOrmModel.revoked_at.is_(None),
+                    CodexHostOrmModel.version == expected_version,
+                )
+                .values(
+                    display_name=display_name,
+                    updated_at=updated_at,
+                    version=expected_version + 1,
+                )
+            ),
+        )
+        if int(result.rowcount or 0) != 1:
+            return None
+        return self.get_by_id_and_owner(host_id, owner_subject_id)
+
+    def revoke_if_version(
+        self,
+        *,
+        host_id: UUID,
+        owner_subject_id: str,
+        expected_version: int,
+        revoked_at: datetime,
+    ) -> CodexHostSnapshot | None:
+        """以数据库 CAS 原子撤销主机生命周期。"""
+
+        result = cast(
+            CursorResult[tuple[object, ...]],
+            self._session.execute(
+                update(CodexHostOrmModel)
+                .where(
+                    CodexHostOrmModel.host_id == host_id,
+                    CodexHostOrmModel.owner_subject_id == owner_subject_id,
+                    CodexHostOrmModel.revoked_at.is_(None),
+                    CodexHostOrmModel.version == expected_version,
+                )
+                .values(
+                    status=CodexHostStatus.REVOKED.value,
+                    revoked_at=revoked_at,
+                    updated_at=revoked_at,
+                    version=expected_version + 1,
+                )
+            ),
+        )
+        if int(result.rowcount or 0) != 1:
+            return None
+        statement = select(CodexHostOrmModel).where(
+            CodexHostOrmModel.host_id == host_id,
+            CodexHostOrmModel.owner_subject_id == owner_subject_id,
+        )
+        row = self._session.scalars(statement).one_or_none()
+        return None if row is None else self._to_snapshot(row)
 
     def _to_snapshot(self, row: CodexHostOrmModel) -> CodexHostSnapshot:
         return CodexHostSnapshot(
@@ -423,22 +607,65 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
     ) -> list[CodexWorkspaceSnapshot]:
         statement = (
             select(CodexWorkspaceOrmModel)
+            .join(
+                CodexHostOrmModel,
+                CodexHostOrmModel.host_id == CodexWorkspaceOrmModel.host_id,
+            )
             .where(
                 CodexWorkspaceOrmModel.host_id == host_id,
                 CodexWorkspaceOrmModel.owner_subject_id == owner_subject_id,
+                CodexWorkspaceOrmModel.enabled.is_(True),
+                CodexHostOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.revoked_at.is_(None),
             )
-            .order_by(CodexWorkspaceOrmModel.updated_at.desc())
+            .order_by(
+                CodexWorkspaceOrmModel.is_pinned.desc(),
+                CodexWorkspaceOrmModel.updated_at.desc(),
+                CodexWorkspaceOrmModel.workspace_id.desc(),
+            )
         )
         return [self._to_snapshot(row) for row in self._session.scalars(statement).all()]
+
+    def count_enabled_by_host_and_owner(
+        self,
+        host_id: UUID,
+        owner_subject_id: str,
+    ) -> int:
+        statement = (
+            select(func.count())
+            .select_from(CodexWorkspaceOrmModel)
+            .join(
+                CodexHostOrmModel,
+                CodexHostOrmModel.host_id == CodexWorkspaceOrmModel.host_id,
+            )
+            .where(
+                CodexWorkspaceOrmModel.host_id == host_id,
+                CodexWorkspaceOrmModel.owner_subject_id == owner_subject_id,
+                CodexWorkspaceOrmModel.enabled.is_(True),
+                CodexHostOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.revoked_at.is_(None),
+            )
+        )
+        return int(self._session.scalar(statement) or 0)
 
     def get_by_id_and_owner(
         self,
         workspace_id: UUID,
         owner_subject_id: str,
     ) -> CodexWorkspaceSnapshot | None:
-        statement = select(CodexWorkspaceOrmModel).where(
-            CodexWorkspaceOrmModel.workspace_id == workspace_id,
-            CodexWorkspaceOrmModel.owner_subject_id == owner_subject_id,
+        statement = (
+            select(CodexWorkspaceOrmModel)
+            .join(
+                CodexHostOrmModel,
+                CodexHostOrmModel.host_id == CodexWorkspaceOrmModel.host_id,
+            )
+            .where(
+                CodexWorkspaceOrmModel.workspace_id == workspace_id,
+                CodexWorkspaceOrmModel.owner_subject_id == owner_subject_id,
+                CodexWorkspaceOrmModel.enabled.is_(True),
+                CodexHostOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.revoked_at.is_(None),
+            )
         )
         row = self._session.scalars(statement).one_or_none()
         return None if row is None else self._to_snapshot(row)
@@ -449,10 +676,19 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
         agent_workspace_key: str,
         owner_subject_id: str,
     ) -> CodexWorkspaceSnapshot | None:
-        statement = select(CodexWorkspaceOrmModel).where(
-            CodexWorkspaceOrmModel.host_id == host_id,
-            CodexWorkspaceOrmModel.agent_workspace_key == agent_workspace_key,
-            CodexWorkspaceOrmModel.owner_subject_id == owner_subject_id,
+        statement = (
+            select(CodexWorkspaceOrmModel)
+            .join(
+                CodexHostOrmModel,
+                CodexHostOrmModel.host_id == CodexWorkspaceOrmModel.host_id,
+            )
+            .where(
+                CodexWorkspaceOrmModel.host_id == host_id,
+                CodexWorkspaceOrmModel.agent_workspace_key == agent_workspace_key,
+                CodexWorkspaceOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.revoked_at.is_(None),
+            )
         )
         row = self._session.scalars(statement).one_or_none()
         return None if row is None else self._to_snapshot(row)
@@ -468,6 +704,7 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
                 repo_fingerprint=snapshot.repo_fingerprint,
                 default_branch=snapshot.default_branch,
                 worktree_policy=snapshot.worktree_policy.model_dump(mode="json"),
+                is_pinned=snapshot.is_pinned,
                 enabled=snapshot.enabled,
                 created_at=snapshot.created_at,
                 updated_at=snapshot.updated_at,
@@ -495,6 +732,7 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
             repo_fingerprint=row.repo_fingerprint,
             default_branch=row.default_branch,
             worktree_policy=GitWorktreePolicy.model_validate(row.worktree_policy),
+            is_pinned=row.is_pinned,
             enabled=row.enabled,
             created_at=CodexRepositoryDatetimeConverter.normalize_required(row.created_at),
             updated_at=CodexRepositoryDatetimeConverter.normalize_required(row.updated_at),
@@ -508,20 +746,91 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def list_by_host_and_owner(
+    def list_page_by_host_and_owner(
         self,
         host_id: UUID,
         owner_subject_id: str,
-    ) -> list[CodexThreadIndexSnapshot]:
+        query: CodexConversationListQuery,
+    ) -> CodexConversationPage:
+        conditions = [
+            CodexThreadIndexOrmModel.host_id == host_id,
+            CodexThreadIndexOrmModel.owner_subject_id == owner_subject_id,
+            CodexThreadIndexOrmModel.archived.is_(query.archived),
+            CodexHostOrmModel.owner_subject_id == owner_subject_id,
+            CodexHostOrmModel.revoked_at.is_(None),
+            CodexWorkspaceOrmModel.enabled.is_(True),
+        ]
+        if query.workspace_id is not None:
+            conditions.append(CodexThreadIndexOrmModel.workspace_id == query.workspace_id)
+        if query.search_term is not None:
+            pattern = f"%{query.search_term.strip()}%"
+            conditions.append(
+                or_(
+                    CodexThreadIndexOrmModel.display_name.ilike(pattern),
+                    CodexWorkspaceOrmModel.display_name.ilike(pattern),
+                    CodexWorkspaceOrmModel.default_branch.ilike(pattern),
+                )
+            )
+        cursor = CodexConversationCursor.decode(query.cursor) if query.cursor else None
+        if cursor is not None:
+            if cursor.detail.query_digest != query.build_identity_digest():
+                raise ValueError("会话分页游标与查询条件不匹配。")
+            cursor_conditions = [
+                and_(
+                    CodexThreadIndexOrmModel.is_pinned == cursor.detail.is_pinned,
+                    CodexThreadIndexOrmModel.recency_at < cursor.detail.recency_at,
+                ),
+                and_(
+                    CodexThreadIndexOrmModel.is_pinned == cursor.detail.is_pinned,
+                    CodexThreadIndexOrmModel.recency_at == cursor.detail.recency_at,
+                    CodexThreadIndexOrmModel.created_at < cursor.detail.created_at,
+                ),
+                and_(
+                    CodexThreadIndexOrmModel.is_pinned == cursor.detail.is_pinned,
+                    CodexThreadIndexOrmModel.recency_at == cursor.detail.recency_at,
+                    CodexThreadIndexOrmModel.created_at == cursor.detail.created_at,
+                    CodexThreadIndexOrmModel.upstream_thread_id < cursor.detail.upstream_thread_id,
+                ),
+            ]
+            if cursor.detail.is_pinned:
+                cursor_conditions.insert(0, CodexThreadIndexOrmModel.is_pinned.is_(False))
+            conditions.append(or_(*cursor_conditions))
         statement = (
             select(CodexThreadIndexOrmModel)
-            .where(
-                CodexThreadIndexOrmModel.host_id == host_id,
-                CodexThreadIndexOrmModel.owner_subject_id == owner_subject_id,
+            .join(
+                CodexHostOrmModel,
+                CodexHostOrmModel.host_id == CodexThreadIndexOrmModel.host_id,
             )
-            .order_by(CodexThreadIndexOrmModel.updated_at.desc())
+            .join(
+                CodexWorkspaceOrmModel,
+                CodexWorkspaceOrmModel.workspace_id == CodexThreadIndexOrmModel.workspace_id,
+            )
+            .where(*conditions)
+            .order_by(
+                CodexThreadIndexOrmModel.is_pinned.desc(),
+                CodexThreadIndexOrmModel.recency_at.desc(),
+                CodexThreadIndexOrmModel.created_at.desc(),
+                CodexThreadIndexOrmModel.upstream_thread_id.desc(),
+            )
+            .limit(query.limit + 1)
         )
-        return [self._to_snapshot(row) for row in self._session.scalars(statement).all()]
+        rows = list(self._session.scalars(statement).all())
+        has_more = len(rows) > query.limit
+        page_rows = rows[: query.limit]
+        items = [self._to_snapshot(row) for row in page_rows]
+        next_cursor = None
+        if has_more and items:
+            last = items[-1]
+            next_cursor = CodexConversationCursor(
+                detail=CodexConversationCursorDetail(
+                    query_digest=query.build_identity_digest(),
+                    is_pinned=last.is_pinned,
+                    recency_at=last.recency_at,
+                    created_at=last.created_at,
+                    upstream_thread_id=last.upstream_thread_id,
+                )
+            ).encode()
+        return CodexConversationPage(items=items, next_cursor=next_cursor)
 
     def get_by_upstream_id_and_owner(
         self,
@@ -529,10 +838,24 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
         upstream_thread_id: str,
         owner_subject_id: str,
     ) -> CodexThreadIndexSnapshot | None:
-        statement = select(CodexThreadIndexOrmModel).where(
-            CodexThreadIndexOrmModel.host_id == host_id,
-            CodexThreadIndexOrmModel.upstream_thread_id == upstream_thread_id,
-            CodexThreadIndexOrmModel.owner_subject_id == owner_subject_id,
+        statement = (
+            select(CodexThreadIndexOrmModel)
+            .join(
+                CodexHostOrmModel,
+                CodexHostOrmModel.host_id == CodexThreadIndexOrmModel.host_id,
+            )
+            .join(
+                CodexWorkspaceOrmModel,
+                CodexWorkspaceOrmModel.workspace_id == CodexThreadIndexOrmModel.workspace_id,
+            )
+            .where(
+                CodexThreadIndexOrmModel.host_id == host_id,
+                CodexThreadIndexOrmModel.upstream_thread_id == upstream_thread_id,
+                CodexThreadIndexOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.revoked_at.is_(None),
+                CodexWorkspaceOrmModel.enabled.is_(True),
+            )
         )
         row = self._session.scalars(statement).one_or_none()
         return None if row is None else self._to_snapshot(row)
@@ -546,13 +869,17 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
                 owner_subject_id=snapshot.owner_subject_id,
                 upstream_thread_id=snapshot.upstream_thread_id,
                 display_name=snapshot.display_name,
+                title_source=snapshot.title_source.value,
                 model=snapshot.model,
+                model_provider=snapshot.model_provider,
                 reasoning_effort=snapshot.reasoning_effort,
                 status=snapshot.status,
                 active_turn_id=snapshot.active_turn_id,
                 archived=snapshot.archived,
+                is_pinned=snapshot.is_pinned,
                 source_kind=snapshot.source_kind,
                 created_at=snapshot.created_at,
+                recency_at=snapshot.recency_at,
                 updated_at=snapshot.updated_at,
                 last_synced_at=snapshot.last_synced_at,
             )
@@ -563,6 +890,108 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
 
         self._session.merge(CodexThreadIndexOrmModel(**snapshot.model_dump()))
 
+    def advance_activity(
+        self,
+        *,
+        host_id: UUID,
+        upstream_thread_id: str,
+        owner_subject_id: str,
+        occurred_at: datetime,
+    ) -> CodexThreadIndexSnapshot | None:
+        """仅在事件时间更晚时推进会话活动时间。"""
+
+        self._session.execute(
+            update(CodexThreadIndexOrmModel)
+            .where(
+                CodexThreadIndexOrmModel.host_id == host_id,
+                CodexThreadIndexOrmModel.upstream_thread_id == upstream_thread_id,
+                CodexThreadIndexOrmModel.owner_subject_id == owner_subject_id,
+                CodexThreadIndexOrmModel.recency_at < occurred_at,
+            )
+            .values(
+                recency_at=occurred_at,
+                updated_at=CodexThreadIndexOrmModel.updated_at,
+            )
+        )
+        return self.get_by_upstream_id_and_owner(
+            host_id,
+            upstream_thread_id,
+            owner_subject_id,
+        )
+
+    def promote_title(
+        self,
+        *,
+        host_id: UUID,
+        upstream_thread_id: str,
+        owner_subject_id: str,
+        display_name: str,
+        source: CodexThreadTitleSource,
+        updated_at: datetime,
+    ) -> CodexThreadIndexSnapshot | None:
+        """按冻结优先级原子提升会话标题，手工标题不会被覆盖。"""
+
+        allowed_sources = CODEX_TITLE_PROMOTION_SOURCES[source]
+        if allowed_sources:
+            self._session.execute(
+                update(CodexThreadIndexOrmModel)
+                .where(
+                    CodexThreadIndexOrmModel.host_id == host_id,
+                    CodexThreadIndexOrmModel.upstream_thread_id == upstream_thread_id,
+                    CodexThreadIndexOrmModel.owner_subject_id == owner_subject_id,
+                    CodexThreadIndexOrmModel.title_source.in_(
+                        tuple(item.value for item in allowed_sources)
+                    ),
+                )
+                .values(
+                    display_name=display_name,
+                    title_source=source.value,
+                    updated_at=updated_at,
+                )
+            )
+        return self.get_by_upstream_id_and_owner(
+            host_id,
+            upstream_thread_id,
+            owner_subject_id,
+        )
+
+    def apply_runtime_state(
+        self,
+        *,
+        host_id: UUID,
+        upstream_thread_id: str,
+        owner_subject_id: str,
+        state_update: CodexThreadRuntimeStateUpdate,
+    ) -> CodexThreadIndexSnapshot | None:
+        """字段级写入会话运行状态，不覆盖标题和活动时间。"""
+
+        values: dict[str, object] = {
+            "updated_at": state_update.synchronized_at,
+            "last_synced_at": state_update.synchronized_at,
+        }
+        if state_update.status is not None:
+            values["status"] = state_update.status.value
+        if state_update.archived is not None:
+            values["archived"] = state_update.archived
+        if state_update.active_turn_mode is CodexActiveTurnUpdateMode.SET:
+            values["active_turn_id"] = state_update.active_turn_id
+        elif state_update.active_turn_mode is CodexActiveTurnUpdateMode.CLEAR:
+            values["active_turn_id"] = None
+        self._session.execute(
+            update(CodexThreadIndexOrmModel)
+            .where(
+                CodexThreadIndexOrmModel.host_id == host_id,
+                CodexThreadIndexOrmModel.upstream_thread_id == upstream_thread_id,
+                CodexThreadIndexOrmModel.owner_subject_id == owner_subject_id,
+            )
+            .values(**values)
+        )
+        return self.get_by_upstream_id_and_owner(
+            host_id,
+            upstream_thread_id,
+            owner_subject_id,
+        )
+
     def _to_snapshot(self, row: CodexThreadIndexOrmModel) -> CodexThreadIndexSnapshot:
         return CodexThreadIndexSnapshot(
             thread_index_id=row.thread_index_id,
@@ -571,13 +1000,17 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
             owner_subject_id=row.owner_subject_id,
             upstream_thread_id=row.upstream_thread_id,
             display_name=row.display_name,
+            title_source=CodexThreadTitleSource(row.title_source),
             model=row.model,
+            model_provider=row.model_provider,
             reasoning_effort=row.reasoning_effort,
-            status=row.status,
+            status=CodexThreadStatus(row.status),
             active_turn_id=row.active_turn_id,
             archived=row.archived,
+            is_pinned=row.is_pinned,
             source_kind=row.source_kind,
-            created_at=CodexRepositoryDatetimeConverter.normalize_optional(row.created_at),
+            created_at=CodexRepositoryDatetimeConverter.normalize_required(row.created_at),
+            recency_at=CodexRepositoryDatetimeConverter.normalize_required(row.recency_at),
             updated_at=CodexRepositoryDatetimeConverter.normalize_required(row.updated_at),
             last_synced_at=CodexRepositoryDatetimeConverter.normalize_required(row.last_synced_at),
         )
@@ -637,10 +1070,15 @@ class CodexOperationRepositoryImpl(CodexOperationRepositoryPort):
         return [self._to_snapshot(row) for row in self._session.scalars(statement).all()]
 
     def add(self, snapshot: CodexControlOperationSnapshot) -> None:
-        payload = snapshot.model_dump(exclude={"created_at", "updated_at"})
+        payload = snapshot.model_dump(exclude={"created_at", "updated_at", "projection"})
         self._session.add(
             CodexControlOperationOrmModel(
                 **payload,
+                projection=(
+                    snapshot.projection.model_dump(mode="json")
+                    if snapshot.projection is not None
+                    else None
+                ),
                 created_at=snapshot.created_at,
                 updated_at=snapshot.updated_at,
             )
@@ -649,7 +1087,17 @@ class CodexOperationRepositoryImpl(CodexOperationRepositoryPort):
     def save(self, snapshot: CodexControlOperationSnapshot) -> None:
         """更新 operation 恢复状态。"""
 
-        self._session.merge(CodexControlOperationOrmModel(**snapshot.model_dump()))
+        payload = snapshot.model_dump(exclude={"projection"})
+        self._session.merge(
+            CodexControlOperationOrmModel(
+                **payload,
+                projection=(
+                    snapshot.projection.model_dump(mode="json")
+                    if snapshot.projection is not None
+                    else None
+                ),
+            )
+        )
 
     def _to_snapshot(
         self,
@@ -676,6 +1124,11 @@ class CodexOperationRepositoryImpl(CodexOperationRepositoryPort):
             ),
             error_code=row.error_code,
             result_digest=row.result_digest,
+            projection=(
+                CodexOperationProjection.model_validate(row.projection)
+                if row.projection is not None
+                else None
+            ),
             accepted_at=CodexRepositoryDatetimeConverter.normalize_optional(row.accepted_at),
             completed_at=CodexRepositoryDatetimeConverter.normalize_optional(row.completed_at),
             created_at=CodexRepositoryDatetimeConverter.normalize_required(row.created_at),
@@ -867,7 +1320,15 @@ class CodexApprovalRepositoryImpl(CodexApprovalRepositoryPort):
     def list_by_owner(self, owner_subject_id: str) -> list[CodexApprovalAuditSnapshot]:
         statement = (
             select(CodexApprovalAuditOrmModel)
-            .where(CodexApprovalAuditOrmModel.owner_subject_id == owner_subject_id)
+            .join(
+                CodexHostOrmModel,
+                CodexHostOrmModel.host_id == CodexApprovalAuditOrmModel.host_id,
+            )
+            .where(
+                CodexApprovalAuditOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.owner_subject_id == owner_subject_id,
+                CodexHostOrmModel.revoked_at.is_(None),
+            )
             .order_by(CodexApprovalAuditOrmModel.created_at.desc())
         )
         return [self._to_snapshot(row) for row in self._session.scalars(statement).all()]

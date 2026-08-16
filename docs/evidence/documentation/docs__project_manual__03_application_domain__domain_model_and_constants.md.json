@@ -3,8 +3,8 @@
     "schema_version": "1.0",
     "topic": "docs/project_manual/03_application_domain/domain_model_and_constants.md",
     "applicable_version": "2026.07.15",
-    "code_baseline": "a0fb0b3b47ff5e9cbdb82202310744a3a0fc618ec9d3dc928a3a8d489f2039e3",
-    "verified_at": "2026-08-07T23:06:48.601713Z"
+    "code_baseline": "caaf79d5211d72b99e0a274db0ef7d0e95e46a7a3f3e5a56563d7282489b5854",
+    "verified_at": "2026-08-16T05:39:22.880480Z"
   },
   "kind": "architecture",
   "detail": {

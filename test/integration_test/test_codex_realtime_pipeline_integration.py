@@ -10,12 +10,21 @@ from fastapi.testclient import TestClient
 
 from src.api.testing.test_app_factory import TestAppFactory
 from src.core.codex_contract.agent_protocol_contract import (
+    AgentConversationSnapshotDetail,
     CodexAgentHello,
     CodexAgentRealtimeEvent,
     CodexAgentStateSnapshot,
     CodexAgentWorkspaceSnapshot,
 )
-from src.core.codex_contract.realtime_event_contract import CodexRealtimeEvent
+from src.core.codex_contract.realtime_event_contract import (
+    CodexItemDeltaDetail,
+    CodexItemUpsertDetail,
+    CodexRealtimeEvent,
+)
+from src.core.codex_contract.thread_contract import (
+    CodexAgentMessageTimelineDetail,
+    CodexThreadTitleSource,
+)
 from src.infrastructure.persistence.orm_model.codex_host_orm_model import CodexHostOrmModel
 from test.fixtures.codex_device_authorization_test_support import (
     FROZEN_APP_SERVER_SCHEMA_DIGEST,
@@ -98,14 +107,16 @@ def test_agent_notifications_should_map_to_ordered_browser_product_events() -> N
                     )
                 ],
                 threads=[
-                    {
-                        "id": thread_id,
-                        "workspaceKey": "work",
-                        "preview": "Pipeline",
-                        "status": "active",
-                        "createdAt": 1_700_000_000,
-                        "updatedAt": 1_700_000_001,
-                    }
+                    AgentConversationSnapshotDetail(
+                        thread_id=thread_id,
+                        workspace_key="work",
+                        display_name="Pipeline",
+                        title_source=CodexThreadTitleSource.APP_SERVER,
+                        status="active",
+                        archived=False,
+                        created_at=datetime.fromtimestamp(1_700_000_000, tz=UTC),
+                        recency_at=datetime.fromtimestamp(1_700_000_001, tz=UTC),
+                    )
                 ],
                 captured_at=datetime.now(UTC),
             )
@@ -121,6 +132,7 @@ def test_agent_notifications_should_map_to_ordered_browser_product_events() -> N
                 delta = CodexAgentRealtimeEvent(
                     host_id=host_id,
                     app_server_instance_id="app-server-pipeline",
+                    occurred_at=datetime.now(UTC),
                     method="item/agentMessage/delta",
                     params={
                         "threadId": thread_id,
@@ -138,6 +150,7 @@ def test_agent_notifications_should_map_to_ordered_browser_product_events() -> N
                 completed = CodexAgentRealtimeEvent(
                     host_id=host_id,
                     app_server_instance_id="app-server-pipeline",
+                    occurred_at=datetime.now(UTC),
                     method="item/completed",
                     params={
                         "threadId": thread_id,
@@ -166,11 +179,17 @@ def test_agent_notifications_should_map_to_ordered_browser_product_events() -> N
 
             CodexDeviceAuthorizationTestSupport.close_websocket(agent_websocket)
 
-    assert delta_event.type.value == "item.delta"
-    assert delta_event.payload["delta"] == "hello"
-    assert completed_event.type.value == "item.upsert"
-    assert completed_event.payload["item"]["text"] == "hello world"
-    assert completed_event.stream_epoch == delta_event.stream_epoch
-    assert completed_event.event_id != delta_event.event_id
+    assert delta_event.header.detail_kind.value == "item.delta"
+    assert isinstance(delta_event.detail, CodexItemDeltaDetail)
+    assert delta_event.detail.delta == "hello"
+    assert completed_event.header.detail_kind.value == "item.upsert"
+    assert isinstance(completed_event.detail, CodexItemUpsertDetail)
+    assert isinstance(
+        completed_event.detail.item.detail,
+        CodexAgentMessageTimelineDetail,
+    )
+    assert completed_event.detail.item.detail.text == "hello world"
+    assert completed_event.header.stream_epoch == delta_event.header.stream_epoch
+    assert completed_event.header.event_id != delta_event.header.event_id
     assert "method" not in completed_event.model_dump()
     assert "params" not in completed_event.model_dump()

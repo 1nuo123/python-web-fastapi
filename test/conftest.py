@@ -19,6 +19,7 @@ from src.api.testing.test_app_factory import (
     TestPersistenceBackendSelector,
 )
 from src.infrastructure.settings.dotenv_settings_loader import DotenvSettingsLoader
+from test.integration_database_fixture import integration_database as integration_database
 
 TEST_APP_ENVIRONMENT = "test"
 TEST_JWT_SECRET = "test-secret-2026-with-safe-length"

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Final, Protocol
 
 import keyring
+from keyring.errors import PasswordDeleteError
 
 AGENT_CREDENTIAL_SERVICE_NAME: Final = "CodexRemoteAgent"
 
@@ -61,7 +62,10 @@ class WindowsAgentSecretStore:
         """删除已经吊销的本地设备凭据。"""
 
         if self._backend is None:
-            keyring.delete_password(AGENT_CREDENTIAL_SERVICE_NAME, credential_id)
+            try:
+                keyring.delete_password(AGENT_CREDENTIAL_SERVICE_NAME, credential_id)
+            except PasswordDeleteError:
+                return
             return
         self._backend.delete_password(AGENT_CREDENTIAL_SERVICE_NAME, credential_id)
 

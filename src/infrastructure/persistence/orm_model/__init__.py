@@ -11,6 +11,7 @@ from src.infrastructure.persistence.orm_model.auth_role_scope_orm_model import A
 from src.infrastructure.persistence.orm_model.auth_scope_orm_model import AuthScopeOrmModel
 from src.infrastructure.persistence.orm_model.auth_user_orm_model import AuthUserOrmModel
 from src.infrastructure.persistence.orm_model.auth_user_role_orm_model import AuthUserRoleOrmModel
+from src.infrastructure.persistence.orm_model.auth_user_scope_orm_model import AuthUserScopeOrmModel
 from src.infrastructure.persistence.orm_model.codex_agent_credential_orm_model import (
     CodexAgentCredentialOrmModel,
 )
@@ -56,6 +57,7 @@ __all__ = [
     "AuthRoleScopeOrmModel",
     "AuthUserOrmModel",
     "AuthUserRoleOrmModel",
+    "AuthUserScopeOrmModel",
     "AppLogRecordOrmModel",
     "TaskExecutionRecordOrmModel",
     "TaskExecutionOutboxOrmModel",

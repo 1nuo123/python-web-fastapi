@@ -57,6 +57,12 @@ class AppServerNoticeItem(AppServerProductItemBase):
     text: str = Field(max_length=APP_SERVER_PRODUCT_MAX_TEXT_CHARS)
 
 
+class AppServerContextCompactionItem(AppServerProductItemBase):
+    """上下文压缩生命周期条目。"""
+
+    kind: Literal["context_compaction"] = "context_compaction"
+
+
 class AppServerPlanStep(BaseModel):
     """可直接渲染的计划步骤。"""
 
@@ -94,6 +100,7 @@ AppServerProductTimelineItem = Annotated[
     AppServerUserMessageItem
     | AppServerAgentMessageItem
     | AppServerNoticeItem
+    | AppServerContextCompactionItem
     | AppServerPlanItem
     | AppServerCommandItem
     | AppServerDiffItem,
@@ -108,10 +115,13 @@ class AppServerThreadProductSnapshot(BaseModel):
 
     thread_id: str = Field(min_length=1, max_length=256)
     display_name: str | None = Field(default=None, max_length=256)
+    model_id: str | None = Field(default=None, max_length=128)
     model_provider: str | None = Field(default=None, max_length=128)
     status: str = Field(min_length=1, max_length=64)
+    archived: bool = False
     created_at: float | None = Field(default=None, ge=0)
     updated_at: float | None = Field(default=None, ge=0)
+    recency_at: float | None = Field(default=None, ge=0)
 
 
 class AppServerTurnProductSnapshot(BaseModel):
@@ -156,6 +166,17 @@ class AppServerThreadChangedDetail(BaseModel):
 
     kind: Literal["thread_changed"] = "thread_changed"
     thread: AppServerThreadProductSnapshot
+
+
+class AppServerThreadMetadataChangedDetail(BaseModel):
+    """线程名称或归档状态变化。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["thread_metadata_changed"] = "thread_metadata_changed"
+    thread_id: str = Field(min_length=1, max_length=256)
+    display_name: str | None = Field(default=None, max_length=256)
+    archived: bool | None = None
 
 
 class AppServerTurnChangedDetail(BaseModel):
@@ -229,6 +250,7 @@ class AppServerWarningDetail(BaseModel):
 
 AppServerProductNotificationDetail = Annotated[
     AppServerThreadChangedDetail
+    | AppServerThreadMetadataChangedDetail
     | AppServerTurnChangedDetail
     | AppServerItemChangedDetail
     | AppServerItemDeltaDetail

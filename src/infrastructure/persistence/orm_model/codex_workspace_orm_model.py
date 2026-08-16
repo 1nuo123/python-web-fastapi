@@ -26,6 +26,13 @@ class CodexWorkspaceOrmModel(AuditTimestampMixin, OrmModelBase):
         ),
         Index("ix_codex_workspace_host_enabled", "host_id", "enabled"),
         Index("ix_codex_workspace_owner_updated", "owner_subject_id", "updated_at"),
+        Index(
+            "ix_codex_workspace_owner_pin_order",
+            "owner_subject_id",
+            "is_pinned",
+            "updated_at",
+            "workspace_id",
+        ),
     )
 
     workspace_id: Mapped[UUID] = mapped_column(
@@ -50,5 +57,6 @@ class CodexWorkspaceOrmModel(AuditTimestampMixin, OrmModelBase):
         nullable=False,
         default=dict,
     )
+    is_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

@@ -84,7 +84,16 @@ class CodexApprovalRouteCatalog:
         ),
     ) -> ResponseEnvelope[CodexOperationAccepted]:
         principal = self._accessor.read_authenticated_principal(request)
-        payload = await self._accessor.read_manage_codex_approval_usecase(request).decide(
+        usecase = self._accessor.read_manage_codex_approval_usecase(request)
+        requirement = await self._accessor.read_request_execution_bridge(request).run_sync(
+            execution_name="default_sync_usecase",
+            callable_object=usecase.read_decision_authorization_requirement,
+            approval_id=approval_id,
+            owner_subject_id=principal.subject_id,
+            decision=body.decision.value,
+        )
+        self._accessor.read_authorized_principal(request, requirement)
+        payload = await usecase.decide(
             approval_id=approval_id,
             approval_version=body.approval_version,
             decision=body.decision,

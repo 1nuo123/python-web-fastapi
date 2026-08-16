@@ -1,4 +1,4 @@
-name: Codex Agent Release
+name: Codex Agent Signed Build
 
 on:
   workflow_dispatch:
@@ -6,32 +6,97 @@ on:
       version:
         description: Signed release version
         required: true
+      minimum_security_version:
+        description: Minimum allowed Agent version
+        required: true
+      rollout_percent:
+        description: Stable rollout percentage
+        required: true
+        default: "100"
+      cdn_base_url:
+        description: Public HTTPS base URL for the release repository
+        required: true
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  build-and-sign:
+  build-and-sign-executable:
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked --all-groups
-      - run: uv run pyinstaller --clean --noconfirm packaging/windows/agent.spec
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build versioned one-file Agent
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          uv run python -m src.cli.build_codex_agent_windows_version_info `
+            --version "$env:RELEASE_VERSION" `
+            --output .build/windows-agent-version-info.txt
+          $env:CODEX_AGENT_VERSION_FILE = "$env:GITHUB_WORKSPACE/.build/windows-agent-version-info.txt"
+          uv run pyinstaller --clean --noconfirm packaging/windows/agent.spec
+          New-Item -ItemType Directory -Force dist/signed-build | Out-Null
+          Move-Item -LiteralPath dist/codex-remote-agent.exe -Destination dist/signed-build/codex-remote-agent.exe
       - name: Sign Agent with managed certificate
+        timeout-minutes: 15
         shell: pwsh
         env:
           AZURE_KEY_VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
           AZURE_CERTIFICATE_NAME: ${{ secrets.AZURE_CERTIFICATE_NAME }}
-        run: packaging/windows/scripts/sign_release.ps1 -InputPath dist/codex-remote-agent/codex-remote-agent.exe
-      - name: Build per-user MSI
+        run: packaging/windows/scripts/sign_release.ps1 -InputPath dist/signed-build/codex-remote-agent.exe
+      - name: Generate exact release target and audit assets
         shell: pwsh
-        run: wix build packaging/windows/wix/Product.wxs -d AgentSource=dist/codex-remote-agent -o dist/CodexRemoteAgent.msi
-      - name: Sign MSI with managed certificate
-        shell: pwsh
-        run: packaging/windows/scripts/sign_release.ps1 -InputPath dist/CodexRemoteAgent.msi
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          MINIMUM_SECURITY_VERSION: ${{ inputs.minimum_security_version }}
+          ROLLOUT_PERCENT: ${{ inputs.rollout_percent }}
+          CDN_BASE_URL: ${{ inputs.cdn_base_url }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+        run: |
+          uv run python -m src.cli.build_codex_agent_release_assets `
+            --executable dist/signed-build/codex-remote-agent.exe `
+            --output-directory dist/signed-build `
+            --version "$env:RELEASE_VERSION" `
+            --minimum-security-version "$env:MINIMUM_SECURITY_VERSION" `
+            --cdn-base-url "$env:CDN_BASE_URL" `
+            --rollout-percent "$env:ROLLOUT_PERCENT"
+          $executable = Get-Item -LiteralPath dist/signed-build/codex-remote-agent.exe
+          $signature = Get-AuthenticodeSignature -LiteralPath $executable.FullName
+          if ($signature.Status -ne "Valid" -or $null -eq $signature.SignerCertificate) {
+            throw "The signed Agent does not have a valid Authenticode signer."
+          }
+          $signerSha256 = $signature.SignerCertificate.GetCertHashString("SHA256").ToLowerInvariant()
+          $buildRecord = [ordered]@{
+            source_repository = $env:SOURCE_REPOSITORY
+            source_revision = "$env:GITHUB_SHA"
+            version = $env:RELEASE_VERSION
+            minimum_security_version = $env:MINIMUM_SECURITY_VERSION
+            rollout_percent = [int]$env:ROLLOUT_PERCENT
+            cdn_base_url = $env:CDN_BASE_URL.TrimEnd('/')
+            executable_length = $executable.Length
+            executable_sha256 = (Get-FileHash -LiteralPath $executable.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            authenticode_signer_sha256 = $signerSha256
+          }
+          $buildRecordJson = ($buildRecord | ConvertTo-Json) + "`n"
+          [IO.File]::WriteAllText(
+            "$env:GITHUB_WORKSPACE/dist/signed-build/release-build.json",
+            $buildRecordJson,
+            [Text.UTF8Encoding]::new($false)
+          )
       - uses: actions/upload-artifact@v4
         with:
-          name: codex-agent-${{ inputs.version }}
-          path: dist/
+          name: codex-agent-signed-build-${{ inputs.version }}
+          path: dist/signed-build/
+          if-no-files-found: error
+          retention-days: 30

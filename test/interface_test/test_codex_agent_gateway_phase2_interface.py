@@ -20,6 +20,10 @@ from src.core.codex_contract.host_contract import (
     CodexHostCapabilities,
     CodexHostCompatibilityState,
 )
+from src.core.codex_contract.thread_contract import (
+    CodexThreadStatus,
+    CodexThreadTitleSource,
+)
 from src.infrastructure.persistence.orm_model.codex_control_operation_orm_model import (
     CodexControlOperationOrmModel,
 )
@@ -121,6 +125,7 @@ def test_create_thread_when_agent_offline_should_queue_one_stable_command_for_re
                     version=1,
                 )
             )
+            unit_of_work.flush()
             session.add(
                 CodexWorkspaceOrmModel(
                     workspace_id=workspace_id,
@@ -232,6 +237,7 @@ def test_read_thread_snapshot_when_agent_offline_should_return_index_fallback() 
                     version=1,
                 )
             )
+            unit_of_work.flush()
             session.add(
                 CodexWorkspaceOrmModel(
                     workspace_id=workspace_id,
@@ -243,6 +249,7 @@ def test_read_thread_snapshot_when_agent_offline_should_return_index_fallback() 
                     version=1,
                 )
             )
+            unit_of_work.flush()
             session.add(
                 CodexThreadIndexOrmModel(
                     thread_index_id=thread_index_id,
@@ -251,10 +258,13 @@ def test_read_thread_snapshot_when_agent_offline_should_return_index_fallback() 
                     owner_subject_id="user-admin",
                     upstream_thread_id=thread_id,
                     display_name="Indexed thread",
+                    title_source=CodexThreadTitleSource.APP_SERVER.value,
                     model="gpt-5",
-                    status="notLoaded",
+                    status=CodexThreadStatus.UNKNOWN.value,
                     archived=False,
                     source_kind=None,
+                    created_at=now,
+                    recency_at=now,
                     updated_at=now,
                     last_synced_at=now,
                 )
@@ -273,6 +283,6 @@ def test_read_thread_snapshot_when_agent_offline_should_return_index_fallback() 
     assert snapshot["history_status"] == "not_available_yet"
     assert snapshot["thread"]["upstream_thread_id"] == thread_id
     assert snapshot["thread"]["display_name"] == "Indexed thread"
-    assert snapshot["thread"]["status"] == "notLoaded"
+    assert snapshot["thread"]["status"] == CodexThreadStatus.UNKNOWN.value
     assert snapshot["turns"] == []
     assert snapshot["items"] == []

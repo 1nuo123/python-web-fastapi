@@ -96,6 +96,7 @@ class AuthenticationBindingMiddleware(BaseHTTPMiddleware):
 
         request.state.middleware_trace.append(MIDDLEWARE_TRACE_NAME)
         request.state.authenticated_principal = None
+        request.state.access_token_payload = None
         request.state.auth_fault = None
         token = self._oauth2_scheme_provider.extract_bearer_token(request)
         if token is not None:
@@ -114,6 +115,7 @@ class AuthenticationBindingMiddleware(BaseHTTPMiddleware):
                     ),
                 )
                 request.state.authenticated_principal = principal
+                request.state.access_token_payload = token_payload
                 request_context_manager = self._resource_mount.get_request_context_manager()
                 request_context_manager.bind_authenticated_subject(principal.subject_id)
                 current_scope = request_context_manager.get_current_scope()

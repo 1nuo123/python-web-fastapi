@@ -243,3 +243,98 @@ native EventSource 使用 GET 单次票据。禁止把长期 JWT 写入 SSE 或 
 现存告警来自 Starlette TestClient/httpx、passlib/argon2、funboost/Pydantic 与 websockets legacy API，
 不影响当前断言和退出码。完整协议见
 [WebSocket 与 SSE 统一流式协议](design_docs/WebSocket与SSE统一流式协议.md)。
+
+## 15. 2026-08-15 生产更新与回滚记录
+
+### 15.1 保留数据卷更新
+
+本机生产后端使用项目名 `fastapi-web-production`、环境文件 `.env.production.local`，Compose 文件为
+`compose.yml`、`compose.caddy.yml` 和 `compose.production.yml`。更新时保留现有命名卷，禁止执行
+`docker compose down -v`：
+
+```powershell
+docker compose `
+  --project-name fastapi-web-production `
+  --env-file .env.production.local `
+  -f compose.yml `
+  -f compose.caddy.yml `
+  -f compose.production.yml `
+  up -d --build
+```
+
+Nuxt 生产前端使用独立项目 `typescript-web-production`，在
+`E:\python_web_fastapi\typescript-web-nuxt` 使用相同文件组合与该目录的 `.env.production.local`
+执行 `up -d --build`。Caddy 使用
+`E:\python_web_fastapi\work\deploy\caddy\compose.yml`，项目名为 `fastapi-web-production-caddy`。
+
+### 15.2 当前健康状态
+
+2026-08-15 更新后，以下生产容器均为 `healthy`：
+
+- `fastapi-web-production-app-1`；
+- `fastapi-web-production-task-worker-1`；
+- `fastapi-web-production-postgres-1`；
+- `fastapi-web-production-redis-1`；
+- `fastapi-web-production-rabbitmq-1`；
+- `typescript-web-production-frontend-1`；
+- `fastapi-web-production-caddy-caddy-1`。
+
+`http://localhost:8080/health/ready` 返回 HTTP 200。测试依赖另由开发项目
+`fastapi-web-skeleton` 提供 PostgreSQL `127.0.0.1:55432`、Redis `127.0.0.1:56379` 和 RabbitMQ
+`127.0.0.1:5672`，不得把开发测试数据库与生产数据卷混用。
+
+### 15.3 备份与回滚入口
+
+更新前生产 PostgreSQL 备份为：
+
+```text
+E:\python_web_fastapi\work\.codex-tmp\production-backup-20260815-132848\pre-codex-unification-20260815-132848.dump
+```
+
+SHA-256：
+
+```text
+8ed90505c3c2fb1d8ba9bee664b665c557f04cbf01dae19fc491e239c4d668bf
+```
+
+应用回滚时先切回已验证的源码 revision 或镜像，再使用相同项目名、环境文件和 Compose 文件组合执行
+`up -d --build`，不得删除命名卷。只有数据库迁移不向后兼容且应用回滚无法读取现有结构时，才停止应用写入，
+校验上述 dump 摘要后恢复到独立数据库并切换连接；禁止直接覆盖仍在提供服务的生产数据库。
+
+### 15.4 本轮门禁
+
+- 后端真实依赖集成测试：`140 passed, 226 warnings`；
+- 后端全量：`1296 passed, 241 warnings`；
+- Ruff、mypy：通过；
+- 前端 `pnpm verify`：`167 passed`，覆盖率、production build、Playwright `9 passed` 均通过；
+- Windows Agent/MSI：0.1.10 本地安装、升级、维护、降级拒绝、卸载与重装通过。
+
+## 16. 2026-08-16 Codex 稳定性更新
+
+### 16.1 受影响服务更新
+
+后端只重建并更新 `app` 与 `task-worker`。前端更新必须同时加载 `compose.caddy.yml`，否则重建后的
+`frontend` 不会加入共享 edge 网络，Caddy 将无法解析 `frontend:3000`：
+
+```powershell
+docker compose `
+  --project-name typescript-web-production `
+  --env-file E:\python_web_fastapi\work\.env.production.local `
+  -f compose.yml `
+  -f compose.production.yml `
+  -f compose.caddy.yml `
+  up -d --no-deps frontend
+```
+
+本轮未执行 `down -v`。PostgreSQL、Redis、RabbitMQ 与 Caddy 容器和命名卷保持原实例，仅应用服务、
+worker 和前端容器重建。
+
+### 16.2 当前门禁
+
+- migration head：`202608161230`，`codex_control_operation.projection` 已存在；
+- 后端 Codex 集成与接口：`37 passed`；后端全量：`1327 passed, 241 warnings`；
+- Ruff、mypy：通过，mypy 覆盖 `641` 个源码文件；
+- 前端 `pnpm verify`：Vitest `32` 个文件 `178 passed`、覆盖率、production build、Playwright
+  `9 passed`；
+- 根入口和 `/health/ready`：HTTP `200`；全部生产容器 healthy；
+- 应用日志未出现 WebSocket 关闭后发送异常。

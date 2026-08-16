@@ -382,6 +382,7 @@ class CodexDeviceAuthorizationTestSupport:
             seq=sequence,
             event_id=uuid4(),
             app_server_instance_id=app_server_instance_id,
+            occurred_at=datetime.now(UTC),
             detail=detail,
         )
         websocket.send_text(
