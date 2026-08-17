@@ -12,6 +12,9 @@ not already exist and rejects an existing network with a different subnet.
 
 ## Temporary IP production acceptance
 
+The maintained Chinese deployment and operations runbook is
+[`docs/生产环境Docker一键部署与长期运维指南.md`](../../docs/生产环境Docker一键部署与长期运维指南.md).
+
 The current temporary public entry is `http://47.113.177.140`. Clone the two
 repositories as siblings on the server:
 
@@ -22,13 +25,18 @@ git clone git@github-backend:1nuo123/python-web-fastapi.git
 git clone git@github-frontend:1nuo123/typescript-web-nuxt.git
 ```
 
-Generate untracked production secrets and start the complete stack:
+Generate untracked production secrets and start the complete stack with the
+one-time bootstrap command:
 
 ```bash
 cd /opt/web/python-web-fastapi
-bash deploy/prepare-production-env.sh ../typescript-web-nuxt
-bash deploy/run-production-ip.sh ../typescript-web-nuxt
+bash deploy/production.sh bootstrap
 ```
+
+Routine releases use `bash deploy/production.sh update`; it creates a
+PostgreSQL backup, fast-forwards both repositories, rebuilds the stack, runs
+migrations, and verifies readiness. Run `bash deploy/production.sh help` for
+the complete command list.
 
 The environment generator creates three mode-`600` files:
 

@@ -44,6 +44,7 @@ def test_ip_production_scripts_should_keep_gateway_and_secrets_consistent() -> N
     project_root = Path(__file__).parents[2]
     prepare_script = (project_root / "deploy/prepare-production-env.sh").read_text(encoding="utf-8")
     run_script = (project_root / "deploy/run-production-ip.sh").read_text(encoding="utf-8")
+    operations_script = (project_root / "deploy/production.sh").read_text(encoding="utf-8")
     security_config = (
         project_root / "config/runtime/security_runtime/security_runtime_production.toml"
     ).read_text(encoding="utf-8")
@@ -56,7 +57,44 @@ def test_ip_production_scripts_should_keep_gateway_and_secrets_consistent() -> N
     assert "INITIAL_ADMIN_USERNAME=admin" in prepare_script
     assert 'EDGE_NETWORK_SUBNET="172.30.0.0/24"' in run_script
     assert "--env-from-file" in run_script
+    assert "PRODUCTION_BOOTSTRAP_ADMIN:-0" in run_script
+    assert "--project-name fastapi-web-production" in run_script
     assert "task-worker" not in run_script
+    assert "pg_dump -Fc" in operations_script
+    assert 'git -C "$BACKEND_ROOT" merge --ff-only origin/main' in operations_script
+    assert "docker system df" in operations_script
+    assert "down -v" not in operations_script
     assert 'trusted_proxy_cidr_blocks = ["172.30.0.0/24"]' in security_config
     assert '"http://47.113.177.140"' in stream_config
     assert "localhost" not in stream_config
+
+
+def test_production_compose_should_persist_runtime_state_and_rotate_logs() -> None:
+    project_root = Path(__file__).parents[2]
+    production_compose = (project_root / "compose.production.yml").read_text(encoding="utf-8")
+    caddy_compose = (project_root / "deploy/caddy/compose.yml").read_text(encoding="utf-8")
+
+    assert "redis_data:/data" in production_compose
+    assert "rabbitmq_data:/var/lib/rabbitmq" in production_compose
+    assert '"--appendonly"' in production_compose
+    assert 'max-size: "20m"' in production_compose
+    assert "max-size: '20m'" in caddy_compose
+
+
+def test_production_operations_guide_should_cover_full_lifecycle() -> None:
+    project_root = Path(__file__).parents[2]
+    guide = (project_root / "docs/生产环境Docker一键部署与长期运维指南.md").read_text(
+        encoding="utf-8"
+    )
+
+    for required_command in (
+        "bash deploy/production.sh bootstrap",
+        "bash deploy/production.sh update",
+        "bash deploy/production.sh backup",
+        "bash deploy/production.sh status",
+    ):
+        assert required_command in guide
+    assert "数据库恢复" in guide
+    assert "应用回滚" in guide
+    assert "正式域名与 HTTPS 切换" in guide
+    assert "docker compose down -v" in guide

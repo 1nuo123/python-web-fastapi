@@ -10,6 +10,7 @@ FRONTEND_ENV_FILE="$FRONTEND_ROOT/.env.production.local"
 EDGE_NETWORK_NAME="fastapi-web-production-edge"
 EDGE_NETWORK_SUBNET="172.30.0.0/24"
 DEPLOY_PUBLIC_IP="47.113.177.140"
+BOOTSTRAP_INITIAL_ADMIN="${PRODUCTION_BOOTSTRAP_ADMIN:-0}"
 
 for command_name in docker curl; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -18,17 +19,23 @@ for command_name in docker curl; do
   fi
 done
 
-for required_file in "$BACKEND_ENV_FILE" "$INITIAL_ADMIN_ENV_FILE" "$FRONTEND_ENV_FILE"; do
+for required_file in "$BACKEND_ENV_FILE" "$FRONTEND_ENV_FILE"; do
   if [[ ! -f "$required_file" ]]; then
     echo "Required environment file is missing: $required_file" >&2
     exit 1
   fi
 done
 
+if [[ "$BOOTSTRAP_INITIAL_ADMIN" == "1" && ! -f "$INITIAL_ADMIN_ENV_FILE" ]]; then
+  echo "Initial administrator environment file is missing: $INITIAL_ADMIN_ENV_FILE" >&2
+  exit 1
+fi
+
 if docker network inspect "$EDGE_NETWORK_NAME" >/dev/null 2>&1; then
   current_subnet="$(docker network inspect --format '{{(index .IPAM.Config 0).Subnet}}' "$EDGE_NETWORK_NAME")"
-  if [[ "$current_subnet" != "$EDGE_NETWORK_SUBNET" ]]; then
-    echo "Docker network $EDGE_NETWORK_NAME uses $current_subnet; expected $EDGE_NETWORK_SUBNET." >&2
+  current_internal="$(docker network inspect --format '{{.Internal}}' "$EDGE_NETWORK_NAME")"
+  if [[ "$current_subnet" != "$EDGE_NETWORK_SUBNET" || "$current_internal" != "true" ]]; then
+    echo "Docker network $EDGE_NETWORK_NAME must be internal with subnet $EDGE_NETWORK_SUBNET." >&2
     exit 1
   fi
 else
@@ -41,6 +48,7 @@ fi
 
 backend_compose=(
   docker compose
+  --project-name fastapi-web-production
   --project-directory "$BACKEND_ROOT"
   --env-file "$BACKEND_ENV_FILE"
   -f "$BACKEND_ROOT/compose.yml"
@@ -49,6 +57,7 @@ backend_compose=(
 )
 frontend_compose=(
   docker compose
+  --project-name typescript-web-production
   --project-directory "$FRONTEND_ROOT"
   --env-file "$FRONTEND_ENV_FILE"
   -f "$FRONTEND_ROOT/compose.yml"
@@ -57,6 +66,7 @@ frontend_compose=(
 )
 caddy_compose=(
   docker compose
+  --project-name fastapi-web-production-caddy
   --project-directory "$BACKEND_ROOT/deploy/caddy"
   --env-file "$BACKEND_ENV_FILE"
   -f "$BACKEND_ROOT/deploy/caddy/compose.yml"
@@ -67,12 +77,14 @@ caddy_compose=(
 "${caddy_compose[@]}" config --quiet
 
 "${backend_compose[@]}" up -d --build
-"${backend_compose[@]}" run \
-  --rm \
-  --no-deps \
-  --env-from-file "$INITIAL_ADMIN_ENV_FILE" \
-  app \
-  python -m src.cli.create_initial_admin
+if [[ "$BOOTSTRAP_INITIAL_ADMIN" == "1" ]]; then
+  "${backend_compose[@]}" run \
+    --rm \
+    --no-deps \
+    --env-from-file "$INITIAL_ADMIN_ENV_FILE" \
+    app \
+    python -m src.cli.create_initial_admin
+fi
 "${frontend_compose[@]}" up -d --build
 "${caddy_compose[@]}" up -d
 
@@ -93,4 +105,6 @@ done
 "${caddy_compose[@]}" ps
 
 echo "Temporary production entry: http://$DEPLOY_PUBLIC_IP"
-echo "After recording the admin password, remove: $INITIAL_ADMIN_ENV_FILE"
+if [[ "$BOOTSTRAP_INITIAL_ADMIN" == "1" ]]; then
+  echo "After recording the admin password, remove: $INITIAL_ADMIN_ENV_FILE"
+fi

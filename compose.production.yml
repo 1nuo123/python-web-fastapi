@@ -1,15 +1,29 @@
+x-production-logging: &production-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 services:
   postgres:
     ports: !reset []
+    logging: *production-logging
 
   redis:
     command:
       [
         "redis-server",
+        "--appendonly",
+        "yes",
+        "--appendfsync",
+        "everysec",
         "--requirepass",
         "${REDIS_PASSWORD:?REDIS_PASSWORD is required}",
       ]
     ports: !reset []
+    volumes:
+      - redis_data:/data
+    logging: *production-logging
     healthcheck:
       test:
         [
@@ -26,6 +40,9 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
     ports: !reset []
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    logging: *production-logging
 
   migration:
     read_only: true
@@ -36,6 +53,7 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 128
+    logging: *production-logging
     environment:
       APP_ENV: production
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
@@ -55,6 +73,7 @@ services:
       - no-new-privileges:true
     pids_limit: 256
     stop_grace_period: 40s
+    logging: *production-logging
     deploy:
       resources:
         limits:
@@ -84,6 +103,7 @@ services:
       - no-new-privileges:true
     pids_limit: 256
     stop_grace_period: 40s
+    logging: *production-logging
     deploy:
       resources:
         limits:
@@ -101,3 +121,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${AUTH_BOOTSTRAP_ADMIN_PASSWORD:-}
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}@rabbitmq:5672/${RABBITMQ_VHOST_ENCODED:-%2F}
+
+volumes:
+  redis_data:
+  rabbitmq_data:

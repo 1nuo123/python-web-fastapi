@@ -1,5 +1,11 @@
 name: fastapi-web-caddy
 
+x-production-logging: &production-logging
+  driver: json-file
+  options:
+    max-size: '20m'
+    max-file: '5'
+
 services:
   caddy:
     image: caddy:2.10.2-alpine
@@ -17,6 +23,7 @@ services:
       - no-new-privileges:true
     pids_limit: 128
     mem_limit: 256m
+    logging: *production-logging
     ports:
       - '${CADDY_BIND_ADDRESS:-127.0.0.1}:${CADDY_HTTP_PORT:-8080}:80'
       - '${CADDY_BIND_ADDRESS:-127.0.0.1}:${CADDY_HTTPS_PORT:-8443}:443'
