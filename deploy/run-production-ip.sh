@@ -9,10 +9,9 @@ INITIAL_ADMIN_ENV_FILE="$BACKEND_ROOT/.env.initial-admin.local"
 FRONTEND_ENV_FILE="$FRONTEND_ROOT/.env.production.local"
 EDGE_NETWORK_NAME="fastapi-web-production-edge"
 EDGE_NETWORK_SUBNET="172.30.0.0/24"
-DEPLOY_PUBLIC_IP="47.113.177.140"
 BOOTSTRAP_INITIAL_ADMIN="${PRODUCTION_BOOTSTRAP_ADMIN:-0}"
 
-for command_name in docker curl; do
+for command_name in docker curl awk; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     echo "Required command is missing: $command_name" >&2
     exit 1
@@ -88,9 +87,23 @@ fi
 "${frontend_compose[@]}" up -d --build
 "${caddy_compose[@]}" up -d
 
-ready_url="http://127.0.0.1/health/ready"
+site_address="$(awk -F= '$1 == "CADDY_SITE_ADDRESS" {print substr($0, index($0, "=") + 1)}' "$BACKEND_ENV_FILE" | tail -n 1)"
+if [[ -z "$site_address" ]]; then
+  echo "CADDY_SITE_ADDRESS is missing from $BACKEND_ENV_FILE" >&2
+  exit 1
+fi
+ready_curl_args=()
+case "$site_address" in
+  http://*|https://*)
+    ready_url="${site_address%/}/health/ready"
+    ;;
+  *)
+    ready_url="https://${site_address%/}/health/ready"
+    ready_curl_args+=(--resolve "${site_address%/}:443:127.0.0.1")
+    ;;
+esac
 for attempt in $(seq 1 60); do
-  if curl --fail --silent --show-error "$ready_url" >/dev/null; then
+  if curl --fail --silent --show-error "${ready_curl_args[@]}" "$ready_url" >/dev/null; then
     break
   fi
   if [[ "$attempt" -eq 60 ]]; then
@@ -104,7 +117,7 @@ done
 "${frontend_compose[@]}" ps
 "${caddy_compose[@]}" ps
 
-echo "Temporary production entry: http://$DEPLOY_PUBLIC_IP"
+echo "Production entry is configured by CADDY_SITE_ADDRESS in $BACKEND_ENV_FILE"
 if [[ "$BOOTSTRAP_INITIAL_ADMIN" == "1" ]]; then
   echo "After recording the admin password, remove: $INITIAL_ADMIN_ENV_FILE"
 fi

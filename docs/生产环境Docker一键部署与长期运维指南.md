@@ -14,12 +14,12 @@
 | 后端仓库 | `git@github-backend:1nuo123/python-web-fastapi.git` |
 | 前端仓库 | `git@github-frontend:1nuo123/typescript-web-nuxt.git` |
 | 部署根目录 | `/opt/web` |
-| 当前入口 | `http://47.113.177.140` |
-| 正式域名 | 暂无，后续切换 HTTPS |
+| 当前入口 | `https://nuotop.xyz` |
+| 正式域名 | `nuotop.xyz` |
 | 注册策略 | 允许公开注册 |
 | 任务拓扑 | Web 生产者 + 独立 `task-worker` 消费者 |
 
-本文从服务器拉取代码开始，覆盖首次初始化、发布、更新、备份、恢复、回滚、日志、监控、安全和域名 HTTPS 切换。Windows Agent 工作区属于用户电脑，不部署到云服务器。
+本文从服务器拉取代码开始，覆盖首次初始化、发布、更新、备份、恢复、回滚、日志、监控、安全和域名 HTTPS 验收。Windows Agent 工作区属于用户电脑，不部署到云服务器。
 
 ## 2. 生产架构与边界
 
@@ -55,7 +55,7 @@ FastAPI app ---- PostgreSQL
 | `fastapi-web-production_postgres_data` | 权威业务数据 | 必须使用 `pg_dump` 定期备份并异地保存 |
 | `fastapi-web-production_redis_data` | Redis AOF、流式短期状态 | 重启连续性，不替代 PostgreSQL 备份 |
 | `fastapi-web-production_rabbitmq_data` | RabbitMQ 队列状态 | 重启连续性，任务最终恢复仍以数据库 Outbox/执行记录为准 |
-| `fastapi-web-production-caddy_caddy_data` | TLS 证书和 Caddy 状态 | 启用正式域名后纳入主机或卷备份 |
+| `fastapi-web-production-caddy_caddy_data` | TLS 证书和 Caddy 状态 | 必须纳入主机或卷备份 |
 | `fastapi-web-production-caddy_caddy_config` | Caddy 运行配置 | 可重建，但建议与证书卷一起保护 |
 
 生产容器使用 JSON 日志轮转：单文件最大 `20m`，每个容器最多保留 5 个文件。它只能控制容器日志，不能控制 Docker 镜像和构建缓存占用。
@@ -144,7 +144,7 @@ bash deploy/production.sh bootstrap
 4. 校验三个 Compose 项目。
 5. 构建并启动 PostgreSQL、Redis、RabbitMQ、数据库迁移、FastAPI、Worker、Nuxt 和 Caddy。
 6. 创建用户名为 `admin` 的初始管理员。
-7. 检查 `http://127.0.0.1/health/ready`。
+7. 通过本机 `127.0.0.1:443` 检查 `https://nuotop.xyz/health/ready` 的证书和路由。
 
 `bootstrap` 只用于全新环境。只要任一生产环境文件已存在，它就会拒绝覆盖，防止意外重置密钥。
 
@@ -161,13 +161,14 @@ rm -f /opt/web/python-web-fastapi/.env.initial-admin.local
 ```bash
 cd /opt/web/python-web-fastapi
 bash deploy/production.sh status
-curl -fsS http://127.0.0.1/health/ready
+curl -I http://nuotop.xyz
+curl -fsS https://nuotop.xyz/health/ready
 ```
 
 浏览器访问：
 
 ```text
-http://47.113.177.140
+https://nuotop.xyz
 ```
 
 需要确认：
@@ -179,7 +180,7 @@ http://47.113.177.140
 - PostgreSQL、Redis、RabbitMQ 没有发布公网端口。
 - 重启 Docker 后容器能按 `restart: unless-stopped` 自动恢复。
 
-临时 HTTP 只能用于阶段验收。刷新令牌 Cookie 保持 `Secure`，因此持久登录刷新和 Windows Agent WSS 必须在正式域名 HTTPS 上重新验收。
+刷新令牌 Cookie 保持 `Secure`，Windows Agent 使用 WSS，因此首次部署前必须确保域名已解析到服务器且 TCP 80/443 可达。Caddy 会自动申请证书；证书签发成功后再完成浏览器和 Agent 验收。
 
 ## 5. 统一运维命令
 
@@ -492,27 +493,27 @@ docker builder prune --filter 'until=168h'
 - CPU、内存、根磁盘和 Docker 数据目录空间。
 - TLS 证书剩余时间，启用域名后必须告警。
 
-## 13. 正式域名与 HTTPS 切换
+## 13. 正式域名与 HTTPS 启用
 
-满足 DNS 和备案条件后：
+域名可用后按以下步骤闭环：
 
-1. 将域名 A 记录指向 `47.113.177.140`。
+1. 在阿里云 DNS 添加主机记录 `@`、类型 `A`、记录值 `47.113.177.140`、TTL `600`。
 2. 确认安全组开放 TCP 80/443，UDP 443 可选。
-3. 编辑后端 `.env.production.local`：
+3. 确认后端 `/opt/web/python-web-fastapi/.env.production.local` 包含：
 
 ```dotenv
-CADDY_SITE_ADDRESS=app.example.com
+CADDY_SITE_ADDRESS=nuotop.xyz
 ```
 
-4. 将 `config/runtime/stream_runtime/stream_runtime_production.toml` 的 `allowed_origins` 更新为真实 HTTPS Origin，例如：
+4. 生产流配置已固定为真实 HTTPS Origin：
 
 ```toml
 allowed_origins = [
-  "https://app.example.com",
+  "https://nuotop.xyz",
 ]
 ```
 
-该配置属于代码，必须在开发机提交、测试、推送，再由服务器执行 `update`；不要只在服务器留下不可追踪的源码修改。
+该配置属于代码，应由服务器通过仓库更新获取，不要在服务器直接修改源码。
 
 5. 发布：
 
@@ -524,11 +525,12 @@ bash deploy/production.sh update
 6. 验收：
 
 ```bash
-curl -fsS https://app.example.com/health/ready
-curl -I https://app.example.com
+curl -I http://nuotop.xyz
+curl -I https://nuotop.xyz
+curl -fsS https://nuotop.xyz/health/ready
 ```
 
-浏览器必须验证登录刷新、退出、公开注册、WebSocket 重连、移动网络切换和页面快照恢复。确认 HTTPS 稳定后，再决定是否保留 IP HTTP 访问。
+浏览器必须验证登录刷新、退出、公开注册、WebSocket 重连、移动网络切换和页面快照恢复。Windows Agent 必须验证下载、设备授权、WSS 重连和远程任务执行。生产入口只使用域名 HTTPS，不把裸 IP HTTP 作为业务入口。
 
 ## 14. 主机安全最佳实践
 

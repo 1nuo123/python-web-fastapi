@@ -25,7 +25,7 @@ websocket_ping_interval_seconds = 20.0
 websocket_ping_timeout_seconds = 20.0
 shutdown_grace_seconds = 20.0
 allowed_origins = [
-  "http://47.113.177.140",
+  "https://nuotop.xyz",
 ]
 require_browser_ticket = true
 redis_key_prefix = "fastapi-stream"

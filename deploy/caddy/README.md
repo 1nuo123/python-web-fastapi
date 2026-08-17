@@ -10,12 +10,13 @@ accepts forwarded client IP and Origin metadata only from the gateway network.
 The startup script runs `docker network create` when this external network does
 not already exist and rejects an existing network with a different subnet.
 
-## Temporary IP production acceptance
+## Domain production deployment
 
 The maintained Chinese deployment and operations runbook is
 [`docs/生产环境Docker一键部署与长期运维指南.md`](../../docs/生产环境Docker一键部署与长期运维指南.md).
 
-The current temporary public entry is `http://47.113.177.140`. Clone the two
+The public entry is `https://nuotop.xyz`. Point the apex DNS A record at
+`47.113.177.140`, then clone the two
 repositories as siblings on the server:
 
 ```bash
@@ -47,16 +48,10 @@ The environment generator creates three mode-`600` files:
 Record the generated `admin` password securely and remove
 `.env.initial-admin.local` after the administrator is created.
 
-Plain HTTP is only a temporary server acceptance path. Production refresh
-cookies remain `Secure`, so persistent browser sessions and Windows Agent WSS
-must be accepted again after a real HTTPS domain is available.
-
-## Domain production
-
-After DNS and ICP filing are ready, change `CADDY_SITE_ADDRESS` in the backend
-production environment file to the domain, replace the production stream
-allowed Origin with `https://<domain>`, and restart the backend and gateway.
-Caddy will obtain and renew the public certificate automatically.
+The generated backend environment uses `CADDY_SITE_ADDRESS=nuotop.xyz` by
+default. Once DNS resolves publicly and TCP ports 80 and 443 reach this host,
+Caddy obtains and renews the public HTTPS certificate automatically. Production
+refresh cookies and the Windows Agent WebSocket connection are HTTPS/WSS only.
 
 The `caddy_data` volume stores certificates and must be backed up. Never use
 `docker compose down -v` during routine deployment or rollback.

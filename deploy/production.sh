@@ -10,7 +10,8 @@ FRONTEND_ENV_FILE="$FRONTEND_ROOT/.env.production.local"
 BACKUP_ROOT="${PRODUCTION_BACKUP_ROOT:-/var/backups/fastapi-web}"
 EDGE_NETWORK_NAME="fastapi-web-production-edge"
 EDGE_NETWORK_SUBNET="172.30.0.0/24"
-READY_URL="http://127.0.0.1/health/ready"
+READY_URL=""
+READY_CURL_ARGS=()
 COMMAND="${1:-help}"
 
 backend_compose=(
@@ -135,10 +136,30 @@ validate_config() {
   "${caddy_compose[@]}" config --quiet
 }
 
+load_readiness_target() {
+  local site_address
+  site_address="$(awk -F= '$1 == "CADDY_SITE_ADDRESS" {print substr($0, index($0, "=") + 1)}' "$BACKEND_ENV_FILE" | tail -n 1)"
+  if [[ -z "$site_address" ]]; then
+    echo "CADDY_SITE_ADDRESS is missing from $BACKEND_ENV_FILE" >&2
+    exit 1
+  fi
+  READY_CURL_ARGS=()
+  case "$site_address" in
+    http://*|https://*)
+      READY_URL="${site_address%/}/health/ready"
+      ;;
+    *)
+      READY_URL="https://${site_address%/}/health/ready"
+      READY_CURL_ARGS+=(--resolve "${site_address%/}:443:127.0.0.1")
+      ;;
+  esac
+}
+
 wait_for_readiness() {
   local attempt
+  load_readiness_target
   for attempt in $(seq 1 60); do
-    if curl --fail --silent --show-error "$READY_URL" >/dev/null; then
+    if curl --fail --silent --show-error "${READY_CURL_ARGS[@]}" "$READY_URL" >/dev/null; then
       echo "Readiness check passed: $READY_URL"
       return
     fi
@@ -302,7 +323,8 @@ show_status() {
   "${caddy_compose[@]}" ps
   df -h /
   docker system df
-  curl --fail --silent --show-error "$READY_URL"
+  load_readiness_target
+  curl --fail --silent --show-error "${READY_CURL_ARGS[@]}" "$READY_URL"
   echo
 }
 
@@ -328,7 +350,7 @@ stop_stack() {
 }
 
 doctor() {
-  for command_name in git docker openssl sha256sum curl; do
+  for command_name in git docker openssl sha256sum curl awk; do
     require_command "$command_name"
   done
   require_repositories
@@ -344,7 +366,7 @@ doctor() {
 
 case "$COMMAND" in
   bootstrap)
-    for command_name in git docker openssl sha256sum curl; do
+    for command_name in git docker openssl sha256sum curl awk; do
       require_command "$command_name"
     done
     bootstrap

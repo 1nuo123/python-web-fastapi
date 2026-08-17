@@ -40,7 +40,7 @@ def test_caddy_operations_document_should_require_https_acceptance() -> None:
     assert "snapshot" in content
 
 
-def test_ip_production_scripts_should_keep_gateway_and_secrets_consistent() -> None:
+def test_production_scripts_should_keep_gateway_and_secrets_consistent() -> None:
     project_root = Path(__file__).parents[2]
     prepare_script = (project_root / "deploy/prepare-production-env.sh").read_text(encoding="utf-8")
     run_script = (project_root / "deploy/run-production-ip.sh").read_text(encoding="utf-8")
@@ -55,17 +55,21 @@ def test_ip_production_scripts_should_keep_gateway_and_secrets_consistent() -> N
     assert "openssl rand -hex" in prepare_script
     assert ".env.initial-admin.local" in prepare_script
     assert "INITIAL_ADMIN_USERNAME=admin" in prepare_script
+    assert 'PRODUCTION_SITE_ADDRESS="${PRODUCTION_SITE_ADDRESS:-nuotop.xyz}"' in prepare_script
     assert 'EDGE_NETWORK_SUBNET="172.30.0.0/24"' in run_script
     assert "--env-from-file" in run_script
     assert "PRODUCTION_BOOTSTRAP_ADMIN:-0" in run_script
     assert "--project-name fastapi-web-production" in run_script
+    assert "docker curl awk" in run_script
+    assert '--resolve "${site_address%/}:443:127.0.0.1"' in run_script
     assert "task-worker" not in run_script
     assert "pg_dump -Fc" in operations_script
     assert 'git -C "$BACKEND_ROOT" merge --ff-only origin/main' in operations_script
     assert "docker system df" in operations_script
+    assert "load_readiness_target" in operations_script
     assert "down -v" not in operations_script
     assert 'trusted_proxy_cidr_blocks = ["172.30.0.0/24"]' in security_config
-    assert '"http://47.113.177.140"' in stream_config
+    assert '"https://nuotop.xyz"' in stream_config
     assert "localhost" not in stream_config
 
 
@@ -96,5 +100,5 @@ def test_production_operations_guide_should_cover_full_lifecycle() -> None:
         assert required_command in guide
     assert "数据库恢复" in guide
     assert "应用回滚" in guide
-    assert "正式域名与 HTTPS 切换" in guide
+    assert "正式域名与 HTTPS 启用" in guide
     assert "docker compose down -v" in guide
