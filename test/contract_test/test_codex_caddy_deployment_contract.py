@@ -4,6 +4,8 @@ import shlex
 import subprocess
 from pathlib import Path
 
+import yaml
+
 
 def test_caddy_template_should_proxy_same_origin_without_secrets() -> None:
     content = (Path(__file__).parents[2] / "deploy/caddy/Caddyfile.example").read_text(
@@ -99,13 +101,30 @@ def test_production_scripts_should_keep_gateway_and_secrets_consistent() -> None
     assert "true|false) ;;" in prepare_script
     assert "PRODUCTION_CODEX_FEATURE_ENABLED must be true or false." in prepare_script
     assert "NUXT_PUBLIC_CODEX_FEATURE_ENABLED=$PRODUCTION_CODEX_FEATURE_ENABLED" in prepare_script
+    assert (
+        'PRODUCTION_RESOURCE_PROFILE="${PRODUCTION_RESOURCE_PROFILE:-standard}"' in prepare_script
+    )
+    assert 'case "$PRODUCTION_RESOURCE_PROFILE" in' in prepare_script
+    assert "PRODUCTION_RESOURCE_PROFILE must be standard or small." in prepare_script
+    assert "PRODUCTION_RESOURCE_PROFILE=$PRODUCTION_RESOURCE_PROFILE" in prepare_script
     assert 'EDGE_NETWORK_SUBNET="172.30.0.0/24"' in run_script
     assert "--env-from-file" in run_script
     assert "PRODUCTION_BOOTSTRAP_ADMIN:-0" in run_script
     assert "--project-name fastapi-web-production" in run_script
     assert "docker curl awk" in run_script
     assert '--resolve "${site_address%/}:443:127.0.0.1"' in run_script
+    assert 'COMPOSE_PARALLEL_LIMIT=1 "${backend_compose[@]}" build' in run_script
+    assert 'COMPOSE_PARALLEL_LIMIT=1 "${frontend_compose[@]}" build' in run_script
+    assert '"${backend_compose[@]}" up -d --no-build' in run_script
+    assert '"${frontend_compose[@]}" up -d --no-build' in run_script
+    assert '"${caddy_compose[@]}" up -d --no-build' in run_script
+    assert "up -d --build" not in run_script
     assert "task-worker" not in run_script
+    assert "compose.production.small.yml" in operations_script
+    assert "compose.production.small.yml" in run_script
+    assert "compose.small.yml" in operations_script
+    assert "compose.small.yml" in run_script
+    assert "PRODUCTION_RESOURCE_PROFILE must be standard or small." in operations_script
     assert "pg_dump -Fc" in operations_script
     assert 'git -C "$BACKEND_ROOT" merge --ff-only origin/main' in operations_script
     assert "docker system df" in operations_script
@@ -124,8 +143,13 @@ def test_prepare_production_environment_should_disable_codex_by_default_and_vali
     project_root = Path(__file__).parents[2]
     source_script = project_root / "deploy/prepare-production-env.sh"
 
-    def run_prepare(feature_enabled: str | None) -> subprocess.CompletedProcess[str]:
-        profile = feature_enabled if feature_enabled is not None else "default"
+    def run_prepare(
+        feature_enabled: str | None,
+        resource_profile: str | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        profile = "-".join(
+            value for value in (feature_enabled or "default", resource_profile or "standard")
+        )
         backend_root = tmp_path / f"backend-{profile}"
         script_root = backend_root / "deploy"
         script_root.mkdir(parents=True)
@@ -135,14 +159,23 @@ def test_prepare_production_environment_should_disable_codex_by_default_and_vali
         frontend_root = backend_root.parent / f"frontend-{backend_root.name}"
         frontend_root.mkdir()
         command = ["bash", f"./deploy/{source_script.name}", f"../{frontend_root.name}"]
+        environment_exports: list[str] = []
         if feature_enabled is not None:
+            environment_exports.append(
+                f"PRODUCTION_CODEX_FEATURE_ENABLED={shlex.quote(feature_enabled)}"
+            )
+        if resource_profile is not None:
+            environment_exports.append(
+                f"PRODUCTION_RESOURCE_PROFILE={shlex.quote(resource_profile)}"
+            )
+        if environment_exports:
             prepare_command = shlex.join(
                 [f"./deploy/{source_script.name}", f"../{frontend_root.name}"]
             )
             command = [
                 "bash",
                 "-c",
-                f"export PRODUCTION_CODEX_FEATURE_ENABLED={shlex.quote(feature_enabled)}; exec {prepare_command}",
+                f"export {' '.join(environment_exports)}; exec {prepare_command}",
             ]
         return subprocess.run(
             command,
@@ -154,21 +187,90 @@ def test_prepare_production_environment_should_disable_codex_by_default_and_vali
 
     default_result = run_prepare(None)
     assert default_result.returncode == 0, default_result.stderr
-    default_environment = (tmp_path / "frontend-backend-default/.env.production.local").read_text(
-        encoding="utf-8"
-    )
+    default_environment = (
+        tmp_path / "frontend-backend-default-standard/.env.production.local"
+    ).read_text(encoding="utf-8")
     assert "NUXT_PUBLIC_CODEX_FEATURE_ENABLED=false" in default_environment
 
     enabled_result = run_prepare("true")
     assert enabled_result.returncode == 0, enabled_result.stderr
-    enabled_environment = (tmp_path / "frontend-backend-true/.env.production.local").read_text(
-        encoding="utf-8"
-    )
+    enabled_environment = (
+        tmp_path / "frontend-backend-true-standard/.env.production.local"
+    ).read_text(encoding="utf-8")
     assert "NUXT_PUBLIC_CODEX_FEATURE_ENABLED=true" in enabled_environment
 
     invalid_result = run_prepare("enabled")
     assert invalid_result.returncode != 0
     assert "PRODUCTION_CODEX_FEATURE_ENABLED must be true or false." in invalid_result.stderr
+
+    small_result = run_prepare(None, "small")
+    assert small_result.returncode == 0, small_result.stderr
+    small_backend_environment = (
+        tmp_path / "backend-default-small/.env.production.local"
+    ).read_text(encoding="utf-8")
+    small_frontend_environment = (
+        tmp_path / "frontend-backend-default-small/.env.production.local"
+    ).read_text(encoding="utf-8")
+    assert "PRODUCTION_RESOURCE_PROFILE=small" in small_backend_environment
+    assert "PRODUCTION_RESOURCE_PROFILE=small" in small_frontend_environment
+
+    invalid_profile_result = run_prepare(None, "medium")
+    assert invalid_profile_result.returncode != 0
+    assert "PRODUCTION_RESOURCE_PROFILE must be standard or small." in invalid_profile_result.stderr
+
+
+def test_small_production_profile_should_apply_explicit_runtime_and_build_limits() -> None:
+    """2 GiB ECS 必须使用可审计的小规格运行时与构建资源上限。"""
+
+    project_root = Path(__file__).parents[2]
+    frontend_root = project_root.parent / "typescript-web-nuxt"
+    backend_profile = yaml.safe_load(
+        (project_root / "compose.production.small.yml").read_text(encoding="utf-8")
+    )
+    caddy_profile = yaml.safe_load(
+        (project_root / "deploy/caddy/compose.small.yml").read_text(encoding="utf-8")
+    )
+    frontend_profile = yaml.safe_load(
+        (frontend_root / "compose.production.small.yml").read_text(encoding="utf-8")
+    )
+    frontend_dockerfile = (frontend_root / "Dockerfile").read_text(encoding="utf-8")
+
+    expected_backend_memory = {
+        "postgres": "160m",
+        "redis": "64m",
+        "rabbitmq": "160m",
+        "migration": "256m",
+        "app": "320m",
+        "task-worker": "192m",
+    }
+    for service_name, expected_memory in expected_backend_memory.items():
+        service = backend_profile["services"][service_name]
+        assert service["mem_limit"] == expected_memory
+        assert service["deploy"]["resources"]["limits"]["memory"] == expected_memory
+        assert service["pids_limit"] > 0
+
+    caddy_service = caddy_profile["services"]["caddy"]
+    frontend_service = frontend_profile["services"]["frontend"]
+    assert caddy_service["mem_limit"] == "64m"
+    assert caddy_service["deploy"]["resources"]["limits"]["memory"] == "64m"
+    assert frontend_service["mem_limit"] == "160m"
+    assert frontend_service["deploy"]["resources"]["limits"]["memory"] == "160m"
+    assert frontend_service["build"]["args"]["NODE_BUILD_MAX_OLD_SPACE_SIZE"] == "1024"
+    steady_service_names = ("postgres", "redis", "rabbitmq", "app", "task-worker")
+    steady_memory_mebibytes = (
+        sum(
+            int(backend_profile["services"][service_name]["mem_limit"].removesuffix("m"))
+            for service_name in steady_service_names
+        )
+        + int(caddy_service["mem_limit"].removesuffix("m"))
+        + int(frontend_service["mem_limit"].removesuffix("m"))
+    )
+    assert steady_memory_mebibytes == 1120
+    assert 'ARG NODE_BUILD_MAX_OLD_SPACE_SIZE=""' in frontend_dockerfile
+    assert (
+        'export NODE_OPTIONS="--max-old-space-size=$NODE_BUILD_MAX_OLD_SPACE_SIZE"'
+        in frontend_dockerfile
+    )
 
 
 def test_production_compose_should_persist_runtime_state_and_rotate_logs() -> None:
@@ -202,4 +304,7 @@ def test_production_operations_guide_should_cover_full_lifecycle() -> None:
     assert "Codex Remote 发布门禁" in guide
     assert "PRODUCTION_CODEX_FEATURE_ENABLED=true bash deploy/production.sh bootstrap" in guide
     assert "Authenticode 签名、TUF 发布元数据" in guide
+    assert "PRODUCTION_RESOURCE_PROFILE=small" in guide
+    assert "1,120 MiB" in guide
+    assert "2 GiB 小规格资源档位" in guide
     assert "docker compose down -v" in guide

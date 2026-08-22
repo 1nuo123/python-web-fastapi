@@ -1,0 +1,14 @@
+services:
+  caddy:
+    cpus: "0.10"
+    mem_limit: 64m
+    pids_limit: 64
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 64m
+          pids: 64
+        reservations:
+          cpus: "0.05"
+          memory: 32m

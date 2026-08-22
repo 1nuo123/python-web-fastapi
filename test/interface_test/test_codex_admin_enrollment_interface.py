@@ -98,6 +98,9 @@ class TestCodexAdminEnrollmentInterface:
         )
         assert release.data.detail.download_url.startswith("https://")
         assert release.data.detail.manifest_url.startswith("https://")
+        assert release.data.detail.distribution_mode.value == "verified"
+        assert len(release.data.detail.artifact_sha256) == 64
+        assert release.data.detail.automatic_updates_enabled is True
 
     def test_enrollment_intent_should_bind_token_session_and_hide_browser_token(self) -> None:
         app = TestAppFactory().create()

@@ -9,6 +9,7 @@ INITIAL_ADMIN_ENV_FILE="$BACKEND_ROOT/.env.initial-admin.local"
 FRONTEND_ENV_FILE="$FRONTEND_ROOT/.env.production.local"
 PRODUCTION_SITE_ADDRESS="${PRODUCTION_SITE_ADDRESS:-nuotop.xyz}"
 PRODUCTION_CODEX_FEATURE_ENABLED="${PRODUCTION_CODEX_FEATURE_ENABLED:-false}"
+PRODUCTION_RESOURCE_PROFILE="${PRODUCTION_RESOURCE_PROFILE:-standard}"
 POSTGRES_DB="fastapi_web_skeleton"
 POSTGRES_USER="fastapi_prod"
 
@@ -16,6 +17,14 @@ case "$PRODUCTION_CODEX_FEATURE_ENABLED" in
   true|false) ;;
   *)
     echo "PRODUCTION_CODEX_FEATURE_ENABLED must be true or false." >&2
+    exit 1
+    ;;
+esac
+
+case "$PRODUCTION_RESOURCE_PROFILE" in
+  standard|small) ;;
+  *)
+    echo "PRODUCTION_RESOURCE_PROFILE must be standard or small." >&2
     exit 1
     ;;
 esac
@@ -52,6 +61,7 @@ database_fingerprint="$(printf '%s' "$database_fingerprint_source" | sha256sum |
 
 cat > "$BACKEND_ENV_FILE" <<EOF
 APP_ENV=production
+PRODUCTION_RESOURCE_PROFILE=$PRODUCTION_RESOURCE_PROFILE
 POSTGRES_DB=$POSTGRES_DB
 POSTGRES_USER=$POSTGRES_USER
 POSTGRES_PASSWORD=$postgres_password
@@ -81,6 +91,7 @@ EOF
 
 cat > "$FRONTEND_ENV_FILE" <<EOF
 EDGE_NETWORK_NAME=fastapi-web-production-edge
+PRODUCTION_RESOURCE_PROFILE=$PRODUCTION_RESOURCE_PROFILE
 NUXT_API_BASE_URL=http://app:8000
 NUXT_PUBLIC_API_BASE_URL=/api
 NUXT_PUBLIC_API_TIMEOUT=10000

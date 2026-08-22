@@ -68,35 +68,164 @@ FastAPI app ---- PostgreSQL
 
 生产容器使用 JSON 日志轮转：单文件最大 `20m`，每个容器最多保留 5 个文件。它只能控制容器日志，不能控制 Docker 镜像和构建缓存占用。
 
-## 3. 部署前检查
+## 3. 服务器接入与部署前准备
 
-### 3.1 安全组
+### 3.1 配置并验证 SSH 登录
+
+本机登录密钥固定为 `C:\Users\ThinkPad\.ssh\aliyun_fastapi`，服务器公网 IP 固定为 `39.96.201.189`。在 Windows PowerShell 执行：
+
+```powershell
+ssh -i "C:\Users\ThinkPad\.ssh\aliyun_fastapi" root@39.96.201.189
+```
+
+也可以在本机 `C:\Users\ThinkPad\.ssh\config` 中添加别名，后续统一使用 `ssh aliyun-fastapi`：
+
+```sshconfig
+Host aliyun-fastapi
+    HostName 39.96.201.189
+    User root
+    IdentityFile C:/Users/ThinkPad/.ssh/aliyun_fastapi
+    IdentitiesOnly yes
+```
+
+```powershell
+ssh aliyun-fastapi
+```
+
+后续所有操作统一使用 SSH 别名 `aliyun-fastapi`、公网 IP `39.96.201.189` 和部署根目录 `/opt/web`。
+
+### 3.2 确认 SSH 用户与 sudo
+
+登录后在 Ubuntu 终端执行：
+
+```bash
+whoami
+id
+command -v sudo
+sudo -n true && echo "sudo available"
+```
+
+当前部署流程的预期用户是 `root`，`whoami` 应输出 `root`。使用 `root` 时部署命令不需要额外添加 `sudo`；若实际登录的是普通用户，应先确认该用户拥有 sudo 权限，再执行 `sudo -i` 进入 root 登录 Shell。后续密钥路径和部署命令均以 `/root` 为主目录，不要在普通用户与 root 之间混用密钥。
+
+### 3.3 开放阿里云安全组
+
+进入阿里云 ECS 实例的“安全组 → 配置规则 → 入方向”，添加或确认以下规则：
 
 | 协议 | 端口 | 来源 | 说明 |
 | --- | --- | --- | --- |
 | TCP | 22 | 当前管理公网 IP `/32` | 不建议长期保留 `0.0.0.0/0` |
 | TCP | 80 | `0.0.0.0/0` | HTTP 和证书签发跳转 |
 | TCP | 443 | `0.0.0.0/0` | HTTPS |
-| UDP | 443 | `0.0.0.0/0` | 可选，HTTP/3 |
+| UDP | 443 | `0.0.0.0/0` | 可选，用于 HTTP/3 |
 
-不要开放 `5432`、`6379`、`5672`、`15672`、`8000` 或 `3000`。
+不要开放 `5432`、`6379`、`5672`、`15672`、`8000` 或 `3000`。修改 22 端口来源前先确认当前公网 IP，避免把自己锁在服务器外。
 
-### 3.2 Deploy Key
+### 3.4 配置两套 GitHub Deploy Key
 
-服务器的 `~/.ssh/config` 应存在 `github-backend` 和 `github-frontend` 两个 Host 别名，并分别使用对应私有仓库的只读 Deploy Key。
+前后端仓库必须使用相互独立的只读 Deploy Key。以下命令全部在服务器的 Ubuntu root 终端执行。
 
-只读验证：
+先检查目标密钥是否已经存在：
+
+```bash
+ls -l /root/.ssh/github_backend_deploy* /root/.ssh/github_frontend_deploy* 2>/dev/null || true
+```
+
+若已经存在且 GitHub Deploy Key 仍然有效，不要重新生成或覆盖；以下生成命令仅用于首次配置或经过计划的密钥轮换。确认目标文件不存在后，创建 SSH 目录并生成两套密钥：
+
+```bash
+install -d -m 700 /root/.ssh
+
+ssh-keygen -t ed25519 \
+  -C "aliyun-fastapi-backend" \
+  -f /root/.ssh/github_backend_deploy \
+  -N ""
+
+ssh-keygen -t ed25519 \
+  -C "aliyun-nuxt-frontend" \
+  -f /root/.ssh/github_frontend_deploy \
+  -N ""
+```
+
+查看两份公钥：
+
+```bash
+cat /root/.ssh/github_backend_deploy.pub
+cat /root/.ssh/github_frontend_deploy.pub
+```
+
+只复制 `.pub` 文件的一整行内容，绝对不要复制或泄露没有 `.pub` 后缀的私钥。
+
+分别进入 GitHub 的对应仓库，依次选择 `Settings → Deploy keys → Add deploy key`：
+
+| 仓库 | Title | Key | Allow write access |
+| --- | --- | --- | --- |
+| `1nuo123/python-web-fastapi` | `aliyun-fastapi-backend` | `github_backend_deploy.pub` 的完整内容 | 不勾选 |
+| `1nuo123/typescript-web-nuxt` | `aliyun-nuxt-frontend` | `github_frontend_deploy.pub` 的完整内容 | 不勾选 |
+
+在服务器创建 `/root/.ssh/config`：
+
+```bash
+cat > /root/.ssh/config <<'EOF'
+Host github-backend
+    HostName github.com
+    User git
+    Port 22
+    IdentityFile /root/.ssh/github_backend_deploy
+    IdentitiesOnly yes
+
+Host github-frontend
+    HostName github.com
+    User git
+    Port 22
+    IdentityFile /root/.ssh/github_frontend_deploy
+    IdentitiesOnly yes
+EOF
+```
+
+设置最小必要权限：
+
+```bash
+chmod 700 /root/.ssh
+chmod 600 /root/.ssh/config
+chmod 600 /root/.ssh/github_backend_deploy
+chmod 600 /root/.ssh/github_frontend_deploy
+chmod 644 /root/.ssh/github_backend_deploy.pub
+chmod 644 /root/.ssh/github_frontend_deploy.pub
+```
+
+先打印 GitHub 当前提供的 SSH 主机密钥指纹，并与 GitHub 官方公布的 SSH host key fingerprints 核对：
+
+```bash
+ssh-keyscan -t ed25519,ecdsa,rsa github.com 2>/dev/null | ssh-keygen -lf -
+```
+
+确认一致后写入 `known_hosts`：
+
+```bash
+ssh-keyscan -H github.com >> /root/.ssh/known_hosts
+chmod 644 /root/.ssh/known_hosts
+cat /root/.ssh/config
+```
+
+分别测试认证和仓库只读访问：
 
 ```bash
 ssh -T github-backend
 ssh -T github-frontend
+
 git ls-remote git@github-backend:1nuo123/python-web-fastapi.git refs/heads/main
 git ls-remote git@github-frontend:1nuo123/typescript-web-nuxt.git refs/heads/main
 ```
 
-Deploy Key 只需要读权限。服务器不应直接提交或推送生产代码。
+认证成功时会显示类似内容：
 
-### 3.3 主机工具
+```text
+Hi 1nuo123/python-web-fastapi! You've successfully authenticated, but GitHub does not provide shell access.
+```
+
+GitHub 不提供 Shell，因此 `ssh -T` 最终返回非零状态也可能是正常的，重点是出现 `successfully authenticated`。两条 `git ls-remote` 都能返回 `main` 引用后，才继续部署。Deploy Key 只需要读权限，服务器不应直接提交或推送生产代码。
+
+### 3.5 主机工具
 
 ```bash
 git --version
@@ -109,20 +238,64 @@ curl --version | head -n 1
 
 当前脚本要求 `git`、`docker`、`docker compose`、`openssl`、`sha256sum` 和 `curl`。
 
+### 3.6 2 GiB 小规格资源档位
+
+此 ECS 是 `2 vCPU / 2 GiB`，必须使用 `small` 档位，不能按默认 `standard` 档位首次部署。服务器实测可分配总内存约 `1.6 GiB`，因此 `small` 的稳态容器内存上限控制在 `1,120 MiB`，为 Ubuntu、Docker daemon、内核页缓存和短期波动保留约 `500 MiB`；`migration` 的 `256 MiB` 只在迁移阶段占用，完成后退出。
+
+| 服务 | 内存上限 | CPU 上限 |
+| --- | ---: | ---: |
+| PostgreSQL | 160 MiB | 0.30 |
+| Redis | 64 MiB | 0.10 |
+| RabbitMQ | 160 MiB | 0.30 |
+| FastAPI app | 320 MiB | 0.55 |
+| task-worker | 192 MiB | 0.25 |
+| Nuxt frontend | 160 MiB | 0.20 |
+| Caddy | 64 MiB | 0.10 |
+| **稳态合计** | **1,120 MiB** | **1.80** |
+
+部署脚本会先按单并发顺序构建后端和前端镜像，再启动运行时服务；小档位将 Nuxt 构建进程的 Node old-space 限制为 `1024 MiB`。这降低构建时与运行时服务争用内存的风险，但不能把 2 GiB 机器变成高并发规格。
+
+首次部署前应启用 `2 GiB` 持久 swap 作为 OOM 缓冲。已存在 swap 时先评估其容量，不要重复创建：
+
+```bash
+free -h
+swapon --show
+
+# 仅当上一步没有任何 swap 时执行。
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+printf '/swapfile none swap sw 0 0\n' >> /etc/fstab
+
+cat > /etc/sysctl.d/99-fastapi-web-memory.conf <<'EOF'
+vm.swappiness=10
+EOF
+sysctl --system
+
+swapon --show
+free -h
+```
+
+swap 只用于吸收构建尖峰和避免宿主机被 OOM killer 直接终止，不能作为常态内存容量。若 `docker stats --no-stream` 长期接近上限、出现 OOMKilled、请求延迟明显上升或 RabbitMQ 持续积压，应先升级到至少 `2 vCPU / 4 GiB`，再考虑提高并发。
+
 ## 4. 首次一键部署
 
-### 4.1 登录服务器
+### 4.1 创建部署根目录
 
-在 Windows PowerShell 执行：
+确认当前仍在服务器的 Ubuntu root 终端，然后创建固定部署根目录：
 
-```powershell
-ssh -i "C:\Users\ThinkPad\.ssh\aliyun_fastapi" root@39.96.201.189
+```bash
+install -d -m 755 /opt/web
+cd /opt/web
+pwd
 ```
+
+`pwd` 必须输出 `/opt/web`。前后端仓库、生产环境文件和部署脚本全部以该目录为统一根目录。
 
 ### 4.2 拉取两个仓库
 
 ```bash
-install -d -m 755 /opt/web
 cd /opt/web
 
 git clone git@github-backend:1nuo123/python-web-fastapi.git
@@ -141,7 +314,9 @@ git clone git@github-frontend:1nuo123/typescript-web-nuxt.git
 
 ```bash
 cd /opt/web/python-web-fastapi
-bash deploy/production.sh bootstrap
+PRODUCTION_RESOURCE_PROFILE=small \
+  PRODUCTION_SITE_ADDRESS=nuotop.xyz \
+  bash deploy/production.sh bootstrap
 ```
 
 该命令一次完成：
@@ -150,11 +325,15 @@ bash deploy/production.sh bootstrap
 2. 创建权限为 `600` 的后端、前端和一次性管理员环境文件。
 3. 创建内部网络 `fastapi-web-production-edge`，固定子网 `172.30.0.0/24`。
 4. 校验三个 Compose 项目。
-5. 构建并启动 PostgreSQL、Redis、RabbitMQ、数据库迁移、FastAPI、Worker、Nuxt 和 Caddy。
+5. 单并发构建后端和 Nuxt 镜像，随后启动 PostgreSQL、Redis、RabbitMQ、数据库迁移、FastAPI、Worker、Nuxt 和 Caddy。
 6. 创建用户名为 `admin` 的初始管理员。
 7. 通过本机 `127.0.0.1:443` 检查 `https://nuotop.xyz/health/ready` 的证书和路由。
 
 `bootstrap` 只用于全新环境。只要任一生产环境文件已存在，它就会拒绝覆盖，防止意外重置密钥。
+
+如果域名尚未完成备案、DNS 尚未生效或证书暂时无法签发，`bootstrap` 可能在最后的 HTTPS readiness 检查处返回失败，但此前完成的环境文件生成、镜像构建、数据库迁移、管理员创建和容器启动不会因此自动回滚。此时应按 4.4 节分层验收，不能删除环境文件后重跑 `bootstrap`。
+
+该命令会把 `PRODUCTION_RESOURCE_PROFILE=small` 写入两个生产环境文件；后续 `deploy`、`update`、`doctor` 和 `config` 自动复用该档位，不需要重复设置环境变量。只在迁移到容量更高的服务器并完成容量验证后，才将它改为 `standard`。
 
 执行过程中会直接打印随机生成的管理员密码。不要使用 `tee` 把完整输出写入普通日志。将密码保存到密码管理器，完成登录验证后删除一次性文件：
 
@@ -166,8 +345,18 @@ rm -f /opt/web/python-web-fastapi/.env.initial-admin.local
 
 ### 4.4 首次验收
 
+先验收不依赖域名备案和公网证书的容器层状态：
+
 ```bash
 cd /opt/web/python-web-fastapi
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+```
+
+PostgreSQL、Redis、RabbitMQ、FastAPI App、task-worker、Nuxt frontend 和 Caddy 应处于 `Up`，带健康检查的长期运行服务应显示 `healthy`；`migration` 成功执行后显示 `Exited (0)` 属于正常状态。
+
+域名完成备案、DNS 已指向 `39.96.201.189` 且 TCP 80/443 可达后，再执行公网 HTTPS 验收：
+
+```bash
 bash deploy/production.sh status
 curl -I http://nuotop.xyz
 curl -fsS https://nuotop.xyz/health/ready
@@ -188,7 +377,14 @@ https://nuotop.xyz
 - PostgreSQL、Redis、RabbitMQ 没有发布公网端口。
 - 重启 Docker 后容器能按 `restart: unless-stopped` 自动恢复。
 
-刷新令牌 Cookie 保持 `Secure`，Windows Agent 使用 WSS，因此首次部署前必须确保域名已解析到服务器且 TCP 80/443 可达。Caddy 会自动申请证书；证书签发成功后再完成浏览器和 Agent 验收。
+若备案或 DNS 尚未生效，`curl` 可能出现 TLS 握手或证书签发错误。此时容器全部健康表示应用栈已经部署完成，但不代表公网生产入口已经验收通过。可使用以下命令检查 Caddy，待备案和 DNS 生效后直接重新执行 HTTPS 验收；Caddy 会自动重试证书申请，通常不需要重新运行 `bootstrap`：
+
+```bash
+bash deploy/production.sh logs caddy
+curl -Iv https://nuotop.xyz
+```
+
+刷新令牌 Cookie 保持 `Secure`，Windows Agent 使用 WSS，因此完整生产验收必须确保域名已解析到服务器且 TCP 80/443 可达。Caddy 自动签发证书成功后，再完成浏览器和 Agent 验收。
 
 ### 4.5 Codex Remote 发布门禁
 

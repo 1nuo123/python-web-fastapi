@@ -2,6 +2,9 @@
 
 import pytest
 
+from src.core.codex_contract.agent_release_manifest_contract import (
+    CodexAgentReleaseDistributionMode,
+)
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.infrastructure.settings.app_settings_loader import AppSettingsLoader
 from src.infrastructure.settings.application_settings import AppEnvironment
@@ -62,6 +65,59 @@ class TestCodexSettingsInitialization:
         assert settings.runtime.codex_control.codex_scroll_controller_v2
         assert not settings.runtime.codex_control.codex_realtime_batch_v2
         assert settings.runtime.codex_control.codex_authority_recovery_v2
+
+    def test_settings_when_internal_agent_release_is_versioned_should_load(self) -> None:
+        settings = AppSettingsLoader().load_from_mapping(
+            environment=AppEnvironment.TEST,
+            overrides={
+                "runtime": {
+                    "codex_control": {
+                        "agent_release_version": "0.1.16",
+                        "agent_release_distribution_mode": "internal",
+                        "agent_release_artifact_sha256": "a" * 64,
+                        "agent_release_download_url": (
+                            "https://github.com/acme/codex-agent/releases/download/"
+                            "v0.1.16/CodexRemoteAgent.msi"
+                        ),
+                        "agent_release_manifest_url": (
+                            "https://github.com/acme/codex-agent/releases/download/"
+                            "v0.1.16/internal-release.json"
+                        ),
+                        "agent_release_minimum_security_version": "0.1.16",
+                    }
+                }
+            },
+        )
+
+        release = settings.runtime.codex_control
+        assert release.agent_release_distribution_mode is CodexAgentReleaseDistributionMode.INTERNAL
+        assert release.agent_release_artifact_sha256 == "a" * 64
+
+    def test_settings_when_internal_agent_release_uses_mutable_branch_should_fail(self) -> None:
+        with pytest.raises(HttpFaultException) as fault:
+            AppSettingsLoader().load_from_mapping(
+                environment=AppEnvironment.TEST,
+                overrides={
+                    "runtime": {
+                        "codex_control": {
+                            "agent_release_version": "0.1.16",
+                            "agent_release_distribution_mode": "internal",
+                            "agent_release_artifact_sha256": "a" * 64,
+                            "agent_release_download_url": (
+                                "https://raw.githubusercontent.com/acme/codex-agent/"
+                                "master/releases/0.1.16/CodexRemoteAgent.msi"
+                            ),
+                            "agent_release_manifest_url": (
+                                "https://github.com/acme/codex-agent/releases/download/"
+                                "v0.1.16/internal-release.json"
+                            ),
+                            "agent_release_minimum_security_version": "0.1.16",
+                        }
+                    }
+                },
+            )
+
+        assert "可变路径" in str(fault.value.detail)
 
     def test_settings_when_reconnect_max_below_min_should_fail(self) -> None:
         with pytest.raises(HttpFaultException) as fault:

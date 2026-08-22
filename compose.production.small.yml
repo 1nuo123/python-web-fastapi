@@ -1,0 +1,86 @@
+x-small-resources: &small-resources
+  cpus: "0.10"
+  memory: 64m
+
+services:
+  postgres:
+    cpus: "0.30"
+    mem_limit: 160m
+    pids_limit: 128
+    deploy:
+      resources:
+        limits:
+          cpus: "0.30"
+          memory: 160m
+          pids: 128
+        reservations:
+          cpus: "0.10"
+          memory: 80m
+
+  redis:
+    cpus: "0.10"
+    mem_limit: 64m
+    pids_limit: 64
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 64m
+          pids: 64
+        reservations: *small-resources
+
+  rabbitmq:
+    cpus: "0.30"
+    mem_limit: 160m
+    pids_limit: 128
+    deploy:
+      resources:
+        limits:
+          cpus: "0.30"
+          memory: 160m
+          pids: 128
+        reservations:
+          cpus: "0.10"
+          memory: 80m
+
+  migration:
+    cpus: "0.50"
+    mem_limit: 256m
+    pids_limit: 128
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256m
+          pids: 128
+        reservations:
+          cpus: "0.10"
+          memory: 128m
+
+  app:
+    cpus: "0.55"
+    mem_limit: 320m
+    pids_limit: 256
+    deploy:
+      resources:
+        limits:
+          cpus: "0.55"
+          memory: 320m
+          pids: 256
+        reservations:
+          cpus: "0.15"
+          memory: 160m
+
+  task-worker:
+    cpus: "0.25"
+    mem_limit: 192m
+    pids_limit: 192
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 192m
+          pids: 192
+        reservations:
+          cpus: "0.10"
+          memory: 80m

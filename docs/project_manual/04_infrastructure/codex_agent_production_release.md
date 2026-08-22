@@ -268,3 +268,60 @@ PowerShell、Git、Node、Codex、计划任务控制和 App Server 进程统一�
 本地验收不替代以下正式门禁：受信任组织 Authenticode 证书、RFC 3161 时间戳、TUF metadata、公共发布
 commit、clean Windows/Defender/SmartScreen 验证和外部下载后的签名复验。只有第 1 至第 4 节全部通过，
 才允许将 `dist/CodexRemoteAgent.msi` 作为正式发布包。
+
+## 7. 内部体验发布通道
+
+本节是正式发布前、面向已知朋友的最小可用通道。它与第 1 至第 5 节的正式发布完全分离，不能把未签名
+内部包表述为正式版本：内部包没有 Authenticode、TUF 或自动更新，但必须使用生产 profile、HTTPS/WSS、
+独立设备授权和不可变版本地址。
+
+### 7.1 固定边界
+
+- 每位使用者注册自己的普通账号并授予所需 Codex scope；不得共用 `nuo` 或管理员账号。
+- 包内只能包含 `https://nuotop.xyz`、`wss://nuotop.xyz/internal/codex-agents/connect` 和
+  `https://nuotop.xyz/codex/verify-device`。不得包含开发 CA、`codex-dev.lan`、TUF root、更新源、服务器密码、JWT、Deploy Key 或设备私钥。
+- 发布版本使用新的三段版本号，且同一版本的 MSI、清单和校验文件一旦生成不得覆盖。
+- 外部下载使用 GitHub Release 的精确 tag 资产地址，禁止 `master`、`main`、`latest` 或其他可变地址。
+- 下载页必须展示内部体验警告、SHA-256 和确认框；确认后仅下载，不绕过后续设备授权。
+
+### 7.2 构建与本地校验
+
+在 `E:\python_web_fastapi\work` 的 Windows PowerShell 中为新版本执行。以下示例为已经构建的 `0.1.16`；重发时必须先改成未使用的新版本号。
+
+```powershell
+& .\scripts\codex\build_internal_production_agent_installer.ps1 `
+  -PublicOrigin 'https://nuotop.xyz' `
+  -ReleaseRepositoryRoot 'E:\python_web_fastapi\codex-remote-agent-releases' `
+  -Version '0.1.16' `
+  -DownloadUrl 'https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.16/CodexRemoteAgent.msi'
+
+Get-FileHash `
+  'E:\python_web_fastapi\codex-remote-agent-releases\releases\0.1.16\CodexRemoteAgent.msi' `
+  -Algorithm SHA256
+```
+
+构建会生成并相互绑定以下三个文件：
+
+```text
+releases/<version>/CodexRemoteAgent.msi
+releases/<version>/internal-release.json
+releases/<version>/SHA256SUMS.json
+```
+
+`internal-release.json` 必须声明 `automatic_updates_enabled: false`，其 MSI 摘要必须与 `SHA256SUMS.json` 和
+生产运行时配置完全一致。发布前可运行：
+
+```powershell
+& .\.tools\wix.exe msi validate '.\dist\internal-releases\0.1.16\CodexRemoteAgent.msi'
+uv run pytest -q test/unit_test/test_codex_agent_internal_release_manifest_unit.py test/unit_test/test_codex_agent_release_manifest_unit.py test/initialization_test/test_codex_settings_initialization.py test/interface_test/test_codex_admin_enrollment_interface.py
+```
+
+### 7.3 对外发布和生产配置顺序
+
+1. 审核 `releases/<version>` 的三个文件，仅提交该版本目录；不要提交私钥、临时 payload、`dist` 中的其他安装包或历史未确认修改。
+2. 创建 GitHub Release `v<version>`，上传 `CodexRemoteAgent.msi`、`internal-release.json` 和 `SHA256SUMS.json`。发布前保持草稿；公开后通过浏览器或 `Invoke-WebRequest` 从 Release URL 下载 MSI，再次计算 SHA-256。
+3. 将下载 URL、清单 URL、版本和 SHA-256 写入后端的 `config/runtime/codex_control_runtime/codex_control_runtime_production.toml`。内部模式必须为 `internal`，最低安全版本不得高于当前版本。
+4. 先部署后端配置，再部署前端。仅在生产 API 的 `/codex/agent-release/current` 已返回上述精确版本、内部模式和 SHA-256 后，将生产前端的 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED` 设为 `true` 并重新部署。
+5. 使用无管理员权限的干净 Windows 普通用户账号，从生产下载页确认警告后下载并核验 SHA-256，安装 MSI，完成该用户自己的设备授权。随后验证上线、添加工作区、发送/接收消息、审批、暂停和重启；每个操作均以该用户自己的 Codex 权限运行。
+
+任何一步失败时关闭 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED`，保留旧的已验证版本，不复用或覆盖已发布版本号。内部通道没有自动更新，因此修复版本必须由使用者重新下载、核验并执行 MSI 升级；正式签名/TUF 发布完成后再切换到第 1 至第 5 节的正式通道。

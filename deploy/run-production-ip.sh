@@ -11,6 +11,23 @@ EDGE_NETWORK_NAME="fastapi-web-production-edge"
 EDGE_NETWORK_SUBNET="172.30.0.0/24"
 BOOTSTRAP_INITIAL_ADMIN="${PRODUCTION_BOOTSTRAP_ADMIN:-0}"
 
+resolve_production_resource_profile() {
+  local configured_profile=""
+  if [[ -z "${PRODUCTION_RESOURCE_PROFILE:-}" && -f "$BACKEND_ENV_FILE" ]]; then
+    configured_profile="$(awk -F= '$1 == "PRODUCTION_RESOURCE_PROFILE" {print substr($0, index($0, "=") + 1)}' "$BACKEND_ENV_FILE" | tail -n 1)"
+  fi
+  PRODUCTION_RESOURCE_PROFILE="${PRODUCTION_RESOURCE_PROFILE:-${configured_profile:-standard}}"
+  case "$PRODUCTION_RESOURCE_PROFILE" in
+    standard|small) ;;
+    *)
+      echo "PRODUCTION_RESOURCE_PROFILE must be standard or small." >&2
+      exit 1
+      ;;
+  esac
+}
+
+resolve_production_resource_profile
+
 for command_name in docker curl awk; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     echo "Required command is missing: $command_name" >&2
@@ -71,11 +88,22 @@ caddy_compose=(
   -f "$BACKEND_ROOT/deploy/caddy/compose.yml"
 )
 
+if [[ "$PRODUCTION_RESOURCE_PROFILE" == "small" ]]; then
+  backend_compose+=(-f "$BACKEND_ROOT/compose.production.small.yml")
+  frontend_compose+=(-f "$FRONTEND_ROOT/compose.production.small.yml")
+  caddy_compose+=(-f "$BACKEND_ROOT/deploy/caddy/compose.small.yml")
+fi
+
 "${backend_compose[@]}" config --quiet
 "${frontend_compose[@]}" config --quiet
 "${caddy_compose[@]}" config --quiet
 
-"${backend_compose[@]}" up -d --build
+# 在启动运行时服务前串行构建镜像。小规格主机的构建峰值远高于稳态，
+# 先构建可避免 Nuxt 构建与数据库、Worker 同时争用 2 GiB 内存。
+COMPOSE_PARALLEL_LIMIT=1 "${backend_compose[@]}" build
+COMPOSE_PARALLEL_LIMIT=1 "${frontend_compose[@]}" build
+
+"${backend_compose[@]}" up -d --no-build
 if [[ "$BOOTSTRAP_INITIAL_ADMIN" == "1" ]]; then
   "${backend_compose[@]}" run \
     --rm \
@@ -84,8 +112,8 @@ if [[ "$BOOTSTRAP_INITIAL_ADMIN" == "1" ]]; then
     app \
     python -m src.cli.create_initial_admin
 fi
-"${frontend_compose[@]}" up -d --build
-"${caddy_compose[@]}" up -d
+"${frontend_compose[@]}" up -d --no-build
+"${caddy_compose[@]}" up -d --no-build
 
 site_address="$(awk -F= '$1 == "CADDY_SITE_ADDRESS" {print substr($0, index($0, "=") + 1)}' "$BACKEND_ENV_FILE" | tail -n 1)"
 if [[ -z "$site_address" ]]; then

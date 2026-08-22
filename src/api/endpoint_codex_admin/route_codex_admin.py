@@ -18,6 +18,7 @@ from src.api.web_bundle_catalog import (
 )
 from src.application.codex.list_hosts_usecase import ListAllCodexHostsUsecase
 from src.core.codex_contract.agent_release_manifest_contract import (
+    CodexAgentReleaseDistributionMode,
     CodexAgentReleaseDownloadDetail,
     CodexAgentReleaseDownloadEnvelope,
     CodexAgentReleaseManifestHeader,
@@ -74,7 +75,7 @@ class CodexAdminRouteCatalog:
         request: Request,
         _credentials: HTTPAuthorizationCredentials | None = Security(CODEX_ADMIN_BEARER_SCHEME),
     ) -> ResponseEnvelope[CodexAgentReleaseDownloadEnvelope]:
-        """返回登录用户可用的签名安装包与 TUF 清单入口。"""
+        """返回登录用户可用的 Agent 安装包及其发布清单入口。"""
 
         self._accessor.read_authenticated_principal(request)
         settings = request.app.state.container.resource_mount.get_codex_control_runtime().settings
@@ -82,9 +83,15 @@ class CodexAdminRouteCatalog:
             header=CodexAgentReleaseManifestHeader(),
             detail=CodexAgentReleaseDownloadDetail(
                 version=settings.agent_release_version,
+                distribution_mode=settings.agent_release_distribution_mode,
+                artifact_sha256=settings.agent_release_artifact_sha256,
                 download_url=settings.agent_release_download_url,
                 manifest_url=settings.agent_release_manifest_url,
                 minimum_security_version=settings.agent_release_minimum_security_version,
+                automatic_updates_enabled=(
+                    settings.agent_release_distribution_mode
+                    is CodexAgentReleaseDistributionMode.VERIFIED
+                ),
             ),
         )
         return self._response(request, payload, "Codex Agent当前版本读取成功。")

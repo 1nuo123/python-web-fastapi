@@ -6,6 +6,13 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.core.codex_contract.agent_release_manifest_contract import (
+    CodexAgentReleaseDistributionMode,
+    parse_agent_release_version,
+    validate_agent_release_sha256,
+    validate_internal_agent_release_url,
+)
+
 
 class CodexSecurityRateLimitOperation(StrEnum):
     """Codex 设备安全操作的封闭限流策略名。"""
@@ -102,6 +109,8 @@ class CodexRuntimeSettings(BaseModel):
     allow_experimental_app_server_api: bool = False
     allowed_codex_versions: list[str] = Field(min_length=1)
     agent_release_version: str = Field(min_length=1, max_length=64)
+    agent_release_distribution_mode: CodexAgentReleaseDistributionMode
+    agent_release_artifact_sha256: str = Field(min_length=64, max_length=64)
     agent_release_download_url: str = Field(min_length=1, max_length=2_048)
     agent_release_manifest_url: str = Field(min_length=1, max_length=2_048)
     agent_release_minimum_security_version: str = Field(min_length=1, max_length=64)
@@ -116,10 +125,26 @@ class CodexRuntimeSettings(BaseModel):
             raise ValueError("agent_reconnect_max_seconds 不得小于 agent_reconnect_min_seconds。")
         if any(version.strip() == "" for version in self.allowed_codex_versions):
             raise ValueError("allowed_codex_versions 不允许空字符串。")
+        parse_agent_release_version(self.agent_release_version)
+        parse_agent_release_version(self.agent_release_minimum_security_version)
+        if parse_agent_release_version(
+            self.agent_release_minimum_security_version
+        ) > parse_agent_release_version(self.agent_release_version):
+            raise ValueError("Agent最低安全版本不得高于当前发布版本。")
+        validate_agent_release_sha256(self.agent_release_artifact_sha256)
         if not self.agent_release_download_url.startswith("https://"):
             raise ValueError("Agent下载地址必须使用HTTPS。")
         if not self.agent_release_manifest_url.startswith("https://"):
             raise ValueError("Agent发布清单地址必须使用HTTPS。")
+        if self.agent_release_distribution_mode is CodexAgentReleaseDistributionMode.INTERNAL:
+            validate_internal_agent_release_url(
+                self.agent_release_download_url,
+                version=self.agent_release_version,
+            )
+            validate_internal_agent_release_url(
+                self.agent_release_manifest_url,
+                version=self.agent_release_version,
+            )
         if self.device_authorization_poll_interval_seconds >= self.device_authorization_ttl_seconds:
             raise ValueError("设备授权轮询间隔必须小于授权有效期。")
         if self.enrollment_intent_ttl_seconds > self.device_authorization_ttl_seconds:

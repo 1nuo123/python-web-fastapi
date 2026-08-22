@@ -1226,6 +1226,8 @@ class RawCodexControlRuntimeMapping(TypedDict, total=False):
     allow_experimental_app_server_api: bool
     allowed_codex_versions: list[str]
     agent_release_version: str
+    agent_release_distribution_mode: str
+    agent_release_artifact_sha256: str
     agent_release_download_url: str
     agent_release_manifest_url: str
     agent_release_minimum_security_version: str

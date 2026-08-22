@@ -14,6 +14,23 @@ READY_URL=""
 READY_CURL_ARGS=()
 COMMAND="${1:-help}"
 
+resolve_production_resource_profile() {
+  local configured_profile=""
+  if [[ -z "${PRODUCTION_RESOURCE_PROFILE:-}" && -f "$BACKEND_ENV_FILE" ]]; then
+    configured_profile="$(awk -F= '$1 == "PRODUCTION_RESOURCE_PROFILE" {print substr($0, index($0, "=") + 1)}' "$BACKEND_ENV_FILE" | tail -n 1)"
+  fi
+  PRODUCTION_RESOURCE_PROFILE="${PRODUCTION_RESOURCE_PROFILE:-${configured_profile:-standard}}"
+  case "$PRODUCTION_RESOURCE_PROFILE" in
+    standard|small) ;;
+    *)
+      echo "PRODUCTION_RESOURCE_PROFILE must be standard or small." >&2
+      exit 1
+      ;;
+  esac
+}
+
+resolve_production_resource_profile
+
 backend_compose=(
   docker compose
   --project-name fastapi-web-production
@@ -40,6 +57,12 @@ caddy_compose=(
   -f "$BACKEND_ROOT/deploy/caddy/compose.yml"
 )
 
+if [[ "$PRODUCTION_RESOURCE_PROFILE" == "small" ]]; then
+  backend_compose+=(-f "$BACKEND_ROOT/compose.production.small.yml")
+  frontend_compose+=(-f "$FRONTEND_ROOT/compose.production.small.yml")
+  caddy_compose+=(-f "$BACKEND_ROOT/deploy/caddy/compose.small.yml")
+fi
+
 usage() {
   cat <<'EOF'
 Usage: bash deploy/production.sh <command> [argument]
@@ -61,6 +84,7 @@ Commands:
 Environment overrides:
   PRODUCTION_FRONTEND_ROOT  Frontend repository path. Default: sibling typescript-web-nuxt.
   PRODUCTION_BACKUP_ROOT    Backup directory. Default: /var/backups/fastapi-web.
+  PRODUCTION_RESOURCE_PROFILE  standard (default) or small. Persisted by bootstrap for later releases.
 EOF
 }
 
