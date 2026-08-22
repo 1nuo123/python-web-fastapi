@@ -386,18 +386,22 @@ curl -Iv https://nuotop.xyz
 
 刷新令牌 Cookie 保持 `Secure`，Windows Agent 使用 WSS，因此完整生产验收必须确保域名已解析到服务器且 TCP 80/443 可达。Caddy 自动签发证书成功后，再完成浏览器和 Agent 验收。
 
-### 4.5 Codex Remote 发布门禁
+### 4.5 Codex Remote 内部体验入口
 
-首次 `bootstrap` 生成的前端环境文件会将 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED` 设为 `false`。这是故障关闭策略：在正式 Windows Agent 的 Authenticode 签名、TUF 发布元数据、下载与更新验收，以及域名 HTTPS/WSS 全链路验收全部完成前，生产入口不得展示 Codex Remote 下载或连接功能。
+该节保留 "Codex Remote 发布门禁" 的检索别名，当前门禁已调整为内部体验发布资产、账户权限和设备授权的前置检查。
 
-完成上述验收后，才允许在首次初始化时显式启用：
+正式发布通道仍要求 Authenticode 签名、TUF 发布元数据、下载与更新验收，以及域名 HTTPS/WSS 全链路验收。
+
+首次 `bootstrap` 默认将 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED` 设为 `true`，以启用已选择的内部体验下载和完整 Codex Remote 入口。该入口只适用于 `internal` 发布模式：GitHub Release 必须已公开 `v0.1.16` 的 MSI、`internal-release.json` 和 `SHA256SUMS.json`，并且后端生产配置中的版本、SHA-256 和 Release URL 必须与附件一致。
+
+如需在首次初始化时明确指定，使用：
 
 ```bash
 cd /opt/web/python-web-fastapi
 PRODUCTION_CODEX_FEATURE_ENABLED=true bash deploy/production.sh bootstrap
 ```
 
-已初始化的服务器不应重复执行 `bootstrap`。待服务器侧发布审批通过后，使用安全编辑器将 `/opt/web/typescript-web-nuxt/.env.production.local` 中的 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED` 改为 `true`，然后执行 `bash deploy/production.sh deploy` 重新构建前端。关闭时将其改回 `false` 并重新执行 `deploy`；该开关只控制前端入口，不能替代后端授权、设备授权或 Agent 发布校验。
+已初始化的服务器不应重复执行 `bootstrap`。若其前端环境文件仍为 `false`，使用安全编辑器将 `/opt/web/typescript-web-nuxt/.env.production.local` 中的 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED` 改为 `true`，然后执行 `bash deploy/production.sh deploy` 重新构建前端。关闭时将其改回 `false` 并重新执行 `deploy`；该开关只控制前端入口，不能替代后端授权、设备授权或 Agent 发布校验。
 
 ## 5. 统一运维命令
 

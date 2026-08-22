@@ -94,7 +94,7 @@ def test_production_scripts_should_keep_gateway_and_secrets_consistent() -> None
     assert "INITIAL_ADMIN_USERNAME=admin" in prepare_script
     assert 'PRODUCTION_SITE_ADDRESS="${PRODUCTION_SITE_ADDRESS:-nuotop.xyz}"' in prepare_script
     assert (
-        'PRODUCTION_CODEX_FEATURE_ENABLED="${PRODUCTION_CODEX_FEATURE_ENABLED:-false}"'
+        'PRODUCTION_CODEX_FEATURE_ENABLED="${PRODUCTION_CODEX_FEATURE_ENABLED:-true}"'
         in prepare_script
     )
     assert 'case "$PRODUCTION_CODEX_FEATURE_ENABLED" in' in prepare_script
@@ -135,10 +135,10 @@ def test_production_scripts_should_keep_gateway_and_secrets_consistent() -> None
     assert "localhost" not in stream_config
 
 
-def test_prepare_production_environment_should_disable_codex_by_default_and_validate_override(
+def test_prepare_production_environment_should_enable_codex_by_default_and_validate_override(
     tmp_path: Path,
 ) -> None:
-    """生产初始化必须以故障关闭策略生成前端 Codex 开关。"""
+    """内部体验发布的生产初始化默认生成已启用的 Codex 前端入口。"""
 
     project_root = Path(__file__).parents[2]
     source_script = project_root / "deploy/prepare-production-env.sh"
@@ -190,7 +190,7 @@ def test_prepare_production_environment_should_disable_codex_by_default_and_vali
     default_environment = (
         tmp_path / "frontend-backend-default-standard/.env.production.local"
     ).read_text(encoding="utf-8")
-    assert "NUXT_PUBLIC_CODEX_FEATURE_ENABLED=false" in default_environment
+    assert "NUXT_PUBLIC_CODEX_FEATURE_ENABLED=true" in default_environment
 
     enabled_result = run_prepare("true")
     assert enabled_result.returncode == 0, enabled_result.stderr
