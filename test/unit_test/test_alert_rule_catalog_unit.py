@@ -18,6 +18,7 @@ from src.infrastructure.observability.alert_rule_catalog_loader import (
     AlertRuleCatalogLoadError,
 )
 from src.infrastructure.observability.prometheus_metrics_registry import (
+    CODEX_CLIENT_DIAGNOSTIC_TOTAL_NAME,
     LOG_BUFFER_FLUSH_TOTAL_NAME,
     REQUEST_DURATION_SECONDS_NAME,
     REQUEST_TOTAL_NAME,
@@ -31,7 +32,7 @@ INVALID_ROOT_FILE_NAME = "alert_rules_invalid_root.yml"
 INVALID_SCHEMA_FILE_NAME = "alert_rules_invalid_schema.yml"
 INVALID_ROOT_DOCUMENT = "- 规则一\n- 规则二\n"
 INVALID_SCHEMA_DOCUMENT = "header:\n  kind: alert_rule_catalog_header\nrules: []\n"
-EXPECTED_RULE_COUNT = 6
+EXPECTED_RULE_COUNT = 7
 EXPECTED_RULE_NAMES = frozenset(
     {
         "http_5xx_error_rate_high",
@@ -40,6 +41,7 @@ EXPECTED_RULE_NAMES = frozenset(
         "log_buffer_flush_failure_growing",
         "audit_critical_write_failure",
         "task_execution_failure_rate_high",
+        "codex_client_error_rate_high",
     }
 )
 RULE_METRIC_NAME_BY_RULE = {
@@ -49,6 +51,7 @@ RULE_METRIC_NAME_BY_RULE = {
     "log_buffer_flush_failure_growing": LOG_BUFFER_FLUSH_TOTAL_NAME,
     "audit_critical_write_failure": LOG_BUFFER_FLUSH_TOTAL_NAME,
     "task_execution_failure_rate_high": TASK_EXECUTION_TOTAL_NAME,
+    "codex_client_error_rate_high": CODEX_CLIENT_DIAGNOSTIC_TOTAL_NAME,
 }
 AUDIT_CRITICAL_RULE_NAME = "audit_critical_write_failure"
 AUDIT_CRITICAL_REASON_LABEL_TEXT = 'reason="audit_critical"'
@@ -60,9 +63,9 @@ class TestAlertRuleCatalogUnit:
     告警规则目录加载单元测试集合。
     """
 
-    def test_load_should_return_six_baseline_rules(self) -> None:
+    def test_load_should_return_all_baseline_rules(self) -> None:
         """
-        验证基线规则文件可加载且包含六条规则。
+        验证基线规则文件可加载且包含全部规则。
         """
 
         catalog = AlertRuleCatalogLoader(path=ALERT_RULES_PATH).load()
@@ -74,7 +77,7 @@ class TestAlertRuleCatalogUnit:
 
     def test_rules_should_reference_registered_metric_names(self) -> None:
         """
-        验证六条规则 PromQL 引用的指标名与注册器指标名逐一对应。
+        验证各条规则 PromQL 引用的指标名与注册器指标名逐一对应。
         """
 
         catalog = AlertRuleCatalogLoader(path=ALERT_RULES_PATH).load()

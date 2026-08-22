@@ -55,8 +55,11 @@ class AppServerMethodName(StrEnum):
 class AppServerNotificationName(StrEnum):
     """产品 mapper 当前支持的 App Server notification。"""
 
+    ACCOUNT_RATE_LIMITS_UPDATED = "account/rateLimits/updated"
     THREAD_STARTED = "thread/started"
     THREAD_STATUS_CHANGED = "thread/status/changed"
+    REMOTE_CONTROL_STATUS_CHANGED = "remoteControl/status/changed"
+    MCP_SERVER_STARTUP_STATUS_UPDATED = "mcpServer/startupStatus/updated"
     THREAD_NAME_UPDATED = "thread/name/updated"
     THREAD_ARCHIVED = "thread/archived"
     THREAD_UNARCHIVED = "thread/unarchived"

@@ -15,6 +15,7 @@ from typing import Final, Protocol
 
 import psutil
 
+from src.infrastructure.codex_agent.agent_deployment_profile import AgentDeploymentProfile
 from src.infrastructure.process.windows_subprocess_launcher import (
     WindowsSubprocessLauncher,
     WindowsSubprocessLogCategory,
@@ -226,8 +227,13 @@ class PowerShellWindowsAgentTaskBackend:
 class WindowsAgentTaskIdentityResolver:
     """解析当前 Windows 用户唯一的 Agent 计划任务名。"""
 
-    def __init__(self, launcher: WindowsSubprocessLauncher | None = None) -> None:
+    def __init__(
+        self,
+        launcher: WindowsSubprocessLauncher | None = None,
+        deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
+    ) -> None:
         self._launcher = launcher or WindowsSubprocessLauncher()
+        self._deployment_profile = deployment_profile
 
     def resolve_current_user_task_name(self) -> str:
         """按当前 Windows 用户 SID 生成稳定且互不覆盖的任务名。"""
@@ -247,7 +253,10 @@ class WindowsAgentTaskIdentityResolver:
         sid = rows[0][1].strip()
         if WINDOWS_SID_PATTERN.fullmatch(sid) is None:
             raise OSError("当前Windows用户SID格式无效。")
-        return f"{CODEX_AGENT_TASK_NAME_PREFIX}-{sid.upper()}"
+        profile_suffix = (
+            "-Development" if self._deployment_profile is AgentDeploymentProfile.DEVELOPMENT else ""
+        )
+        return f"{CODEX_AGENT_TASK_NAME_PREFIX}{profile_suffix}-{sid.upper()}"
 
 
 class WindowsAgentTaskController:
@@ -259,6 +268,7 @@ class WindowsAgentTaskController:
         task_name: str | None = None,
         backend: WindowsAgentTaskBackend | None = None,
         config_path: Path | None = None,
+        deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
         run_process_backend: WindowsAgentRunProcessBackend | None = None,
         timeout_seconds: float = TASK_CONTROL_TIMEOUT_SECONDS,
         poll_interval_seconds: float = TASK_STATE_POLL_INTERVAL_SECONDS,
@@ -266,7 +276,9 @@ class WindowsAgentTaskController:
         if timeout_seconds <= 0 or poll_interval_seconds <= 0:
             raise ValueError("计划任务等待时间必须大于 0。")
         self._task_name = task_name or (
-            WindowsAgentTaskIdentityResolver().resolve_current_user_task_name()
+            WindowsAgentTaskIdentityResolver(
+                deployment_profile=deployment_profile
+            ).resolve_current_user_task_name()
         )
         self._backend = backend or PowerShellWindowsAgentTaskBackend()
         self._run_process_backend = run_process_backend or (

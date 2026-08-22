@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from fastapi.testclient import TestClient
 
 from src.api.testing.test_app_factory import TestAppFactory
@@ -13,6 +15,7 @@ from src.infrastructure.settings.app_settings_loader import (
 from src.infrastructure.settings.application_settings import (
     AppEnvironment,
 )
+from src.infrastructure.settings.raw_application_settings import SettingsOverrideMapping
 
 METRICS_PATH = "/metrics"
 RUNTIME_SECTION = "runtime"
@@ -35,6 +38,16 @@ class TestObservabilityInitialization:
 
         assert settings.runtime.metrics.header.enabled is False
 
+    def test_development_settings_should_enable_metrics_for_local_observability_stack(self) -> None:
+        """
+        验证 development profile 为本地 Prometheus 显式暴露指标路由。
+        """
+
+        settings = AppSettingsLoader().load_for_environment(AppEnvironment.DEVELOPMENT)
+
+        assert settings.runtime.metrics.header.enabled is True
+        assert settings.runtime.metrics.detail.metrics_path == METRICS_PATH
+
     def test_enabled_metrics_should_register_route(self) -> None:
         """
         验证开启 metrics 时应用会注册指标路由。
@@ -46,22 +59,25 @@ class TestObservabilityInitialization:
 
         assert response.status_code == 200
 
-    def _build_metrics_override(self, enabled: bool) -> dict[str, object]:
+    def _build_metrics_override(self, enabled: bool) -> SettingsOverrideMapping:
         """
         构建 metrics 开关覆盖配置。
 
         :param enabled: 是否启用 metrics。
         :type enabled: bool
         :returns: 配置覆盖映射。
-        :rtype: dict[str, object]
+        :rtype: SettingsOverrideMapping
         """
 
-        return {
-            RUNTIME_SECTION: {
-                METRICS_SECTION: {
-                    HEADER_SECTION: {
-                        ENABLED_FIELD: enabled,
+        return cast(
+            SettingsOverrideMapping,
+            {
+                RUNTIME_SECTION: {
+                    METRICS_SECTION: {
+                        HEADER_SECTION: {
+                            ENABLED_FIELD: enabled,
+                        }
                     }
                 }
-            }
-        }
+            },
+        )

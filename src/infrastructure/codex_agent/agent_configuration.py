@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import os
+import ssl
 import tomllib
+from collections.abc import Mapping
 from ipaddress import ip_address
 from pathlib import Path
 from typing import Final, Literal
@@ -20,29 +21,47 @@ from src.core.codex_contract.connection_session_contract import (
 )
 from src.core.codex_contract.execution_root_binding_contract import WorktreeIsolationMode
 from src.domain.codex.agent_command_policy import AgentAppServerSecurityPolicy
+from src.infrastructure.codex_agent.agent_deployment_profile import (
+    AgentDeploymentProfile,
+    resolve_agent_deployment_paths,
+)
 from src.infrastructure.codex_agent.agent_workspace_registry import (
     AgentConfigPermissionVerifierPort,
     AgentWorkspaceDefinition,
 )
 
-DEFAULT_AGENT_STATE_DIRECTORY: Final = (
-    Path(
-        os.environ.get(
-            "LOCALAPPDATA",
-            str(Path.home() / "AppData" / "Local"),
-        )
-    )
-    / "CodexRemoteAgent"
-)
+DEFAULT_AGENT_STATE_DIRECTORY: Final = resolve_agent_deployment_paths(
+    AgentDeploymentProfile.PRODUCTION
+).state_directory
 MAX_APP_SERVER_LINE_BYTES: Final = 4 * 1024 * 1024
-DEFAULT_AGENT_EVENT_BATCH_WINDOW_MILLISECONDS: Final = 75
-DEFAULT_AGENT_EVENT_BATCH_MAX_CHARS: Final = 4_096
+DEFAULT_AGENT_EVENT_BATCH_WINDOW_MILLISECONDS: Final = 25
+DEFAULT_AGENT_EVENT_BATCH_MAX_BYTES: Final = 16 * 1024
 DEFAULT_AGENT_WRITER_QUEUE_CAPACITY: Final = 256
 DEFAULT_AGENT_SNAPSHOT_PAGE_SIZE: Final = 100
 MAX_AGENT_SNAPSHOT_PAGE_SIZE: Final = 500
 SHA256_HEX_LENGTH: Final = 64
 AGENT_WEBSOCKET_PATH: Final = "/internal/codex-agents/connect"
 AGENT_VERIFICATION_PATH: Final = "/codex/verify-device"
+
+
+def build_agent_tls_context(
+    *,
+    deployment_profile: AgentDeploymentProfile,
+    development_ca_certificate_path: Path | None,
+) -> ssl.SSLContext | None:
+    """为开发 Agent 构建额外 CA 的严格 TLS 上下文。"""
+
+    if development_ca_certificate_path is None:
+        return None
+    if deployment_profile is not AgentDeploymentProfile.DEVELOPMENT:
+        raise ValueError("仅development Agent允许配置development_ca_certificate_path。")
+    if not development_ca_certificate_path.is_absolute():
+        raise ValueError("development_ca_certificate_path必须是绝对路径。")
+    if not development_ca_certificate_path.is_file():
+        raise ValueError("development_ca_certificate_path必须指向可读取的CA证书文件。")
+
+    # 仅在系统默认信任链之上增加开发 CA，绝不关闭服务端证书校验。
+    return ssl.create_default_context(cafile=str(development_ca_certificate_path))
 
 
 def validate_public_endpoint_url(value: str, *, expected_scheme: str) -> str:
@@ -57,7 +76,7 @@ def validate_public_endpoint_url(value: str, *, expected_scheme: str) -> str:
     if parsed.fragment:
         raise ValueError("Agent正式入口不允许携带fragment。")
     hostname = parsed.hostname.rstrip(".").lower()
-    if hostname == "localhost" or hostname.endswith((".localhost", ".local")):
+    if hostname == "localhost" or hostname.endswith((".localhost", ".lan", ".local")):
         raise ValueError("Agent正式入口不能使用本地主机名。")
     if hostname == "example.com" or hostname.endswith(
         (".example.com", ".example", ".invalid", ".test")
@@ -72,6 +91,32 @@ def validate_public_endpoint_url(value: str, *, expected_scheme: str) -> str:
     return normalized
 
 
+def validate_development_endpoint_url(value: str, *, expected_scheme: str) -> str:
+    """校验仅供 Development 安装包使用的 TLS 控制面地址。
+
+    开发控制面仍必须使用 HTTPS/WSS，且不能接收 localhost 或任意 IP。``.lan``
+    域名只会由 Development profile 消费，生产 bootstrap 仍使用严格的公网校验器。
+    """
+
+    normalized = value.rstrip("/")
+    parsed = urlsplit(normalized)
+    if parsed.scheme.lower() != expected_scheme or not parsed.hostname:
+        raise ValueError(f"Agent开发入口必须使用{expected_scheme.upper()}。")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("Agent开发入口不允许在URL中携带凭据。")
+    if parsed.fragment:
+        raise ValueError("Agent开发入口不允许携带fragment。")
+    hostname = parsed.hostname.rstrip(".").lower()
+    try:
+        ip_address(hostname)
+    except ValueError:
+        if not hostname.endswith(".lan"):
+            raise ValueError("Agent开发入口只能使用受控.lan主机名。") from None
+    else:
+        raise ValueError("Agent开发入口不能使用IP地址。")
+    return normalized
+
+
 def _normalize_public_origin_url(value: str) -> str:
     """Normalize one credential-free public HTTPS origin."""
 
@@ -79,6 +124,16 @@ def _normalize_public_origin_url(value: str) -> str:
     parsed = urlsplit(normalized)
     if parsed.path not in ("", "/") or parsed.query:
         raise ValueError("Agent公网origin只能包含scheme、主机和可选端口。")
+    return f"https://{parsed.netloc}"
+
+
+def _normalize_development_origin_url(value: str) -> str:
+    """规范化 Development profile 的单一 TLS origin。"""
+
+    normalized = validate_development_endpoint_url(value, expected_scheme="https")
+    parsed = urlsplit(normalized)
+    if parsed.path not in ("", "/") or parsed.query:
+        raise ValueError("Agent开发origin只能包含scheme、主机和可选端口。")
     return f"https://{parsed.netloc}"
 
 
@@ -284,6 +339,68 @@ class AgentBootstrapConnectionSettings(BaseModel):
         )
 
 
+class AgentDevelopmentBootstrapConnectionSettings(BaseModel):
+    """Development MSI 的受限 TLS 控制面入口。
+
+    本类型仅允许 ``.lan`` 主机名。它不能被 production profile 消费，从而既保留
+    开发 Caddy 的 HTTPS/WSS 验收能力，也不会放宽正式发布包的公网边界。
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    api_url: str = Field(min_length=1, max_length=2_048)
+    websocket_url: str = Field(min_length=1, max_length=2_048)
+    verification_url: str = Field(min_length=1, max_length=2_048)
+    website_url: str = Field(min_length=1, max_length=2_048)
+
+    @field_validator("api_url", "verification_url", "website_url")
+    @classmethod
+    def validate_https_url(cls, value: str) -> str:
+        """开发浏览器和 API 入口仍必须使用 TLS。"""
+
+        return validate_development_endpoint_url(value, expected_scheme="https")
+
+    @field_validator("websocket_url")
+    @classmethod
+    def validate_websocket_url(cls, value: str) -> str:
+        """开发 Agent 控制通道仍必须使用 WSS。"""
+
+        return validate_development_endpoint_url(value, expected_scheme="wss")
+
+    @model_validator(mode="after")
+    def validate_single_origin_boundary(self) -> AgentDevelopmentBootstrapConnectionSettings:
+        """要求全部 Development endpoint 来自同一受控 TLS origin。"""
+
+        endpoints = (
+            ("API", self.api_url, ""),
+            ("WebSocket", self.websocket_url, AGENT_WEBSOCKET_PATH),
+            ("设备验证", self.verification_url, AGENT_VERIFICATION_PATH),
+            ("网站", self.website_url, ""),
+        )
+        for endpoint_name, endpoint_url, expected_path in endpoints:
+            parsed = urlsplit(endpoint_url)
+            actual_path = parsed.path.rstrip("/")
+            if actual_path != expected_path or parsed.query:
+                raise ValueError(f"Agent开发{endpoint_name}入口路径或查询参数不符合发布契约。")
+        authorities = {_resolve_tls_authority(endpoint_url) for _, endpoint_url, _ in endpoints}
+        if len(authorities) != 1:
+            raise ValueError("Agent所有开发入口必须属于同一TLS origin。")
+        return self
+
+    @classmethod
+    def from_development_origin(cls, value: str) -> AgentDevelopmentBootstrapConnectionSettings:
+        """从单一开发 HTTPS origin 推导 API、WSS 与验证 endpoint。"""
+
+        normalized_origin = _normalize_development_origin_url(value)
+        authority = urlsplit(normalized_origin).netloc
+        return cls(
+            api_url=normalized_origin,
+            websocket_url=f"wss://{authority}{AGENT_WEBSOCKET_PATH}",
+            verification_url=f"{normalized_origin}{AGENT_VERIFICATION_PATH}",
+            website_url=normalized_origin,
+        )
+
+
 class AgentLocalBootstrapConnectionSettings(BaseModel):
     """仅供本机验收使用的回环控制面入口。"""
 
@@ -350,10 +467,13 @@ class AgentBootstrapSettings(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    deployment_state: Literal["configured", "local", "unconfigured"]
-    connection: AgentBootstrapConnectionSettings | AgentLocalBootstrapConnectionSettings | None = (
-        None
-    )
+    deployment_state: Literal["configured", "development", "local", "unconfigured"]
+    connection: (
+        AgentBootstrapConnectionSettings
+        | AgentDevelopmentBootstrapConnectionSettings
+        | AgentLocalBootstrapConnectionSettings
+        | None
+    ) = None
     agent_version: str = Field(min_length=1, max_length=64)
     expected_codex_version: str = Field(min_length=1, max_length=64)
     app_server_schema_digest: str = Field(min_length=64, max_length=128)
@@ -369,6 +489,12 @@ class AgentBootstrapSettings(BaseModel):
             if not isinstance(self.connection, AgentBootstrapConnectionSettings):
                 raise ValueError("已配置Agent安装包必须包含正式控制面入口。")
             return self
+        if self.deployment_state == "development":
+            if not isinstance(self.connection, AgentDevelopmentBootstrapConnectionSettings):
+                raise ValueError("开发Agent安装包必须包含受控开发TLS入口。")
+            if self.release is not None:
+                raise ValueError("开发Agent安装包不得启用自动更新。")
+            return self
         if self.deployment_state == "local":
             if not isinstance(self.connection, AgentLocalBootstrapConnectionSettings):
                 raise ValueError("本地验收Agent安装包必须包含回环控制面入口。")
@@ -381,12 +507,39 @@ class AgentBootstrapSettings(BaseModel):
 
     def require_connection(
         self,
-    ) -> AgentBootstrapConnectionSettings | AgentLocalBootstrapConnectionSettings:
+    ) -> (
+        AgentBootstrapConnectionSettings
+        | AgentDevelopmentBootstrapConnectionSettings
+        | AgentLocalBootstrapConnectionSettings
+    ):
         """返回已验证的控制面入口；未配置包以明确错误拒绝注册。"""
 
         if self.connection is None:
             raise ValueError("安装包尚未配置正式服务器地址，请安装正式发布版本。")
         return self.connection
+
+    def validate_deployment_profile(self, deployment_profile: AgentDeploymentProfile) -> None:
+        """阻止开发 bootstrap 被生产 Agent 消费，反之亦然。"""
+
+        is_development_bootstrap = self.deployment_state == "development"
+        is_development_profile = deployment_profile is AgentDeploymentProfile.DEVELOPMENT
+        if is_development_bootstrap and not is_development_profile:
+            raise ValueError("开发Agent安装包只能由development profile启动。")
+        if is_development_profile and not is_development_bootstrap:
+            raise ValueError("development profile只能使用开发Agent安装包。")
+
+    def require_connection_for_profile(
+        self,
+        deployment_profile: AgentDeploymentProfile,
+    ) -> (
+        AgentBootstrapConnectionSettings
+        | AgentDevelopmentBootstrapConnectionSettings
+        | AgentLocalBootstrapConnectionSettings
+    ):
+        """先校验 profile 隔离边界，再返回当前安装包的控制面入口。"""
+
+        self.validate_deployment_profile(deployment_profile)
+        return self.require_connection()
 
 
 class AgentBootstrapSettingsLoader:
@@ -408,10 +561,12 @@ class AgentProcessSettings(BaseModel):
     key_id: UUID | None = None
     legacy_credential_id: str | None = Field(default=None, min_length=1, max_length=128)
     display_name: str = Field(min_length=1, max_length=128)
+    deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION
     control_plane_url: str = Field(min_length=1)
     control_plane_api_url: str = Field(min_length=1)
+    development_ca_certificate_path: Path | None = None
     codex_binary: str = Field(default="codex", min_length=1)
-    heartbeat_seconds: int = Field(default=10, gt=0)
+    heartbeat_seconds: int = Field(default=15, ge=15, le=15)
     reconnect_min_seconds: int = Field(default=1, gt=0)
     reconnect_max_seconds: int = Field(default=30, gt=0)
     max_buffered_events: int = Field(default=2000, gt=0)
@@ -425,8 +580,8 @@ class AgentProcessSettings(BaseModel):
         ge=10,
         le=1_000,
     )
-    event_batch_max_chars: int = Field(
-        default=DEFAULT_AGENT_EVENT_BATCH_MAX_CHARS,
+    event_batch_max_bytes: int = Field(
+        default=DEFAULT_AGENT_EVENT_BATCH_MAX_BYTES,
         ge=256,
         le=65_536,
     )
@@ -441,7 +596,29 @@ class AgentProcessSettings(BaseModel):
         gt=0,
         le=MAX_APP_SERVER_LINE_BYTES,
     )
-    state_database: Path = DEFAULT_AGENT_STATE_DIRECTORY / "state.sqlite"
+    state_database: Path = Field(
+        default_factory=lambda: (
+            resolve_agent_deployment_paths(AgentDeploymentProfile.PRODUCTION).state_database
+        )
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def default_state_database_for_deployment_profile(cls, value: object) -> object:
+        """按 profile 补齐状态库，避免开发配置隐式复用生产状态。"""
+
+        if not isinstance(value, Mapping):
+            return value
+        if "state_database" in value:
+            return value
+        profile_value = value.get("deployment_profile", AgentDeploymentProfile.PRODUCTION)
+        try:
+            profile = AgentDeploymentProfile(profile_value)
+        except ValueError:
+            return value
+        resolved = dict(value)
+        resolved["state_database"] = resolve_agent_deployment_paths(profile).state_database
+        return resolved
 
     @field_validator("control_plane_url")
     @classmethod
@@ -463,12 +640,17 @@ class AgentProcessSettings(BaseModel):
 
     @model_validator(mode="after")
     def validate_reconnect_boundaries(self) -> AgentProcessSettings:
-        """校验指数退避边界。"""
+        """校验退避边界与开发 TLS 信任范围。"""
 
         if self.reconnect_max_seconds < self.reconnect_min_seconds:
             raise ValueError("reconnect_max_seconds不得小于reconnect_min_seconds。")
-        if self.event_batch_max_chars >= self.max_app_server_line_bytes:
-            raise ValueError("event_batch_max_chars必须小于Agent单帧上限。")
+        if self.event_batch_max_bytes >= self.max_app_server_line_bytes:
+            raise ValueError("event_batch_max_bytes必须小于Agent单帧上限。")
+        if self.development_ca_certificate_path is not None:
+            build_agent_tls_context(
+                deployment_profile=self.deployment_profile,
+                development_ca_certificate_path=self.development_ca_certificate_path,
+            )
         return self
 
 

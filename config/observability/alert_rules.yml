@@ -91,3 +91,17 @@ rules:
       threshold: 0.2
       for_duration_seconds: 600
       summary: "任务执行失败率超过 20%，持续 10 分钟。"
+  - header:
+      kind: alert_rule_header
+      schema_version: "1.0"
+      rule_name: codex_client_error_rate_high
+      severity: warning
+      rule_kind: threshold_alert
+    detail:
+      kind: threshold_alert
+      schema_version: "1.0"
+      promql_expression: >-
+        sum(rate(fastapi_codex_client_diagnostic_total{outcome="recorded"}[5m])) > 10
+      threshold: 10
+      for_duration_seconds: 300
+      summary: "Codex 客户端错误诊断速率超过每秒 10 条，持续 5 分钟。"

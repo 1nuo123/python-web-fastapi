@@ -45,6 +45,7 @@ from src.core.codex_contract.product_command_contract import (
 )
 from src.core.codex_contract.thread_contract import CodexThreadTitleSource
 from src.core.codex_contract.turn_contract import CodexExecutionOptions, CodexOperationAccepted
+from src.core.codex_contract.turn_runtime_contract import CodexTurnPhase
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.persistence_contract.unit_of_work_contract import PersistenceSession, UnitOfWork
 from src.domain.codex.agent_command_policy import calculate_agent_request_digest
@@ -134,11 +135,14 @@ class ExecuteCodexThreadCommandUsecase:
         execution: CodexExecutionOptions,
         actor_subject_id: str,
         idempotency_key: str,
+        client_operation_id: UUID,
     ) -> CodexOperationAccepted:
         """向所有权已确认的 thread 发起文本 turn。"""
 
         params: dict[str, JsonValue] = {
             "threadId": upstream_thread_id,
+            # 官方 0.145.0 字段把 HTTP 重试身份贯穿到上游 turn。
+            "clientUserMessageId": str(client_operation_id),
             "input": [{"type": "text", "text": message, "text_elements": []}],
         }
         if execution.model is not None:
@@ -164,7 +168,9 @@ class ExecuteCodexThreadCommandUsecase:
                 ),
             ),
         )
-        return await self._dispatch(prepared)
+        return (await self._dispatch(prepared)).model_copy(
+            update={"client_operation_id": client_operation_id}
+        )
 
     async def steer_turn(
         self,
@@ -174,6 +180,7 @@ class ExecuteCodexThreadCommandUsecase:
         message: str,
         actor_subject_id: str,
         idempotency_key: str,
+        client_operation_id: UUID,
     ) -> CodexOperationAccepted:
         """向当前 active turn 追加文本输入并固定 expectedTurnId。"""
 
@@ -186,6 +193,7 @@ class ExecuteCodexThreadCommandUsecase:
             operation_type="turn.steer",
             params={
                 "threadId": upstream_thread_id,
+                "clientUserMessageId": str(client_operation_id),
                 "input": [{"type": "text", "text": message, "text_elements": []}],
             },
             operation_projection=CodexOperationProjection(
@@ -198,7 +206,9 @@ class ExecuteCodexThreadCommandUsecase:
                 ),
             ),
         )
-        return await self._dispatch(prepared)
+        return (await self._dispatch(prepared)).model_copy(
+            update={"client_operation_id": client_operation_id}
+        )
 
     async def interrupt_turn(
         self,
@@ -493,6 +503,16 @@ class ExecuteCodexThreadCommandUsecase:
             )
             if thread is None:
                 raise self._not_found()
+            if (
+                operation_type == "turn.start"
+                and thread.turn_runtime is not None
+                and thread.turn_runtime.phase is CodexTurnPhase.STALLED
+            ):
+                raise HttpFaultException(
+                    status_code=HTTPStatus.CONFLICT,
+                    error_code=CodexErrorCode.STATE_CONFLICT,
+                    message="Codex thread处于stalled状态，必须先同步或中断当前turn。",
+                )
             if local_title_update is not None:
                 now = datetime.now(UTC)
                 thread = thread.model_copy(
@@ -576,7 +596,22 @@ class ExecuteCodexThreadCommandUsecase:
             )
             if thread is None:
                 raise self._not_found()
-            if thread.active_turn_id is None:
+            operation_repository = self._control_port.create_codex_operation_repository(session)
+            existing_operation = operation_repository.get_by_actor_and_idempotency_key(
+                actor_subject_id,
+                idempotency_key,
+            )
+            target_turn_id = thread.active_turn_id
+            if (
+                target_turn_id is None
+                and operation_type == CodexProductCommandCode.TURN_INTERRUPT.value
+                and existing_operation is not None
+                and thread.turn_runtime is not None
+            ):
+                # 中断重试可能发生在终态事件清空 active_turn_id 之后；沿用
+                # 已持久化 runtime turn 身份，才能复用同一 operation/command。
+                target_turn_id = thread.turn_runtime.turn_id
+            if target_turn_id is None:
                 raise HttpFaultException(
                     status_code=HTTPStatus.CONFLICT,
                     error_code=CodexErrorCode.STATE_CONFLICT,
@@ -592,7 +627,7 @@ class ExecuteCodexThreadCommandUsecase:
             command_params = dict(params)
             command_params["workspace_key"] = workspace.agent_workspace_key
             command_params["expectedTurnId" if operation_type == "turn.steer" else "turnId"] = (
-                thread.active_turn_id
+                target_turn_id
             )
             prepared = self._build_or_reuse_operation(
                 unit_of_work=unit_of_work,

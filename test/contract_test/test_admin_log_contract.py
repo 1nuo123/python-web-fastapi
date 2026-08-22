@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from src.api.endpoint_admin_log.contract_admin_log import (
+    ADMIN_LOG_UNSUPPORTED_DETAIL_SUMMARY,
     AdminLogRecordPayload,
     AdminSecurityEventPayload,
 )
@@ -14,8 +15,22 @@ from src.application.ports.admin_log_query_port import (
     AdminLogRecordSnapshot,
     AdminUnparsedLogDetail,
 )
+from src.core.codex_contract.client_diagnostic_contract import (
+    CodexClientDiagnosticSource,
+    CodexClientDiagnosticSummary,
+)
+from src.core.codex_contract.client_performance_contract import (
+    CodexClientPerformanceMetric,
+    CodexClientPerformanceObservation,
+    CodexClientPerformanceSource,
+    CodexClientPerformanceUnit,
+)
+from src.core.codex_contract.feature_flags_contract import CodexExperienceFeatureFlags
 from src.core.logging_contract.log_event_contract import (
     AccessLogDetail,
+    CodexClientDiagnosticLogDetail,
+    CodexClientPerformanceLogDetail,
+    CodexExperienceFeatureFlagsLogDetail,
     LogEventKind,
     LogLevel,
     SecurityLogDetail,
@@ -94,6 +109,99 @@ class TestAdminLogContract:
         )
 
         assert payload.detail.summary == UNPARSED_SUMMARY
+
+    def test_restricted_codex_details_should_use_safe_unsupported_summary(self) -> None:
+        """
+        验证客户端诊断详情不会通过管理员日志接口暴露其受限字段。
+        """
+
+        diagnostic_payload = AdminLogRecordPayload.from_snapshot(
+            AdminLogRecordSnapshot(
+                event_id="event-admin-client-diagnostic",
+                event_kind=LogEventKind.CODEX_CLIENT_DIAGNOSTIC,
+                schema_version="1.1",
+                level=LogLevel.ERROR,
+                message=TEST_MESSAGE,
+                occurred_at=self._build_occurred_at(),
+                request_id=TEST_REQUEST_ID,
+                trace_id=TEST_TRACE_ID,
+                authenticated_subject_id=TEST_SUBJECT_ID,
+                source_module=TEST_SOURCE_MODULE,
+                source_component=TEST_SOURCE_COMPONENT,
+                detail=CodexClientDiagnosticLogDetail(
+                    source=CodexClientDiagnosticSource.MANUAL,
+                    summary=CodexClientDiagnosticSummary.MANUAL_CAPTURE,
+                    error_code="client.failure",
+                    fingerprint="fingerprint:admin-log-test",
+                ),
+                security_event=None,
+            )
+        )
+        performance_payload = AdminLogRecordPayload.from_snapshot(
+            AdminLogRecordSnapshot(
+                event_id="event-admin-client-performance",
+                event_kind=LogEventKind.CODEX_CLIENT_PERFORMANCE,
+                schema_version="1.1",
+                level=LogLevel.INFO,
+                message=TEST_MESSAGE,
+                occurred_at=self._build_occurred_at(),
+                request_id=TEST_REQUEST_ID,
+                trace_id=TEST_TRACE_ID,
+                authenticated_subject_id=TEST_SUBJECT_ID,
+                source_module=TEST_SOURCE_MODULE,
+                source_component=TEST_SOURCE_COMPONENT,
+                detail=CodexClientPerformanceLogDetail(
+                    source=CodexClientPerformanceSource.RENDERING,
+                    metric=CodexClientPerformanceMetric.REDUCER_DURATION_MILLISECONDS,
+                    observation=CodexClientPerformanceObservation.OBSERVED,
+                    unit=CodexClientPerformanceUnit.MILLISECONDS,
+                    value=42.5,
+                ),
+                security_event=None,
+            )
+        )
+        feature_flags_payload = AdminLogRecordPayload.from_snapshot(
+            AdminLogRecordSnapshot(
+                event_id="event-admin-feature-flags",
+                event_kind=LogEventKind.CODEX_EXPERIENCE_FEATURE_FLAGS,
+                schema_version="1.1",
+                level=LogLevel.INFO,
+                message=TEST_MESSAGE,
+                occurred_at=self._build_occurred_at(),
+                request_id=TEST_REQUEST_ID,
+                trace_id=TEST_TRACE_ID,
+                authenticated_subject_id=TEST_SUBJECT_ID,
+                source_module=TEST_SOURCE_MODULE,
+                source_component=TEST_SOURCE_COMPONENT,
+                detail=CodexExperienceFeatureFlagsLogDetail(
+                    decisions=CodexExperienceFeatureFlags().decisions()
+                ),
+                security_event=None,
+            )
+        )
+
+        for payload in (diagnostic_payload, performance_payload, feature_flags_payload):
+            assert payload.detail.summary == ADMIN_LOG_UNSUPPORTED_DETAIL_SUMMARY
+
+        serialized_payload = (
+            diagnostic_payload.model_dump_json()
+            + performance_payload.model_dump_json()
+            + feature_flags_payload.model_dump_json()
+        )
+        for restricted_value in (
+            "manual",
+            "manual_capture",
+            "client.failure",
+            "fingerprint:admin-log-test",
+            "rendering",
+            "reducer_duration_milliseconds",
+            "observed",
+            "milliseconds",
+            "42.5",
+            "legacy_timeline_scroll",
+            "scroll_release_cycle_verified",
+        ):
+            assert restricted_value not in serialized_payload
 
     def test_security_event_payload_should_keep_structured_event(self) -> None:
         """

@@ -49,7 +49,12 @@ def build_codex_approval_decision_authorization_requirement(
     """根据接受的具体能力请求构造额外 scope 要求。"""
 
     required_scopes: set[str] = set()
-    if decision is CodexApprovalDecision.ACCEPT:
+    if decision in {
+        CodexApprovalDecision.ACCEPT,
+        CodexApprovalDecision.ACCEPT_FOR_SESSION,
+        CodexApprovalDecision.ACCEPT_WITH_EXECPOLICY_AMENDMENT,
+        CodexApprovalDecision.APPLY_NETWORK_POLICY_AMENDMENT,
+    }:
         if (
             approval.approval_kind is CodexApprovalKind.FILE_CHANGE
             or approval.display_summary.file_scope

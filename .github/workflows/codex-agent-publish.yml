@@ -155,6 +155,7 @@ jobs:
           New-Item -ItemType Directory -Force dist/publish | Out-Null
           uv run python -m src.cli.build_codex_agent_installer_identity `
             --version "$env:RELEASE_VERSION" `
+            --deployment-profile production `
             --output dist/windows-installer-identity.json
           $identity = Get-Content -Raw -Encoding UTF8 dist/windows-installer-identity.json | ConvertFrom-Json
           .tools/wix.exe build packaging/windows/wix/Product.wxs `
@@ -162,6 +163,8 @@ jobs:
             -d AgentSource="$env:GITHUB_WORKSPACE/dist/installer-payload" `
             -d ProductVersion="$env:RELEASE_VERSION" `
             -d ProductCode="$($identity.product_code)" `
+            -d UpgradeCode="$($identity.upgrade_code)" `
+            -d DeploymentProfile=production `
             -d IncludeTrustedRoot=1 `
             -o dist/publish/CodexRemoteAgent.msi
       - uses: azure/login@v2

@@ -22,7 +22,7 @@ from src.infrastructure.evidence.workspace_audit_catalog_builder import (
 
 EXPECTED_FINDING_RELATION_COUNT = 19
 EXPECTED_AUDIT_DIMENSION_COUNT = 16
-EXPECTED_MIGRATION_HEAD = "202608161230"
+EXPECTED_MIGRATION_HEAD = "202608190230"
 
 
 class TestWorkspaceEvidenceCatalogUnit:

@@ -10,6 +10,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from src.api.dependency_context_accessor import DependencyContextAccessor
 from src.core.codex_contract.workspace_contract import (
     CodexWorkspaceCollection,
+    CodexWorkspaceExecutionPreferencesResult,
+    CodexWorkspaceExecutionPreferencesUpdate,
     CodexWorkspaceSnapshot,
     CodexWorkspaceUpdateRequest,
 )
@@ -17,6 +19,7 @@ from src.core.exception_contract.error_code_catalog_contract import SuccessCode
 from src.core.http_contract.response_envelope_contract import ResponseEnvelope
 from src.domain.codex.codex_authorization_policy import (
     CODEX_HOST_MANAGE_AUTHORIZATION_REQUIREMENT,
+    CODEX_OPERATE_AUTHORIZATION_REQUIREMENT,
     CODEX_READ_AUTHORIZATION_REQUIREMENT,
 )
 
@@ -43,6 +46,20 @@ class CodexWorkspaceRouteCatalog:
             response_model=ResponseEnvelope[CodexWorkspaceSnapshot],
             dependencies=[Depends(self.require_codex_host_manage)],
         )
+        self.router.add_api_route(
+            "/codex/hosts/{host_id}/workspaces/{workspace_id}/preferences",
+            self.get_execution_preferences,
+            methods=["GET"],
+            response_model=ResponseEnvelope[CodexWorkspaceExecutionPreferencesResult],
+            dependencies=[Depends(self.require_codex_read)],
+        )
+        self.router.add_api_route(
+            "/codex/hosts/{host_id}/workspaces/{workspace_id}/preferences",
+            self.update_execution_preferences,
+            methods=["PUT"],
+            response_model=ResponseEnvelope[CodexWorkspaceExecutionPreferencesResult],
+            dependencies=[Depends(self.require_codex_operate)],
+        )
 
     async def require_codex_read(
         self,
@@ -64,6 +81,15 @@ class CodexWorkspaceRouteCatalog:
             request,
             CODEX_HOST_MANAGE_AUTHORIZATION_REQUIREMENT,
         )
+
+    async def require_codex_operate(
+        self,
+        request: Request,
+        _credentials: HTTPAuthorizationCredentials | None = Security(CODEX_BEARER_SCHEME),
+    ) -> None:
+        """校验用户认证与 codex:operate scope。"""
+
+        self._accessor.read_authorized_principal(request, CODEX_OPERATE_AUTHORIZATION_REQUIREMENT)
 
     async def get_workspaces(
         self,
@@ -107,6 +133,64 @@ class CodexWorkspaceRouteCatalog:
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),
             message="Codex 工作区更新成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=payload,
+        )
+
+    async def get_execution_preferences(
+        self,
+        request: Request,
+        host_id: UUID,
+        workspace_id: UUID,
+    ) -> ResponseEnvelope[CodexWorkspaceExecutionPreferencesResult]:
+        """读取当前主体工作区的有效执行偏好。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        payload = await self._accessor.read_request_execution_bridge(request).run_sync(
+            execution_name="default_sync_usecase",
+            callable_object=(
+                self._accessor.read_update_codex_workspace_usecase(
+                    request
+                ).read_execution_preferences
+            ),
+            host_id=host_id,
+            workspace_id=workspace_id,
+            owner_subject_id=principal.subject_id,
+            subject_scopes=frozenset(principal.scopes),
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="Codex 工作区执行偏好读取成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=payload,
+        )
+
+    async def update_execution_preferences(
+        self,
+        request: Request,
+        host_id: UUID,
+        workspace_id: UUID,
+        body: CodexWorkspaceExecutionPreferencesUpdate,
+    ) -> ResponseEnvelope[CodexWorkspaceExecutionPreferencesResult]:
+        """更新当前主体工作区的有效执行偏好。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        payload = await self._accessor.read_request_execution_bridge(request).run_sync(
+            execution_name="default_sync_usecase",
+            callable_object=(
+                self._accessor.read_update_codex_workspace_usecase(
+                    request
+                ).update_execution_preferences
+            ),
+            host_id=host_id,
+            workspace_id=workspace_id,
+            owner_subject_id=principal.subject_id,
+            subject_scopes=frozenset(principal.scopes),
+            request=body,
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="Codex 工作区执行偏好更新成功。",
             request_scope=self._accessor.read_request_scope(request),
             data=payload,
         )

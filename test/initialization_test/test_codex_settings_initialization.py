@@ -12,7 +12,19 @@ class TestCodexSettingsInitialization:
         settings = AppSettingsLoader().load_for_environment(AppEnvironment.TEST)
 
         assert settings.modules.codex_control.personal_mvp_only is True
-        assert settings.runtime.codex_control.agent_heartbeat_seconds == 10
+        assert settings.runtime.codex_control.agent_heartbeat_seconds == 15
+        assert settings.runtime.codex_control.turn_runtime_lease_ttl_seconds == 60
+        assert settings.runtime.codex_control.turn_runtime_watchdog_seconds == 15
+        assert settings.runtime.codex_control.turn_runtime_stalled_after_seconds == 90
+        assert not settings.runtime.codex_control.client_diagnostic_error_collection_enabled
+        assert not settings.runtime.codex_control.client_diagnostic_performance_collection_enabled
+        assert settings.runtime.codex_control.client_diagnostic_performance_sample_rate == 0.1
+        assert settings.runtime.codex_control.client_diagnostic_cleanup_interval_seconds == 3600
+        assert settings.runtime.codex_control.client_diagnostic_error_retention_days == 14
+        assert settings.runtime.codex_control.client_diagnostic_performance_retention_days == 30
+        assert not settings.runtime.codex_control.codex_scroll_controller_v2
+        assert not settings.runtime.codex_control.codex_realtime_batch_v2
+        assert not settings.runtime.codex_control.codex_authority_recovery_v2
         assert settings.runtime.codex_control.max_connected_agents == 1
         assert settings.runtime.codex_control.allowed_codex_versions == [
             "0.145.0",
@@ -32,6 +44,24 @@ class TestCodexSettingsInitialization:
             )
 
         assert "agent_offline_after_seconds" in str(fault.value.detail)
+
+    def test_experience_flags_can_be_enabled_independently(self) -> None:
+        settings = AppSettingsLoader().load_from_mapping(
+            environment=AppEnvironment.TEST,
+            overrides={
+                "runtime": {
+                    "codex_control": {
+                        "codex_scroll_controller_v2": True,
+                        "codex_realtime_batch_v2": False,
+                        "codex_authority_recovery_v2": True,
+                    }
+                }
+            },
+        )
+
+        assert settings.runtime.codex_control.codex_scroll_controller_v2
+        assert not settings.runtime.codex_control.codex_realtime_batch_v2
+        assert settings.runtime.codex_control.codex_authority_recovery_v2
 
     def test_settings_when_reconnect_max_below_min_should_fail(self) -> None:
         with pytest.raises(HttpFaultException) as fault:

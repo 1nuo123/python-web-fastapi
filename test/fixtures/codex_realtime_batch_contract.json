@@ -1,0 +1,102 @@
+{
+  "agent_batch": {
+    "kind": "event_batch",
+    "agent_event_epoch": "00000000-0000-0000-0000-000000000010",
+    "first_seq": 1,
+    "last_seq": 2,
+    "events": [
+      {
+        "agent_event_epoch": "00000000-0000-0000-0000-000000000010",
+        "seq": 1,
+        "event_id": "00000000-0000-0000-0000-000000000011",
+        "app_server_instance_id": "00000000-0000-0000-0000-000000000012",
+        "occurred_at": "2026-08-19T07:30:00Z",
+        "detail": {
+          "kind": "item.delta",
+          "method": "item/agentMessage/delta",
+          "thread_id": "thread-contract-1",
+          "turn_id": "turn-contract-1",
+          "item_id": "item-contract-1",
+          "delta": "contract delta"
+        }
+      },
+      {
+        "agent_event_epoch": "00000000-0000-0000-0000-000000000010",
+        "seq": 2,
+        "event_id": "00000000-0000-0000-0000-000000000013",
+        "app_server_instance_id": "00000000-0000-0000-0000-000000000012",
+        "occurred_at": "2026-08-19T07:30:01Z",
+        "detail": {
+          "kind": "protocol.warning",
+          "reason_code": "contract_warning",
+          "method": "test/contract_warning"
+        }
+      }
+    ]
+  },
+  "browser_batches": [
+    {
+      "protocol_version": 2,
+      "stream_epoch": "contract-browser-epoch-1",
+      "first_cursor": "1",
+      "last_cursor": "1",
+      "barrier": false,
+      "events": [
+        {
+          "header": {
+            "kind": "codex_realtime_event",
+            "schema_version": "2.0",
+            "stream_epoch": "contract-browser-epoch-1",
+            "cursor": "1",
+            "event_id": "contract-browser-event-1",
+            "occurred_at": "2026-08-19T07:30:00Z",
+            "host_id": "00000000-0000-0000-0000-000000000001",
+            "workspace_id": null,
+            "thread_id": "thread-contract-1",
+            "turn_id": "turn-contract-1",
+            "item_id": "item-contract-1",
+            "detail_kind": "item.delta"
+          },
+          "detail": {
+            "schema_version": "2.0",
+            "kind": "item.delta",
+            "item_id": "item-contract-1",
+            "thread_id": "thread-contract-1",
+            "turn_id": "turn-contract-1",
+            "delta": "contract delta"
+          }
+        }
+      ]
+    },
+    {
+      "protocol_version": 2,
+      "stream_epoch": "contract-browser-epoch-1",
+      "first_cursor": "2",
+      "last_cursor": "2",
+      "barrier": true,
+      "events": [
+        {
+          "header": {
+            "kind": "codex_realtime_event",
+            "schema_version": "2.0",
+            "stream_epoch": "contract-browser-epoch-1",
+            "cursor": "2",
+            "event_id": "contract-browser-event-2",
+            "occurred_at": "2026-08-19T07:30:01Z",
+            "host_id": "00000000-0000-0000-0000-000000000001",
+            "workspace_id": null,
+            "thread_id": null,
+            "turn_id": null,
+            "item_id": null,
+            "detail_kind": "protocol.warning"
+          },
+          "detail": {
+            "schema_version": "2.0",
+            "kind": "protocol.warning",
+            "warning": "Agent protocol warning: contract_warning"
+          }
+        }
+      ]
+    }
+  ]
+}

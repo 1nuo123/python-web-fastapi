@@ -2,9 +2,9 @@
   "header": {
     "schema_version": "1.0",
     "run_id": "phase3-final-static",
-    "code_baseline": "61670f4f8ef1ae86d91cca55313a37e0f9b009740c139347119ee6f01baf1d02",
+    "code_baseline": "fde479b34365a8335498ddd68c57834564668dcd52d15d330f0f85841c2c94c4",
     "environment": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
-    "started_at": "2026-08-17T02:06:07.425541Z",
+    "started_at": "2026-08-19T11:57:58.102225Z",
     "command_entry": "nox -s static"
   },
   "kind": "static",
@@ -14,7 +14,7 @@
     "command": "nox -s static",
     "exit_code": 0,
     "test_count": null,
-    "duration_seconds": 26.145525000058115,
+    "duration_seconds": 65.54256910004187,
     "environment_summary": "python=3.11.8;platform=Windows-10-10.0.22621-SP0",
     "failure_summary": null,
     "evidence_path": "docs\\evidence\\test-runs\\phase3-final-static.json",
@@ -25,9 +25,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\compileall.log",
-        "started_at": "2026-08-17T02:06:07.425541Z",
-        "finished_at": "2026-08-17T02:06:08.095842Z",
-        "duration_seconds": 0.6695740000577644
+        "started_at": "2026-08-19T11:57:58.102225Z",
+        "finished_at": "2026-08-19T11:57:59.535727Z",
+        "duration_seconds": 1.4348250000039116
       },
       {
         "command": "E:/python_web_fastapi/work/.venv/Scripts/python.exe -m ruff format --check src test noxfile.py",
@@ -35,9 +35,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\ruff-format.log",
-        "started_at": "2026-08-17T02:06:08.095842Z",
-        "finished_at": "2026-08-17T02:06:08.513110Z",
-        "duration_seconds": 0.4348523000953719
+        "started_at": "2026-08-19T11:57:59.537723Z",
+        "finished_at": "2026-08-19T11:57:59.905031Z",
+        "duration_seconds": 0.38923039997462183
       },
       {
         "command": "E:/python_web_fastapi/work/.venv/Scripts/python.exe -m ruff check src test noxfile.py",
@@ -45,9 +45,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\ruff-check.log",
-        "started_at": "2026-08-17T02:06:08.531303Z",
-        "finished_at": "2026-08-17T02:06:08.825029Z",
-        "duration_seconds": 0.2984725999413058
+        "started_at": "2026-08-19T11:57:59.926589Z",
+        "finished_at": "2026-08-19T11:58:00.268120Z",
+        "duration_seconds": 0.34499960008542985
       },
       {
         "command": "E:/python_web_fastapi/work/.venv/Scripts/python.exe -m mypy src",
@@ -55,9 +55,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\mypy.log",
-        "started_at": "2026-08-17T02:06:08.827462Z",
-        "finished_at": "2026-08-17T02:06:11.932628Z",
-        "duration_seconds": 3.1051596000324935
+        "started_at": "2026-08-19T11:58:00.269348Z",
+        "finished_at": "2026-08-19T11:58:08.834435Z",
+        "duration_seconds": 8.567388199968264
       },
       {
         "command": "E:/python_web_fastapi/work/.venv/Scripts/lint-imports.exe",
@@ -65,9 +65,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\import-linter.log",
-        "started_at": "2026-08-17T02:06:11.934921Z",
-        "finished_at": "2026-08-17T02:06:12.625180Z",
-        "duration_seconds": 0.6941944999853149
+        "started_at": "2026-08-19T11:58:08.838962Z",
+        "finished_at": "2026-08-19T11:58:09.464923Z",
+        "duration_seconds": 0.6286404000129551
       },
       {
         "command": "E:/python_web_fastapi/work/.venv/Scripts/python.exe -m bandit -c pyproject.toml -r src --severity-level medium",
@@ -75,9 +75,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\bandit.log",
-        "started_at": "2026-08-17T02:06:12.626929Z",
-        "finished_at": "2026-08-17T02:06:21.762383Z",
-        "duration_seconds": 9.135601999936625
+        "started_at": "2026-08-19T11:58:09.467767Z",
+        "finished_at": "2026-08-19T11:58:18.117839Z",
+        "duration_seconds": 8.652452199952677
       },
       {
         "command": "E:/python_web_fastapi/work/.venv/Scripts/python.exe -m pip_audit",
@@ -85,9 +85,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\pip-audit.log",
-        "started_at": "2026-08-17T02:06:21.764149Z",
-        "finished_at": "2026-08-17T02:06:27.436305Z",
-        "duration_seconds": 5.674083499936387
+        "started_at": "2026-08-19T11:58:18.119236Z",
+        "finished_at": "2026-08-19T11:58:57.084600Z",
+        "duration_seconds": 38.96816749998834
       },
       {
         "command": "E:/python_web_fastapi/work/.venv/Scripts/python.exe -m detect_secrets scan src config compose.yml compose.production.yml Dockerfile",
@@ -95,9 +95,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\detect-secrets.log",
-        "started_at": "2026-08-17T02:06:27.437829Z",
-        "finished_at": "2026-08-17T02:06:32.464796Z",
-        "duration_seconds": 5.032516499981284
+        "started_at": "2026-08-19T11:58:57.087680Z",
+        "finished_at": "2026-08-19T11:59:01.932055Z",
+        "duration_seconds": 4.845646500005387
       },
       {
         "command": "uv lock --check",
@@ -105,9 +105,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\uv-lock.log",
-        "started_at": "2026-08-17T02:06:32.469108Z",
-        "finished_at": "2026-08-17T02:06:32.536273Z",
-        "duration_seconds": 0.10185229999478906
+        "started_at": "2026-08-19T11:59:01.933653Z",
+        "finished_at": "2026-08-19T11:59:02.004975Z",
+        "duration_seconds": 0.10876269999425858
       },
       {
         "command": "docker compose -f compose.yml config -q",
@@ -115,9 +115,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\compose-local.log",
-        "started_at": "2026-08-17T02:06:32.566948Z",
-        "finished_at": "2026-08-17T02:06:32.869103Z",
-        "duration_seconds": 0.46247540006879717
+        "started_at": "2026-08-19T11:59:02.043131Z",
+        "finished_at": "2026-08-19T11:59:02.568596Z",
+        "duration_seconds": 0.8430136000970379
       },
       {
         "command": "docker compose -f compose.yml -f compose.production.yml config -q",
@@ -125,9 +125,9 @@
         "exit_code": 0,
         "finding_count": 0,
         "evidence_path": ".tmp\\static-results\\compose-production.log",
-        "started_at": "2026-08-17T02:06:33.035536Z",
-        "finished_at": "2026-08-17T02:06:33.360312Z",
-        "duration_seconds": 0.5354064999846742
+        "started_at": "2026-08-19T11:59:02.884749Z",
+        "finished_at": "2026-08-19T11:59:03.414985Z",
+        "duration_seconds": 0.7577242000261322
       }
     ],
     "artifacts": [],

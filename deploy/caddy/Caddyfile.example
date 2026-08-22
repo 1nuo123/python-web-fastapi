@@ -21,6 +21,8 @@
 	route {
 		@codex_events path /codex/events
 		reverse_proxy @codex_events app:8000 {
+			# Caddy is the public boundary; never propagate a client-supplied Forwarded header.
+			header_up -Forwarded
 			flush_interval -1
 			health_uri /health/ready
 			health_interval 30s
@@ -29,12 +31,16 @@
 
 		@backend path /auth/* /health/* /internal/* /codex/realtime-tickets /codex/hosts* /codex/approvals* /openapi.json
 		reverse_proxy @backend app:8000 {
+			# Caddy is the public boundary; never propagate a client-supplied Forwarded header.
+			header_up -Forwarded
 			health_uri /health/ready
 			health_interval 30s
 			health_timeout 5s
 		}
 
 		reverse_proxy frontend:3000 {
+			# Caddy is the public boundary; never propagate a client-supplied Forwarded header.
+			header_up -Forwarded
 			health_uri /
 			health_interval 30s
 			health_timeout 5s

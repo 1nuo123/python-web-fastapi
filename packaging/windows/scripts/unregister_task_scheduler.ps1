@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory = $true)][string]$InstallRoot
+  [Parameter(Mandatory = $true)][string]$InstallRoot,
+  [ValidateSet("production", "development")][string]$DeploymentProfile = "production"
 )
 
 Set-StrictMode -Version Latest
@@ -16,7 +17,11 @@ if ([string]::IsNullOrWhiteSpace($currentUser) -or
     $currentUserSid -notmatch '^S-1-(?:\d+-)+\d+$') {
   throw "Unable to resolve the current Windows user and SID."
 }
-$taskNames = @("CodexRemoteAgent-$currentUserSid", "CodexRemoteAgent")
+$profileTaskSuffix = if ($DeploymentProfile -eq "development") { "-Development" } else { "" }
+$taskNames = @("CodexRemoteAgent$profileTaskSuffix-$currentUserSid")
+if ($DeploymentProfile -eq "production") {
+  $taskNames += "CodexRemoteAgent"
+}
 foreach ($taskName in $taskNames) {
   $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
   if ($null -eq $task) {

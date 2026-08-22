@@ -12,8 +12,8 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentEventType,
 )
 
-AGENT_EVENT_BATCH_WINDOW: Final[timedelta] = timedelta(milliseconds=75)
-AGENT_EVENT_BATCH_MAX_CHARS: Final[int] = 4_096
+AGENT_EVENT_BATCH_WINDOW: Final[timedelta] = timedelta(milliseconds=25)
+AGENT_EVENT_BATCH_MAX_BYTES: Final[int] = 16 * 1024
 DELTA_EVENT_TYPES: Final[frozenset[AgentEventType]] = frozenset({AgentEventType.ITEM_DELTA})
 
 
@@ -31,17 +31,17 @@ class AgentEventBatcher:
         self,
         *,
         window: timedelta = AGENT_EVENT_BATCH_WINDOW,
-        max_chars: int = AGENT_EVENT_BATCH_MAX_CHARS,
+        max_bytes: int = AGENT_EVENT_BATCH_MAX_BYTES,
     ) -> None:
         if window.total_seconds() <= 0:
             raise ValueError("Agent事件批处理窗口必须大于零。")
-        if max_chars <= 0:
-            raise ValueError("Agent事件批处理字符上限必须大于零。")
+        if max_bytes <= 0:
+            raise ValueError("Agent事件批处理字节上限必须大于零。")
         self._window = window
-        self._max_chars = max_chars
+        self._max_bytes = max_bytes
         self._pending: list[AgentEventRecord] = []
         self._started_at: datetime | None = None
-        self._char_count = 0
+        self._byte_count = 0
 
     @property
     def has_pending(self) -> bool:
@@ -52,7 +52,7 @@ class AgentEventBatcher:
     def push(
         self, event: AgentEventRecord, *, now: datetime | None = None
     ) -> AgentEventBatcherResult:
-        """写入一个事件并按时间、字符数或 barrier 规则输出。"""
+        """写入一个事件并按时间、UTF-8 字节数或 barrier 规则输出。"""
 
         current_time = now or datetime.now(UTC)
         flushed: list[AgentEventBatchV2Detail] = []
@@ -62,15 +62,15 @@ class AgentEventBatcher:
             or event.agent_event_epoch != self._pending[-1].agent_event_epoch
             or self._started_at is None
             or current_time - self._started_at >= self._window
-            or self._char_count + self._event_chars(event) > self._max_chars
+            or self._byte_count + self._event_bytes(event) > self._max_bytes
         ):
             flushed.append(self.flush())
         if is_delta:
             if not self._pending:
                 self._started_at = current_time
             self._pending.append(event)
-            self._char_count += self._event_chars(event)
-            if self._char_count >= self._max_chars:
+            self._byte_count += self._event_bytes(event)
+            if self._byte_count >= self._max_bytes:
                 flushed.append(self.flush())
         else:
             flushed.append(self._build_batch((event,)))
@@ -84,7 +84,7 @@ class AgentEventBatcher:
         batch = self._build_batch(tuple(self._pending))
         self._pending.clear()
         self._started_at = None
-        self._char_count = 0
+        self._byte_count = 0
         return batch
 
     def _build_batch(self, events: tuple[AgentEventRecord, ...]) -> AgentEventBatchV2Detail:
@@ -95,10 +95,12 @@ class AgentEventBatcher:
             events=events,
         )
 
-    def _event_chars(self, event: AgentEventRecord) -> int:
+    def _event_bytes(self, event: AgentEventRecord) -> int:
+        """按传输实际 UTF-8 编码计算 delta 的有界负载大小。"""
+
         detail = event.detail
         return (
-            len(detail.delta)
+            len(detail.delta.encode("utf-8"))
             if detail.kind == AgentEventType.ITEM_DELTA and hasattr(detail, "delta")
             else 0
         )

@@ -72,6 +72,28 @@ def read_trusted_forwarded_origin(
     return f"{normalized_proto}://{normalized_host}"
 
 
+def is_trusted_https_request(
+    request: HTTPConnection,
+    client_ip_resolver: ClientIpResolver,
+) -> bool:
+    """判断请求是否由直连 HTTPS 或可信代理声明的 HTTPS 保护。
+
+    应用本身通常运行在容器内 HTTP 上，不能仅凭 ``X-Forwarded-Proto``
+    决定 Cookie 安全属性。只有直连 TLS，或直接对端命中可信代理网段且
+    协议值严格为单一 ``https`` 时，才允许把浏览器 Cookie 标记为 Secure。
+    """
+
+    if request.url.scheme.lower() == "https":
+        return True
+    if not client_ip_resolver.is_trusted_proxy(request):
+        return False
+
+    # Caddy replaces X-Forwarded-Proto and strips Forwarded before each
+    # upstream hop. Do not use the generic header here because clients can
+    # otherwise inject it before reaching the public gateway.
+    return request.headers.get(X_FORWARDED_PROTO_HEADER_NAME) == "https"
+
+
 def _read_forwarded_value(request: HTTPConnection, key: str) -> str | None:
     header_value = request.headers.get(FORWARDED_HEADER_NAME)
     if header_value is None:

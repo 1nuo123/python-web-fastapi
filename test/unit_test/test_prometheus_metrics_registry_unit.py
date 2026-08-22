@@ -4,6 +4,11 @@ Prometheus 指标注册器单元测试模块。
 
 from __future__ import annotations
 
+from src.core.codex_contract.client_diagnostic_contract import CodexClientDiagnosticSource
+from src.core.codex_contract.client_performance_contract import (
+    CodexClientPerformanceMetric,
+    CodexClientPerformanceObservation,
+)
 from src.core.logging_contract.log_writer_contract import LogWriteReason
 from src.core.security_contract.security_event_contract import (
     SecurityEventDecision,
@@ -11,12 +16,18 @@ from src.core.security_contract.security_event_contract import (
     SecurityEventType,
 )
 from src.infrastructure.observability.prometheus_metrics_registry import (
+    CODEX_CLIENT_DIAGNOSTIC_TOTAL_NAME,
+    CODEX_CLIENT_PERFORMANCE_SAMPLE_TOTAL_NAME,
+    CODEX_CLIENT_PERFORMANCE_VALUE_NAME,
     LOG_BUFFER_FLUSH_TOTAL_NAME,
     LOG_BUFFER_PENDING_ITEMS_NAME,
     RUNTIME_SATURATION_RATIO_NAME,
     SECURITY_EVENT_TOTAL_NAME,
     TASK_EXECUTION_TOTAL_NAME,
     UNKNOWN_REQUEST_PATH_LABEL,
+    CodexClientDiagnosticMetric,
+    CodexClientDiagnosticMetricOutcome,
+    CodexClientPerformanceMetricSample,
     HttpRequestMetric,
     LogBufferFlushMetric,
     LogBufferPendingMetric,
@@ -62,6 +73,14 @@ SATURATION_SAMPLE = (
 )
 SATURATION_OVERFLOW_SAMPLE = (
     f'{RUNTIME_SATURATION_RATIO_NAME}{{resource="log_buffer"}} {SATURATION_RATIO_MAXIMUM_TEXT}'
+)
+CODEX_CLIENT_DIAGNOSTIC_SAMPLE = (
+    f"{CODEX_CLIENT_DIAGNOSTIC_TOTAL_NAME}"
+    '{error_code="client.window.error",outcome="recorded",source="window"} 1.0'
+)
+CODEX_CLIENT_PERFORMANCE_SAMPLE = (
+    f"{CODEX_CLIENT_PERFORMANCE_SAMPLE_TOTAL_NAME}"
+    '{metric="approximate_fps",observation="observed"} 1.0'
 )
 
 
@@ -200,6 +219,39 @@ class TestPrometheusMetricsRegistryUnit:
         assert SATURATION_SAMPLE in metrics_text
         assert SATURATION_OVERFLOW_SAMPLE in metrics_text
 
+    def test_record_codex_client_diagnostic_should_render_sanitized_labels(self) -> None:
+        """验证客户端诊断计数仅输出服务端白名单收敛后的低基数标签。"""
+
+        registry = PrometheusMetricsRegistry()
+        registry.record_codex_client_diagnostic(
+            CodexClientDiagnosticMetric(
+                source=CodexClientDiagnosticSource.WINDOW,
+                error_code="client.window.error",
+                outcome=CodexClientDiagnosticMetricOutcome.RECORDED,
+            )
+        )
+
+        assert CODEX_CLIENT_DIAGNOSTIC_SAMPLE in registry.render().decode()
+
+    def test_record_codex_client_performance_should_render_fixed_labels_and_value(self) -> None:
+        """性能值不会成为标签，只有封闭测量和观测可用于聚合。"""
+
+        registry = PrometheusMetricsRegistry()
+        registry.record_codex_client_performance(
+            CodexClientPerformanceMetricSample(
+                metric=CodexClientPerformanceMetric.APPROXIMATE_FPS,
+                observation=CodexClientPerformanceObservation.OBSERVED,
+                value=58.0,
+            )
+        )
+
+        metrics_text = registry.render().decode()
+        assert CODEX_CLIENT_PERFORMANCE_SAMPLE in metrics_text
+        assert (
+            f"{CODEX_CLIENT_PERFORMANCE_VALUE_NAME}"
+            '{metric="approximate_fps",observation="observed"} 58.0'
+        ) in metrics_text
+
     def test_disabled_options_should_not_register_metric_families(self) -> None:
         """
         验证开关关闭时对应指标族不注册且记录调用为空操作。
@@ -211,6 +263,7 @@ class TestPrometheusMetricsRegistryUnit:
                 include_task_metrics=False,
                 include_log_buffer_metrics=False,
                 include_saturation_metrics=False,
+                include_codex_diagnostic_metrics=False,
             )
         )
         registry.record_security_event(
@@ -242,6 +295,13 @@ class TestPrometheusMetricsRegistryUnit:
                 ratio=SATURATION_RATIO_VALUE,
             )
         )
+        registry.record_codex_client_diagnostic(
+            CodexClientDiagnosticMetric(
+                source=CodexClientDiagnosticSource.WINDOW,
+                error_code="client.window.error",
+                outcome=CodexClientDiagnosticMetricOutcome.RATE_LIMITED,
+            )
+        )
 
         metrics_text = registry.render().decode()
         assert SECURITY_EVENT_TOTAL_NAME not in metrics_text
@@ -249,3 +309,6 @@ class TestPrometheusMetricsRegistryUnit:
         assert LOG_BUFFER_PENDING_ITEMS_NAME not in metrics_text
         assert TASK_EXECUTION_TOTAL_NAME not in metrics_text
         assert RUNTIME_SATURATION_RATIO_NAME not in metrics_text
+        assert CODEX_CLIENT_DIAGNOSTIC_TOTAL_NAME not in metrics_text
+        assert CODEX_CLIENT_PERFORMANCE_SAMPLE_TOTAL_NAME not in metrics_text
+        assert CODEX_CLIENT_PERFORMANCE_VALUE_NAME not in metrics_text

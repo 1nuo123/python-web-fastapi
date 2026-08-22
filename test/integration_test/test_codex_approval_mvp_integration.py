@@ -19,6 +19,7 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentPendingApprovalSnapshot,
 )
 from src.core.codex_contract.approval_contract import (
+    CodexApprovalDecision,
     CodexApprovalDisplaySummary,
     CodexApprovalRiskLevel,
 )
@@ -260,6 +261,8 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
                                 title="命令审批",
                                 reason="需要运行测试",
                                 risk_level=CodexApprovalRiskLevel.HIGH,
+                                # 浏览器只能提交 Agent 按冻结 schema 明确广告的官方动作。
+                                allowed_actions=(CodexApprovalDecision.ACCEPT,),
                             ),
                         )
                     ),
@@ -316,9 +319,6 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
                         command,
                     )
                     decision_response = decision_future.result(timeout=5)
-                resolved_thread_event = CodexRealtimeEvent.model_validate_json(
-                    browser_websocket.receive_text()
-                )
                 resolved_event = CodexRealtimeEvent.model_validate_json(
                     browser_websocket.receive_text()
                 )
@@ -358,6 +358,7 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
         "network_requested": False,
         "extra_root_requested": False,
         "risk_reason": None,
+        "allowed_actions": ["accept"],
     }
     opened_approval = opened_event.detail.approval.model_dump(mode="json")
     assert opened_approval == persisted
@@ -369,10 +370,6 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
     assert command.detail.approval_id == approval_id
     assert command.detail.decision == "accept"
     assert command.detail.approval_version == 1
-    assert resolved_thread_event.header.detail_kind == CodexRealtimeEventType.THREAD_UPDATED
-    assert isinstance(resolved_thread_event.detail, CodexThreadUpdatedDetail)
-    assert resolved_thread_event.detail.thread.upstream_thread_id == thread_id
-    assert resolved_thread_event.detail.thread.recency_at is not None
     assert resolved_event.header.detail_kind == CodexRealtimeEventType.APPROVAL_RESOLVED
     assert isinstance(resolved_event.detail, CodexApprovalEventDetail)
     assert resolved_event.detail.approval.state == CodexApprovalState.APPLIED

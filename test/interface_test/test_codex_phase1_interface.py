@@ -29,6 +29,7 @@ class TestCodexPhase1Interface:
         assert "HttpOnly" in cookie
         assert "SameSite=strict" in cookie
         assert "Path=/auth/browser" in cookie
+        assert "Secure" not in cookie
 
     def test_browser_token_when_origin_missing_should_return_forbidden(self) -> None:
         with TestClient(TestAppFactory().create()) as client:
@@ -57,7 +58,69 @@ class TestCodexPhase1Interface:
             )
 
         assert response.status_code == HTTPStatus.OK
-        assert "HttpOnly" in response.headers["set-cookie"]
+        cookie = response.headers["set-cookie"]
+        assert "HttpOnly" in cookie
+        assert "Secure" in cookie
+
+    def test_browser_token_when_forwarded_https_is_not_from_a_trusted_proxy_should_not_set_secure_cookie(
+        self,
+    ) -> None:
+        with TestClient(
+            TestAppFactory().create(),
+            base_url="http://backend.internal",
+            client=("198.51.100.10", 50000),
+        ) as client:
+            response = client.post(
+                "/auth/browser/token",
+                headers={
+                    "Origin": "http://backend.internal",
+                    "X-Forwarded-Proto": "https",
+                },
+                json={"username": "admin", "password": "admin"},
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        assert "Secure" not in response.headers["set-cookie"]
+
+    def test_browser_token_when_trusted_proxy_forwards_multiple_protocols_should_not_set_secure_cookie(
+        self,
+    ) -> None:
+        with TestClient(
+            TestAppFactory().create(),
+            base_url="http://backend.internal",
+            client=("127.0.0.1", 50000),
+        ) as client:
+            response = client.post(
+                "/auth/browser/token",
+                headers={
+                    "Origin": "http://backend.internal",
+                    "X-Forwarded-Proto": "https,http",
+                },
+                json={"username": "admin", "password": "admin"},
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        assert "Secure" not in response.headers["set-cookie"]
+
+    def test_browser_token_when_trusted_proxy_forwards_standard_https_header_should_not_set_secure_cookie(
+        self,
+    ) -> None:
+        with TestClient(
+            TestAppFactory().create(),
+            base_url="http://backend.internal",
+            client=("127.0.0.1", 50000),
+        ) as client:
+            response = client.post(
+                "/auth/browser/token",
+                headers={
+                    "Origin": "http://backend.internal",
+                    "Forwarded": "proto=https",
+                },
+                json={"username": "admin", "password": "admin"},
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        assert "Secure" not in response.headers["set-cookie"]
 
     def test_browser_refresh_and_revoke_should_use_cookie_only(self) -> None:
         with TestClient(TestAppFactory().create()) as client:

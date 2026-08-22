@@ -1798,12 +1798,14 @@ codexRealtimePath: '/codex/events',
 codexFeatureEnabled: false,
 ```
 
-环境变量：
+环境变量（生产默认）：
 
 ```text
-NUXT_PUBLIC_CODEX_FEATURE_ENABLED=true
+NUXT_PUBLIC_CODEX_FEATURE_ENABLED=false
 NUXT_PUBLIC_CODEX_REALTIME_PATH=/codex/events
 ```
+
+只有在 Windows Agent Authenticode/TUF 发布和 HTTPS/WSS 端到端验收完成后，才可按生产部署指南显式启用该开关。
 
 同源生产环境从 `window.location` 推导 `wss://` 地址，不额外暴露主机名。开发环境如果前后端分离，可增加明确的：
 

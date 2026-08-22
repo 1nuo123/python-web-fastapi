@@ -1009,6 +1009,7 @@ class RawPrometheusMetricsRuntimeDetailMapping(TypedDict, total=False):
     include_task_metrics: bool
     include_log_buffer_metrics: bool
     include_saturation_metrics: bool
+    include_codex_diagnostic_metrics: bool
 
 
 class RawMetricsRuntimeMapping(TypedDict, total=False):
@@ -1189,6 +1190,7 @@ class RawCodexControlRuntimeMapping(TypedDict, total=False):
     """原始 Codex 控制面运行时配置。"""
 
     enabled: bool
+    agent_deployment_profile: str
     agent_heartbeat_seconds: int
     agent_offline_after_seconds: int
     agent_rpc_ack_timeout_seconds: int
@@ -1208,7 +1210,19 @@ class RawCodexControlRuntimeMapping(TypedDict, total=False):
     pairing_code_ttl_seconds: int
     step_up_grant_ttl_seconds: int
     operation_idempotency_ttl_seconds: int
+    turn_runtime_lease_ttl_seconds: int
+    turn_runtime_watchdog_seconds: int
+    turn_runtime_stalled_after_seconds: int
     enrollment_intent_ttl_seconds: int
+    client_diagnostic_error_collection_enabled: bool
+    client_diagnostic_performance_collection_enabled: bool
+    client_diagnostic_performance_sample_rate: float
+    client_diagnostic_cleanup_interval_seconds: int
+    client_diagnostic_error_retention_days: int
+    client_diagnostic_performance_retention_days: int
+    codex_scroll_controller_v2: bool
+    codex_realtime_batch_v2: bool
+    codex_authority_recovery_v2: bool
     allow_experimental_app_server_api: bool
     allowed_codex_versions: list[str]
     agent_release_version: str

@@ -1,14 +1,20 @@
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory = $true)][string]$InstallRoot
+  [Parameter(Mandatory = $true)][string]$InstallRoot,
+  [ValidateSet("production", "development")][string]$DeploymentProfile = "production"
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $resolvedInstallRoot = [IO.Path]::GetFullPath($InstallRoot).TrimEnd('\')
-$expectedRoot = [IO.Path]::GetFullPath(
+$productionRoot = [IO.Path]::GetFullPath(
   (Join-Path $env:LOCALAPPDATA "CodexRemoteAgent")
 ).TrimEnd('\')
+$expectedRoot = if ($DeploymentProfile -eq "development") {
+  [IO.Path]::GetFullPath((Join-Path $productionRoot "Development")).TrimEnd('\')
+} else {
+  $productionRoot
+}
 if (-not $resolvedInstallRoot.Equals($expectedRoot, [StringComparison]::OrdinalIgnoreCase)) {
   throw "Refusing to purge a non-standard Agent data directory."
 }
@@ -22,6 +28,7 @@ $packageFiles = [Collections.Generic.HashSet[string]]::new(
 foreach ($fileName in @(
     "codex-remote-agent.exe",
     "agent-bootstrap.toml",
+    "codex-dev-root-ca.crt",
     "register_task_scheduler.ps1",
     "unregister_task_scheduler.ps1",
     "purge_agent_state.ps1",

@@ -14,6 +14,7 @@ from src.core.codex_contract.app_server_product_contract import (
     AppServerProtocolWarningReason,
     AppServerThreadChangedDetail,
     AppServerTurnChangedDetail,
+    AppServerUserMessageItem,
     AppServerWarningDetail,
 )
 from src.infrastructure.codex_agent.app_server_protocol_adapter import (
@@ -155,6 +156,84 @@ class TestAppServerProtocolAdapterUnit:
             assert warning.notification.detail.reason_code == method
             assert warning.notification.detail.error_code == "upstream.code"
 
+        remote_status = adapter.adapt_notification(
+            method="remoteControl/status/changed",
+            params={
+                "installationId": "installation-1",
+                "serverName": "DESKTOP",
+                "status": "connected",
+                "environmentId": None,
+            },
+        )
+        assert remote_status.notification is not None
+        assert isinstance(remote_status.notification.detail, AppServerWarningDetail)
+        assert remote_status.notification.detail.reason_code == "remoteControl/status/changed"
+        assert remote_status.notification.detail.error_code == "connected"
+        malformed_remote_status = adapter.adapt_notification(
+            method="remoteControl/status/changed",
+            params={"installationId": "installation-1", "serverName": "DESKTOP"},
+        )
+        assert malformed_remote_status.notification is None
+        assert (
+            malformed_remote_status.warning_reason
+            is AppServerProtocolWarningReason.MALFORMED_PAYLOAD
+        )
+
+        mcp_startup_status = adapter.adapt_notification(
+            method="mcpServer/startupStatus/updated",
+            params={
+                "threadId": None,
+                "name": "configured-mcp",
+                "status": "ready",
+                "error": None,
+                "failureReason": None,
+            },
+        )
+        assert mcp_startup_status.notification is not None
+        assert isinstance(mcp_startup_status.notification.detail, AppServerWarningDetail)
+        assert (
+            mcp_startup_status.notification.detail.reason_code == "mcpServer/startupStatus/updated"
+        )
+        assert mcp_startup_status.notification.detail.error_code == "ready"
+        malformed_mcp_startup_status = adapter.adapt_notification(
+            method="mcpServer/startupStatus/updated",
+            params={"name": "configured-mcp", "status": "not-a-status"},
+        )
+        assert malformed_mcp_startup_status.notification is None
+        assert (
+            malformed_mcp_startup_status.warning_reason
+            is AppServerProtocolWarningReason.MALFORMED_PAYLOAD
+        )
+
+        rate_limits_updated = adapter.adapt_notification(
+            method="account/rateLimits/updated",
+            params={
+                "rateLimits": {
+                    "limitId": None,
+                    "limitName": None,
+                    "primary": None,
+                    "secondary": None,
+                    "credits": None,
+                    "individualLimit": None,
+                    "spendControlReached": None,
+                    "planType": "pro",
+                    "rateLimitReachedType": None,
+                }
+            },
+        )
+        assert rate_limits_updated.notification is not None
+        assert isinstance(rate_limits_updated.notification.detail, AppServerWarningDetail)
+        assert rate_limits_updated.notification.detail.reason_code == "account/rateLimits/updated"
+        assert rate_limits_updated.notification.detail.error_code is None
+        malformed_rate_limits = adapter.adapt_notification(
+            method="account/rateLimits/updated",
+            params={"rateLimits": {"limitId": None}},
+        )
+        assert malformed_rate_limits.notification is None
+        assert (
+            malformed_rate_limits.warning_reason is AppServerProtocolWarningReason.MALFORMED_PAYLOAD
+        )
+
     def test_unknown_and_malformed_notifications_should_return_reason_without_payload(self) -> None:
         adapter = AppServerProtocolAdapter()
         unknown = adapter.adapt_notification(method="future/event", params={"secret": "hidden"})
@@ -242,3 +321,51 @@ class TestAppServerProtocolAdapterUnit:
         assert result.turns[0].items[0].text == "REMOTE_CODEX_OK"
         assert isinstance(result.turns[0].items[1], AppServerContextCompactionItem)
         assert len(result.turns[0].items) == 2
+
+    def test_user_message_client_id_should_only_accept_product_uuid_v4(self) -> None:
+        """官方可选 clientId 仅能成为受控的产品操作 ID。"""
+
+        adapter = AppServerProtocolAdapter()
+        valid_operation_id = "11111111-1111-4111-8111-111111111111"
+        valid = adapter.adapt_notification(
+            method="item/completed",
+            params={
+                "threadId": THREAD_ID,
+                "turnId": TURN_ID,
+                "item": {
+                    "id": ITEM_ID,
+                    "type": "userMessage",
+                    "clientId": valid_operation_id,
+                    "content": [{"type": "text", "text": "message"}],
+                },
+            },
+        )
+        invalid = adapter.adapt_thread_read_result(
+            {
+                "thread": {
+                    "id": THREAD_ID,
+                    "status": "idle",
+                    "turns": [
+                        {
+                            "id": TURN_ID,
+                            "status": "completed",
+                            "items": [
+                                {
+                                    "id": ITEM_ID,
+                                    "type": "userMessage",
+                                    "clientId": "upstream-internal-id",
+                                    "content": [{"type": "text", "text": "message"}],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            }
+        )
+
+        assert valid.notification is not None
+        assert isinstance(valid.notification.detail, AppServerItemChangedDetail)
+        assert isinstance(valid.notification.detail.item, AppServerUserMessageItem)
+        assert str(valid.notification.detail.item.client_operation_id) == valid_operation_id
+        assert isinstance(invalid.turns[0].items[0], AppServerUserMessageItem)
+        assert invalid.turns[0].items[0].client_operation_id is None

@@ -19,6 +19,7 @@ from src.application.ports.codex_enrollment_intent_store_port import (
     CodexEnrollmentIntentStorePort,
 )
 from src.application.ports.sensitive_digest_port import SensitiveDigestPort
+from src.core.codex_contract.codex_runtime_contract import CodexAgentDeploymentProfile
 from src.core.codex_contract.device_authorization_contract import (
     DeviceAuthorizationEnvelope,
     DeviceAuthorizationHeader,
@@ -66,6 +67,7 @@ class ManageCodexEnrollmentIntentUsecase:
         *,
         subject_id: str,
         token_session_id: UUID,
+        agent_deployment_profile: CodexAgentDeploymentProfile,
         verification_base_url: str,
         return_path: str,
     ) -> CodexEnrollmentIntentEnvelope:
@@ -94,7 +96,10 @@ class ManageCodexEnrollmentIntentUsecase:
                     header=CodexEnrollmentIntentHeader(intent_id=intent_id),
                     detail=CodexEnrollmentIntentIssuedDetail(
                         state=CodexEnrollmentIntentState.ISSUED,
-                        launch_uri=(f"codexremote://enroll?token={quote(intent_token, safe='')}"),
+                        launch_uri=(
+                            f"{agent_deployment_profile.enrollment_uri_scheme}://enroll"
+                            f"?token={quote(intent_token, safe='')}"
+                        ),
                         expires_at=expires_at,
                     ),
                 )

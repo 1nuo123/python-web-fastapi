@@ -12,9 +12,14 @@ import pytest
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
 from src.api.endpoint_codex_control.route_codex_realtime import (
+    CODEX_REALTIME_BATCH_MAX_BYTES,
+    CODEX_REALTIME_BATCH_MAX_EVENTS,
     CodexBrowserRealtimeSession,
 )
-from src.core.codex_contract.realtime_event_contract import CodexRealtimeEventType
+from src.core.codex_contract.realtime_event_contract import (
+    CodexItemDeltaDetail,
+    CodexRealtimeEventType,
+)
 from src.infrastructure.codex.codex_browser_event_hub import CodexBrowserEventHub
 from src.infrastructure.codex.codex_control_runtime import CodexControlRuntime
 
@@ -163,6 +168,132 @@ class TestCodexBrowserRealtimeSessionUnit:
             assert websocket.sent_texts == []
         finally:
             websocket.send_release.set()
+            await session.close()
+            await hub.unsubscribe(subscription)
+            await hub.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_collect_batch_should_defer_event_that_exceeds_byte_limit(self) -> None:
+        """64KiB 边界前的候选事件必须留给下一批，不能构造超限批次。"""
+
+        hub = CodexBrowserEventHub(queue_capacity=4)
+        subscription = await hub.subscribe("subject-realtime-byte-limit")
+        websocket = BlockingWebSocketStub()
+        runtime = cast(CodexControlRuntime, CodexRealtimeRuntimeStub())
+        session = CodexBrowserRealtimeSession(
+            websocket=cast(WebSocket, websocket),
+            subscription=subscription,
+            runtime=runtime,
+            batch_enabled=True,
+        )
+        try:
+            for item_id, delta in (
+                ("item-first", "a" * (CODEX_REALTIME_BATCH_MAX_BYTES // 2)),
+                ("item-second", "b" * (CODEX_REALTIME_BATCH_MAX_BYTES // 2)),
+            ):
+                subscription.queue.put_nowait(
+                    subscription.build_local_event(
+                        event_type=CodexRealtimeEventType.ITEM_DELTA,
+                        host_id=TEST_HOST_ID,
+                        payload={
+                            "item_id": item_id,
+                            "thread_id": "thread-1",
+                            "turn_id": "turn-1",
+                            "delta": delta,
+                        },
+                    )
+                )
+
+            batch = await session._collect_batch(await session._next_event())
+            deferred = await session._next_event()
+
+            assert len(batch.events) == 1
+            assert len(batch.model_dump_json().encode("utf-8")) <= (CODEX_REALTIME_BATCH_MAX_BYTES)
+            assert isinstance(deferred.detail, CodexItemDeltaDetail)
+            assert deferred.detail.item_id == "item-second"
+        finally:
+            await session.close()
+            await hub.unsubscribe(subscription)
+            await hub.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_collect_batch_should_flush_at_event_limit_and_preserve_next_event(
+        self,
+    ) -> None:
+        """第 65 个普通事件必须进入下一批，避免一次 reducer commit 失去上界。"""
+
+        hub = CodexBrowserEventHub(queue_capacity=CODEX_REALTIME_BATCH_MAX_EVENTS + 1)
+        subscription = await hub.subscribe("subject-realtime-event-limit")
+        websocket = BlockingWebSocketStub()
+        runtime = cast(CodexControlRuntime, CodexRealtimeRuntimeStub())
+        session = CodexBrowserRealtimeSession(
+            websocket=cast(WebSocket, websocket),
+            subscription=subscription,
+            runtime=runtime,
+            batch_enabled=True,
+        )
+        try:
+            for index in range(CODEX_REALTIME_BATCH_MAX_EVENTS + 1):
+                subscription.queue.put_nowait(
+                    subscription.build_local_event(
+                        event_type=CodexRealtimeEventType.CONNECTION_HEARTBEAT,
+                        host_id=TEST_HOST_ID,
+                        payload={"server_time": datetime.now(UTC).isoformat()},
+                    )
+                )
+
+            batch = await session._collect_batch(await session._next_event())
+            deferred = await session._next_event()
+
+            assert len(batch.events) == CODEX_REALTIME_BATCH_MAX_EVENTS
+            assert deferred.header.event_id not in {event.header.event_id for event in batch.events}
+        finally:
+            await session.close()
+            await hub.unsubscribe(subscription)
+            await hub.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_collect_batch_should_flush_pending_events_before_barrier(self) -> None:
+        """屏障事件必须单独输出，并保持前序普通事件的传输顺序。"""
+
+        hub = CodexBrowserEventHub(queue_capacity=2)
+        subscription = await hub.subscribe("subject-realtime-barrier")
+        websocket = BlockingWebSocketStub()
+        runtime = cast(CodexControlRuntime, CodexRealtimeRuntimeStub())
+        session = CodexBrowserRealtimeSession(
+            websocket=cast(WebSocket, websocket),
+            subscription=subscription,
+            runtime=runtime,
+            batch_enabled=True,
+        )
+        try:
+            subscription.queue.put_nowait(
+                subscription.build_local_event(
+                    event_type=CodexRealtimeEventType.CONNECTION_HEARTBEAT,
+                    host_id=TEST_HOST_ID,
+                    payload={"server_time": datetime.now(UTC).isoformat()},
+                )
+            )
+            subscription.queue.put_nowait(
+                subscription.build_local_event(
+                    event_type=CodexRealtimeEventType.PROTOCOL_WARNING,
+                    host_id=TEST_HOST_ID,
+                    payload={"warning": "barrier"},
+                )
+            )
+
+            normal = await session._collect_batch(await session._next_event())
+            barrier = await session._collect_batch(await session._next_event())
+
+            assert normal.barrier is False
+            assert [event.header.detail_kind for event in normal.events] == [
+                CodexRealtimeEventType.CONNECTION_HEARTBEAT
+            ]
+            assert barrier.barrier is True
+            assert [event.header.detail_kind for event in barrier.events] == [
+                CodexRealtimeEventType.PROTOCOL_WARNING
+            ]
+        finally:
             await session.close()
             await hub.unsubscribe(subscription)
             await hub.shutdown()

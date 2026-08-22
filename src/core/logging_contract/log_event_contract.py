@@ -10,6 +10,22 @@ from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.core.codex_contract.client_diagnostic_contract import (
+    CLIENT_DIAGNOSTIC_CODE_PATTERN,
+    CLIENT_DIAGNOSTIC_FINGERPRINT_PATTERN,
+    CodexClientDiagnosticSource,
+    CodexClientDiagnosticSummary,
+)
+from src.core.codex_contract.client_performance_contract import (
+    CodexClientPerformanceMetric,
+    CodexClientPerformanceObservation,
+    CodexClientPerformanceSource,
+    CodexClientPerformanceUnit,
+)
+from src.core.codex_contract.feature_flags_contract import (
+    CODEX_EXPERIENCE_FEATURE_FLAG_POLICIES,
+    CodexExperienceFeatureFlagDecision,
+)
 from src.core.http_contract.runtime_resource_contract import RuntimeResourceStatus
 from src.core.security_contract.security_event_contract import (
     SecurityEventEnvelope,
@@ -26,6 +42,9 @@ EXCEPTION_LOG_DETAIL_KIND: Final = "exception"
 RESOURCE_LIFECYCLE_LOG_DETAIL_KIND: Final = "resource_lifecycle"
 TASK_FAILURE_LOG_DETAIL_KIND: Final = "task_failure"
 SECURITY_LOG_DETAIL_KIND: Final = "security"
+CODEX_CLIENT_DIAGNOSTIC_LOG_DETAIL_KIND: Final = "codex_client_diagnostic"
+CODEX_CLIENT_PERFORMANCE_LOG_DETAIL_KIND: Final = "codex_client_performance"
+CODEX_EXPERIENCE_FEATURE_FLAGS_LOG_DETAIL_KIND: Final = "codex_experience_feature_flags"
 EVENT_ID_MINIMUM_LENGTH = 1
 MESSAGE_MINIMUM_LENGTH = 1
 SOURCE_NAME_MINIMUM_LENGTH = 1
@@ -77,6 +96,9 @@ class LogEventKind(StrEnum):
     RESOURCE_LIFECYCLE = RESOURCE_LIFECYCLE_LOG_DETAIL_KIND
     TASK_FAILURE = TASK_FAILURE_LOG_DETAIL_KIND
     SECURITY = SECURITY_LOG_DETAIL_KIND
+    CODEX_CLIENT_DIAGNOSTIC = CODEX_CLIENT_DIAGNOSTIC_LOG_DETAIL_KIND
+    CODEX_CLIENT_PERFORMANCE = CODEX_CLIENT_PERFORMANCE_LOG_DETAIL_KIND
+    CODEX_EXPERIENCE_FEATURE_FLAGS = CODEX_EXPERIENCE_FEATURE_FLAGS_LOG_DETAIL_KIND
 
 
 class ResourceLifecycleAction(StrEnum):
@@ -242,13 +264,66 @@ class SecurityLogDetail(BaseModel):
     security_event: SecurityEventEnvelope
 
 
+class CodexClientDiagnosticLogDetail(BaseModel):
+    """Codex 客户端错误诊断的受限结构化日志详情。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["codex_client_diagnostic"] = CODEX_CLIENT_DIAGNOSTIC_LOG_DETAIL_KIND
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
+    source: CodexClientDiagnosticSource
+    summary: CodexClientDiagnosticSummary
+    error_code: str = Field(pattern=CLIENT_DIAGNOSTIC_CODE_PATTERN)
+    fingerprint: str = Field(pattern=CLIENT_DIAGNOSTIC_FINGERPRINT_PATTERN)
+
+
+class CodexClientPerformanceLogDetail(BaseModel):
+    """Codex 客户端性能样本的受限结构化日志详情。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["codex_client_performance"] = CODEX_CLIENT_PERFORMANCE_LOG_DETAIL_KIND
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
+    source: CodexClientPerformanceSource
+    metric: CodexClientPerformanceMetric
+    observation: CodexClientPerformanceObservation
+    unit: CodexClientPerformanceUnit
+    value: float = Field(ge=0)
+
+
+class CodexExperienceFeatureFlagsLogDetail(BaseModel):
+    """服务端下发体验开关时的封闭发布决策日志详情。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["codex_experience_feature_flags"] = CODEX_EXPERIENCE_FEATURE_FLAGS_LOG_DETAIL_KIND
+    schema_version: Literal["1.1"] = LOG_EVENT_SCHEMA_VERSION
+    decisions: tuple[CodexExperienceFeatureFlagDecision, ...] = Field(
+        min_length=len(CODEX_EXPERIENCE_FEATURE_FLAG_POLICIES),
+        max_length=len(CODEX_EXPERIENCE_FEATURE_FLAG_POLICIES),
+    )
+
+    @model_validator(mode="after")
+    def validate_decision_order(self) -> CodexExperienceFeatureFlagsLogDetail:
+        """要求完整且固定顺序的开关清单，防止日志遗漏或重排语义。"""
+
+        expected_names = tuple(policy.name for policy in CODEX_EXPERIENCE_FEATURE_FLAG_POLICIES)
+        actual_names = tuple(decision.name for decision in self.decisions)
+        if actual_names != expected_names:
+            raise ValueError("体验开关日志必须包含完整且固定顺序的开关决策。")
+        return self
+
+
 LogDetailUnion = Annotated[
     AccessLogDetail
     | StreamAccessLogDetail
     | ExceptionLogDetail
     | ResourceLifecycleLogDetail
     | TaskFailureLogDetail
-    | SecurityLogDetail,
+    | SecurityLogDetail
+    | CodexClientDiagnosticLogDetail
+    | CodexClientPerformanceLogDetail
+    | CodexExperienceFeatureFlagsLogDetail,
     Field(discriminator="kind"),
 ]
 

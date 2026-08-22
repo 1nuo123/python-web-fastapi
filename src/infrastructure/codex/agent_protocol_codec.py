@@ -62,6 +62,7 @@ TURN_INTERRUPT_COMMAND_TYPE: Final = "turn.interrupt"
 
 APPROVAL_ID_PARAM: Final = "approvalId"
 APPROVAL_VERSION_PARAM: Final = "approvalVersion"
+CLIENT_USER_MESSAGE_ID_PARAM: Final = "clientUserMessageId"
 CURSOR_PARAM: Final = "cursor"
 DECISION_PARAM: Final = "decision"
 EFFORT_PARAM: Final = "effort"
@@ -84,10 +85,12 @@ CURSOR_DETAIL_FIELD: Final = "cursor"
 INCLUDE_TURNS_DETAIL_FIELD: Final = "include_turns"
 LIMIT_DETAIL_FIELD: Final = "limit"
 MESSAGE_DETAIL_FIELD: Final = "message"
+CLIENT_OPERATION_ID_DETAIL_FIELD: Final = "client_operation_id"
 MODEL_DETAIL_FIELD: Final = "model"
 DISPLAY_NAME_DETAIL_FIELD: Final = "display_name"
 REASONING_EFFORT_DETAIL_FIELD: Final = "reasoning_effort"
 THREAD_ID_DETAIL_FIELD: Final = "thread_id"
+TURN_ID_DETAIL_FIELD: Final = "turn_id"
 WORKTREE_POLICY_DETAIL_FIELD: Final = "worktree_policy"
 SANDBOX_MODE_DETAIL_FIELD: Final = "sandbox_mode"
 APPROVAL_POLICY_DETAIL_FIELD: Final = "approval_policy"
@@ -107,10 +110,23 @@ AGENT_COMMAND_PARAM_NAMES: Final = {
     THREAD_UNARCHIVE_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, THREAD_ID_PARAM}),
     THREAD_COMPACT_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, THREAD_ID_PARAM}),
     TURN_START_COMMAND_TYPE: frozenset(
-        {WORKSPACE_KEY_PARAM, THREAD_ID_PARAM, INPUT_PARAM, MODEL_PARAM, EFFORT_PARAM}
+        {
+            WORKSPACE_KEY_PARAM,
+            THREAD_ID_PARAM,
+            CLIENT_USER_MESSAGE_ID_PARAM,
+            INPUT_PARAM,
+            MODEL_PARAM,
+            EFFORT_PARAM,
+        }
     ),
     TURN_STEER_COMMAND_TYPE: frozenset(
-        {WORKSPACE_KEY_PARAM, THREAD_ID_PARAM, EXPECTED_TURN_ID_PARAM, INPUT_PARAM}
+        {
+            WORKSPACE_KEY_PARAM,
+            THREAD_ID_PARAM,
+            CLIENT_USER_MESSAGE_ID_PARAM,
+            EXPECTED_TURN_ID_PARAM,
+            INPUT_PARAM,
+        }
     ),
     TURN_INTERRUPT_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, THREAD_ID_PARAM, TURN_ID_PARAM}),
 }
@@ -398,6 +414,11 @@ class AgentCommandV2Mapper:
                 params[MODEL_PARAM] = detail.model
             if REASONING_EFFORT_DETAIL_FIELD in detail.model_fields_set:
                 params[EFFORT_PARAM] = detail.reasoning_effort
+            if (
+                CLIENT_OPERATION_ID_DETAIL_FIELD in detail.model_fields_set
+                and detail.client_operation_id is not None
+            ):
+                params[CLIENT_USER_MESSAGE_ID_PARAM] = str(detail.client_operation_id)
         elif isinstance(detail, AgentTurnSteerCommandDetail):
             params.update(
                 {
@@ -412,6 +433,11 @@ class AgentCommandV2Mapper:
                     ],
                 }
             )
+            if (
+                CLIENT_OPERATION_ID_DETAIL_FIELD in detail.model_fields_set
+                and detail.client_operation_id is not None
+            ):
+                params[CLIENT_USER_MESSAGE_ID_PARAM] = str(detail.client_operation_id)
         elif isinstance(detail, AgentTurnInterruptCommandDetail):
             params.update({THREAD_ID_PARAM: detail.thread_id, TURN_ID_PARAM: detail.turn_id})
         return detail.kind, params
@@ -439,7 +465,14 @@ class AgentCommandV2Mapper:
             return AgentApprovalReplyCommandDetail(
                 approval_id=UUID(self._read_required_string(params, APPROVAL_ID_PARAM)),
                 decision=cast(
-                    Literal["accept", "decline", "cancel"],
+                    Literal[
+                        "accept",
+                        "acceptForSession",
+                        "acceptWithExecpolicyAmendment",
+                        "applyNetworkPolicyAmendment",
+                        "decline",
+                        "cancel",
+                    ],
                     self._read_required_string(params, DECISION_PARAM),
                 ),
                 approval_version=self._read_required_int(params, APPROVAL_VERSION_PARAM),
@@ -533,14 +566,26 @@ class AgentCommandV2Mapper:
                         EFFORT_PARAM,
                     )
                 )
+            if CLIENT_USER_MESSAGE_ID_PARAM in params:
+                turn_start_detail_values[CLIENT_OPERATION_ID_DETAIL_FIELD] = (
+                    self._read_required_string(params, CLIENT_USER_MESSAGE_ID_PARAM)
+                )
             return AgentTurnStartCommandDetail.model_validate(turn_start_detail_values)
         if command.command_type == TURN_STEER_COMMAND_TYPE:
-            return AgentTurnSteerCommandDetail(
-                workspace_key=workspace_key,
-                thread_id=self._read_required_string(params, THREAD_ID_PARAM),
-                turn_id=self._read_required_string(params, EXPECTED_TURN_ID_PARAM),
-                message=self._read_input_message(params),
-            )
+            turn_steer_detail_values: dict[str, JsonValue] = {
+                WORKSPACE_KEY_PARAM: workspace_key,
+                THREAD_ID_DETAIL_FIELD: self._read_required_string(params, THREAD_ID_PARAM),
+                TURN_ID_DETAIL_FIELD: self._read_required_string(
+                    params,
+                    EXPECTED_TURN_ID_PARAM,
+                ),
+                MESSAGE_DETAIL_FIELD: self._read_input_message(params),
+            }
+            if CLIENT_USER_MESSAGE_ID_PARAM in params:
+                turn_steer_detail_values[CLIENT_OPERATION_ID_DETAIL_FIELD] = (
+                    self._read_required_string(params, CLIENT_USER_MESSAGE_ID_PARAM)
+                )
+            return AgentTurnSteerCommandDetail.model_validate(turn_steer_detail_values)
         if command.command_type == TURN_INTERRUPT_COMMAND_TYPE:
             return AgentTurnInterruptCommandDetail(
                 workspace_key=workspace_key,

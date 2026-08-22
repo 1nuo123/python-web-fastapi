@@ -9,11 +9,13 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
+from src.core.codex_contract.feature_flags_contract import CodexExperienceFeatureFlags
 from src.core.http_contract.runtime_resource_contract import RuntimeResourceStatus
 from src.core.logging_contract.log_event_contract import (
     AUDIT_CRITICAL_SECURITY_EVENT_TYPES,
     LOG_EVENT_SCHEMA_VERSION,
     AccessLogDetail,
+    CodexExperienceFeatureFlagsLogDetail,
     ExceptionLogDetail,
     LogDetailUnion,
     LogEventEnvelope,
@@ -162,6 +164,32 @@ class TestLoggingContract:
         )
 
         assert detail.kind == "task_failure"
+
+    def test_log_detail_union_should_accept_complete_feature_flag_decisions(self) -> None:
+        """体验开关日志必须包含固定的三项发布决策。"""
+
+        detail: LogDetailUnion = CodexExperienceFeatureFlagsLogDetail(
+            decisions=CodexExperienceFeatureFlags().decisions()
+        )
+
+        assert detail.kind == "codex_experience_feature_flags"
+        assert len(detail.decisions) == 3
+
+    def test_feature_flag_log_detail_when_decisions_are_incomplete_should_fail(self) -> None:
+        """缺失任何开关会让日志失去发布治理价值，必须拒绝。"""
+
+        with pytest.raises(ValidationError):
+            CodexExperienceFeatureFlagsLogDetail(
+                decisions=CodexExperienceFeatureFlags().decisions()[:-1]
+            )
+
+    def test_feature_flag_log_detail_when_decisions_are_reordered_should_fail(self) -> None:
+        """固定顺序避免同名开关在日志中被错误解释。"""
+
+        with pytest.raises(ValidationError):
+            CodexExperienceFeatureFlagsLogDetail(
+                decisions=tuple(reversed(CodexExperienceFeatureFlags().decisions()))
+            )
 
     def test_log_event_schema_version_should_be_upgraded_to_1_1(self) -> None:
         """

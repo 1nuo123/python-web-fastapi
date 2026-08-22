@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import ssl
 from collections.abc import Callable, Iterable
 from http import HTTPStatus
 
@@ -351,7 +352,12 @@ class OutboundUrlSafetyAsyncHttpTransport(httpx.AsyncHTTPTransport):
     支持连接层 IP 固定的异步 HTTP 传输。
     """
 
-    def __init__(self, *, limits: httpx.Limits) -> None:
+    def __init__(
+        self,
+        *,
+        limits: httpx.Limits,
+        tls_context: ssl.SSLContext | None = None,
+    ) -> None:
         """
         初始化异步 HTTP 传输。
         """
@@ -362,7 +368,10 @@ class OutboundUrlSafetyAsyncHttpTransport(httpx.AsyncHTTPTransport):
             validator_getter=self._get_validator,
             denial_event_emitter_getter=self._get_denial_event_emitter,
         )
-        super().__init__(limits=limits)
+        super().__init__(
+            limits=limits,
+            verify=tls_context if tls_context is not None else True,
+        )
         pool = getattr(self, OUTBOUND_HTTP_TRANSPORT_POOL_FIELD)
         setattr(
             pool,

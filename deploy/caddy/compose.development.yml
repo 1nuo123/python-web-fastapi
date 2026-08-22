@@ -1,0 +1,54 @@
+name: fastapi-web-caddy-development
+
+services:
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 256m
+    ports:
+      - "${CADDY_BIND_ADDRESS:-0.0.0.0}:${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_BIND_ADDRESS:-0.0.0.0}:${CADDY_HTTPS_PORT:-443}:443"
+      - "${CADDY_BIND_ADDRESS:-0.0.0.0}:${CADDY_HTTPS_PORT:-443}:443/udp"
+    environment:
+      CADDY_DEV_SITE_ADDRESS: "${CADDY_DEV_SITE_ADDRESS:-codex-dev.lan}"
+    volumes:
+      - ./Caddyfile.development.example:/etc/caddy/Caddyfile:ro
+      - caddy_development_data:/data
+      - caddy_development_config:/config
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:2019/config/ >/dev/null || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      # 仅 Caddy 连接 gateway，以便 Docker 把 80/443 映射到宿主机。
+      # app 与 frontend 仍只位于 internal edge，不能被该网络直接发现。
+      gateway: {}
+      edge: {}
+
+networks:
+  gateway:
+  edge:
+    external: true
+    name: ${EDGE_NETWORK_NAME:-fastapi-web-development-edge}
+
+volumes:
+  caddy_development_data:
+  caddy_development_config:

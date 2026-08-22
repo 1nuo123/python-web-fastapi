@@ -2,13 +2,13 @@
   {
     "kind": "junit",
     "path": "docs/evidence/test-artifacts/phase3-final-regression.xml",
-    "sha256": "b1d48f39a84083308d32adf8d5bf2f629b205404c86303463839c3916725daa0",
+    "sha256": "dd0e49f731e430f5b7d19beb962403749c68b7472c9bc718c24d6208a264aeed",
     "command_index": 0
   },
   {
     "kind": "coverage",
     "path": "docs/evidence/test-artifacts/phase3-final-coverage.json",
-    "sha256": "d755a3d282d3763bca89c08cb79b97329afbabf7212bc193ae24ef770459401f",
+    "sha256": "b569afe38d64eae9cd1f0664ab564265bc322ea37a7f63a3a74abceea3b43157",
     "command_index": 0
   }
 ]

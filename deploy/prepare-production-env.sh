@@ -8,8 +8,17 @@ BACKEND_ENV_FILE="$BACKEND_ROOT/.env.production.local"
 INITIAL_ADMIN_ENV_FILE="$BACKEND_ROOT/.env.initial-admin.local"
 FRONTEND_ENV_FILE="$FRONTEND_ROOT/.env.production.local"
 PRODUCTION_SITE_ADDRESS="${PRODUCTION_SITE_ADDRESS:-nuotop.xyz}"
+PRODUCTION_CODEX_FEATURE_ENABLED="${PRODUCTION_CODEX_FEATURE_ENABLED:-false}"
 POSTGRES_DB="fastapi_web_skeleton"
 POSTGRES_USER="fastapi_prod"
+
+case "$PRODUCTION_CODEX_FEATURE_ENABLED" in
+  true|false) ;;
+  *)
+    echo "PRODUCTION_CODEX_FEATURE_ENABLED must be true or false." >&2
+    exit 1
+    ;;
+esac
 
 for command_name in openssl sha256sum; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -76,7 +85,7 @@ NUXT_API_BASE_URL=http://app:8000
 NUXT_PUBLIC_API_BASE_URL=/api
 NUXT_PUBLIC_API_TIMEOUT=10000
 NUXT_PUBLIC_ADMIN_OPS_ENABLED=false
-NUXT_PUBLIC_CODEX_FEATURE_ENABLED=true
+NUXT_PUBLIC_CODEX_FEATURE_ENABLED=$PRODUCTION_CODEX_FEATURE_ENABLED
 NUXT_PUBLIC_CODEX_REALTIME_PATH=/codex/events
 NUXT_PUBLIC_CODEX_WS_BASE_URL=
 EOF

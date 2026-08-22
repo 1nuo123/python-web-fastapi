@@ -19,3 +19,4 @@ include_security_metrics = true
 include_task_metrics = true
 include_log_buffer_metrics = true
 include_saturation_metrics = true
+include_codex_diagnostic_metrics = true

@@ -33,6 +33,7 @@ from src.core.codex_contract.app_server_product_contract import (
     AppServerPlanItem,
     AppServerProductTimelineItem,
     AppServerUserMessageItem,
+    parse_app_server_client_operation_id,
 )
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerNotificationName,
@@ -440,6 +441,9 @@ class CodexProtocolMapper:
                 "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
                 "text": item.text,
             }
+            header["client_operation_id"] = (
+                str(item.client_operation_id) if item.client_operation_id is not None else None
+            )
         elif isinstance(item, AppServerAgentMessageItem):
             payload = {
                 "kind": "agent_message",
@@ -550,6 +554,10 @@ class CodexProtocolMapper:
             "status": status,
         }
         if item_type == "userMessage":
+            client_operation_id = parse_app_server_client_operation_id(item.get("clientId"))
+            header["client_operation_id"] = (
+                str(client_operation_id) if client_operation_id is not None else None
+            )
             detail: dict[str, JsonValue] = {
                 "kind": "user_message",
                 "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,

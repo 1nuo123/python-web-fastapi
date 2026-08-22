@@ -19,7 +19,17 @@ def test_wix_product_should_preserve_upgrade_and_uninstall_boundaries() -> None:
 
     assert 'Scope="perUser"' in content
     assert 'ProductCode="$(var.ProductCode)"' in content
-    assert 'UpgradeCode="8A0A4D2E-ED6E-4C7D-BF9A-5F03C80A15E6"' in content
+    assert 'UpgradeCode="$(var.UpgradeCode)"' in content
+    assert "<?define DeploymentProfile = production ?>" in content
+    assert 'Name="Development"' in content
+    assert 'AgentRegistryRoot = "CodexRemoteAgent\\Development"' in content
+    assert 'AgentUriScheme = "codexremote-dev"' in content
+    assert 'AgentProgramsFolderName = "Codex Remote Agent Development"' in content
+    assert "AgentDevelopmentCertificateComponentGuid" in content
+    assert 'Id="AgentDevelopmentCertificate"' in content
+    assert 'Source="$(var.AgentSource)\\codex-dev-root-ca.crt"' in content
+    assert "--deployment-profile development" in content
+    assert "-DeploymentProfile $(var.DeploymentProfile)" in content
     assert "<MajorUpgrade" in content
     assert 'AllowSameVersionUpgrades="no"' in content
     assert 'Condition="REMOVE~=&quot;ALL&quot;"' in content
@@ -30,10 +40,26 @@ def test_wix_product_should_preserve_upgrade_and_uninstall_boundaries() -> None:
     assert '<Files Include="' not in content
     assert "$(var.IncludeTrustedRoot)" in content
     assert 'Source="$(var.AgentSource)\\root.json"' in content
-    assert content.count('Key="Software\\CodexRemoteAgent\\Components"') == 6
+    assert content.count('Key="Software\\$(var.AgentRegistryRoot)\\Components"') == 7
     assert "launch uri" in content
     assert "launch settings" in content
     assert "launch_agent.ps1" not in content
+
+
+def test_development_installer_build_script_should_stage_isolated_tls_payload() -> None:
+    script = (
+        PROJECT_ROOT / "scripts" / "codex" / "build_development_agent_installer.ps1"
+    ).read_text("utf-8")
+
+    assert "agent_release_version" in script
+    assert "json_schema_bundle_sha256" in script
+    assert "--development-origin $DevelopmentOrigin" in script
+    assert "codex-dev-root-ca.crt" in script
+    assert "-d DeploymentProfile=development" in script
+    assert "-d IncludeTrustedRoot=0" in script
+    assert "CodexRemoteAgent.msi" in script
+    assert '"ProductCode=$($installerIdentity.product_code)"' in script
+    assert '"UpgradeCode=$($installerIdentity.upgrade_code)"' in script
 
 
 def test_release_workflows_should_split_signed_build_from_verified_publish() -> None:
@@ -105,11 +131,18 @@ def test_installer_scripts_should_isolate_user_task_and_purge_only_standard_root
     unregister = (WINDOWS_SCRIPTS_ROOT / "unregister_task_scheduler.ps1").read_text("utf-8")
     purge = (WINDOWS_SCRIPTS_ROOT / "purge_agent_state.ps1").read_text("utf-8")
 
-    assert '"CodexRemoteAgent-$currentUserSid"' in register
+    assert '[ValidateSet("production", "development")]' in register
+    assert '"CodexRemoteAgent$profileTaskSuffix-$currentUserSid"' in register
+    assert 'if ($DeploymentProfile -eq "production")' in register
+    assert '$arguments += "--deployment-profile", "development"' in register
     assert "-MultipleInstances IgnoreNew" in register
     assert "-RunLevel Limited" in register
-    assert '"CodexRemoteAgent-$currentUserSid"' in unregister
+    assert '"CodexRemoteAgent$profileTaskSuffix-$currentUserSid"' in unregister
+    assert 'if ($DeploymentProfile -eq "production")' in unregister
     assert "ExecutablePath" in unregister
+    assert '[ValidateSet("production", "development")]' in purge
+    assert 'Join-Path $productionRoot "Development"' in purge
+    assert '"codex-dev-root-ca.crt"' in purge
     assert "Refusing to purge a non-standard Agent data directory." in purge
     assert "$packageFiles" in purge
     assert "Get-ChildItem -LiteralPath $resolvedInstallRoot -Force" in purge
@@ -128,6 +161,7 @@ def test_purge_script_should_remove_all_dynamic_state_and_preserve_package_files
     package_files = (
         "codex-remote-agent.exe",
         "agent-bootstrap.toml",
+        "codex-dev-root-ca.crt",
         "register_task_scheduler.ps1",
         "unregister_task_scheduler.ps1",
         "purge_agent_state.ps1",
@@ -173,6 +207,58 @@ def test_purge_script_should_remove_all_dynamic_state_and_preserve_package_files
 
     assert completed.returncode == 0, completed.stderr
     assert {path.name for path in install_root.iterdir()} == set(package_files)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="PowerShell uninstall behavior is Windows-only.")
+def test_development_purge_script_should_not_remove_production_state(tmp_path: Path) -> None:
+    """开发卸载只能清理 Development，绝不能触及同级生产目录。"""
+
+    local_app_data = tmp_path / "LocalAppData"
+    production_root = local_app_data / "CodexRemoteAgent"
+    development_root = production_root / "Development"
+    development_root.mkdir(parents=True)
+    for file_name in (
+        "codex-remote-agent.exe",
+        "agent-bootstrap.toml",
+        "codex-dev-root-ca.crt",
+        "register_task_scheduler.ps1",
+        "unregister_task_scheduler.ps1",
+        "purge_agent_state.ps1",
+        "root.json",
+    ):
+        (development_root / file_name).write_text("package", encoding="utf-8")
+    (development_root / "agent.toml").write_text("development", encoding="utf-8")
+    production_root.mkdir(exist_ok=True)
+    production_sentinel = production_root / "agent.toml"
+    production_sentinel.write_text("production", encoding="utf-8")
+    environment = os.environ.copy()
+    environment["LOCALAPPDATA"] = str(local_app_data)
+
+    completed = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(WINDOWS_SCRIPTS_ROOT / "purge_agent_state.ps1"),
+            "-InstallRoot",
+            str(development_root),
+            "-DeploymentProfile",
+            "development",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=environment,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert production_sentinel.read_text(encoding="utf-8") == "production"
+    assert not (development_root / "agent.toml").exists()
+    assert (development_root / "codex-remote-agent.exe").exists()
 
 
 def test_pyinstaller_spec_should_build_one_file_windowed_executable() -> None:

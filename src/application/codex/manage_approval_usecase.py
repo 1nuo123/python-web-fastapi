@@ -198,9 +198,18 @@ class ManageCodexApprovalUsecase:
             )
             if approval is None:
                 raise self._not_found()
+            parsed_decision = self._parse_decision(decision)
+            # Agent 未明确广告的动作不能由历史默认值补全，避免 API 接受浏览器未展示的授权。
+            allowed_actions = approval.display_summary.allowed_actions
+            if parsed_decision not in allowed_actions:
+                raise HttpFaultException(
+                    status_code=HTTPStatus.CONFLICT,
+                    error_code=CodexErrorCode.STATE_CONFLICT,
+                    message="该审批请求不支持所选官方动作。",
+                )
             params: dict[str, JsonValue] = {
                 "approvalId": str(approval_id),
-                "decision": decision,
+                "decision": parsed_decision.value,
                 "approvalVersion": approval_version,
             }
             digest = calculate_agent_request_digest("approval.decision", params)
@@ -244,7 +253,12 @@ class ManageCodexApprovalUsecase:
                         )
                         approval_repository.save(approval)
             else:
-                if approval.risk_level == "high" and decision == "accept":
+                if approval.risk_level == "high" and parsed_decision in {
+                    CodexApprovalDecision.ACCEPT,
+                    CodexApprovalDecision.ACCEPT_FOR_SESSION,
+                    CodexApprovalDecision.ACCEPT_WITH_EXECPOLICY_AMENDMENT,
+                    CodexApprovalDecision.APPLY_NETWORK_POLICY_AMENDMENT,
+                }:
                     if not step_up_verified:
                         raise HttpFaultException(
                             status_code=HTTPStatus.FORBIDDEN,
@@ -256,7 +270,7 @@ class ManageCodexApprovalUsecase:
                     owner_subject_id=actor_subject_id,
                     expected_version=approval_version,
                     decided_by=actor_subject_id,
-                    decision=decision,
+                    decision=parsed_decision.value,
                     decided_at=now,
                 )
                 if claimed is None:
@@ -395,6 +409,19 @@ class ManageCodexApprovalUsecase:
             status=operation.status,
             replayed=replayed,
         )
+
+    @staticmethod
+    def _parse_decision(decision: str) -> CodexApprovalDecision:
+        """把 API 输入限制为 App Server 官方动作集合。"""
+
+        try:
+            return CodexApprovalDecision(decision)
+        except ValueError as exc:
+            raise HttpFaultException(
+                status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+                error_code=CodexErrorCode.STATE_CONFLICT,
+                message="审批决定不受支持。",
+            ) from exc
 
     def _not_found(self) -> HttpFaultException:
         return HttpFaultException(

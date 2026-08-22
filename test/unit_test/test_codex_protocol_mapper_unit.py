@@ -17,6 +17,7 @@ from src.core.codex_contract.agent_protocol_contract import CodexAgentRealtimeEv
 from src.core.codex_contract.agent_protocol_v2_contract import AgentItemChangedEventDetail
 from src.core.codex_contract.app_server_product_contract import (
     AppServerContextCompactionItem,
+    AppServerUserMessageItem,
 )
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerNotificationName,
@@ -171,6 +172,39 @@ class TestCodexProtocolMapperUnit:
             "schema_version": "1.0",
             "label": "上下文已压缩",
         }
+
+    def test_map_event_should_propagate_typed_user_message_operation_id(self) -> None:
+        """实时产品事件必须保留已验证的乐观消息对账 ID。"""
+
+        mapper = CodexProtocolMapper()
+        host_id = uuid4()
+        workspace_id = uuid4()
+        client_operation_id = UUID("11111111-1111-4111-8111-111111111111")
+        event = CodexAgentRealtimeEvent(
+            host_id=host_id,
+            app_server_instance_id=APP_SERVER_INSTANCE_ID,
+            occurred_at=datetime.now(UTC),
+            method=AppServerNotificationName.ITEM_COMPLETED.value,
+            params={},
+            detail=AgentItemChangedEventDetail(
+                method=AppServerNotificationName.ITEM_COMPLETED,
+                thread_id=THREAD_ID,
+                turn_id=TURN_ID,
+                status="completed",
+                item=AppServerUserMessageItem(
+                    item_id=ITEM_ID,
+                    text="message",
+                    client_operation_id=client_operation_id,
+                ),
+            ),
+        )
+
+        mapped = mapper.map_event(event, workspace_id=workspace_id)
+
+        assert mapped is not None
+        item = self._mapping(mapped.payload["item"])
+        header = self._mapping(item["header"])
+        assert header["client_operation_id"] == str(client_operation_id)
 
     def test_map_event_should_handle_item_delta_plan_diff_and_warning_catalog(self) -> None:
         mapper = CodexProtocolMapper()

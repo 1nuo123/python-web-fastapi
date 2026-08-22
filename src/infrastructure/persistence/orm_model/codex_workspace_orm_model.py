@@ -57,6 +57,11 @@ class CodexWorkspaceOrmModel(AuditTimestampMixin, OrmModelBase):
         nullable=False,
         default=dict,
     )
+    execution_preferences: Mapped[dict[str, object]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
     is_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

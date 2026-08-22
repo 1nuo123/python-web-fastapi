@@ -47,6 +47,7 @@ from src.infrastructure.codex.codex_agent_gateway import (
     AgentCommandResultObserver,
     AgentCompatibilityObserver,
     AgentDisconnectObserver,
+    AgentEventBatchObserver,
     AgentEventObserver,
     AgentHeartbeatObserver,
     AgentHelloObserver,
@@ -232,6 +233,7 @@ class CodexAgentConnectRouteCatalog:
             command_ack_observer=self._build_command_ack_observer(runtime),
             command_result_observer=self._build_command_result_observer(runtime),
             event_observer=self._build_event_observer(runtime),
+            event_batch_observer=self._build_event_batch_observer(runtime),
             approval_observer=self._build_approval_observer(runtime),
             disconnect_observer=self._build_disconnect_observer(runtime),
             compatibility_observer=self._build_compatibility_observer(runtime),
@@ -308,6 +310,16 @@ class CodexAgentConnectRouteCatalog:
                 heartbeat,
                 principal,
             )
+            updated_threads = await runtime.turn_runtime_coordinator.renew_heartbeat_leases(
+                heartbeat,
+                principal,
+            )
+            for thread in updated_threads:
+                await runtime.publish_thread_updated(
+                    owner_subject_id=principal.owner_subject_id,
+                    thread=thread,
+                    occurred_at=heartbeat.sent_at,
+                )
 
         return observe
 
@@ -380,6 +392,20 @@ class CodexAgentConnectRouteCatalog:
 
         return observe
 
+    def _build_event_batch_observer(
+        self,
+        runtime: CodexControlRuntime,
+    ) -> AgentEventBatchObserver:
+        """保留 Agent v2 的批次边界，避免网关展开后逐条广播。"""
+
+        async def observe(
+            events: tuple[CodexAgentRealtimeEvent, ...],
+            principal: AgentDevicePrincipal,
+        ) -> None:
+            await runtime.publish_agent_events(events, principal)
+
+        return observe
+
     def _build_approval_observer(
         self,
         runtime: CodexControlRuntime,
@@ -388,11 +414,6 @@ class CodexAgentConnectRouteCatalog:
             approval: CodexAgentApprovalOpened,
             principal: AgentDevicePrincipal,
         ) -> None:
-            await asyncio.to_thread(
-                runtime.state_synchronizer.accept_approval_opened,
-                approval,
-                principal,
-            )
             await runtime.publish_approval_opened(approval, principal)
 
         return observe

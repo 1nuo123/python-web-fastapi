@@ -6,10 +6,18 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 云服务器 | 阿里云 ECS，华南 2（河源） |
-| 公网 IP | `47.113.177.140` |
-| 操作系统 | Ubuntu 22.04 64 位 |
-| 规格 | 4 vCPU、8 GiB 内存、40 GiB 云盘 |
+| 云服务器 | 阿里云 ECS，实例 ID `i-2zegta8rnz1jge9pjt5n` |
+| 公网 IP | `39.96.201.189` |
+| 主私网 IP | `172.28.156.183` |
+| 操作系统 | Ubuntu 24.04 64 位 |
+| 实例规格 | `ecs.e-c1m1.large` |
+| CPU / 内存 | 2 vCPU / 2 GiB |
+| 系统盘 | 40 GiB ESSD Entry 云盘 |
+| 公网带宽 | 3 Mbps，按固定带宽计费 |
+| 付费类型 | 包年包月 |
+| 到期时间 | 2027-08-22 23:59:59 |
+| 自动续费 | 手动续费 |
+| 创建时间 | 2026-08-22 12:14:00 |
 | SSH 用户 | `root`，后续建议迁移到专用部署用户 |
 | 后端仓库 | `git@github-backend:1nuo123/python-web-fastapi.git` |
 | 前端仓库 | `git@github-frontend:1nuo123/typescript-web-nuxt.git` |
@@ -108,7 +116,7 @@ curl --version | head -n 1
 在 Windows PowerShell 执行：
 
 ```powershell
-ssh -i "C:\Users\ThinkPad\.ssh\aliyun_fastapi" root@47.113.177.140
+ssh -i "C:\Users\ThinkPad\.ssh\aliyun_fastapi" root@39.96.201.189
 ```
 
 ### 4.2 拉取两个仓库
@@ -181,6 +189,19 @@ https://nuotop.xyz
 - 重启 Docker 后容器能按 `restart: unless-stopped` 自动恢复。
 
 刷新令牌 Cookie 保持 `Secure`，Windows Agent 使用 WSS，因此首次部署前必须确保域名已解析到服务器且 TCP 80/443 可达。Caddy 会自动申请证书；证书签发成功后再完成浏览器和 Agent 验收。
+
+### 4.5 Codex Remote 发布门禁
+
+首次 `bootstrap` 生成的前端环境文件会将 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED` 设为 `false`。这是故障关闭策略：在正式 Windows Agent 的 Authenticode 签名、TUF 发布元数据、下载与更新验收，以及域名 HTTPS/WSS 全链路验收全部完成前，生产入口不得展示 Codex Remote 下载或连接功能。
+
+完成上述验收后，才允许在首次初始化时显式启用：
+
+```bash
+cd /opt/web/python-web-fastapi
+PRODUCTION_CODEX_FEATURE_ENABLED=true bash deploy/production.sh bootstrap
+```
+
+已初始化的服务器不应重复执行 `bootstrap`。待服务器侧发布审批通过后，使用安全编辑器将 `/opt/web/typescript-web-nuxt/.env.production.local` 中的 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED` 改为 `true`，然后执行 `bash deploy/production.sh deploy` 重新构建前端。关闭时将其改回 `false` 并重新执行 `deploy`；该开关只控制前端入口，不能替代后端授权、设备授权或 Agent 发布校验。
 
 ## 5. 统一运维命令
 
@@ -328,7 +349,7 @@ sha256sum -c postgres-YYYYMMDDTHHMMSSZ.dump.sha256
 
 ```powershell
 scp -i "C:\Users\ThinkPad\.ssh\aliyun_fastapi" `
-  root@47.113.177.140:/var/backups/fastapi-web/postgres-YYYYMMDDTHHMMSSZ.dump* `
+  root@39.96.201.189:/var/backups/fastapi-web/postgres-YYYYMMDDTHHMMSSZ.dump* `
   E:\server-backups\fastapi-web\
 ```
 
@@ -465,7 +486,9 @@ df -h /
 docker system df
 ```
 
-40 GiB 云盘建议阈值：
+当前 `40 GiB ESSD Entry` 系统盘建议阈值：
+
+该实例只有 `2 GiB` 内存。生产部署时不要并行执行多个 Docker 构建或全量测试；如果构建阶段出现 OOM，应先在服务器上增加受控的交换空间或临时提升实例规格，再重新发布，不要通过降低容器安全限制解决内存不足。
 
 | 使用率 | 动作 |
 | --- | --- |
@@ -497,7 +520,7 @@ docker builder prune --filter 'until=168h'
 
 域名可用后按以下步骤闭环：
 
-1. 在阿里云 DNS 添加主机记录 `@`、类型 `A`、记录值 `47.113.177.140`、TTL `600`。
+1. 在阿里云 DNS 添加主机记录 `@`、类型 `A`、记录值 `39.96.201.189`、TTL `600`。
 2. 确认安全组开放 TCP 80/443，UDP 443 可选。
 3. 确认后端 `/opt/web/python-web-fastapi/.env.production.local` 包含：
 

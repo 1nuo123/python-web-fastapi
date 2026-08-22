@@ -1,1 +1,2 @@
 [runtime]
+agent_deployment_profile = "development"

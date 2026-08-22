@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from http import HTTPStatus
 from typing import Annotated
 from uuid import UUID
 
@@ -14,11 +15,15 @@ from src.core.codex_contract.thread_contract import (
     CODEX_CONVERSATION_PAGE_LIMIT_DEFAULT,
     CODEX_CONVERSATION_PAGE_LIMIT_MAXIMUM,
     CODEX_CONVERSATION_PAGE_LIMIT_MINIMUM,
+    CODEX_HISTORY_ITEM_RELOAD_MAXIMUM,
     CodexConversationListQuery,
     CodexConversationPage,
     CodexConversationPinRequest,
     CodexConversationRenameRequest,
     CodexThreadAuthoritySnapshot,
+    CodexThreadHistoryItemReload,
+    CodexThreadHistoryPage,
+    CodexThreadHistoryQuery,
     CodexThreadIndexSnapshot,
 )
 from src.core.codex_contract.turn_contract import (
@@ -28,6 +33,7 @@ from src.core.codex_contract.turn_contract import (
     CodexTurnStartRequest,
 )
 from src.core.exception_contract.error_code_catalog_contract import SuccessCode
+from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.http_contract.response_envelope_contract import ResponseEnvelope
 from src.domain.codex.codex_authorization_policy import (
     CODEX_FULL_ACCESS_AUTHORIZATION_REQUIREMENT,
@@ -35,8 +41,24 @@ from src.domain.codex.codex_authorization_policy import (
     CODEX_READ_AUTHORIZATION_REQUIREMENT,
     CODEX_TOOL_EXECUTION_AUTHORIZATION_REQUIREMENT,
 )
+from src.domain.codex.codex_error_code import CodexErrorCode
 
 CODEX_THREAD_BEARER_SCHEME = HTTPBearer(auto_error=False)
+
+
+def _validate_turn_operation_identity(
+    body: CodexTurnStartRequest,
+    idempotency_key: str,
+) -> None:
+    """拒绝 body 与 HTTP 头不一致的 turn 身份，避免重试落入不同副作用。"""
+
+    if str(body.client_operation_id) == idempotency_key:
+        return
+    raise HttpFaultException(
+        status_code=HTTPStatus.BAD_REQUEST,
+        error_code=CodexErrorCode.IDEMPOTENCY_KEY_MISMATCH,
+        message="Idempotency-Key必须与client_operation_id完全一致。",
+    )
 
 
 class CodexThreadRouteCatalog:
@@ -73,6 +95,20 @@ class CodexThreadRouteCatalog:
             self.get_thread,
             methods=["GET"],
             response_model=ResponseEnvelope[CodexThreadAuthoritySnapshot],
+            dependencies=[Depends(self.require_codex_read)],
+        )
+        self.router.add_api_route(
+            "/codex/hosts/{host_id}/threads/{thread_id}/history",
+            self.get_thread_history,
+            methods=["GET"],
+            response_model=ResponseEnvelope[CodexThreadHistoryPage],
+            dependencies=[Depends(self.require_codex_read)],
+        )
+        self.router.add_api_route(
+            "/codex/hosts/{host_id}/threads/{thread_id}/history/items",
+            self.get_thread_history_items,
+            methods=["GET"],
+            response_model=ResponseEnvelope[CodexThreadHistoryItemReload],
             dependencies=[Depends(self.require_codex_read)],
         )
         self.router.add_api_route(
@@ -223,23 +259,100 @@ class CodexThreadRouteCatalog:
         host_id: UUID,
         thread_id: str,
         include_history: bool = False,
-        history_cursor: str | None = None,
-        history_limit: int = 100,
+        legacy_history_cursor: str | None = Query(
+            default=None,
+            alias="history_cursor",
+        ),
+        history_limit: Annotated[
+            int,
+            Query(
+                ge=1,
+                le=100,
+            ),
+        ] = 50,
     ) -> ResponseEnvelope[CodexThreadAuthoritySnapshot]:
         """从 Agent/App Server 读取 thread 正文权威 snapshot。"""
 
+        if legacy_history_cursor is not None:
+            raise HttpFaultException(
+                status_code=HTTPStatus.CONFLICT,
+                error_code=CodexErrorCode.HISTORY_CURSOR_STALE,
+                message="旧版历史游标已失效，请使用签名before_cursor重新读取。",
+            )
         principal = self._accessor.read_authenticated_principal(request)
         payload = await self._accessor.read_codex_thread_snapshot_usecase(request).execute(
             host_id=host_id,
             upstream_thread_id=thread_id,
             owner_subject_id=principal.subject_id,
             include_history=include_history,
-            history_cursor=history_cursor,
             history_limit=history_limit,
         )
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),
             message="Codex thread权威快照读取成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=payload,
+        )
+
+    async def get_thread_history(
+        self,
+        request: Request,
+        host_id: UUID,
+        thread_id: str,
+        before_cursor: str | None = None,
+        limit: Annotated[
+            int,
+            Query(
+                ge=1,
+                le=100,
+            ),
+        ] = 50,
+    ) -> ResponseEnvelope[CodexThreadHistoryPage]:
+        """按签名边界向前读取一页历史，拒绝 offset 和跨范围游标。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        payload = await self._accessor.read_codex_thread_snapshot_usecase(
+            request
+        ).read_history_page(
+            host_id=host_id,
+            upstream_thread_id=thread_id,
+            owner_subject_id=principal.subject_id,
+            query=CodexThreadHistoryQuery(
+                before_cursor=before_cursor,
+                limit=limit,
+            ),
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="Codex历史分页读取成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=payload,
+        )
+
+    async def get_thread_history_items(
+        self,
+        request: Request,
+        host_id: UUID,
+        thread_id: str,
+        item_id: Annotated[
+            list[str],
+            Query(min_length=1, max_length=CODEX_HISTORY_ITEM_RELOAD_MAXIMUM),
+        ],
+    ) -> ResponseEnvelope[CodexThreadHistoryItemReload]:
+        """仅按稳定 item ID 恢复当前标签页已经回收的正文，拒绝正文搜索与 offset。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        payload = await self._accessor.read_codex_thread_snapshot_usecase(
+            request
+        ).read_history_items(
+            host_id=host_id,
+            upstream_thread_id=thread_id,
+            owner_subject_id=principal.subject_id,
+            item_ids=item_id,
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="Codex 已回收历史正文读取成功。",
             request_scope=self._accessor.read_request_scope(request),
             data=payload,
         )
@@ -275,6 +388,7 @@ class CodexThreadRouteCatalog:
         """向 active turn 发送 steer。"""
 
         principal = self._accessor.read_authenticated_principal(request)
+        _validate_turn_operation_identity(body, idempotency_key)
         self._accessor.read_authorized_principal(
             request,
             CODEX_TOOL_EXECUTION_AUTHORIZATION_REQUIREMENT,
@@ -287,6 +401,7 @@ class CodexThreadRouteCatalog:
             message=body.message,
             actor_subject_id=principal.subject_id,
             idempotency_key=idempotency_key,
+            client_operation_id=body.client_operation_id,
         )
         return self._accepted_response(request, payload, "Codex steer操作已接受。")
 
@@ -334,6 +449,7 @@ class CodexThreadRouteCatalog:
         """提交 turn/start 并返回固定 operation/command 身份。"""
 
         principal = self._accessor.read_authenticated_principal(request)
+        _validate_turn_operation_identity(body, idempotency_key)
         self._require_execution_scopes(request, body.execution)
         payload = await self._accessor.read_execute_codex_thread_command_usecase(
             request
@@ -344,6 +460,7 @@ class CodexThreadRouteCatalog:
             execution=body.execution,
             actor_subject_id=principal.subject_id,
             idempotency_key=idempotency_key,
+            client_operation_id=body.client_operation_id,
         )
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),

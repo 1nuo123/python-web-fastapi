@@ -13,6 +13,7 @@ from src.infrastructure.codex_agent.agent_configuration import (
     CodexHostAgentSettings,
     CodexHostAgentSettingsLoader,
 )
+from src.infrastructure.codex_agent.agent_deployment_profile import AgentDeploymentProfile
 from src.infrastructure.codex_agent.agent_setup import WindowsEnrollmentUi
 from src.infrastructure.codex_agent.agent_workspace_configuration import (
     WindowsAgentWorkspaceConfiguration,
@@ -46,11 +47,15 @@ class WindowsAgentSettingsWindow:
         *,
         config_path: Path,
         bootstrap: AgentBootstrapSettings,
+        deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
     ) -> None:
         self._config_path = config_path
         self._bootstrap = bootstrap
         self._settings_loader = CodexHostAgentSettingsLoader(WindowsAgentConfigPermissionVerifier())
-        self._task_controller = WindowsAgentTaskController(config_path=config_path)
+        self._task_controller = WindowsAgentTaskController(
+            config_path=config_path,
+            deployment_profile=deployment_profile,
+        )
         self._workspace_configuration = WindowsAgentWorkspaceConfiguration(
             config_path=config_path,
             settings_loader=self._settings_loader,

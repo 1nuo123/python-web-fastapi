@@ -159,12 +159,16 @@ def test_active_turn_event_order_should_preserve_turn_and_allow_commands() -> No
                 sequence=2,
                 app_server_instance_id=app_server_instance_id,
             )
+            steer_operation_id = str(uuid4())
             with ThreadPoolExecutor(max_workers=1) as executor:
                 steer_future = executor.submit(
                     client.post,
                     f"/codex/hosts/{host_id}/threads/{thread_id}/steer",
-                    headers={**headers, "Idempotency-Key": "steer-once"},
-                    json={"message": "追加约束"},
+                    headers={**headers, "Idempotency-Key": steer_operation_id},
+                    json={
+                        "client_operation_id": steer_operation_id,
+                        "message": "追加约束",
+                    },
                 )
                 steer_command = CodexDeviceAuthorizationTestSupport.receive_v2_command(
                     agent_websocket

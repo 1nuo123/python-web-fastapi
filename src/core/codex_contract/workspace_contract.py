@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.core.codex_contract.host_contract import CodexApprovalPolicy, CodexSandboxMode
 from src.core.worktree_contract.worktree_contract import (
     WORKTREE_DEFAULT_BASE_BRANCH,
     WORKTREE_DEFAULT_DISK_WATERMARK_PERCENT,
@@ -71,6 +73,50 @@ class CodexWorkspaceUpdateRequest(BaseModel):
     worktree_policy: CodexWorkspaceWorktreePolicyUpdate | None = None
 
 
+class CodexWorkspaceExecutionPreferences(BaseModel):
+    """工作区保存的执行偏好，不包含浏览器或 Agent 的临时授权状态。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    model: str | None = Field(default=None, min_length=1, max_length=128)
+    reasoning_effort: str | None = Field(default=None, min_length=1, max_length=64)
+    sandbox_mode: CodexSandboxMode = CodexSandboxMode.WORKSPACE_WRITE
+    approval_policy: CodexApprovalPolicy = CodexApprovalPolicy.UNTRUSTED
+    # 仅用于检测主机 capability 变化；不信任浏览器提交的版本值。
+    capabilities_revision: str = Field(default="unverified", min_length=1, max_length=64)
+
+
+class CodexWorkspaceExecutionPreferencesUpdate(BaseModel):
+    """浏览器提交的完整工作区执行偏好，服务端负责重新计算 capability 版本。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    model: str | None = Field(default=None, min_length=1, max_length=128)
+    reasoning_effort: str | None = Field(default=None, min_length=1, max_length=64)
+    sandbox_mode: CodexSandboxMode = CodexSandboxMode.WORKSPACE_WRITE
+    approval_policy: CodexApprovalPolicy = CodexApprovalPolicy.UNTRUSTED
+
+
+class CodexWorkspacePreferenceAdjustedField(StrEnum):
+    """服务端因能力或授权约束而调整的偏好字段。"""
+
+    MODEL = "model"
+    REASONING_EFFORT = "reasoning_effort"
+    SANDBOX_MODE = "sandbox_mode"
+    APPROVAL_POLICY = "approval_policy"
+    CAPABILITIES_REVISION = "capabilities_revision"
+
+
+class CodexWorkspaceExecutionPreferencesResult(BaseModel):
+    """浏览器可展示的有效偏好与服务端调整摘要。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    workspace_id: UUID
+    effective_preferences: CodexWorkspaceExecutionPreferences
+    adjusted_fields: tuple[CodexWorkspacePreferenceAdjustedField, ...] = ()
+
+
 class CodexWorkspaceSnapshot(BaseModel):
     """不暴露本机绝对路径的工作区快照。"""
 
@@ -84,6 +130,9 @@ class CodexWorkspaceSnapshot(BaseModel):
     repo_fingerprint: str | None = Field(default=None, max_length=128)
     default_branch: str | None = Field(default=None, max_length=256)
     worktree_policy: GitWorktreePolicy = Field(default_factory=GitWorktreePolicy)
+    execution_preferences: CodexWorkspaceExecutionPreferences = Field(
+        default_factory=CodexWorkspaceExecutionPreferences
+    )
     is_pinned: bool
     enabled: bool
     created_at: datetime

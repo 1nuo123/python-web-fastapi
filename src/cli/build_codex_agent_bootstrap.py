@@ -18,6 +18,7 @@ from src.core.codex_contract.agent_release_manifest_contract import (
 )
 from src.infrastructure.codex_agent.agent_configuration import (
     AgentBootstrapConnectionSettings,
+    AgentDevelopmentBootstrapConnectionSettings,
     AgentLocalBootstrapConnectionSettings,
     validate_public_endpoint_url,
 )
@@ -29,8 +30,9 @@ class AgentBootstrapBuildCommand(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     output: Path
-    deployment_state: Literal["configured", "local", "unconfigured"] = "configured"
+    deployment_state: Literal["configured", "development", "local", "unconfigured"] = "configured"
     public_origin: str | None = None
+    development_origin: str | None = None
     local_origin: str | None = None
     agent_version: str
     expected_codex_version: str
@@ -60,13 +62,23 @@ class AgentBootstrapBuildCommand(BaseModel):
 
     def build_connection_settings(
         self,
-    ) -> AgentBootstrapConnectionSettings | AgentLocalBootstrapConnectionSettings:
+    ) -> (
+        AgentBootstrapConnectionSettings
+        | AgentDevelopmentBootstrapConnectionSettings
+        | AgentLocalBootstrapConnectionSettings
+    ):
         """构造与部署类型匹配并经过边界校验的控制面入口。"""
 
         if self.deployment_state == "local":
             if self.local_origin is None:
                 raise ValueError("本地验收安装包必须提供回环origin。")
             return AgentLocalBootstrapConnectionSettings.from_local_origin(self.local_origin)
+        if self.deployment_state == "development":
+            if self.development_origin is None:
+                raise ValueError("开发安装包必须提供开发TLS origin。")
+            return AgentDevelopmentBootstrapConnectionSettings.from_development_origin(
+                self.development_origin
+            )
         if self.public_origin is None:
             raise ValueError("正式安装包必须提供公网origin。")
         return AgentBootstrapConnectionSettings.from_public_origin(self.public_origin)
@@ -74,20 +86,33 @@ class AgentBootstrapBuildCommand(BaseModel):
     @model_validator(mode="after")
     def validate_public_release_inputs(self) -> AgentBootstrapBuildCommand:
         if self.deployment_state == "unconfigured":
-            if self.public_origin is not None or self.local_origin is not None:
+            if (
+                self.public_origin is not None
+                or self.development_origin is not None
+                or self.local_origin is not None
+            ):
                 raise ValueError("未配置安装包不得包含服务器地址。")
             if self.release_enabled:
                 raise ValueError("未配置安装包不得启用自动更新。")
             return self
         if self.deployment_state == "local":
-            if self.public_origin is not None:
+            if self.public_origin is not None or self.development_origin is not None:
                 raise ValueError("本地验收安装包不得包含公网origin。")
             if self.release_enabled:
                 raise ValueError("本地验收安装包不得启用自动更新。")
             self.build_connection_settings()
             return self
+        if self.deployment_state == "development":
+            if self.public_origin is not None or self.local_origin is not None:
+                raise ValueError("开发安装包不得包含公网或回环origin。")
+            if self.release_enabled:
+                raise ValueError("开发安装包不得启用自动更新。")
+            self.build_connection_settings()
+            return self
         if self.local_origin is not None:
             raise ValueError("正式安装包不得包含本地origin。")
+        if self.development_origin is not None:
+            raise ValueError("正式安装包不得包含开发origin。")
         self.build_connection_settings()
         if self.release_enabled:
             if not all(
@@ -149,7 +174,7 @@ class AgentReleasePayload(TypedDict):
 class AgentBootstrapPayload(TypedDict, total=False):
     """bootstrap TOML 的强类型序列化结构。"""
 
-    deployment_state: Literal["configured", "local", "unconfigured"]
+    deployment_state: Literal["configured", "development", "local", "unconfigured"]
     connection: dict[str, str]
     agent_version: str
     expected_codex_version: str
@@ -210,6 +235,7 @@ class CodexAgentBootstrapCli:
         parser.add_argument("--output", required=True, type=Path)
         parser.add_argument("--unconfigured", action="store_true")
         parser.add_argument("--public-origin")
+        parser.add_argument("--development-origin")
         parser.add_argument("--local-origin")
         parser.add_argument("--agent-version", required=True)
         parser.add_argument("--expected-codex-version", required=True)
@@ -225,15 +251,20 @@ class CodexAgentBootstrapCli:
         parser.add_argument("--trusted-root-file-name", default="root.json")
         parser.add_argument("--minimum-security-version")
         arguments = parser.parse_args(argv)
-        deployment_state: Literal["configured", "local", "unconfigured"] = "configured"
+        deployment_state: Literal["configured", "development", "local", "unconfigured"] = (
+            "configured"
+        )
         if arguments.unconfigured:
             deployment_state = "unconfigured"
         elif arguments.local_origin is not None:
             deployment_state = "local"
+        elif arguments.development_origin is not None:
+            deployment_state = "development"
         command = AgentBootstrapBuildCommand(
             output=arguments.output,
             deployment_state=deployment_state,
             public_origin=arguments.public_origin,
+            development_origin=arguments.development_origin,
             local_origin=arguments.local_origin,
             agent_version=arguments.agent_version,
             expected_codex_version=arguments.expected_codex_version,

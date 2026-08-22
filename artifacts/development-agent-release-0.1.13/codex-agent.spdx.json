@@ -1,0 +1,1436 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "codex-remote-agent-0.1.13",
+  "documentNamespace": "https://raw.githubusercontent.com/1nuo123/codex-remote-agent-releases/master/spdx/63e81aa2-7469-427a-a22c-9f206c17619e",
+  "creationInfo": {
+    "created": "2026-08-20T14:56:56.820365Z",
+    "creators": [
+      "Tool: CodexAgentReleaseAssetsBuilder"
+    ]
+  },
+  "packages": [
+    {
+      "name": "codex-remote-agent",
+      "SPDXID": "SPDXRef-Package-1",
+      "versionInfo": "0.1.13",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "alembic",
+      "SPDXID": "SPDXRef-Package-2",
+      "versionInfo": "1.18.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "altgraph",
+      "SPDXID": "SPDXRef-Package-3",
+      "versionInfo": "0.17.5",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "AMQPStorm",
+      "SPDXID": "SPDXRef-Package-4",
+      "versionInfo": "2.10.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "annotated-doc",
+      "SPDXID": "SPDXRef-Package-5",
+      "versionInfo": "0.0.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "annotated-types",
+      "SPDXID": "SPDXRef-Package-6",
+      "versionInfo": "0.7.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "anyio",
+      "SPDXID": "SPDXRef-Package-7",
+      "versionInfo": "4.13.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "APScheduler",
+      "SPDXID": "SPDXRef-Package-8",
+      "versionInfo": "3.11.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "argcomplete",
+      "SPDXID": "SPDXRef-Package-9",
+      "versionInfo": "3.7.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "argon2-cffi",
+      "SPDXID": "SPDXRef-Package-10",
+      "versionInfo": "25.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "argon2-cffi-bindings",
+      "SPDXID": "SPDXRef-Package-11",
+      "versionInfo": "25.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "arrow",
+      "SPDXID": "SPDXRef-Package-12",
+      "versionInfo": "1.4.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "asgiref",
+      "SPDXID": "SPDXRef-Package-13",
+      "versionInfo": "3.11.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "ast_serialize",
+      "SPDXID": "SPDXRef-Package-14",
+      "versionInfo": "0.6.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "async-timeout",
+      "SPDXID": "SPDXRef-Package-15",
+      "versionInfo": "5.0.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "attrs",
+      "SPDXID": "SPDXRef-Package-16",
+      "versionInfo": "26.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "auto_run_on_remote",
+      "SPDXID": "SPDXRef-Package-17",
+      "versionInfo": "0.5",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "Automat",
+      "SPDXID": "SPDXRef-Package-18",
+      "versionInfo": "25.4.16",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "backports.tarfile",
+      "SPDXID": "SPDXRef-Package-19",
+      "versionInfo": "1.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "bandit",
+      "SPDXID": "SPDXRef-Package-20",
+      "versionInfo": "1.9.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "bcrypt",
+      "SPDXID": "SPDXRef-Package-21",
+      "versionInfo": "5.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "bidict",
+      "SPDXID": "SPDXRef-Package-22",
+      "versionInfo": "0.23.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "blinker",
+      "SPDXID": "SPDXRef-Package-23",
+      "versionInfo": "1.9.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "boolean.py",
+      "SPDXID": "SPDXRef-Package-24",
+      "versionInfo": "5.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "brotli",
+      "SPDXID": "SPDXRef-Package-25",
+      "versionInfo": "1.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "CacheControl",
+      "SPDXID": "SPDXRef-Package-26",
+      "versionInfo": "0.14.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "cachetools",
+      "SPDXID": "SPDXRef-Package-27",
+      "versionInfo": "7.1.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "certifi",
+      "SPDXID": "SPDXRef-Package-28",
+      "versionInfo": "2026.4.22",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "cffi",
+      "SPDXID": "SPDXRef-Package-29",
+      "versionInfo": "2.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "chained_mode_time_tool",
+      "SPDXID": "SPDXRef-Package-30",
+      "versionInfo": "0.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "charset-normalizer",
+      "SPDXID": "SPDXRef-Package-31",
+      "versionInfo": "3.4.7",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "click",
+      "SPDXID": "SPDXRef-Package-32",
+      "versionInfo": "8.3.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "colorama",
+      "SPDXID": "SPDXRef-Package-33",
+      "versionInfo": "0.4.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "colorlog",
+      "SPDXID": "SPDXRef-Package-34",
+      "versionInfo": "6.10.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "concurrent-log-handler",
+      "SPDXID": "SPDXRef-Package-35",
+      "versionInfo": "0.9.23",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "ConfigArgParse",
+      "SPDXID": "SPDXRef-Package-36",
+      "versionInfo": "1.7.5",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "constantly",
+      "SPDXID": "SPDXRef-Package-37",
+      "versionInfo": "23.10.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "coverage",
+      "SPDXID": "SPDXRef-Package-38",
+      "versionInfo": "7.15.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "cron_descriptor",
+      "SPDXID": "SPDXRef-Package-39",
+      "versionInfo": "2.0.8",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "croniter",
+      "SPDXID": "SPDXRef-Package-40",
+      "versionInfo": "6.2.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "cryptography",
+      "SPDXID": "SPDXRef-Package-41",
+      "versionInfo": "50.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "cyclonedx-python-lib",
+      "SPDXID": "SPDXRef-Package-42",
+      "versionInfo": "11.11.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "decorator",
+      "SPDXID": "SPDXRef-Package-43",
+      "versionInfo": "5.1.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "defusedxml",
+      "SPDXID": "SPDXRef-Package-44",
+      "versionInfo": "0.7.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "dependency-groups",
+      "SPDXID": "SPDXRef-Package-45",
+      "versionInfo": "1.3.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "Deprecated",
+      "SPDXID": "SPDXRef-Package-46",
+      "versionInfo": "1.2.14",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "detect-secrets",
+      "SPDXID": "SPDXRef-Package-47",
+      "versionInfo": "1.5.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "distlib",
+      "SPDXID": "SPDXRef-Package-48",
+      "versionInfo": "0.4.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "dnspython",
+      "SPDXID": "SPDXRef-Package-49",
+      "versionInfo": "2.8.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "fabric2",
+      "SPDXID": "SPDXRef-Package-50",
+      "versionInfo": "3.2.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "fastapi",
+      "SPDXID": "SPDXRef-Package-51",
+      "versionInfo": "0.139.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "filelock",
+      "SPDXID": "SPDXRef-Package-52",
+      "versionInfo": "3.29.7",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "fire",
+      "SPDXID": "SPDXRef-Package-53",
+      "versionInfo": "0.7.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "Flask",
+      "SPDXID": "SPDXRef-Package-54",
+      "versionInfo": "3.1.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "flask-cors",
+      "SPDXID": "SPDXRef-Package-55",
+      "versionInfo": "6.0.5",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "Flask-Login",
+      "SPDXID": "SPDXRef-Package-56",
+      "versionInfo": "0.6.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "frozenlist",
+      "SPDXID": "SPDXRef-Package-57",
+      "versionInfo": "1.8.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "funboost",
+      "SPDXID": "SPDXRef-Package-58",
+      "versionInfo": "54.8",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "gevent",
+      "SPDXID": "SPDXRef-Package-59",
+      "versionInfo": "25.9.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "geventhttpclient",
+      "SPDXID": "SPDXRef-Package-60",
+      "versionInfo": "2.3.9",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "greenlet",
+      "SPDXID": "SPDXRef-Package-61",
+      "versionInfo": "3.5.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "grimp",
+      "SPDXID": "SPDXRef-Package-62",
+      "versionInfo": "3.15",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "h11",
+      "SPDXID": "SPDXRef-Package-63",
+      "versionInfo": "0.16.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "httpcore",
+      "SPDXID": "SPDXRef-Package-64",
+      "versionInfo": "1.0.9",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "httptools",
+      "SPDXID": "SPDXRef-Package-65",
+      "versionInfo": "0.7.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "httpx",
+      "SPDXID": "SPDXRef-Package-66",
+      "versionInfo": "0.28.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "humanize",
+      "SPDXID": "SPDXRef-Package-67",
+      "versionInfo": "4.16.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "hyperlink",
+      "SPDXID": "SPDXRef-Package-68",
+      "versionInfo": "21.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "idna",
+      "SPDXID": "SPDXRef-Package-69",
+      "versionInfo": "3.15",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "import-linter",
+      "SPDXID": "SPDXRef-Package-70",
+      "versionInfo": "2.13",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "importlib_metadata",
+      "SPDXID": "SPDXRef-Package-71",
+      "versionInfo": "8.7.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "Incremental",
+      "SPDXID": "SPDXRef-Package-72",
+      "versionInfo": "24.11.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "iniconfig",
+      "SPDXID": "SPDXRef-Package-73",
+      "versionInfo": "2.3.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "invoke",
+      "SPDXID": "SPDXRef-Package-74",
+      "versionInfo": "3.0.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "itsdangerous",
+      "SPDXID": "SPDXRef-Package-75",
+      "versionInfo": "2.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "jaraco.classes",
+      "SPDXID": "SPDXRef-Package-76",
+      "versionInfo": "3.4.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "jaraco.context",
+      "SPDXID": "SPDXRef-Package-77",
+      "versionInfo": "6.1.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "jaraco.functools",
+      "SPDXID": "SPDXRef-Package-78",
+      "versionInfo": "4.6.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "Jinja2",
+      "SPDXID": "SPDXRef-Package-79",
+      "versionInfo": "3.1.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "keyring",
+      "SPDXID": "SPDXRef-Package-80",
+      "versionInfo": "25.7.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "librt",
+      "SPDXID": "SPDXRef-Package-81",
+      "versionInfo": "0.13.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "license-expression",
+      "SPDXID": "SPDXRef-Package-82",
+      "versionInfo": "30.4.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "locust",
+      "SPDXID": "SPDXRef-Package-83",
+      "versionInfo": "2.45.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "logging_tree",
+      "SPDXID": "SPDXRef-Package-84",
+      "versionInfo": "1.10",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "loguru",
+      "SPDXID": "SPDXRef-Package-85",
+      "versionInfo": "0.7.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "Mako",
+      "SPDXID": "SPDXRef-Package-86",
+      "versionInfo": "1.3.12",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "markdown-it-py",
+      "SPDXID": "SPDXRef-Package-87",
+      "versionInfo": "4.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "MarkupSafe",
+      "SPDXID": "SPDXRef-Package-88",
+      "versionInfo": "3.0.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "mdurl",
+      "SPDXID": "SPDXRef-Package-89",
+      "versionInfo": "0.1.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "more-itertools",
+      "SPDXID": "SPDXRef-Package-90",
+      "versionInfo": "11.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "msgpack",
+      "SPDXID": "SPDXRef-Package-91",
+      "versionInfo": "1.2.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "mypy",
+      "SPDXID": "SPDXRef-Package-92",
+      "versionInfo": "2.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "mypy_extensions",
+      "SPDXID": "SPDXRef-Package-93",
+      "versionInfo": "1.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "nb-libs",
+      "SPDXID": "SPDXRef-Package-94",
+      "versionInfo": "2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "nb_filelock",
+      "SPDXID": "SPDXRef-Package-95",
+      "versionInfo": "0.8",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "nb_log",
+      "SPDXID": "SPDXRef-Package-96",
+      "versionInfo": "14.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "nb_time",
+      "SPDXID": "SPDXRef-Package-97",
+      "versionInfo": "2.8",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "nox",
+      "SPDXID": "SPDXRef-Package-98",
+      "versionInfo": "2026.7.11",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "opentelemetry-api",
+      "SPDXID": "SPDXRef-Package-99",
+      "versionInfo": "1.41.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "opentelemetry-instrumentation",
+      "SPDXID": "SPDXRef-Package-100",
+      "versionInfo": "0.62b1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "opentelemetry-instrumentation-asgi",
+      "SPDXID": "SPDXRef-Package-101",
+      "versionInfo": "0.62b1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "opentelemetry-instrumentation-fastapi",
+      "SPDXID": "SPDXRef-Package-102",
+      "versionInfo": "0.62b1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "opentelemetry-sdk",
+      "SPDXID": "SPDXRef-Package-103",
+      "versionInfo": "1.41.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "opentelemetry-semantic-conventions",
+      "SPDXID": "SPDXRef-Package-104",
+      "versionInfo": "0.62b1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "opentelemetry-util-http",
+      "SPDXID": "SPDXRef-Package-105",
+      "versionInfo": "0.62b1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "orjson",
+      "SPDXID": "SPDXRef-Package-106",
+      "versionInfo": "3.11.9",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "packageurl-python",
+      "SPDXID": "SPDXRef-Package-107",
+      "versionInfo": "0.17.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "packaging",
+      "SPDXID": "SPDXRef-Package-108",
+      "versionInfo": "26.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pamqp",
+      "SPDXID": "SPDXRef-Package-109",
+      "versionInfo": "2.3.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "paramiko",
+      "SPDXID": "SPDXRef-Package-110",
+      "versionInfo": "5.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "passlib",
+      "SPDXID": "SPDXRef-Package-111",
+      "versionInfo": "1.7.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pathspec",
+      "SPDXID": "SPDXRef-Package-112",
+      "versionInfo": "1.1.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pefile",
+      "SPDXID": "SPDXRef-Package-113",
+      "versionInfo": "2024.8.26",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "persist-queue",
+      "SPDXID": "SPDXRef-Package-114",
+      "versionInfo": "1.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pikav0",
+      "SPDXID": "SPDXRef-Package-115",
+      "versionInfo": "0.1.23",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pikav1",
+      "SPDXID": "SPDXRef-Package-116",
+      "versionInfo": "1.0.13",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pip",
+      "SPDXID": "SPDXRef-Package-117",
+      "versionInfo": "26.1.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pip-api",
+      "SPDXID": "SPDXRef-Package-118",
+      "versionInfo": "0.0.34",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pip-requirements-parser",
+      "SPDXID": "SPDXRef-Package-119",
+      "versionInfo": "32.0.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pip_audit",
+      "SPDXID": "SPDXRef-Package-120",
+      "versionInfo": "2.10.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "platformdirs",
+      "SPDXID": "SPDXRef-Package-121",
+      "versionInfo": "4.10.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pluggy",
+      "SPDXID": "SPDXRef-Package-122",
+      "versionInfo": "1.6.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "portalocker",
+      "SPDXID": "SPDXRef-Package-123",
+      "versionInfo": "3.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "prometheus_client",
+      "SPDXID": "SPDXRef-Package-124",
+      "versionInfo": "0.25.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "psutil",
+      "SPDXID": "SPDXRef-Package-125",
+      "versionInfo": "7.2.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "psycopg",
+      "SPDXID": "SPDXRef-Package-126",
+      "versionInfo": "3.3.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "psycopg-binary",
+      "SPDXID": "SPDXRef-Package-127",
+      "versionInfo": "3.3.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "py-serializable",
+      "SPDXID": "SPDXRef-Package-128",
+      "versionInfo": "2.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pyasn1",
+      "SPDXID": "SPDXRef-Package-129",
+      "versionInfo": "0.6.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pyasn1_modules",
+      "SPDXID": "SPDXRef-Package-130",
+      "versionInfo": "0.4.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pycparser",
+      "SPDXID": "SPDXRef-Package-131",
+      "versionInfo": "3.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pydantic",
+      "SPDXID": "SPDXRef-Package-132",
+      "versionInfo": "2.13.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pydantic_core",
+      "SPDXID": "SPDXRef-Package-133",
+      "versionInfo": "2.46.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "Pygments",
+      "SPDXID": "SPDXRef-Package-134",
+      "versionInfo": "2.20.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pyinstaller",
+      "SPDXID": "SPDXRef-Package-135",
+      "versionInfo": "6.21.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pyinstaller-hooks-contrib",
+      "SPDXID": "SPDXRef-Package-136",
+      "versionInfo": "2026.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "PyJWT",
+      "SPDXID": "SPDXRef-Package-137",
+      "versionInfo": "2.13.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pymongo",
+      "SPDXID": "SPDXRef-Package-138",
+      "versionInfo": "4.17.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "PyNaCl",
+      "SPDXID": "SPDXRef-Package-139",
+      "versionInfo": "1.6.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pyparsing",
+      "SPDXID": "SPDXRef-Package-140",
+      "versionInfo": "3.3.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "PySnooper",
+      "SPDXID": "SPDXRef-Package-141",
+      "versionInfo": "1.2.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pytest",
+      "SPDXID": "SPDXRef-Package-142",
+      "versionInfo": "9.0.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pytest-asyncio",
+      "SPDXID": "SPDXRef-Package-143",
+      "versionInfo": "1.3.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pytest-cov",
+      "SPDXID": "SPDXRef-Package-144",
+      "versionInfo": "7.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "python-dateutil",
+      "SPDXID": "SPDXRef-Package-145",
+      "versionInfo": "2.9.0.post0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "python-discovery",
+      "SPDXID": "SPDXRef-Package-146",
+      "versionInfo": "1.4.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "python-dotenv",
+      "SPDXID": "SPDXRef-Package-147",
+      "versionInfo": "1.2.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "python-engineio",
+      "SPDXID": "SPDXRef-Package-148",
+      "versionInfo": "4.13.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "python-json-logger",
+      "SPDXID": "SPDXRef-Package-149",
+      "versionInfo": "4.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "python-multipart",
+      "SPDXID": "SPDXRef-Package-150",
+      "versionInfo": "0.0.32",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "python-socketio",
+      "SPDXID": "SPDXRef-Package-151",
+      "versionInfo": "5.16.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pytz",
+      "SPDXID": "SPDXRef-Package-152",
+      "versionInfo": "2026.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pywin32",
+      "SPDXID": "SPDXRef-Package-153",
+      "versionInfo": "311",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pywin32-ctypes",
+      "SPDXID": "SPDXRef-Package-154",
+      "versionInfo": "0.2.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "PyYAML",
+      "SPDXID": "SPDXRef-Package-155",
+      "versionInfo": "6.0.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "pyzmq",
+      "SPDXID": "SPDXRef-Package-156",
+      "versionInfo": "27.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "redis",
+      "SPDXID": "SPDXRef-Package-157",
+      "versionInfo": "7.4.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "redis2",
+      "SPDXID": "SPDXRef-Package-158",
+      "versionInfo": "2.10.6.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "redis3",
+      "SPDXID": "SPDXRef-Package-159",
+      "versionInfo": "3.5.2.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "redis5",
+      "SPDXID": "SPDXRef-Package-160",
+      "versionInfo": "5.0.0.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "requests",
+      "SPDXID": "SPDXRef-Package-161",
+      "versionInfo": "2.34.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "rich",
+      "SPDXID": "SPDXRef-Package-162",
+      "versionInfo": "15.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "rtoml",
+      "SPDXID": "SPDXRef-Package-163",
+      "versionInfo": "0.13.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "ruff",
+      "SPDXID": "SPDXRef-Package-164",
+      "versionInfo": "0.15.21",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "securesystemslib",
+      "SPDXID": "SPDXRef-Package-165",
+      "versionInfo": "1.4.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "semantic-version",
+      "SPDXID": "SPDXRef-Package-166",
+      "versionInfo": "2.10.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "service-identity",
+      "SPDXID": "SPDXRef-Package-167",
+      "versionInfo": "24.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "setuptools",
+      "SPDXID": "SPDXRef-Package-168",
+      "versionInfo": "83.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "setuptools-rust",
+      "SPDXID": "SPDXRef-Package-169",
+      "versionInfo": "1.12.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "simple-websocket",
+      "SPDXID": "SPDXRef-Package-170",
+      "versionInfo": "1.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "six",
+      "SPDXID": "SPDXRef-Package-171",
+      "versionInfo": "1.17.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "sortedcontainers",
+      "SPDXID": "SPDXRef-Package-172",
+      "versionInfo": "2.4.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "SQLAlchemy",
+      "SPDXID": "SPDXRef-Package-173",
+      "versionInfo": "2.0.49",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "sse-starlette",
+      "SPDXID": "SPDXRef-Package-174",
+      "versionInfo": "3.4.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "starlette",
+      "SPDXID": "SPDXRef-Package-175",
+      "versionInfo": "1.3.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "stevedore",
+      "SPDXID": "SPDXRef-Package-176",
+      "versionInfo": "5.9.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "termcolor",
+      "SPDXID": "SPDXRef-Package-177",
+      "versionInfo": "3.3.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "tomli",
+      "SPDXID": "SPDXRef-Package-178",
+      "versionInfo": "2.4.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "tomli_w",
+      "SPDXID": "SPDXRef-Package-179",
+      "versionInfo": "1.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "tomorrow3",
+      "SPDXID": "SPDXRef-Package-180",
+      "versionInfo": "1.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "tornado",
+      "SPDXID": "SPDXRef-Package-181",
+      "versionInfo": "6.5.7",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "tuf",
+      "SPDXID": "SPDXRef-Package-182",
+      "versionInfo": "7.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "Twisted",
+      "SPDXID": "SPDXRef-Package-183",
+      "versionInfo": "26.4.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "types-passlib",
+      "SPDXID": "SPDXRef-Package-184",
+      "versionInfo": "1.7.7.20260211",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "types-pywin32",
+      "SPDXID": "SPDXRef-Package-185",
+      "versionInfo": "312.0.0.20260724",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "types-PyYAML",
+      "SPDXID": "SPDXRef-Package-186",
+      "versionInfo": "6.0.12.20260518",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "typing-inspection",
+      "SPDXID": "SPDXRef-Package-187",
+      "versionInfo": "0.4.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "typing_extensions",
+      "SPDXID": "SPDXRef-Package-188",
+      "versionInfo": "4.15.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "tzdata",
+      "SPDXID": "SPDXRef-Package-189",
+      "versionInfo": "2026.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "tzlocal",
+      "SPDXID": "SPDXRef-Package-190",
+      "versionInfo": "5.3.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "urllib3",
+      "SPDXID": "SPDXRef-Package-191",
+      "versionInfo": "2.7.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "uvicorn",
+      "SPDXID": "SPDXRef-Package-192",
+      "versionInfo": "0.47.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "virtualenv",
+      "SPDXID": "SPDXRef-Package-193",
+      "versionInfo": "21.6.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "watchfiles",
+      "SPDXID": "SPDXRef-Package-194",
+      "versionInfo": "1.1.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "websocket-client",
+      "SPDXID": "SPDXRef-Package-195",
+      "versionInfo": "1.9.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "websockets",
+      "SPDXID": "SPDXRef-Package-196",
+      "versionInfo": "16.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "Werkzeug",
+      "SPDXID": "SPDXRef-Package-197",
+      "versionInfo": "3.1.8",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "win32_setctime",
+      "SPDXID": "SPDXRef-Package-198",
+      "versionInfo": "1.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "wrapt",
+      "SPDXID": "SPDXRef-Package-199",
+      "versionInfo": "1.17.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "wsproto",
+      "SPDXID": "SPDXRef-Package-200",
+      "versionInfo": "1.3.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "zipp",
+      "SPDXID": "SPDXRef-Package-201",
+      "versionInfo": "3.23.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "zope.event",
+      "SPDXID": "SPDXRef-Package-202",
+      "versionInfo": "6.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "zope.interface",
+      "SPDXID": "SPDXRef-Package-203",
+      "versionInfo": "8.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    }
+  ]
+}

@@ -31,6 +31,7 @@ INCLUDE_SECURITY_METRICS_FIELD = "include_security_metrics"
 INCLUDE_TASK_METRICS_FIELD = "include_task_metrics"
 INCLUDE_LOG_BUFFER_METRICS_FIELD = "include_log_buffer_metrics"
 INCLUDE_SATURATION_METRICS_FIELD = "include_saturation_metrics"
+INCLUDE_CODEX_DIAGNOSTIC_METRICS_FIELD = "include_codex_diagnostic_metrics"
 
 
 class TestMetricsRuntimeContract:
@@ -56,7 +57,7 @@ class TestMetricsRuntimeContract:
         assert envelope.detail.metrics_path == DEFAULT_METRICS_PATH
         assert envelope.schema_version == CURRENT_SCHEMA_VERSION
 
-    def test_detail_should_expose_four_new_metric_switches(self) -> None:
+    def test_detail_should_expose_metric_switches(self) -> None:
         """
         验证扩展字段包含四个新指标开关且默认开启。
         """
@@ -68,6 +69,7 @@ class TestMetricsRuntimeContract:
             INCLUDE_TASK_METRICS_FIELD,
             INCLUDE_LOG_BUFFER_METRICS_FIELD,
             INCLUDE_SATURATION_METRICS_FIELD,
+            INCLUDE_CODEX_DIAGNOSTIC_METRICS_FIELD,
         ):
             detail.pop(switch_field)
         payload[DETAIL_FIELD] = detail
@@ -78,6 +80,7 @@ class TestMetricsRuntimeContract:
         assert envelope.detail.include_task_metrics is True
         assert envelope.detail.include_log_buffer_metrics is True
         assert envelope.detail.include_saturation_metrics is True
+        assert envelope.detail.include_codex_diagnostic_metrics is True
 
     def test_legacy_1_0_payload_should_fail_with_explicit_error(self) -> None:
         """
@@ -154,5 +157,6 @@ class TestMetricsRuntimeContract:
                 INCLUDE_TASK_METRICS_FIELD: True,
                 INCLUDE_LOG_BUFFER_METRICS_FIELD: True,
                 INCLUDE_SATURATION_METRICS_FIELD: True,
+                INCLUDE_CODEX_DIAGNOSTIC_METRICS_FIELD: True,
             },
         }

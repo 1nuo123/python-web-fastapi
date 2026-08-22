@@ -7,12 +7,15 @@ from typing import Protocol
 from uuid import UUID
 
 from src.core.codex_contract.thread_contract import (
+    CodexActiveTurnUpdateMode,
     CodexConversationListQuery,
     CodexConversationPage,
     CodexThreadIndexSnapshot,
     CodexThreadRuntimeStateUpdate,
+    CodexThreadStatus,
     CodexThreadTitleSource,
 )
+from src.core.codex_contract.turn_runtime_contract import CodexTurnRuntime
 
 
 class CodexThreadRepositoryPort(Protocol):
@@ -64,3 +67,30 @@ class CodexThreadRepositoryPort(Protocol):
         owner_subject_id: str,
         state_update: CodexThreadRuntimeStateUpdate,
     ) -> CodexThreadIndexSnapshot | None: ...
+
+    def apply_turn_runtime(
+        self,
+        *,
+        host_id: UUID,
+        upstream_thread_id: str,
+        owner_subject_id: str,
+        runtime: CodexTurnRuntime,
+        status: CodexThreadStatus,
+        active_turn_mode: CodexActiveTurnUpdateMode,
+        synchronized_at: datetime,
+        expected_lease_generation: int | None,
+    ) -> CodexThreadIndexSnapshot | None: ...
+
+    def list_active_turn_runtimes(
+        self,
+        *,
+        host_id: UUID,
+        owner_subject_id: str,
+    ) -> tuple[CodexThreadIndexSnapshot, ...]: ...
+
+    def list_stalled_turn_runtime_candidates(
+        self,
+        *,
+        activity_before: datetime,
+        lease_expired_before: datetime,
+    ) -> tuple[CodexThreadIndexSnapshot, ...]: ...

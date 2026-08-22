@@ -16,6 +16,7 @@ from src.core.codex_contract.device_authorization_contract import (
 
 CODEX_ENROLLMENT_INTENT_KIND: Final = "codex_enrollment_intent"
 CODEX_ENROLLMENT_INTENT_SCHEMA_VERSION: Final = "1.0"
+CODEX_ENROLLMENT_LAUNCH_URI_PATTERN: Final = r"^(?:codexremote|codexremote-dev)://enroll\?token="
 
 
 class CodexEnrollmentIntentState(StrEnum):
@@ -69,7 +70,7 @@ class CodexEnrollmentIntentIssuedDetail(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     state: Literal[CodexEnrollmentIntentState.ISSUED]
-    launch_uri: str = Field(pattern=r"^codexremote://enroll\?token=")
+    launch_uri: str = Field(pattern=CODEX_ENROLLMENT_LAUNCH_URI_PATTERN)
     expires_at: datetime
 
 

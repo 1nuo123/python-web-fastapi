@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import pytest
+from sqlalchemy.dialects import postgresql
 
 from src.core.codex_contract.thread_contract import (
     CodexConversationCursor,
@@ -12,6 +14,23 @@ from src.core.codex_contract.thread_contract import (
     CodexConversationListQuery,
     CodexConversationSortKey,
 )
+from src.infrastructure.persistence.repository_impl.codex_repository_impl import (
+    CodexThreadRepositoryImpl,
+)
+
+
+class StatementCaptureSession:
+    """只捕获会话列表 SQL 的最小仓储测试替身。"""
+
+    def __init__(self) -> None:
+        self.statement = None
+
+    def scalars(self, statement):
+        self.statement = statement
+        return self
+
+    def all(self):
+        return []
 
 
 class TestCodexConversationCursorUnit:
@@ -81,3 +100,24 @@ class TestCodexConversationCursorUnit:
             "created_at",
             "upstream_thread_id",
         }
+
+    def test_thread_search_matches_title_only(self) -> None:
+        """会话搜索 SQL 只能包含 thread 标题谓词。"""
+
+        session = StatementCaptureSession()
+        CodexThreadRepositoryImpl(session).list_page_by_host_and_owner(
+            host_id=uuid4(),
+            owner_subject_id="owner-1",
+            query=CodexConversationListQuery(search_term="release"),
+        )
+
+        assert session.statement is not None
+        sql = str(
+            session.statement.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": False},
+            )
+        )
+        assert "display_name ILIKE" in sql
+        assert "default_branch" not in sql
+        assert "codex_workspace.display_name" not in sql

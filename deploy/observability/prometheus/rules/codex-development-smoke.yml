@@ -1,0 +1,12 @@
+groups:
+  - name: codex-development-smoke
+    rules:
+      - alert: codex_observability_smoke
+        expr: vector(0) == 1
+        for: 0s
+        labels:
+          severity: warning
+          environment: development
+        annotations:
+          summary: "Development observability smoke alert"
+          description: "This rule is only for local Prometheus and Alertmanager firing/recovery verification."

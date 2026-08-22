@@ -3,6 +3,8 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import pytest
+
 from src.core.codex_contract.approval_contract import (
     CodexApprovalAuditSnapshot,
     CodexApprovalDecision,
@@ -58,6 +60,39 @@ class TestCodexScopeAuthorizationUnit:
         )
 
         assert requirement.required_scopes == []
+
+    @pytest.mark.parametrize(
+        "decision",
+        (
+            CodexApprovalDecision.ACCEPT_FOR_SESSION,
+            CodexApprovalDecision.ACCEPT_WITH_EXECPOLICY_AMENDMENT,
+            CodexApprovalDecision.APPLY_NETWORK_POLICY_AMENDMENT,
+        ),
+    )
+    def test_official_grant_variants_should_require_the_same_capability_scopes(
+        self,
+        decision: CodexApprovalDecision,
+    ) -> None:
+        """会话和策略类 grant 不能绕开命令、网络或文件 scope。"""
+
+        approval = self._build_approval(
+            approval_kind=CodexApprovalKind.COMMAND,
+            network_requested=True,
+            file_scope=("docs",),
+            extra_root_requested=True,
+        )
+
+        requirement = build_codex_approval_decision_authorization_requirement(
+            approval,
+            decision,
+        )
+
+        assert set(requirement.required_scopes) == {
+            AuthScopeCode.CODEX_FILES.value,
+            AuthScopeCode.CODEX_TERMINAL.value,
+            AuthScopeCode.CODEX_NETWORK.value,
+            AuthScopeCode.CODEX_FULL_ACCESS.value,
+        }
 
     def _build_approval(
         self,

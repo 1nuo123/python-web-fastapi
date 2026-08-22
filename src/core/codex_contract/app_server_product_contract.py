@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from typing import Annotated, Final, Literal
+from uuid import RFC_4122, UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,6 +17,25 @@ APP_SERVER_PRODUCT_NOTIFICATION_KIND: Final = "app_server_product_notification"
 APP_SERVER_PRODUCT_NOTIFICATION_SCHEMA_VERSION: Final = "1.0"
 APP_SERVER_PRODUCT_MAX_TEXT_CHARS: Final = 1_048_576
 APP_SERVER_PRODUCT_MAX_DELTA_CHARS: Final = 65_536
+
+
+def parse_app_server_client_operation_id(value: object) -> UUID | None:
+    """只接受本产品生成的 RFC 4122 UUID v4，拒绝上游任意文本标识。
+
+    App Server 的 ``clientId`` 是可选字符串；产品端只把由
+    ``crypto.randomUUID``/``uuid4`` 生成的非空 UUID v4 继续向浏览器暴露，
+    这样 ID 可以安全用于乐观消息对账，而不会把上游内部标识当成幂等键。
+    """
+
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        candidate = UUID(value)
+    except (AttributeError, ValueError):
+        return None
+    if candidate.int == 0 or candidate.version != 4 or candidate.variant != RFC_4122:
+        return None
+    return candidate
 
 
 class AppServerProtocolWarningReason(StrEnum):
@@ -40,6 +60,8 @@ class AppServerUserMessageItem(AppServerProductItemBase):
 
     kind: Literal["user_message"] = "user_message"
     text: str = Field(max_length=APP_SERVER_PRODUCT_MAX_TEXT_CHARS)
+    # 只保留可与浏览器请求幂等键一一对应的 UUID v4，绝不透传任意上游 clientId。
+    client_operation_id: UUID | None = None
 
 
 class AppServerAgentMessageItem(AppServerProductItemBase):

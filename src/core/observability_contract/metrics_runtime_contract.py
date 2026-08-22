@@ -54,6 +54,8 @@ class PrometheusMetricsRuntimeDetail(BaseModel):
     :vartype include_log_buffer_metrics: bool
     :ivar include_saturation_metrics: 是否暴露运行时饱和度指标。
     :vartype include_saturation_metrics: bool
+    :ivar include_codex_diagnostic_metrics: 是否暴露 Codex 客户端诊断低基数计数。
+    :vartype include_codex_diagnostic_metrics: bool
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -70,6 +72,7 @@ class PrometheusMetricsRuntimeDetail(BaseModel):
     include_task_metrics: bool = True
     include_log_buffer_metrics: bool = True
     include_saturation_metrics: bool = True
+    include_codex_diagnostic_metrics: bool = True
 
     @model_validator(mode="after")
     def validate_metrics_path(self) -> PrometheusMetricsRuntimeDetail:

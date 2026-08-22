@@ -277,9 +277,11 @@ class CodexDeviceAuthorizationRouteCatalog:
 
         principal = self._accessor.read_authenticated_principal(request)
         token_payload = self._accessor.read_access_token_payload(request)
-        result = await self._read_runtime(request).manage_enrollment_intent.create(
+        runtime = self._read_runtime(request)
+        result = await runtime.manage_enrollment_intent.create(
             subject_id=principal.subject_id,
             token_session_id=token_payload.token_session_id,
+            agent_deployment_profile=runtime.settings.agent_deployment_profile,
             verification_base_url=str(request.base_url).rstrip("/"),
             return_path=body.detail.return_path,
         )

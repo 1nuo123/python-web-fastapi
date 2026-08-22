@@ -233,6 +233,8 @@ class AgentTurnStartCommandDetail(AgentCommandDetailBase):
     kind: Literal["turn.start"] = "turn.start"
     workspace_key: str = Field(min_length=1, max_length=128)
     thread_id: str = Field(min_length=1, max_length=256)
+    # 与 HTTP 幂等键同值，并原样映射为官方 clientUserMessageId。
+    client_operation_id: UUID | None = None
     message: str = Field(min_length=1, max_length=200_000)
     model: str | None = Field(default=None, min_length=1, max_length=128)
     reasoning_effort: str | None = Field(default=None, min_length=1, max_length=64)
@@ -247,6 +249,7 @@ class AgentTurnSteerCommandDetail(AgentCommandDetailBase):
     workspace_key: str = Field(min_length=1, max_length=128)
     thread_id: str = Field(min_length=1, max_length=256)
     turn_id: str = Field(min_length=1, max_length=256)
+    client_operation_id: UUID | None = None
     message: str = Field(min_length=1, max_length=200_000)
 
 
@@ -264,7 +267,14 @@ class AgentApprovalReplyCommandDetail(AgentCommandDetailBase):
 
     kind: Literal["approval.reply"] = "approval.reply"
     approval_id: UUID
-    decision: Literal["accept", "decline", "cancel"]
+    decision: Literal[
+        "accept",
+        "acceptForSession",
+        "acceptWithExecpolicyAmendment",
+        "applyNetworkPolicyAmendment",
+        "decline",
+        "cancel",
+    ]
     approval_version: int = Field(ge=1)
 
 

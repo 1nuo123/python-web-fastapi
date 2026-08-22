@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory = $true)][string]$InstallRoot
+  [Parameter(Mandatory = $true)][string]$InstallRoot,
+  [ValidateSet("production", "development")][string]$DeploymentProfile = "production"
 )
 
 Set-StrictMode -Version Latest
@@ -30,20 +31,28 @@ if ([string]::IsNullOrWhiteSpace($currentUser) -or
     $currentUserSid -notmatch '^S-1-(?:\d+-)+\d+$') {
   throw "Unable to resolve the current Windows user and SID."
 }
-$taskName = "CodexRemoteAgent-$currentUserSid"
-$legacyTask = Get-ScheduledTask -TaskName "CodexRemoteAgent" -ErrorAction SilentlyContinue
-if ($null -ne $legacyTask -and
-    ($legacyTask.Principal.UserId -ieq $currentUser -or
-     $legacyTask.Principal.UserId -ieq $currentUserSid)) {
-  Stop-ScheduledTask -TaskName "CodexRemoteAgent" -ErrorAction SilentlyContinue
-  Unregister-ScheduledTask -TaskName "CodexRemoteAgent" -Confirm:$false
+$profileTaskSuffix = if ($DeploymentProfile -eq "development") { "-Development" } else { "" }
+$taskName = "CodexRemoteAgent$profileTaskSuffix-$currentUserSid"
+if ($DeploymentProfile -eq "production") {
+  $legacyTask = Get-ScheduledTask -TaskName "CodexRemoteAgent" -ErrorAction SilentlyContinue
+  if ($null -ne $legacyTask -and
+      ($legacyTask.Principal.UserId -ieq $currentUser -or
+       $legacyTask.Principal.UserId -ieq $currentUserSid)) {
+    Stop-ScheduledTask -TaskName "CodexRemoteAgent" -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName "CodexRemoteAgent" -Confirm:$false
+  }
 }
 $configPath = Join-Path $resolvedInstallRoot "agent.toml"
-$arguments = @(
+$arguments = @()
+if ($DeploymentProfile -eq "development") {
+  $arguments += "--deployment-profile", "development"
+}
+$arguments += @(
   "--config", ('"{0}"' -f $configPath),
   "--bootstrap", ('"{0}"' -f $resolvedBootstrapPath),
   "launch", "run"
-) -join " "
+)
+$arguments = $arguments -join " "
 $action = New-ScheduledTaskAction `
   -Execute $resolvedExecutablePath `
   -Argument $arguments `

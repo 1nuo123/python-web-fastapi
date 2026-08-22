@@ -16,6 +16,7 @@ from src.api.endpoint_codex_control.route_codex_approval import CodexApprovalRou
 from src.api.endpoint_codex_control.route_codex_device_authorization import (
     CodexDeviceAuthorizationRouteCatalog,
 )
+from src.api.endpoint_codex_control.route_codex_diagnostic import CodexDiagnosticRouteCatalog
 from src.api.endpoint_codex_control.route_codex_realtime import CodexRealtimeRouteCatalog
 from src.api.endpoint_codex_control.route_codex_thread import CodexThreadRouteCatalog
 from src.api.endpoint_codex_control.route_codex_workspace import CodexWorkspaceRouteCatalog
@@ -30,6 +31,7 @@ from src.core.codex_contract.agent_enrollment_contract import (
     CodexPairingCodeResponse,
 )
 from src.core.codex_contract.codex_runtime_contract import CodexSecurityRateLimitOperation
+from src.core.codex_contract.feature_flags_contract import CodexExperienceFeatureFlags
 from src.core.codex_contract.host_contract import (
     CodexHostCollection,
     CodexHostRenameRequest,
@@ -65,6 +67,13 @@ class CodexHostRouteCatalog:
             dependencies=[Depends(self.require_codex_read)],
         )
         self.router.add_api_route(
+            "/codex/experience/feature-flags",
+            self.get_feature_flags,
+            methods=["GET"],
+            response_model=ResponseEnvelope[CodexExperienceFeatureFlags],
+            dependencies=[Depends(self.require_codex_read)],
+        )
+        self.router.add_api_route(
             "/codex/hosts/{host_id}",
             self.rename_host,
             methods=["PATCH"],
@@ -90,6 +99,7 @@ class CodexHostRouteCatalog:
         self.router.include_router(CodexRealtimeRouteCatalog().router)
         self.router.include_router(CodexApprovalRouteCatalog().router)
         self.router.include_router(CodexDeviceAuthorizationRouteCatalog().router)
+        self.router.include_router(CodexDiagnosticRouteCatalog().router)
 
     async def require_codex_read(
         self,
@@ -162,6 +172,28 @@ class CodexHostRouteCatalog:
             message="Codex 主机读取成功。",
             request_scope=self._accessor.read_request_scope(request),
             data=payload,
+        )
+
+    async def get_feature_flags(
+        self,
+        request: Request,
+    ) -> ResponseEnvelope[CodexExperienceFeatureFlags]:
+        """返回当前服务端批准的体验开关，浏览器不得单方面开启新路径。"""
+
+        self._accessor.read_authenticated_principal(request)
+        runtime = request.app.state.container.resource_mount.get_codex_control_runtime()
+        settings = runtime.settings
+        flags = CodexExperienceFeatureFlags(
+            codex_scroll_controller_v2=settings.codex_scroll_controller_v2,
+            codex_realtime_batch_v2=settings.codex_realtime_batch_v2,
+            codex_authority_recovery_v2=settings.codex_authority_recovery_v2,
+        )
+        runtime.record_experience_feature_flag_decisions(flags)
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="Codex体验开关读取成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=flags,
         )
 
     async def rename_host(

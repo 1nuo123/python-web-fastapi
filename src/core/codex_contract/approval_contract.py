@@ -36,9 +36,12 @@ class CodexApprovalState(StrEnum):
 
 
 class CodexApprovalDecision(StrEnum):
-    """一次性审批决定。"""
+    """App Server 0.145.0 官方审批决定名称。"""
 
     ACCEPT = "accept"
+    ACCEPT_FOR_SESSION = "acceptForSession"
+    ACCEPT_WITH_EXECPOLICY_AMENDMENT = "acceptWithExecpolicyAmendment"
+    APPLY_NETWORK_POLICY_AMENDMENT = "applyNetworkPolicyAmendment"
     DECLINE = "decline"
     CANCEL = "cancel"
 
@@ -87,6 +90,7 @@ class CodexApprovalDisplaySummary(BaseModel):
     network_requested: bool = False
     extra_root_requested: bool = False
     risk_reason: str | None = Field(default=None, max_length=256)
+    allowed_actions: tuple[CodexApprovalDecision, ...] = Field(default=(), max_length=6)
 
 
 class CodexApprovalAuditSnapshot(BaseModel):
@@ -125,7 +129,7 @@ class CodexApprovalCollection(BaseModel):
 
 
 class CodexApprovalDecisionRequest(BaseModel):
-    """基础一次性审批决定；会话级和额外权限不在此契约。"""
+    """受服务端 proposal 约束的官方审批决定。"""
 
     model_config = ConfigDict(extra="forbid")
 

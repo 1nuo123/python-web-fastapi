@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from uuid import UUID, uuid4
@@ -32,10 +32,17 @@ from src.application.codex.manage_host_usecase import (
     RenameCodexHostUsecase,
     RevokeCodexHostUsecase,
 )
+from src.application.codex.record_client_diagnostic_usecase import (
+    RecordCodexClientDiagnosticUsecase,
+)
+from src.application.codex.record_client_performance_usecase import (
+    RecordCodexClientPerformanceUsecase,
+)
 from src.application.codex.start_device_key_rotation_usecase import (
     StartDeviceKeyRotationUsecase,
 )
 from src.application.codex.sync_agent_state_usecase import SyncCodexAgentStateUsecase
+from src.application.codex.turn_runtime_coordinator import CodexTurnRuntimeCoordinator
 from src.application.ports.codex_agent_revocation_signal_port import CodexAgentRevocationSignalPort
 from src.application.ports.codex_command_payload_cipher_port import (
     CodexCommandPayloadCipherPort,
@@ -56,8 +63,11 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentApprovalOpened,
     CodexAgentRealtimeEvent,
 )
+from src.core.codex_contract.agent_protocol_v2_contract import AgentApprovalOpenedEventDetail
+from src.core.codex_contract.approval_contract import CodexApprovalKind
 from src.core.codex_contract.codex_runtime_contract import CodexRuntimeSettings
 from src.core.codex_contract.command_outbox_contract import CodexCommandOutboxSnapshot
+from src.core.codex_contract.feature_flags_contract import CodexExperienceFeatureFlags
 from src.core.codex_contract.instance_control_contract import (
     CodexDispatchSignalDetail,
     CodexRevokeSignalDetail,
@@ -69,6 +79,13 @@ from src.core.codex_contract.realtime_event_contract import (
 from src.core.codex_contract.thread_contract import CodexThreadIndexSnapshot
 from src.core.concurrency_contract.fenced_lease_contract import FencedLeasePort
 from src.core.distributed_state_contract.atomic_state_contract import AtomicStatePort
+from src.core.logging_contract.log_event_contract import (
+    CodexExperienceFeatureFlagsLogDetail,
+    LogEventEnvelope,
+    LogEventHeader,
+    LogEventKind,
+    LogLevel,
+)
 from src.domain.codex.codex_compatibility_policy import CodexCompatibilityPolicy
 from src.infrastructure.codex.agent_device_authentication import AgentDeviceAuthenticationGuard
 from src.infrastructure.codex.codex_agent_credential_service import (
@@ -80,6 +97,15 @@ from src.infrastructure.codex.codex_agent_event_cursor_store import (
 )
 from src.infrastructure.codex.codex_agent_revocation_signal import CodexAgentRevocationSignal
 from src.infrastructure.codex.codex_browser_event_hub import CodexBrowserEventHub
+from src.infrastructure.codex.codex_client_diagnostic_recorder import (
+    CodexClientDiagnosticRecorder,
+)
+from src.infrastructure.codex.codex_client_diagnostic_retention_cleaner import (
+    CodexClientDiagnosticRetentionCleaner,
+)
+from src.infrastructure.codex.codex_client_performance_recorder import (
+    CodexClientPerformanceRecorder,
+)
 from src.infrastructure.codex.codex_command_outbox_dispatcher import (
     CodexCommandOutboxDispatcher,
 )
@@ -99,6 +125,9 @@ from src.infrastructure.codex_agent.app_server_manifest_registry import (
     AppServerManifestRegistry,
 )
 from src.infrastructure.key_management.sensitive_digest_service import SensitiveDigestService
+from src.infrastructure.observability.prometheus_metrics_registry import (
+    PrometheusMetricsRegistry,
+)
 from src.infrastructure.outbox.reliable_outbox_runner import AsyncReliableOutboxRunner
 from src.infrastructure.streaming.deferred_stream_resources import DeferredStreamStateStore
 from src.infrastructure.streaming.stream_step_up_grant_adapter import StreamStepUpGrantAdapter
@@ -106,6 +135,20 @@ from src.infrastructure.streaming.stream_step_up_grant_adapter import StreamStep
 DEFAULT_APP_SERVER_PROTOCOL_ROOT = (
     Path(__file__).resolve().parents[3] / "protocol" / "codex_app_server"
 )
+CODEX_EXPERIENCE_FEATURE_FLAGS_LOG_MESSAGE = "Codex体验开关决策"
+CODEX_EXPERIENCE_FEATURE_FLAGS_SOURCE_MODULE = "infrastructure"
+CODEX_EXPERIENCE_FEATURE_FLAGS_SOURCE_COMPONENT = "codex_control_runtime"
+
+
+@dataclass(slots=True)
+class CodexAgentEventPublication:
+    """保留一条 Agent 事件的状态同步结果，待整批控制面写入后统一 fan-out。"""
+
+    event: CodexAgentRealtimeEvent
+    updated_thread: CodexThreadIndexSnapshot | None
+    overflowed: bool
+    requires_state_sync: bool
+    approval_events: tuple[CodexProductEvent, ...] = ()
 
 
 @dataclass(slots=True)
@@ -118,6 +161,7 @@ class CodexControlRuntime:
     actor_registry: CodexHostActorRegistry
     authentication_guard: AgentDeviceAuthenticationGuard
     state_synchronizer: SyncCodexAgentStateUsecase
+    turn_runtime_coordinator: CodexTurnRuntimeCoordinator
     event_buffer: CodexAgentEventBuffer
     event_cursor_store: CodexAgentEventCursorStore
     browser_event_hub: CodexBrowserEventHub
@@ -144,11 +188,18 @@ class CodexControlRuntime:
     start_device_key_rotation: StartDeviceKeyRotationUsecase
     cleanup_expired_device_authorizations: CleanupExpiredDeviceAuthorizationsUsecase
     manage_enrollment_intent: ManageCodexEnrollmentIntentUsecase
+    record_client_diagnostic: RecordCodexClientDiagnosticUsecase
+    record_client_performance: RecordCodexClientPerformanceUsecase
+    client_diagnostic_retention_cleaner: CodexClientDiagnosticRetentionCleaner
     presence_adapter: CodexHostPresenceAdapter
     instance_control_signal_adapter: CodexInstanceControlSignalAdapter
     outbox_dispatcher: CodexCommandOutboxDispatcher
     outbox_runner: AsyncReliableOutboxRunner[CodexCommandOutboxSnapshot]
+    logger: logging.Logger
+    feature_flag_log_event_emitter: Callable[[LogEventEnvelope], None] | None
     _signal_reader_task: asyncio.Task[None] | None = None
+    _turn_runtime_watchdog_task: asyncio.Task[None] | None = None
+    _client_diagnostic_retention_task: asyncio.Task[None] | None = None
     _runtime_stop_event: asyncio.Event | None = None
 
     @classmethod
@@ -164,6 +215,9 @@ class CodexControlRuntime:
         sensitive_digest_service: SensitiveDigestService,
         signature_verifier: SignatureVerifierPort,
         command_payload_cipher: CodexCommandPayloadCipherPort,
+        logger: logging.Logger,
+        diagnostic_log_event_emitter: Callable[[LogEventEnvelope], None] | None = None,
+        metrics_registry_provider: Callable[[], PrometheusMetricsRegistry | None] | None = None,
         protocol_root: Path = DEFAULT_APP_SERVER_PROTOCOL_ROOT,
     ) -> CodexControlRuntime:
         """按同一配置构造互相绑定的运行时组件。"""
@@ -256,6 +310,12 @@ class CodexControlRuntime:
                 control_port,
                 max_workspaces_per_host=settings.max_workspaces_per_host,
             ),
+            turn_runtime_coordinator=CodexTurnRuntimeCoordinator(
+                control_port=control_port,
+                lease_store=fenced_lease_store,
+                lease_ttl_seconds=settings.turn_runtime_lease_ttl_seconds,
+                stalled_after_seconds=settings.turn_runtime_stalled_after_seconds,
+            ),
             event_buffer=CodexAgentEventBuffer(capacity=settings.agent_event_replay_buffer_size),
             event_cursor_store=CodexAgentEventCursorStore(state=atomic_state),
             browser_event_hub=CodexBrowserEventHub(
@@ -319,10 +379,77 @@ class CodexControlRuntime:
                 ttl_seconds=settings.enrollment_intent_ttl_seconds,
                 maximum_create_attempts=settings.device_authorization_create_attempts,
             ),
+            record_client_diagnostic=RecordCodexClientDiagnosticUsecase(
+                CodexClientDiagnosticRecorder(
+                    logger=logger,
+                    log_event_emitter=diagnostic_log_event_emitter,
+                    metrics_registry_provider=metrics_registry_provider,
+                )
+            ),
+            record_client_performance=RecordCodexClientPerformanceUsecase(
+                CodexClientPerformanceRecorder(
+                    logger=logger,
+                    log_event_emitter=diagnostic_log_event_emitter,
+                    metrics_registry_provider=metrics_registry_provider,
+                )
+            ),
+            client_diagnostic_retention_cleaner=CodexClientDiagnosticRetentionCleaner(
+                control_port=control_port,
+                error_retention_days=settings.client_diagnostic_error_retention_days,
+                performance_retention_days=settings.client_diagnostic_performance_retention_days,
+            ),
             presence_adapter=presence_adapter,
             instance_control_signal_adapter=instance_control_signal_adapter,
             outbox_dispatcher=outbox_dispatcher,
             outbox_runner=outbox_runner,
+            logger=logger,
+            feature_flag_log_event_emitter=diagnostic_log_event_emitter,
+        )
+
+    def record_experience_feature_flag_decisions(
+        self,
+        flags: CodexExperienceFeatureFlags,
+    ) -> None:
+        """记录服务端实际批准的开关决策，不记录请求或主体标识。
+
+        开关读取是浏览器加载和重试期间的低频控制面操作。日志仅写固定词表中的
+        开关状态、默认值、回退路径和删除条件，因而不能携带会话正文、URL、令牌或
+        认证主体；未装配结构化发射器时保留相同低基数信息的标准日志兜底。
+
+        :param flags: 当前运行时批准的封闭体验开关值。
+        :type flags: CodexExperienceFeatureFlags
+        """
+
+        decisions = flags.decisions()
+        if self.feature_flag_log_event_emitter is not None:
+            self.feature_flag_log_event_emitter(
+                LogEventEnvelope(
+                    header=LogEventHeader(
+                        event_id=str(uuid4()),
+                        occurred_at=datetime.now(UTC),
+                        level=LogLevel.INFO,
+                        kind=LogEventKind.CODEX_EXPERIENCE_FEATURE_FLAGS,
+                        message=CODEX_EXPERIENCE_FEATURE_FLAGS_LOG_MESSAGE,
+                        source_module=CODEX_EXPERIENCE_FEATURE_FLAGS_SOURCE_MODULE,
+                        source_component=CODEX_EXPERIENCE_FEATURE_FLAGS_SOURCE_COMPONENT,
+                    ),
+                    detail=CodexExperienceFeatureFlagsLogDetail(decisions=decisions),
+                )
+            )
+            return
+        self.logger.info(
+            "%s decisions=%s",
+            CODEX_EXPERIENCE_FEATURE_FLAGS_LOG_MESSAGE,
+            tuple(
+                (
+                    decision.name.value,
+                    decision.enabled,
+                    decision.default_enabled,
+                    decision.fallback_path.value,
+                    decision.deletion_condition.value,
+                )
+                for decision in decisions
+            ),
         )
 
     async def start(self) -> None:
@@ -333,6 +460,10 @@ class CodexControlRuntime:
         self._runtime_stop_event = asyncio.Event()
         self.outbox_runner.start()
         self._signal_reader_task = asyncio.create_task(self._run_instance_control_reader())
+        self._turn_runtime_watchdog_task = asyncio.create_task(self._run_turn_runtime_watchdog())
+        self._client_diagnostic_retention_task = asyncio.create_task(
+            self._run_client_diagnostic_retention_cleanup()
+        )
 
     async def _run_instance_control_reader(self) -> None:
         cursor: str | None = None
@@ -369,47 +500,168 @@ class CodexControlRuntime:
             except TimeoutError:
                 continue
 
+    async def _run_turn_runtime_watchdog(self) -> None:
+        """按固定间隔标记失去租约且长期无活动的 turn。"""
+
+        stop_event = self._runtime_stop_event
+        if stop_event is None:
+            raise RuntimeError("Codex运行时停止事件尚未初始化。")
+        logger = logging.getLogger("codex_turn_runtime_watchdog")
+        while not stop_event.is_set():
+            try:
+                updated_threads = await self.turn_runtime_coordinator.mark_expired_turns_stalled()
+                for thread in updated_threads:
+                    await self.publish_thread_updated(
+                        owner_subject_id=thread.owner_subject_id,
+                        thread=thread,
+                        occurred_at=thread.turn_runtime.last_activity_at
+                        if thread.turn_runtime is not None
+                        else datetime.now(UTC),
+                    )
+            except Exception:
+                logger.exception("Codex turn watchdog执行失败。")
+            try:
+                await asyncio.wait_for(
+                    stop_event.wait(),
+                    timeout=self.settings.turn_runtime_watchdog_seconds,
+                )
+            except TimeoutError:
+                continue
+
+    async def _run_client_diagnostic_retention_cleanup(self) -> None:
+        """定期清理过期诊断，失败时保持运行并在下个周期重试。"""
+
+        stop_event = self._runtime_stop_event
+        if stop_event is None:
+            raise RuntimeError("Codex运行时停止事件尚未初始化。")
+        logger = logging.getLogger("codex_client_diagnostic_retention")
+        while not stop_event.is_set():
+            try:
+                result = await asyncio.to_thread(
+                    self.client_diagnostic_retention_cleaner.cleanup_expired_records
+                )
+                logger.info(
+                    "Codex客户端诊断留存清理完成：错误=%s 性能=%s",
+                    result.deleted_error_record_count,
+                    result.deleted_performance_record_count,
+                )
+            except Exception:
+                # 清理是可重入删除，不影响会话操作；下一个间隔会自然重试。
+                logger.exception("Codex客户端诊断留存清理失败，将在下个周期重试。")
+            try:
+                await asyncio.wait_for(
+                    stop_event.wait(),
+                    timeout=self.settings.client_diagnostic_cleanup_interval_seconds,
+                )
+            except TimeoutError:
+                continue
+
     async def publish_agent_event(
         self,
         event: CodexAgentRealtimeEvent,
         principal: AgentDevicePrincipal,
     ) -> None:
-        """保留有界恢复窗口并把 App Server 事件转换后按所有者推送。"""
+        """兼容旧单事件入口，并使用统一批次路径保持相同状态语义。"""
 
-        overflowed = await self.event_buffer.publish(event, principal)
-        updated_thread = await asyncio.to_thread(
-            self.state_synchronizer.accept_realtime_event,
-            event,
-            principal,
-        )
-        workspace_id = (
-            updated_thread.workspace_id
-            if updated_thread is not None
-            else self._find_workspace_id(event, principal.owner_subject_id)
-        )
-        if updated_thread is not None:
-            await self.publish_thread_updated(
-                owner_subject_id=principal.owner_subject_id,
-                thread=updated_thread,
-                occurred_at=event.occurred_at,
+        await self.publish_agent_events((event,), principal)
+
+    async def publish_agent_events(
+        self,
+        events: tuple[CodexAgentRealtimeEvent, ...],
+        principal: AgentDevicePrincipal,
+    ) -> None:
+        """按 Agent v2 的有序边界同步控制面，并只向 hub 提交一次产品事件集合。"""
+
+        if not events:
+            return
+        publications: list[CodexAgentEventPublication] = []
+        for event in events:
+            if isinstance(event.detail, AgentApprovalOpenedEventDetail):
+                approval_events = await self._prepare_approval_opened(event, principal)
+                overflowed = await self.event_buffer.publish(event, principal)
+                publications.append(
+                    CodexAgentEventPublication(
+                        event=event,
+                        updated_thread=None,
+                        overflowed=overflowed,
+                        requires_state_sync=False,
+                        approval_events=approval_events,
+                    )
+                )
+                continue
+            runtime_outcome = await self.turn_runtime_coordinator.observe_agent_event(
+                event, principal
             )
-        product_event = self.protocol_mapper.map_event(event, workspace_id=workspace_id)
-        if product_event is not None:
-            await self.browser_event_hub.publish(principal.owner_subject_id, product_event)
-        if overflowed:
-            await self.browser_event_hub.publish(
-                principal.owner_subject_id,
-                CodexProductEvent(
-                    host_id=event.host_id,
+            if runtime_outcome.handled and not runtime_outcome.accepted:
+                continue
+            publications.append(
+                CodexAgentEventPublication(
+                    event=event,
+                    updated_thread=runtime_outcome.thread,
+                    overflowed=await self.event_buffer.publish(event, principal),
+                    requires_state_sync=not runtime_outcome.handled,
+                )
+            )
+        pending_state_sync = tuple(
+            publication for publication in publications if publication.requires_state_sync
+        )
+        if pending_state_sync:
+            synchronized_threads = await asyncio.to_thread(
+                self.state_synchronizer.accept_realtime_events,
+                tuple(publication.event for publication in pending_state_sync),
+                principal,
+            )
+            for publication, synchronized_thread in zip(
+                pending_state_sync,
+                synchronized_threads,
+                strict=True,
+            ):
+                publication.updated_thread = synchronized_thread
+        product_events: list[CodexProductEvent] = []
+        for publication in publications:
+            workspace_id: UUID | None
+            if publication.approval_events:
+                product_events.extend(publication.approval_events)
+                workspace_id = publication.approval_events[0].workspace_id
+            else:
+                workspace_id = (
+                    publication.updated_thread.workspace_id
+                    if publication.updated_thread is not None
+                    else self._find_workspace_id(
+                        publication.event,
+                        principal.owner_subject_id,
+                    )
+                )
+                if publication.updated_thread is not None:
+                    product_events.append(
+                        self._build_thread_updated_product_event(
+                            publication.updated_thread,
+                            occurred_at=publication.event.occurred_at,
+                        )
+                    )
+                product_event = self.protocol_mapper.map_event(
+                    publication.event,
                     workspace_id=workspace_id,
-                    thread_id=None,
-                    turn_id=None,
-                    item_id=None,
-                    event_type=CodexRealtimeEventType.STREAM_GAP_DETECTED,
-                    payload={"reason": "agent_event_buffer_overflow"},
-                    occurred_at=event.occurred_at,
-                ),
-            )
+                )
+                if product_event is not None:
+                    product_events.append(product_event)
+            if publication.overflowed:
+                product_events.append(
+                    CodexProductEvent(
+                        host_id=publication.event.host_id,
+                        workspace_id=workspace_id,
+                        thread_id=None,
+                        turn_id=None,
+                        item_id=None,
+                        event_type=CodexRealtimeEventType.STREAM_GAP_DETECTED,
+                        payload={"reason": "agent_event_buffer_overflow"},
+                        occurred_at=publication.event.occurred_at,
+                    )
+                )
+        await self.browser_event_hub.publish_batch(
+            principal.owner_subject_id,
+            tuple(product_events),
+        )
 
     async def publish_thread_updated(
         self,
@@ -419,6 +671,19 @@ class CodexControlRuntime:
         occurred_at: datetime,
     ) -> None:
         """向浏览器发布数据库确认后的会话索引局部更新。"""
+
+        await self.browser_event_hub.publish(
+            owner_subject_id,
+            self._build_thread_updated_product_event(thread, occurred_at=occurred_at),
+        )
+
+    def _build_thread_updated_product_event(
+        self,
+        thread: CodexThreadIndexSnapshot,
+        *,
+        occurred_at: datetime,
+    ) -> CodexProductEvent:
+        """构造已提交线程投影，供单事件与 Agent 批次路径复用。"""
 
         patch = CodexThreadPatch(
             host_id=thread.host_id,
@@ -430,24 +695,22 @@ class CodexControlRuntime:
             model_provider=thread.model_provider,
             status=thread.status,
             active_turn_id=thread.active_turn_id,
+            turn_runtime=thread.turn_runtime,
             archived=thread.archived,
             is_pinned=thread.is_pinned,
             created_at=thread.created_at,
             recency_at=thread.recency_at,
             updated_at=thread.updated_at,
         )
-        await self.browser_event_hub.publish(
-            owner_subject_id,
-            CodexProductEvent(
-                host_id=thread.host_id,
-                workspace_id=thread.workspace_id,
-                thread_id=thread.upstream_thread_id,
-                turn_id=thread.active_turn_id,
-                item_id=None,
-                event_type=CodexRealtimeEventType.THREAD_UPDATED,
-                payload={"thread": patch.model_dump(mode="json")},
-                occurred_at=occurred_at,
-            ),
+        return CodexProductEvent(
+            host_id=thread.host_id,
+            workspace_id=thread.workspace_id,
+            thread_id=thread.upstream_thread_id,
+            turn_id=thread.active_turn_id,
+            item_id=None,
+            event_type=CodexRealtimeEventType.THREAD_UPDATED,
+            payload={"thread": patch.model_dump(mode="json")},
+            occurred_at=occurred_at,
         )
 
     async def publish_host_status_changed(
@@ -486,6 +749,57 @@ class CodexControlRuntime:
     ) -> None:
         """把已脱敏审批按设备所有者发送给浏览器。"""
 
+        await self.browser_event_hub.publish_batch(
+            principal.owner_subject_id,
+            await self._prepare_approval_opened_from_approval(approval, principal),
+        )
+
+    async def _prepare_approval_opened(
+        self,
+        event: CodexAgentRealtimeEvent,
+        principal: AgentDevicePrincipal,
+    ) -> tuple[CodexProductEvent, ...]:
+        """将 v2 审批记录收敛为同一 Agent 批次内的屏障产品事件。"""
+
+        detail = event.detail
+        if not isinstance(detail, AgentApprovalOpenedEventDetail):
+            raise ValueError("批次审批事件缺少AgentApprovalOpenedEventDetail。")
+        approval = detail.approval
+        return await self._prepare_approval_opened_from_approval(
+            CodexAgentApprovalOpened(
+                approval_id=approval.approval_id,
+                host_id=event.host_id,
+                app_server_instance_id=str(approval.app_server_instance_id),
+                approval_kind=CodexApprovalKind(approval.approval_kind),
+                thread_id=approval.thread_id,
+                turn_id=approval.turn_id,
+                item_id=approval.item_id,
+                risk_level=approval.display.risk_level,
+                payload_digest=approval.payload_digest,
+                display_summary=approval.display,
+                expires_at=approval.expires_at,
+            ),
+            principal,
+        )
+
+    async def _prepare_approval_opened_from_approval(
+        self,
+        approval: CodexAgentApprovalOpened,
+        principal: AgentDevicePrincipal,
+    ) -> tuple[CodexProductEvent, ...]:
+        """完成审批权威写入并返回待广播事件，调用方负责保持其批次顺序。"""
+
+        runtime_thread = await self.turn_runtime_coordinator.observe_approval_opened(
+            approval,
+            principal,
+        )
+        if runtime_thread is None:
+            return ()
+        await asyncio.to_thread(
+            self.state_synchronizer.accept_approval_opened,
+            approval,
+            principal,
+        )
         unit_of_work = self.control_port.create_unit_of_work()
         try:
             session = unit_of_work.get_session()
@@ -505,9 +819,8 @@ class CodexControlRuntime:
         finally:
             unit_of_work.dispose()
         if thread is None or persisted_approval is None:
-            return
-        await self.browser_event_hub.publish(
-            principal.owner_subject_id,
+            return ()
+        return (
             CodexProductEvent(
                 host_id=approval.host_id,
                 workspace_id=thread.workspace_id,
@@ -517,11 +830,10 @@ class CodexControlRuntime:
                 event_type=CodexRealtimeEventType.APPROVAL_OPENED,
                 payload={"approval": persisted_approval.model_dump(mode="json")},
             ),
-        )
-        await self.publish_thread_updated(
-            owner_subject_id=principal.owner_subject_id,
-            thread=thread,
-            occurred_at=thread.recency_at,
+            self._build_thread_updated_product_event(
+                thread,
+                occurred_at=thread.recency_at,
+            ),
         )
 
     def _find_workspace_id(
@@ -561,6 +873,12 @@ class CodexControlRuntime:
         if self._signal_reader_task is not None:
             await self._signal_reader_task
             self._signal_reader_task = None
+        if self._turn_runtime_watchdog_task is not None:
+            await self._turn_runtime_watchdog_task
+            self._turn_runtime_watchdog_task = None
+        if self._client_diagnostic_retention_task is not None:
+            await self._client_diagnostic_retention_task
+            self._client_diagnostic_retention_task = None
         await self.outbox_runner.shutdown()
         await self.connection_registry.shutdown()
         await self.browser_event_hub.shutdown()

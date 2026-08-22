@@ -6,6 +6,8 @@ from enum import StrEnum
 class CodexErrorCode(StrEnum):
     RESOURCE_NOT_FOUND = "codex.resource.not_found"
     IDEMPOTENCY_CONFLICT = "codex.operation.idempotency_conflict"
+    IDEMPOTENCY_KEY_MISMATCH = "codex.operation.idempotency_key_mismatch"
+    HISTORY_CURSOR_STALE = "codex.history.cursor_stale"
     STATE_CONFLICT = "codex.state.conflict"
     HOST_OFFLINE = "codex.host.offline"
     AGENT_ACK_TIMEOUT = "codex.agent.ack_timeout"

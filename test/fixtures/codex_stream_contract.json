@@ -1,0 +1,59 @@
+{
+  "events": [
+    {
+      "header": {
+        "kind": "codex_realtime_event",
+        "schema_version": "2.0",
+        "stream_epoch": "fixture-epoch-1",
+        "cursor": "1",
+        "event_id": "fixture-event-1",
+        "occurred_at": "2026-08-20T00:00:00Z",
+        "host_id": "00000000-0000-0000-0000-000000000001",
+        "workspace_id": null,
+        "thread_id": "fixture-thread-1",
+        "turn_id": "fixture-turn-1",
+        "item_id": "fixture-item-1",
+        "detail_kind": "item.delta"
+      },
+      "detail": {
+        "schema_version": "2.0",
+        "kind": "item.delta",
+        "item_id": "fixture-item-1",
+        "thread_id": "fixture-thread-1",
+        "turn_id": "fixture-turn-1",
+        "delta": "contract "
+      }
+    },
+    {
+      "header": {
+        "kind": "codex_realtime_event",
+        "schema_version": "2.0",
+        "stream_epoch": "fixture-epoch-1",
+        "cursor": "2",
+        "event_id": "fixture-event-2",
+        "occurred_at": "2026-08-20T00:00:00.033333Z",
+        "host_id": "00000000-0000-0000-0000-000000000001",
+        "workspace_id": null,
+        "thread_id": "fixture-thread-1",
+        "turn_id": "fixture-turn-1",
+        "item_id": "fixture-item-1",
+        "detail_kind": "item.delta"
+      },
+      "detail": {
+        "schema_version": "2.0",
+        "kind": "item.delta",
+        "item_id": "fixture-item-1",
+        "thread_id": "fixture-thread-1",
+        "turn_id": "fixture-turn-1",
+        "delta": "projection"
+      }
+    }
+  ],
+  "expected_projection": {
+    "item_id": "fixture-item-1",
+    "thread_id": "fixture-thread-1",
+    "text": "contract projection",
+    "event_ids": ["fixture-event-1", "fixture-event-2"],
+    "cursors": ["1", "2"]
+  }
+}

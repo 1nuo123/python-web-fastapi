@@ -1,0 +1,13 @@
+[runtime.header]
+mode = "local_stream_runtime"
+
+[runtime.detail]
+kind = "local_stream_runtime"
+allowed_origins = [
+  "http://127.0.0.1:8000",
+  "http://localhost:8000",
+  "http://127.0.0.1:8080",
+  "http://localhost:8080",
+  "https://codex-dev.lan",
+]
+require_browser_ticket = false

@@ -69,6 +69,16 @@ class CodexThreadIndexOrmModel(OrmModelBase):
     reasoning_effort: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     active_turn_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    runtime_turn_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    phase: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_activity_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    stalled_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    lease_generation: Mapped[int] = mapped_column(nullable=False, default=0)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source_kind: Mapped[str | None] = mapped_column(String(64), nullable=True)

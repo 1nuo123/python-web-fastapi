@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import binascii
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -12,6 +10,11 @@ from uuid import UUID, uuid4
 
 from pydantic import JsonValue
 
+from src.application.codex.codex_history_pagination import (
+    CodexHistoryCursorStaleError,
+    CodexHistoryPageResolver,
+    SignedCodexHistoryCursorCodec,
+)
 from src.application.codex.codex_protocol_mapper import CodexProtocolMapper
 from src.application.ports.codex_agent_command_dispatch_port import (
     CodexAgentCommandDispatchPort,
@@ -21,6 +24,9 @@ from src.core.codex_contract.agent_protocol_contract import CodexAgentCommand
 from src.core.codex_contract.connection_session_contract import CodexHostOfflineError
 from src.core.codex_contract.thread_contract import (
     CodexThreadAuthoritySnapshot,
+    CodexThreadHistoryItemReload,
+    CodexThreadHistoryPage,
+    CodexThreadHistoryQuery,
     CodexThreadHistoryStatus,
     CodexThreadIndexSnapshot,
     CodexThreadStatus,
@@ -49,11 +55,20 @@ class ReadCodexThreadSnapshotUsecase:
         control_port: CodexControlPort,
         dispatch_port: CodexAgentCommandDispatchPort,
         timeout_seconds: int,
+        history_cursor_signing_key: bytes,
+        history_cursor_ttl_seconds: int = 300,
     ) -> None:
         self._control_port = control_port
         self._dispatch_port = dispatch_port
         self._timeout_seconds = timeout_seconds
         self._mapper = CodexProtocolMapper()
+        self._history_page_resolver = CodexHistoryPageResolver(
+            SignedCodexHistoryCursorCodec(
+                signing_key=history_cursor_signing_key,
+                ttl_seconds=history_cursor_ttl_seconds,
+                clock=lambda: datetime.now(UTC),
+            )
+        )
 
     async def execute(
         self,
@@ -62,8 +77,9 @@ class ReadCodexThreadSnapshotUsecase:
         upstream_thread_id: str,
         owner_subject_id: str,
         include_history: bool = False,
-        history_cursor: str | None = None,
-        history_limit: int = 100,
+        history_limit: int = 50,
+        before_cursor: str | None = None,
+        requested_item_ids: frozenset[str] | None = None,
     ) -> CodexThreadAuthoritySnapshot:
         context = self._read_owned_thread(
             host_id,
@@ -73,7 +89,7 @@ class ReadCodexThreadSnapshotUsecase:
         thread = context.thread
         params: dict[str, JsonValue] = {
             "threadId": upstream_thread_id,
-            "includeTurns": include_history or history_cursor is not None,
+            "includeTurns": include_history or before_cursor is not None,
             "workspace_key": context.workspace_key,
         }
         command = CodexAgentCommand(
@@ -130,60 +146,139 @@ class ReadCodexThreadSnapshotUsecase:
             host_id=host_id,
             workspace_id=thread.workspace_id,
         )
+        history_requested = include_history or before_cursor is not None
         turns = (
             [CodexTurnSnapshot.model_validate(value) for value in mapped.turns]
-            if include_history or history_cursor is not None
+            if history_requested
             else []
         )
         history_status: CodexThreadHistoryStatus = (
             CodexThreadHistoryStatus.COMPLETE
-            if include_history or history_cursor is not None
+            if history_requested
             else CodexThreadHistoryStatus.NOT_REQUESTED
         )
         if isinstance(result.result, Mapping):
             marker = result.result.get("historyStatus")
             if marker == "omitted_too_large":
                 history_status = CodexThreadHistoryStatus.OMITTED_TOO_LARGE
-        offset = self._decode_history_cursor(history_cursor)
-        bounded_limit = max(1, min(history_limit, 500))
-        page_items = mapped.items[offset : offset + bounded_limit]
-        next_cursor = (
-            self._encode_history_cursor(offset + bounded_limit)
-            if offset + bounded_limit < len(mapped.items)
-            else None
-        )
+        all_items = [CodexTimelineItemEnvelope.model_validate(value) for value in mapped.items]
+        history_page: CodexThreadHistoryPage | None = None
+        reloaded_items: list[CodexTimelineItemEnvelope] | None = None
+        if requested_item_ids is not None and history_status is CodexThreadHistoryStatus.COMPLETE:
+            reloaded_items = [
+                item for item in all_items if item.header.item_id in requested_item_ids
+            ]
+        elif history_requested and history_status is CodexThreadHistoryStatus.COMPLETE:
+            history_page = self._read_history_page(
+                owner_subject_id=owner_subject_id,
+                host_id=host_id,
+                upstream_thread_id=upstream_thread_id,
+                items=all_items,
+                query=CodexThreadHistoryQuery(
+                    before_cursor=before_cursor,
+                    limit=history_limit,
+                ),
+            )
         return CodexThreadAuthoritySnapshot(
             thread=self._merge_authoritative_thread(thread, mapped.thread, turns),
             turns=turns,
             items=(
-                [CodexTimelineItemEnvelope.model_validate(value) for value in page_items]
-                if include_history or history_cursor is not None
-                else []
+                reloaded_items
+                if reloaded_items is not None
+                else (history_page.items if history_page is not None else [])
             ),
             history_status=history_status,
-            next_history_cursor=next_cursor,
+            history_before_cursor=(
+                history_page.before_cursor if history_page is not None else None
+            ),
+            history_has_more=history_page.has_more if history_page is not None else False,
+            history_revision=(history_page.history_revision if history_page is not None else None),
         )
 
-    def _encode_history_cursor(self, offset: int) -> str:
-        """生成不暴露上游结构的历史游标。"""
+    async def read_history_page(
+        self,
+        *,
+        host_id: UUID,
+        upstream_thread_id: str,
+        owner_subject_id: str,
+        query: CodexThreadHistoryQuery,
+    ) -> CodexThreadHistoryPage:
+        """读取一页更早历史，并保留游标失效的显式冲突语义。"""
 
-        return base64.urlsafe_b64encode(f"history:{offset}".encode()).decode()
-
-    def _decode_history_cursor(self, cursor: str | None) -> int:
-        if cursor is None:
-            return 0
         try:
-            value = base64.urlsafe_b64decode(cursor.encode()).decode()
-            prefix, raw_offset = value.split(":", maxsplit=1)
-            if prefix != "history":
-                raise ValueError
-            return max(0, int(raw_offset))
-        except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
+            snapshot = await self.execute(
+                host_id=host_id,
+                upstream_thread_id=upstream_thread_id,
+                owner_subject_id=owner_subject_id,
+                include_history=True,
+                history_limit=query.limit,
+                before_cursor=query.before_cursor,
+            )
+        except CodexHistoryCursorStaleError as exc:
             raise HttpFaultException(
-                status_code=HTTPStatus.BAD_REQUEST,
-                error_code=CodexErrorCode.STATE_CONFLICT,
-                message="Codex历史游标无效。",
+                status_code=HTTPStatus.CONFLICT,
+                error_code=CodexErrorCode.HISTORY_CURSOR_STALE,
+                message="Codex历史游标已失效，请重新加载稳定时间线窗口。",
             ) from exc
+        if (
+            snapshot.history_status is not CodexThreadHistoryStatus.COMPLETE
+            or snapshot.history_revision is None
+        ):
+            raise HttpFaultException(
+                status_code=HTTPStatus.CONFLICT,
+                error_code=CodexErrorCode.HISTORY_CURSOR_STALE,
+                message="Codex历史当前不可稳定分页，请重新同步会话。",
+            )
+        return CodexThreadHistoryPage(
+            items=snapshot.items,
+            before_cursor=snapshot.history_before_cursor,
+            has_more=snapshot.history_has_more,
+            history_revision=snapshot.history_revision,
+        )
+
+    async def read_history_items(
+        self,
+        *,
+        host_id: UUID,
+        upstream_thread_id: str,
+        owner_subject_id: str,
+        item_ids: list[str],
+    ) -> CodexThreadHistoryItemReload:
+        """按稳定 ID 读取当前权威历史中的少量已回收正文，不支持 offset 回退。"""
+
+        requested_item_ids = frozenset(item_ids)
+        snapshot = await self.execute(
+            host_id=host_id,
+            upstream_thread_id=upstream_thread_id,
+            owner_subject_id=owner_subject_id,
+            include_history=True,
+            requested_item_ids=requested_item_ids,
+        )
+        found_item_ids = {item.header.item_id for item in snapshot.items}
+        return CodexThreadHistoryItemReload(
+            items=snapshot.items,
+            missing_item_ids=[item_id for item_id in item_ids if item_id not in found_item_ids],
+        )
+
+    def _read_history_page(
+        self,
+        *,
+        owner_subject_id: str,
+        host_id: UUID,
+        upstream_thread_id: str,
+        items: list[CodexTimelineItemEnvelope],
+        query: CodexThreadHistoryQuery,
+    ) -> CodexThreadHistoryPage:
+        """计算一页稳定窗口；解析失败由调用方转换为 HTTP stale 错误。"""
+
+        return self._history_page_resolver.build_page(
+            owner_subject_id=owner_subject_id,
+            host_id=host_id,
+            upstream_thread_id=upstream_thread_id,
+            items=items,
+            before_cursor=query.before_cursor,
+            limit=query.limit,
+        )
 
     @staticmethod
     def _build_unavailable_snapshot(
@@ -225,8 +320,10 @@ class ReadCodexThreadSnapshotUsecase:
                 active_turn_id = None
             else:
                 status = CodexThreadStatus.UNKNOWN
-        elif status == "notLoaded" and indexed.status == CodexThreadStatus.ACTIVE:
-            status = CodexThreadStatus.UNKNOWN
+        elif status == "notLoaded":
+            # ``notLoaded`` 只是上游尚未装载完整运行态的标记，不能用它降级
+            # 控制面此前已经确认的线程状态或活动 turn。
+            status = indexed.status
 
         updates: dict[str, object] = {
             "status": status,

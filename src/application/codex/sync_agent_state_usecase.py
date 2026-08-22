@@ -68,7 +68,11 @@ from src.core.codex_contract.thread_contract import (
     CodexThreadStatus,
     CodexThreadTitleSource,
 )
-from src.core.codex_contract.workspace_contract import CodexWorkspaceSnapshot
+from src.core.codex_contract.turn_runtime_contract import CodexTurnPhase, CodexTurnRuntime
+from src.core.codex_contract.workspace_contract import (
+    CodexWorkspaceExecutionPreferences,
+    CodexWorkspaceSnapshot,
+)
 from src.core.persistence_contract.unit_of_work_contract import PersistenceSession
 from src.domain.codex.codex_compatibility_policy import CodexCompatibilityDecision
 from src.domain.codex.thread_title_policy import CodexThreadTitlePolicy
@@ -720,6 +724,15 @@ class SyncCodexAgentStateUsecase:
         finally:
             unit_of_work.dispose()
 
+    def accept_realtime_events(
+        self,
+        events: tuple[CodexAgentRealtimeEvent, ...],
+        principal: AgentDevicePrincipal,
+    ) -> tuple[CodexThreadIndexSnapshot | None, ...]:
+        """按 Agent 已验证顺序同步一批控制面事件，不在该层广播浏览器消息。"""
+
+        return tuple(self.accept_realtime_event(event, principal) for event in events)
+
     def accept_approval_opened(
         self,
         approval: CodexAgentApprovalOpened,
@@ -982,6 +995,11 @@ class SyncCodexAgentStateUsecase:
             display_name=workspace.display_name,
             repo_fingerprint=workspace.repo_fingerprint,
             default_branch=workspace.default_branch,
+            execution_preferences=(
+                existing.execution_preferences
+                if existing is not None
+                else CodexWorkspaceExecutionPreferences()
+            ),
             is_pinned=existing.is_pinned if existing is not None else False,
             enabled=True,
             created_at=existing.created_at if existing is not None else captured_at,
@@ -999,15 +1017,43 @@ class SyncCodexAgentStateUsecase:
         captured_at: datetime,
         existing: CodexThreadIndexSnapshot | None,
     ) -> CodexThreadIndexSnapshot:
+        """合并 Agent 索引快照，同时保留服务端已确认的 turn 运行态。"""
+
         thread_id = raw_thread.thread_id
+        raw_status = self._read_raw_thread_status(raw_thread.status)
         status = self._read_thread_status(raw_thread.status)
-        if existing is not None and existing.status == "active" and status != "active":
+        if existing is not None and raw_status == "notLoaded":
+            # Agent 索引快照尚未加载线程状态时，只能保留服务端权威投影；
+            # 将其当作非 active 会把仍在运行的 turn 错误中断。
+            status = existing.status
+        elif existing is not None and existing.status == "active" and status != "active":
             status = CodexThreadStatus.INTERRUPTED
         title_source = raw_thread.title_source
         display_name = raw_thread.display_name
         if existing is not None and existing.title_source is CodexThreadTitleSource.MANUAL:
             title_source = existing.title_source
             display_name = existing.display_name
+        runtime = existing.turn_runtime if existing is not None else None
+        if (
+            runtime is not None
+            and runtime.phase
+            in {
+                CodexTurnPhase.COMPLETED,
+                CodexTurnPhase.FAILED,
+                CodexTurnPhase.INTERRUPTED,
+            }
+            and raw_thread.active_turn_id not in {None, runtime.turn_id}
+        ):
+            # 新 turn 必须等待实时事件重新认领 lease，不能复用已终态 turn 的代次。
+            runtime = None
+        if runtime is not None:
+            # 快照不携带 lease fencing 信息，不能覆盖由实时事件确认的运行阶段。
+            status = self._status_for_turn_runtime(runtime)
+        recency_candidates = [raw_thread.recency_at]
+        if existing is not None:
+            recency_candidates.append(existing.recency_at)
+        if runtime is not None:
+            recency_candidates.append(runtime.last_activity_at)
         return CodexThreadIndexSnapshot(
             thread_index_id=existing.thread_index_id if existing is not None else uuid4(),
             host_id=host_id,
@@ -1021,28 +1067,43 @@ class SyncCodexAgentStateUsecase:
             reasoning_effort=existing.reasoning_effort if existing is not None else None,
             status=status,
             active_turn_id=(
-                raw_thread.active_turn_id
+                runtime.turn_id
+                if runtime is not None
+                and runtime.phase
+                not in {
+                    CodexTurnPhase.COMPLETED,
+                    CodexTurnPhase.FAILED,
+                    CodexTurnPhase.INTERRUPTED,
+                }
+                else raw_thread.active_turn_id
                 or (
                     existing.active_turn_id if existing is not None and status == "active" else None
                 )
             ),
+            turn_runtime=runtime,
             archived=raw_thread.archived,
             is_pinned=existing.is_pinned if existing is not None else False,
             source_kind=raw_thread.source_kind,
             created_at=raw_thread.created_at,
-            recency_at=raw_thread.recency_at,
+            recency_at=max(recency_candidates),
             updated_at=captured_at,
             last_synced_at=captured_at,
         )
 
+    @staticmethod
+    def _status_for_turn_runtime(runtime: CodexTurnRuntime) -> CodexThreadStatus:
+        """将不含正文的权威运行阶段投影为旧会话状态契约。"""
+
+        if runtime.phase is CodexTurnPhase.INTERRUPTED:
+            return CodexThreadStatus.INTERRUPTED
+        if runtime.phase is CodexTurnPhase.FAILED:
+            return CodexThreadStatus.FAILED
+        if runtime.phase is CodexTurnPhase.COMPLETED:
+            return CodexThreadStatus.IDLE
+        return CodexThreadStatus.ACTIVE
+
     def _read_thread_status(self, value: JsonValue | None) -> CodexThreadStatus:
-        status: str | None = None
-        if isinstance(value, Mapping):
-            status_type = cast(Mapping[str, object], value).get("type")
-            if isinstance(status_type, str):
-                status = status_type
-        elif isinstance(value, str):
-            status = value
+        status = self._read_raw_thread_status(value)
         if status in {"active", "inProgress"}:
             return CodexThreadStatus.ACTIVE
         if status in {"interrupted", "cancelled"}:
@@ -1052,3 +1113,16 @@ class SyncCodexAgentStateUsecase:
         if status in {"idle", "completed"}:
             return CodexThreadStatus.IDLE
         return CodexThreadStatus.UNKNOWN
+
+    @staticmethod
+    def _read_raw_thread_status(value: JsonValue | None) -> str | None:
+        """读取 Agent 快照原始状态，保留 ``notLoaded`` 的专用语义。"""
+
+        status: str | None = None
+        if isinstance(value, Mapping):
+            status_type = cast(Mapping[str, object], value).get("type")
+            if isinstance(status_type, str):
+                status = status_type
+        elif isinstance(value, str):
+            status = value
+        return status

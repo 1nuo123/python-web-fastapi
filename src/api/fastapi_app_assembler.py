@@ -7,6 +7,7 @@ FastAPI 应用组合根。
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -363,6 +364,9 @@ class FastApiAppAssembler:
                 command_payload_cipher=CodexCommandPayloadCipherAdapter(
                     DeferredAeadEnvelopeCipher(resource_mount.get_key_management_service)
                 ),
+                logger=logger,
+                diagnostic_log_event_emitter=resource_mount.emit_log_event,
+                metrics_registry_provider=resource_mount.get_metrics_registry,
             )
         )
         reload_coordinator = self._build_reload_coordinator(
@@ -733,6 +737,13 @@ class FastApiAppAssembler:
                 timeout_seconds=(
                     resource_mount.read_codex_runtime_settings().agent_rpc_ack_timeout_seconds
                 ),
+                # 游标与认证密钥做域隔离，密钥轮换时旧游标自然失效。
+                history_cursor_signing_key=hashlib.sha256(
+                    b"codex-history-cursor-v1\x00"
+                    + resource_mount.read_runtime_bundle()
+                    .settings.runtime.auth.jwt_secret.get_secret_value()
+                    .encode("utf-8")
+                ).digest(),
             ),
             manage_codex_approval_usecase=ManageCodexApprovalUsecase(
                 control_port=resource_mount,
@@ -790,6 +801,9 @@ class FastApiAppAssembler:
                 include_task_metrics=metrics_settings.detail.include_task_metrics,
                 include_log_buffer_metrics=metrics_settings.detail.include_log_buffer_metrics,
                 include_saturation_metrics=metrics_settings.detail.include_saturation_metrics,
+                include_codex_diagnostic_metrics=(
+                    metrics_settings.detail.include_codex_diagnostic_metrics
+                ),
             )
         )
         resource_mount.install_metrics_registry(registry)

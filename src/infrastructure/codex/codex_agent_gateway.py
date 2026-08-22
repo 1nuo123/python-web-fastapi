@@ -38,6 +38,7 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentEventAckV2Detail,
     AgentEventBatchV2Detail,
     AgentEventDetail,
+    AgentEventRecord,
     AgentGapEventDetail,
     AgentHeartbeatV2Detail,
     AgentHelloAckV2Detail,
@@ -111,6 +112,9 @@ AgentCommandResultObserver = Callable[
 AgentHeartbeatObserver = Callable[[CodexAgentHeartbeat, AgentDevicePrincipal], Awaitable[None]]
 AgentSnapshotObserver = Callable[[CodexAgentStateSnapshot, AgentDevicePrincipal], Awaitable[None]]
 AgentEventObserver = Callable[[CodexAgentRealtimeEvent, AgentDevicePrincipal], Awaitable[None]]
+AgentEventBatchObserver = Callable[
+    [tuple[CodexAgentRealtimeEvent, ...], AgentDevicePrincipal], Awaitable[None]
+]
 AgentApprovalObserver = Callable[[CodexAgentApprovalOpened, AgentDevicePrincipal], Awaitable[None]]
 AgentDisconnectObserver = Callable[[UUID, AgentDevicePrincipal, datetime], Awaitable[None]]
 AgentCompatibilityObserver = Callable[
@@ -142,6 +146,7 @@ class CodexAgentGatewayHandler:
         heartbeat_observer: AgentHeartbeatObserver | None = None,
         snapshot_observer: AgentSnapshotObserver | None = None,
         event_observer: AgentEventObserver | None = None,
+        event_batch_observer: AgentEventBatchObserver | None = None,
         approval_observer: AgentApprovalObserver | None = None,
         disconnect_observer: AgentDisconnectObserver | None = None,
         compatibility_observer: AgentCompatibilityObserver | None = None,
@@ -164,6 +169,7 @@ class CodexAgentGatewayHandler:
         self._heartbeat_observer = heartbeat_observer or self._ignore_heartbeat
         self._snapshot_observer = snapshot_observer or self._ignore_snapshot
         self._event_observer = event_observer or self._ignore_event
+        self._event_batch_observer = event_batch_observer
         self._approval_observer = approval_observer or self._ignore_approval
         self._disconnect_observer = disconnect_observer or self._ignore_disconnect
         self._compatibility_observer = compatibility_observer or self._ignore_compatibility
@@ -544,6 +550,7 @@ class CodexAgentGatewayHandler:
             return {
                 "id": item.item_id,
                 "type": "userMessage",
+                "clientId": str(item.client_operation_id) if item.client_operation_id else None,
                 "content": [{"type": "text", "text": item.text}],
             }
         if isinstance(item, AppServerAgentMessageItem):
@@ -586,36 +593,32 @@ class CodexAgentGatewayHandler:
             AgentGapEventDetail,
         ):
             raise ValueError("Agent事件批次存在未声明的序号缺口。")
-        for record in batch.events:
-            if record.seq <= self._last_event_seq:
-                continue
-            if isinstance(record.detail, AgentApprovalOpenedEventDetail):
-                approval = record.detail.approval
-                await self._approval_observer(
-                    CodexAgentApprovalOpened(
-                        approval_id=approval.approval_id,
-                        host_id=host_id,
-                        app_server_instance_id=str(approval.app_server_instance_id),
-                        approval_kind=CodexApprovalKind(approval.approval_kind),
-                        thread_id=approval.thread_id,
-                        turn_id=approval.turn_id,
-                        item_id=approval.item_id,
-                        risk_level=approval.display.risk_level,
-                        payload_digest=approval.payload_digest,
-                        display_summary=approval.display,
-                        expires_at=approval.expires_at,
-                    ),
-                    self._principal,
-                )
-            event = CodexAgentRealtimeEvent(
-                host_id=host_id,
-                app_server_instance_id=str(record.app_server_instance_id),
-                occurred_at=record.occurred_at,
-                method=self._to_v1_event_method(record.detail),
-                params=self._to_v1_event_params(record.detail),
-                detail=record.detail,
-            )
-            await self._event_observer(event, self._principal)
+        records = tuple(record for record in batch.events if record.seq > self._last_event_seq)
+        events = tuple(self._to_realtime_event(host_id, record) for record in records)
+        if self._event_batch_observer is not None and events:
+            # v2 批次必须在推进 ACK 前作为一个有序边界交给控制面，避免重新逐条 fan-out。
+            await self._event_batch_observer(events, self._principal)
+        for record, event in zip(records, events, strict=True):
+            if self._event_batch_observer is None:
+                if isinstance(record.detail, AgentApprovalOpenedEventDetail):
+                    approval = record.detail.approval
+                    await self._approval_observer(
+                        CodexAgentApprovalOpened(
+                            approval_id=approval.approval_id,
+                            host_id=host_id,
+                            app_server_instance_id=str(approval.app_server_instance_id),
+                            approval_kind=CodexApprovalKind(approval.approval_kind),
+                            thread_id=approval.thread_id,
+                            turn_id=approval.turn_id,
+                            item_id=approval.item_id,
+                            risk_level=approval.display.risk_level,
+                            payload_digest=approval.payload_digest,
+                            display_summary=approval.display,
+                            expires_at=approval.expires_at,
+                        ),
+                        self._principal,
+                    )
+                await self._event_observer(event, self._principal)
             try:
                 self._last_event_seq = await self._event_cursor_store.advance(
                     host_id=host_id,
@@ -632,6 +635,22 @@ class CodexAgentGatewayHandler:
                 message_id=uuid4(),
                 detail=self._build_event_ack(batch),
             )
+        )
+
+    def _to_realtime_event(
+        self,
+        host_id: UUID,
+        record: AgentEventRecord,
+    ) -> CodexAgentRealtimeEvent:
+        """把已校验的 v2 record 转换为控制面唯一消费的强类型事件。"""
+
+        return CodexAgentRealtimeEvent(
+            host_id=host_id,
+            app_server_instance_id=str(record.app_server_instance_id),
+            occurred_at=record.occurred_at,
+            method=self._to_v1_event_method(record.detail),
+            params=self._to_v1_event_params(record.detail),
+            detail=record.detail,
         )
 
     def _to_v1_event_params(self, detail: AgentEventDetail) -> dict[str, JsonValue]:

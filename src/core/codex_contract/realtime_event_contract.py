@@ -21,6 +21,7 @@ from src.core.codex_contract.thread_contract import (
     CodexTimelineItemEnvelope,
     CodexTurnSnapshot,
 )
+from src.core.codex_contract.turn_runtime_contract import CodexTurnRuntime
 from src.core.codex_contract.workspace_contract import CodexWorkspaceSnapshot
 
 CODEX_REALTIME_SCHEMA_VERSION: Final = "2.0"
@@ -127,8 +128,9 @@ class CodexThreadSnapshotDetail(CodexRealtimeDetailBase):
     turns: tuple[CodexTurnSnapshot, ...]
     items: tuple[CodexTimelineItemEnvelope, ...]
     history_status: CodexThreadHistoryStatus
-    next_history_cursor: str | None = Field(default=None, max_length=512)
-    append_history: bool = False
+    history_before_cursor: str | None = Field(default=None, max_length=2_048)
+    history_has_more: bool = False
+    history_revision: str | None = Field(default=None, min_length=64, max_length=64)
 
 
 class CodexThreadPatch(BaseModel):
@@ -145,6 +147,7 @@ class CodexThreadPatch(BaseModel):
     model_provider: str | None = Field(default=None, max_length=128)
     status: CodexThreadStatus | None = None
     active_turn_id: str | None = Field(default=None, max_length=256)
+    turn_runtime: CodexTurnRuntime | None = None
     archived: bool | None = None
     is_pinned: bool | None = None
     created_at: datetime | None = None

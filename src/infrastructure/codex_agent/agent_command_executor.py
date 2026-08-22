@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import JsonValue
 
@@ -51,11 +51,28 @@ from src.infrastructure.codex_agent.agent_execution_root_store import (
 from src.infrastructure.codex_agent.agent_thread_history_capacity_registry import (
     AgentThreadHistoryCapacityRegistry,
 )
+from src.infrastructure.codex_agent.agent_thread_history_window_cache import (
+    AgentThreadHistoryWindowCache,
+    AgentThreadHistoryWindowCacheKey,
+)
 from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspaceRegistry
 
 AgentCommandAckSender = Callable[[CodexAgentCommandAck], Awaitable[None]]
 AgentCommandResultSender = Callable[[CodexAgentCommandResult], Awaitable[None]]
 AgentApprovalReplyHandler = Callable[[CodexAgentCommand], Awaitable[JsonValue]]
+HISTORY_INVALIDATING_COMMAND_TYPES: Final = frozenset(
+    {
+        "thread.start",
+        "thread.resume",
+        "thread.name_set",
+        "thread.archive",
+        "thread.unarchive",
+        "thread.compact",
+        "turn.start",
+        "turn.steer",
+        "turn.interrupt",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +99,7 @@ class AgentCommandExecutor:
         result_sender: AgentCommandResultSender,
         approval_reply_handler: AgentApprovalReplyHandler | None = None,
         history_capacity_registry: AgentThreadHistoryCapacityRegistry | None = None,
+        history_window_cache: AgentThreadHistoryWindowCache | None = None,
         worktree_port: GitWorktreePort | None = None,
         execution_root_store: AgentExecutionRootStore | None = None,
         workspace_registry: AgentWorkspaceRegistry | None = None,
@@ -93,6 +111,7 @@ class AgentCommandExecutor:
         self._result_sender = result_sender
         self._approval_reply_handler = approval_reply_handler
         self._history_capacity_registry = history_capacity_registry
+        self._history_window_cache = history_window_cache
         self._worktree_port = worktree_port
         self._execution_root_store = execution_root_store
         self._workspace_registry = workspace_registry
@@ -142,12 +161,46 @@ class AgentCommandExecutor:
                 ):
                     request.params["includeTurns"] = False
                     history_omitted = True
-                result = await self._client.request(
-                    request.method,
-                    request.params,
-                    timeout_seconds=timeout_seconds,
-                    operation_id=str(command.operation_id),
+                history_cache_key = self._build_history_cache_key(command)
+                history_cache_generation = (
+                    self._history_window_cache.invalidation_generation
+                    if (
+                        history_cache_key is not None
+                        and not history_omitted
+                        and self._history_window_cache is not None
+                    )
+                    else None
                 )
+                cached_history = (
+                    self._history_window_cache.get(history_cache_key)
+                    if (
+                        history_cache_key is not None
+                        and not history_omitted
+                        and self._history_window_cache is not None
+                    )
+                    else None
+                )
+                if cached_history is None:
+                    result = await self._client.request(
+                        request.method,
+                        request.params,
+                        timeout_seconds=timeout_seconds,
+                        operation_id=str(command.operation_id),
+                    )
+                    if (
+                        history_cache_key is not None
+                        and not history_omitted
+                        and self._history_window_cache is not None
+                        and history_cache_generation is not None
+                        and self._is_complete_history_response(result)
+                    ):
+                        self._history_window_cache.store_if_current_generation(
+                            history_cache_key,
+                            result,
+                            expected_generation=history_cache_generation,
+                        )
+                else:
+                    result = cached_history
                 if history_omitted and isinstance(result, Mapping):
                     result = dict(result)
                     result["historyStatus"] = "omitted_too_large"
@@ -249,6 +302,7 @@ class AgentCommandExecutor:
             return
         thread_id, turn_id = read_upstream_identifiers(result)
         await self._bind_created_worktree(worktree_context, thread_id)
+        self._invalidate_history_after_success(command, thread_id)
         summary = AgentCommandResultSummary(
             outcome_code="completed",
             upstream_thread_id=thread_id,
@@ -265,6 +319,65 @@ class AgentCommandExecutor:
                 result=result,
             )
         )
+
+    @staticmethod
+    def _build_history_cache_key(
+        command: CodexAgentCommand,
+    ) -> AgentThreadHistoryWindowCacheKey | None:
+        """只为明确请求完整历史的 thread/read 构造受限进程内缓存键。"""
+
+        if command.command_type != "thread.read":
+            return None
+        workspace_key = command.params.get("workspace_key")
+        thread_id = command.params.get("threadId")
+        include_turns = command.params.get("includeTurns")
+        if (
+            not isinstance(workspace_key, str)
+            or not workspace_key
+            or not isinstance(thread_id, str)
+            or not thread_id
+            or include_turns is not True
+        ):
+            return None
+        return AgentThreadHistoryWindowCacheKey(
+            workspace_key=workspace_key,
+            thread_id=thread_id,
+        )
+
+    @staticmethod
+    def _is_complete_history_response(result: JsonValue) -> bool:
+        """确认上游返回完整 turns，省略或畸形响应绝不进入正文缓存。"""
+
+        if not isinstance(result, Mapping) or result.get("historyStatus") == "omitted_too_large":
+            return False
+        thread = result.get("thread")
+        return isinstance(thread, Mapping) and isinstance(thread.get("turns"), list)
+
+    def _invalidate_history_after_success(
+        self,
+        command: CodexAgentCommand,
+        upstream_thread_id: str | None,
+    ) -> None:
+        """本机成功改变会话后立即失效对应完整历史，避免 TTL 内回显旧窗口。"""
+
+        cache = self._history_window_cache
+        if cache is None or command.command_type not in HISTORY_INVALIDATING_COMMAND_TYPES:
+            return
+        workspace_key = command.params.get("workspace_key")
+        requested_thread_id = command.params.get("threadId")
+        thread_id = upstream_thread_id or requested_thread_id
+        if (
+            isinstance(workspace_key, str)
+            and workspace_key
+            and isinstance(thread_id, str)
+            and thread_id
+        ):
+            cache.invalidate(
+                AgentThreadHistoryWindowCacheKey(
+                    workspace_key=workspace_key,
+                    thread_id=thread_id,
+                )
+            )
 
     def _validate_command(self, command: CodexAgentCommand) -> None:
         """验证协议版本及控制面提供的请求摘要。"""

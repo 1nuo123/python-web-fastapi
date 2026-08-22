@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, delete, func, select
 from sqlalchemy.orm import Session
 
 from src.core.logging_contract.log_event_contract import LogEventKind, LogLevel
@@ -16,6 +16,7 @@ from src.core.security_contract.security_event_contract import (
     SecurityEventSeverity,
     SecurityEventType,
 )
+from src.infrastructure.persistence.affected_rows_result_reader import AffectedRowsResultReader
 from src.infrastructure.persistence.orm_model.app_log_record_orm_model import (
     AppLogRecordOrmModel,
 )
@@ -78,6 +79,32 @@ class LogRecordRepositoryImpl(Repository):
         """
 
         self._session.add_all(records)
+
+    def delete_records_by_detail_kind_before(
+        self,
+        *,
+        detail_kind: str,
+        occurred_before: datetime,
+    ) -> int:
+        """
+        删除指定结构化详情类型在截止时间前的日志记录。
+
+        清理条件仅使用固定详情类型和服务端时间，不读取或匹配日志正文；重复执行时
+        已删除记录不会再次命中，因此可由多个应用实例安全重入。
+
+        :param detail_kind: 受调用方控制的固定日志详情类型。
+        :type detail_kind: str
+        :param occurred_before: 严格早于该时间的记录将被删除。
+        :type occurred_before: datetime
+        :returns: 本次受影响的记录数量。
+        :rtype: int
+        """
+
+        statement = delete(AppLogRecordOrmModel).where(
+            AppLogRecordOrmModel.occurred_at < occurred_before,
+            AppLogRecordOrmModel.detail_json[LOG_DETAIL_KIND_FIELD].as_string() == detail_kind,
+        )
+        return AffectedRowsResultReader.read(self._session.execute(statement))
 
     def list_records(
         self,

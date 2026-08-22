@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Final, cast
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, case, func, or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
@@ -67,7 +67,11 @@ from src.core.codex_contract.thread_contract import (
     CodexThreadStatus,
     CodexThreadTitleSource,
 )
-from src.core.codex_contract.workspace_contract import CodexWorkspaceSnapshot
+from src.core.codex_contract.turn_runtime_contract import CodexTurnPhase, CodexTurnRuntime
+from src.core.codex_contract.workspace_contract import (
+    CodexWorkspaceExecutionPreferences,
+    CodexWorkspaceSnapshot,
+)
 from src.core.cryptography_contract.aead_envelope_contract import (
     AeadAlgorithm,
     AeadEnvelope,
@@ -704,6 +708,7 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
                 repo_fingerprint=snapshot.repo_fingerprint,
                 default_branch=snapshot.default_branch,
                 worktree_policy=snapshot.worktree_policy.model_dump(mode="json"),
+                execution_preferences=snapshot.execution_preferences.model_dump(mode="json"),
                 is_pinned=snapshot.is_pinned,
                 enabled=snapshot.enabled,
                 created_at=snapshot.created_at,
@@ -717,8 +722,9 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
 
         self._session.merge(
             CodexWorkspaceOrmModel(
-                **snapshot.model_dump(exclude={"worktree_policy"}),
+                **snapshot.model_dump(exclude={"worktree_policy", "execution_preferences"}),
                 worktree_policy=snapshot.worktree_policy.model_dump(mode="json"),
+                execution_preferences=snapshot.execution_preferences.model_dump(mode="json"),
             )
         )
 
@@ -732,6 +738,9 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
             repo_fingerprint=row.repo_fingerprint,
             default_branch=row.default_branch,
             worktree_policy=GitWorktreePolicy.model_validate(row.worktree_policy),
+            execution_preferences=CodexWorkspaceExecutionPreferences.model_validate(
+                row.execution_preferences
+            ),
             is_pinned=row.is_pinned,
             enabled=row.enabled,
             created_at=CodexRepositoryDatetimeConverter.normalize_required(row.created_at),
@@ -764,13 +773,9 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
             conditions.append(CodexThreadIndexOrmModel.workspace_id == query.workspace_id)
         if query.search_term is not None:
             pattern = f"%{query.search_term.strip()}%"
-            conditions.append(
-                or_(
-                    CodexThreadIndexOrmModel.display_name.ilike(pattern),
-                    CodexWorkspaceOrmModel.display_name.ilike(pattern),
-                    CodexWorkspaceOrmModel.default_branch.ilike(pattern),
-                )
-            )
+            # 搜索边界只允许命中服务端维护的 thread 标题；正文、工作区名称和分支
+            # 都不是会话标题，不能借由列表查询暴露为搜索结果。
+            conditions.append(CodexThreadIndexOrmModel.display_name.ilike(pattern))
         cursor = CodexConversationCursor.decode(query.cursor) if query.cursor else None
         if cursor is not None:
             if cursor.detail.query_digest != query.build_identity_digest():
@@ -861,34 +866,12 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
         return None if row is None else self._to_snapshot(row)
 
     def add(self, snapshot: CodexThreadIndexSnapshot) -> None:
-        self._session.add(
-            CodexThreadIndexOrmModel(
-                thread_index_id=snapshot.thread_index_id,
-                host_id=snapshot.host_id,
-                workspace_id=snapshot.workspace_id,
-                owner_subject_id=snapshot.owner_subject_id,
-                upstream_thread_id=snapshot.upstream_thread_id,
-                display_name=snapshot.display_name,
-                title_source=snapshot.title_source.value,
-                model=snapshot.model,
-                model_provider=snapshot.model_provider,
-                reasoning_effort=snapshot.reasoning_effort,
-                status=snapshot.status,
-                active_turn_id=snapshot.active_turn_id,
-                archived=snapshot.archived,
-                is_pinned=snapshot.is_pinned,
-                source_kind=snapshot.source_kind,
-                created_at=snapshot.created_at,
-                recency_at=snapshot.recency_at,
-                updated_at=snapshot.updated_at,
-                last_synced_at=snapshot.last_synced_at,
-            )
-        )
+        self._session.add(self._to_orm(snapshot))
 
     def save(self, snapshot: CodexThreadIndexSnapshot) -> None:
         """更新已经存在的线程索引。"""
 
-        self._session.merge(CodexThreadIndexOrmModel(**snapshot.model_dump()))
+        self._session.merge(self._to_orm(snapshot))
 
     def advance_activity(
         self,
@@ -992,7 +975,172 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
             owner_subject_id,
         )
 
+    def apply_turn_runtime(
+        self,
+        *,
+        host_id: UUID,
+        upstream_thread_id: str,
+        owner_subject_id: str,
+        runtime: CodexTurnRuntime,
+        status: CodexThreadStatus,
+        active_turn_mode: CodexActiveTurnUpdateMode,
+        synchronized_at: datetime,
+        expected_lease_generation: int | None,
+    ) -> CodexThreadIndexSnapshot | None:
+        """以租约代次作为条件写入 turn 运行态，拒绝旧 Agent 覆盖新状态。"""
+
+        if runtime.thread_id != upstream_thread_id:
+            raise ValueError("turn运行态与目标会话不一致。")
+        conditions = [
+            CodexThreadIndexOrmModel.host_id == host_id,
+            CodexThreadIndexOrmModel.upstream_thread_id == upstream_thread_id,
+            CodexThreadIndexOrmModel.owner_subject_id == owner_subject_id,
+        ]
+        if expected_lease_generation is None:
+            conditions.append(
+                or_(
+                    CodexThreadIndexOrmModel.runtime_turn_id.is_(None),
+                    and_(
+                        CodexThreadIndexOrmModel.runtime_turn_id != runtime.turn_id,
+                        CodexThreadIndexOrmModel.phase.in_(
+                            (
+                                CodexTurnPhase.COMPLETED.value,
+                                CodexTurnPhase.FAILED.value,
+                                CodexTurnPhase.INTERRUPTED.value,
+                            )
+                        ),
+                    ),
+                    CodexThreadIndexOrmModel.lease_generation < runtime.lease_generation,
+                )
+            )
+        else:
+            conditions.extend(
+                (
+                    CodexThreadIndexOrmModel.runtime_turn_id == runtime.turn_id,
+                    CodexThreadIndexOrmModel.lease_generation == expected_lease_generation,
+                )
+            )
+        values: dict[str, object] = {
+            "runtime_turn_id": runtime.turn_id,
+            "phase": runtime.phase.value,
+            "last_activity_at": runtime.last_activity_at,
+            "stalled_reason": runtime.stalled_reason,
+            "lease_generation": runtime.lease_generation,
+            "lease_expires_at": runtime.lease_expires_at,
+            "status": status.value,
+            "recency_at": case(
+                (
+                    CodexThreadIndexOrmModel.recency_at < runtime.last_activity_at,
+                    runtime.last_activity_at,
+                ),
+                else_=CodexThreadIndexOrmModel.recency_at,
+            ),
+            "updated_at": synchronized_at,
+            "last_synced_at": synchronized_at,
+        }
+        if active_turn_mode is CodexActiveTurnUpdateMode.SET:
+            values["active_turn_id"] = runtime.turn_id
+        elif active_turn_mode is CodexActiveTurnUpdateMode.CLEAR:
+            values["active_turn_id"] = None
+        result = cast(
+            CursorResult[tuple[object, ...]],
+            self._session.execute(
+                update(CodexThreadIndexOrmModel).where(*conditions).values(**values)
+            ),
+        )
+        if int(result.rowcount or 0) != 1:
+            return None
+        return self.get_by_upstream_id_and_owner(
+            host_id,
+            upstream_thread_id,
+            owner_subject_id,
+        )
+
+    def list_active_turn_runtimes(
+        self,
+        *,
+        host_id: UUID,
+        owner_subject_id: str,
+    ) -> tuple[CodexThreadIndexSnapshot, ...]:
+        """读取当前 Agent 心跳可续租的非终态 turn。"""
+
+        active_phases = (
+            CodexTurnPhase.SUBMITTED.value,
+            CodexTurnPhase.STARTING.value,
+            CodexTurnPhase.RUNNING.value,
+            CodexTurnPhase.AWAITING_APPROVAL.value,
+        )
+        rows = self._session.scalars(
+            select(CodexThreadIndexOrmModel).where(
+                CodexThreadIndexOrmModel.host_id == host_id,
+                CodexThreadIndexOrmModel.owner_subject_id == owner_subject_id,
+                CodexThreadIndexOrmModel.runtime_turn_id.is_not(None),
+                CodexThreadIndexOrmModel.phase.in_(active_phases),
+            )
+        ).all()
+        return tuple(self._to_snapshot(row) for row in rows)
+
+    def list_stalled_turn_runtime_candidates(
+        self,
+        *,
+        activity_before: datetime,
+        lease_expired_before: datetime,
+    ) -> tuple[CodexThreadIndexSnapshot, ...]:
+        """读取同时满足租约过期和长时间无活动条件的非审批 turn。"""
+
+        rows = self._session.scalars(
+            select(CodexThreadIndexOrmModel).where(
+                CodexThreadIndexOrmModel.runtime_turn_id.is_not(None),
+                CodexThreadIndexOrmModel.phase.in_(
+                    (
+                        CodexTurnPhase.SUBMITTED.value,
+                        CodexTurnPhase.STARTING.value,
+                        CodexTurnPhase.RUNNING.value,
+                    )
+                ),
+                CodexThreadIndexOrmModel.last_activity_at.is_not(None),
+                CodexThreadIndexOrmModel.last_activity_at <= activity_before,
+                CodexThreadIndexOrmModel.lease_expires_at.is_not(None),
+                CodexThreadIndexOrmModel.lease_expires_at <= lease_expired_before,
+            )
+        ).all()
+        return tuple(self._to_snapshot(row) for row in rows)
+
+    @staticmethod
+    def _to_orm(snapshot: CodexThreadIndexSnapshot) -> CodexThreadIndexOrmModel:
+        """把可选 runtime 显式拆到索引列，避免持久化正文或租约 owner。"""
+
+        runtime = snapshot.turn_runtime
+        return CodexThreadIndexOrmModel(
+            **snapshot.model_dump(exclude={"turn_runtime"}),
+            runtime_turn_id=runtime.turn_id if runtime is not None else None,
+            phase=runtime.phase.value if runtime is not None else None,
+            last_activity_at=runtime.last_activity_at if runtime is not None else None,
+            stalled_reason=runtime.stalled_reason if runtime is not None else None,
+            lease_generation=runtime.lease_generation if runtime is not None else 0,
+            lease_expires_at=runtime.lease_expires_at if runtime is not None else None,
+        )
+
     def _to_snapshot(self, row: CodexThreadIndexOrmModel) -> CodexThreadIndexSnapshot:
+        turn_runtime = None
+        if (
+            row.runtime_turn_id is not None
+            and row.phase is not None
+            and row.last_activity_at is not None
+        ):
+            turn_runtime = CodexTurnRuntime(
+                turn_id=row.runtime_turn_id,
+                thread_id=row.upstream_thread_id,
+                phase=CodexTurnPhase(row.phase),
+                last_activity_at=CodexRepositoryDatetimeConverter.normalize_required(
+                    row.last_activity_at
+                ),
+                stalled_reason=row.stalled_reason,
+                lease_generation=row.lease_generation,
+                lease_expires_at=CodexRepositoryDatetimeConverter.normalize_optional(
+                    row.lease_expires_at
+                ),
+            )
         return CodexThreadIndexSnapshot(
             thread_index_id=row.thread_index_id,
             host_id=row.host_id,
@@ -1006,6 +1154,7 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
             reasoning_effort=row.reasoning_effort,
             status=CodexThreadStatus(row.status),
             active_turn_id=row.active_turn_id,
+            turn_runtime=turn_runtime,
             archived=row.archived,
             is_pinned=row.is_pinned,
             source_kind=row.source_kind,

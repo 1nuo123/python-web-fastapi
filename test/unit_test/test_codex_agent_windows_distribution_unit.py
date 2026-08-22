@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import subprocess
 import tomllib
@@ -37,9 +38,11 @@ from src.infrastructure.artifact_release.signed_activation import (
 from src.infrastructure.codex_agent.agent_configuration import (
     AgentBootstrapConnectionSettings,
     AgentBootstrapSettings,
+    AgentDevelopmentBootstrapConnectionSettings,
     AgentLocalBootstrapConnectionSettings,
     AgentReleaseBootstrapSettings,
 )
+from src.infrastructure.codex_agent.agent_deployment_profile import AgentDeploymentProfile
 from src.infrastructure.codex_agent.agent_executable_selector import (
     AgentExecutableSelector,
     WindowsAgentFileVersionReader,
@@ -150,6 +153,46 @@ class TestAgentStableLauncherUnit:
             "run",
         ]
 
+    def test_run_launcher_when_development_should_forward_profile(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        import src.cli.run_codex_host_agent as cli_module
+
+        forwarded_arguments: list[str] = []
+        cli = CodexHostAgentCli()
+
+        async def select_installed(
+            _self: AgentExecutableSelector,
+            **_kwargs: object,
+        ) -> Path:
+            return Path(cli_module.sys.executable)
+
+        monkeypatch.setattr(
+            cli_module.AgentBootstrapSettingsLoader,
+            "load",
+            lambda _self, _path: _development_bootstrap(),
+        )
+        monkeypatch.setattr(cli_module.AgentExecutableSelector, "select", select_installed)
+
+        def execute_forwarded(arguments: list[str]) -> int:
+            forwarded_arguments.extend(arguments)
+            return TEST_LAUNCH_RETURN_CODE
+
+        monkeypatch.setattr(cli, "execute", execute_forwarded)
+
+        result = cli.run_launcher(
+            config_path=tmp_path / "Development" / "agent.toml",
+            bootstrap_path=tmp_path / "agent-bootstrap.toml",
+            launch_command="run",
+            uri=None,
+            deployment_profile=AgentDeploymentProfile.DEVELOPMENT,
+        )
+
+        assert result == TEST_LAUNCH_RETURN_CODE
+        assert forwarded_arguments[:2] == ["--deployment-profile", "development"]
+
     def test_active_agent_should_wait_without_lifecycle_timeout(
         self,
         tmp_path: Path,
@@ -240,6 +283,18 @@ def _local_bootstrap() -> AgentBootstrapSettings:
     return AgentBootstrapSettings(
         deployment_state="local",
         connection=AgentLocalBootstrapConnectionSettings.from_local_origin("http://localhost:8080"),
+        agent_version="0.1.1",
+        expected_codex_version="0.145.0",
+        app_server_schema_digest=SCHEMA_DIGEST,
+    )
+
+
+def _development_bootstrap() -> AgentBootstrapSettings:
+    return AgentBootstrapSettings(
+        deployment_state="development",
+        connection=AgentDevelopmentBootstrapConnectionSettings.from_development_origin(
+            "https://codex-dev.lan"
+        ),
         agent_version="0.1.1",
         expected_codex_version="0.145.0",
         app_server_schema_digest=SCHEMA_DIGEST,
@@ -382,6 +437,57 @@ def test_bootstrap_builder_should_derive_loopback_endpoints_for_local_acceptance
     assert isinstance(bootstrap.connection, AgentLocalBootstrapConnectionSettings)
 
 
+def test_bootstrap_builder_should_derive_development_tls_endpoints(tmp_path: Path) -> None:
+    output = tmp_path / "agent-bootstrap.toml"
+
+    CodexAgentBootstrapBuilder().build(
+        AgentBootstrapBuildCommand(
+            output=output,
+            deployment_state="development",
+            development_origin="https://codex-dev.lan/",
+            agent_version="0.1.1",
+            expected_codex_version="0.145.0",
+            app_server_schema_digest=SCHEMA_DIGEST,
+        )
+    )
+
+    payload = tomllib.loads(output.read_text("utf-8"))
+    assert payload["deployment_state"] == "development"
+    assert payload["connection"] == {
+        "api_url": "https://codex-dev.lan",
+        "websocket_url": "wss://codex-dev.lan/internal/codex-agents/connect",
+        "verification_url": "https://codex-dev.lan/codex/verify-device",
+        "website_url": "https://codex-dev.lan",
+    }
+    assert "release" not in payload
+    bootstrap = AgentBootstrapSettings.model_validate(payload)
+    assert isinstance(bootstrap.connection, AgentDevelopmentBootstrapConnectionSettings)
+    bootstrap.validate_deployment_profile(AgentDeploymentProfile.DEVELOPMENT)
+
+
+@pytest.mark.parametrize(
+    "field_name,value",
+    [
+        ("api_url", "http://codex-dev.lan"),
+        ("api_url", "https://localhost"),
+        ("api_url", "https://127.0.0.1"),
+        ("api_url", "https://agent.acme.dev"),
+        ("websocket_url", "ws://codex-dev.lan/internal/codex-agents/connect"),
+    ],
+)
+def test_development_bootstrap_connection_should_only_allow_lan_tls(
+    field_name: str,
+    value: str,
+) -> None:
+    connection = _development_bootstrap().connection
+    assert isinstance(connection, AgentDevelopmentBootstrapConnectionSettings)
+    payload = connection.model_dump(mode="json")
+    payload[field_name] = value
+
+    with pytest.raises(ValidationError):
+        AgentDevelopmentBootstrapConnectionSettings.model_validate(payload)
+
+
 @pytest.mark.parametrize(
     "field_name,value",
     [
@@ -456,7 +562,9 @@ def test_local_bootstrap_connection_when_not_exact_loopback_should_reject(
     field_name: str,
     value: str,
 ) -> None:
-    payload = _local_bootstrap().connection.model_dump(mode="json")
+    connection = _local_bootstrap().connection
+    assert isinstance(connection, AgentLocalBootstrapConnectionSettings)
+    payload = connection.model_dump(mode="json")
     payload[field_name] = value
 
     with pytest.raises(ValidationError):
@@ -485,7 +593,9 @@ def test_local_bootstrap_connection_when_origin_or_path_mismatches_should_reject
     value: str,
     error_pattern: str,
 ) -> None:
-    payload = _local_bootstrap().connection.model_dump(mode="json")
+    connection = _local_bootstrap().connection
+    assert isinstance(connection, AgentLocalBootstrapConnectionSettings)
+    payload = connection.model_dump(mode="json")
     payload[field_name] = value
 
     with pytest.raises(ValidationError, match=error_pattern):
@@ -544,6 +654,22 @@ def test_bootstrap_when_configured_contains_local_connection_should_reject() -> 
             expected_codex_version="0.145.0",
             app_server_schema_digest=SCHEMA_DIGEST,
         )
+
+
+def test_bootstrap_when_development_contains_public_connection_should_reject() -> None:
+    with pytest.raises(ValidationError, match="开发TLS入口"):
+        AgentBootstrapSettings(
+            deployment_state="development",
+            connection=_configured_bootstrap().connection,
+            agent_version="0.1.1",
+            expected_codex_version="0.145.0",
+            app_server_schema_digest=SCHEMA_DIGEST,
+        )
+
+
+def test_development_bootstrap_when_production_profile_should_reject() -> None:
+    with pytest.raises(ValueError, match="development profile"):
+        _development_bootstrap().validate_deployment_profile(AgentDeploymentProfile.PRODUCTION)
 
 
 def test_bootstrap_builder_when_local_release_enabled_should_reject(tmp_path: Path) -> None:
@@ -668,6 +794,34 @@ def test_installer_identity_when_same_version_should_be_deterministic(tmp_path: 
     assert first.product_code == second.product_code
     assert first.product_code != upgrade.product_code
     assert first.upgrade_code == upgrade.upgrade_code
+    assert first.deployment_profile is AgentDeploymentProfile.PRODUCTION
+
+
+def test_development_installer_identity_should_not_collide_with_production(
+    tmp_path: Path,
+) -> None:
+    """Development MSI 必须是独立升级族，不能接管生产安装。"""
+
+    builder = CodexAgentWindowsInstallerIdentityBuilder()
+    production = builder.build(
+        WindowsInstallerIdentityBuildCommand(
+            version="0.1.2",
+            output=tmp_path / "production.json",
+        )
+    )
+    development = builder.build(
+        WindowsInstallerIdentityBuildCommand(
+            version="0.1.2",
+            output=tmp_path / "development.json",
+            deployment_profile=AgentDeploymentProfile.DEVELOPMENT,
+        )
+    )
+
+    assert development.product_code != production.product_code
+    assert development.upgrade_code != production.upgrade_code
+    assert development.deployment_profile is AgentDeploymentProfile.DEVELOPMENT
+    serialized_identity = json.loads((tmp_path / "development.json").read_text("utf-8"))
+    assert serialized_identity["deployment_profile"] == "development"
 
 
 def test_windows_version_info_should_match_release_version(tmp_path: Path) -> None:
@@ -683,8 +837,20 @@ def test_windows_version_info_should_match_release_version(tmp_path: Path) -> No
     assert "ProductVersion', '0.1.2.0'" in content
 
 
-def test_task_name_when_current_user_should_include_stable_sid(
+@pytest.mark.parametrize(
+    ("deployment_profile", "expected_task_name"),
+    [
+        (AgentDeploymentProfile.PRODUCTION, f"CodexRemoteAgent-{CURRENT_USER_SID}"),
+        (
+            AgentDeploymentProfile.DEVELOPMENT,
+            f"CodexRemoteAgent-Development-{CURRENT_USER_SID}",
+        ),
+    ],
+)
+def test_task_name_when_current_user_should_include_profile_and_stable_sid(
     monkeypatch: pytest.MonkeyPatch,
+    deployment_profile: AgentDeploymentProfile,
+    expected_task_name: str,
 ) -> None:
     completed = subprocess.CompletedProcess(
         args=[],
@@ -695,8 +861,10 @@ def test_task_name_when_current_user_should_include_stable_sid(
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: completed)
 
     assert (
-        WindowsAgentTaskIdentityResolver().resolve_current_user_task_name()
-        == f"CodexRemoteAgent-{CURRENT_USER_SID}"
+        WindowsAgentTaskIdentityResolver(
+            deployment_profile=deployment_profile
+        ).resolve_current_user_task_name()
+        == expected_task_name
     )
 
 
@@ -768,6 +936,43 @@ def test_run_uri_when_package_unconfigured_should_fail_before_enrollment(
             bootstrap_path=tmp_path / "bootstrap.toml",
             uri=ENROLLMENT_URI,
         )
+
+
+def test_run_uri_when_development_bootstrap_should_use_packaged_ca(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import src.cli.run_codex_host_agent as cli_module
+
+    cli = CodexHostAgentCli()
+    bootstrap_path = tmp_path / "agent-bootstrap.toml"
+    development_ca_path = tmp_path / cli_module.AGENT_DEVELOPMENT_CA_CERTIFICATE_FILE_NAME
+    development_ca_path.write_text("development-ca", encoding="utf-8")
+    captured_arguments: dict[str, object] = {}
+    development_uri = "codexremote-dev://enroll?token=" + "d" * 48
+
+    monkeypatch.setattr(
+        cli_module.AgentBootstrapSettingsLoader,
+        "load",
+        lambda _self, _path: _development_bootstrap(),
+    )
+
+    async def run_setup(**kwargs: object) -> int:
+        captured_arguments.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(cli, "run_setup", run_setup)
+    monkeypatch.setattr(cli, "_start_scheduled_agent", lambda *_args, **_kwargs: None)
+
+    result = cli.run_uri(
+        config_path=tmp_path / "Development" / "agent.toml",
+        bootstrap_path=bootstrap_path,
+        uri=development_uri,
+        deployment_profile=AgentDeploymentProfile.DEVELOPMENT,
+    )
+
+    assert result == 0
+    assert captured_arguments["development_ca_certificate_path"] == development_ca_path.resolve()
 
 
 def test_interactive_error_when_http_failure_should_not_expose_request_url() -> None:

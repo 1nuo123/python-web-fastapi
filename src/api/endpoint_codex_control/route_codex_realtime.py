@@ -3,20 +3,27 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from datetime import UTC, datetime
 from enum import StrEnum
 from http import HTTPStatus
+from time import monotonic
 from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Security, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import JsonValue
+from pydantic import BaseModel, JsonValue
 from starlette.websockets import WebSocketState
 
 from src.api.dependency_context_accessor import DependencyContextAccessor
+from src.core.codex_contract.realtime_batch_contract import (
+    CodexRealtimeBatch,
+    is_codex_realtime_batch_barrier,
+)
 from src.core.codex_contract.realtime_event_contract import (
     CODEX_REALTIME_OPERATION_NAME,
+    CODEX_REALTIME_STREAM_EPOCH,
     CodexRealtimeEvent,
     CodexRealtimeEventType,
     CodexRealtimeTicket,
@@ -40,6 +47,17 @@ from src.infrastructure.streaming.stream_session_registry import StreamSessionId
 CODEX_REALTIME_BEARER_SCHEME = HTTPBearer(auto_error=False)
 CODEX_REALTIME_REJECTED_CLOSE_CODE = 4403
 CODEX_REALTIME_ZERO_HOST_ID = UUID(int=0)
+CODEX_REALTIME_BATCH_MAX_EVENTS = 64
+CODEX_REALTIME_BATCH_MAX_BYTES = 64 * 1024
+
+
+def is_codex_realtime_batch_negotiated(
+    requested_batch_version: int,
+    batch_feature_enabled: bool,
+) -> bool:
+    """仅在浏览器显式请求且服务端发布开关开启时协商 v2 批次。"""
+
+    return requested_batch_version == 2 and batch_feature_enabled
 
 
 class CodexBrowserRealtimeSessionState(StrEnum):
@@ -59,10 +77,14 @@ class CodexBrowserRealtimeSession:
         websocket: WebSocket,
         subscription: CodexBrowserSubscription,
         runtime: CodexControlRuntime,
+        batch_enabled: bool = False,
     ) -> None:
         self._websocket = websocket
         self._subscription = subscription
         self._runtime = runtime
+        self._batch_enabled = batch_enabled
+        self._legacy_pending_events: deque[CodexRealtimeEvent] = deque()
+        self._pending_event: CodexRealtimeEvent | None = None
         self._state = CodexBrowserRealtimeSessionState.OPEN
         self._state_lock = asyncio.Lock()
         self._stop_event = asyncio.Event()
@@ -102,6 +124,16 @@ class CodexBrowserRealtimeSession:
     async def send_event(self, event: CodexRealtimeEvent) -> bool:
         """只在连接仍开放时由唯一写锁发送事件。"""
 
+        return await self._send_payload(event)
+
+    async def send_batch(self, batch: CodexRealtimeBatch) -> bool:
+        """只在已协商的 v2 路径发送一次有序批次。"""
+
+        return await self._send_payload(batch)
+
+    async def _send_payload(self, payload: BaseModel) -> bool:
+        """单写者发送 Pydantic 契约，避免并发 WebSocket 写入乱序。"""
+
         async with self._state_lock:
             if self._state is not CodexBrowserRealtimeSessionState.OPEN:
                 return False
@@ -110,7 +142,7 @@ class CodexBrowserRealtimeSession:
                 self._stop_event.set()
                 return False
             try:
-                await self._websocket.send_text(event.model_dump_json())
+                await self._websocket.send_text(payload.model_dump_json())
             except (WebSocketDisconnect, RuntimeError):
                 if not self._is_disconnected():
                     raise
@@ -129,21 +161,74 @@ class CodexBrowserRealtimeSession:
             self._stop_event.set()
 
     async def _send_events(self) -> None:
-        heartbeat_seconds = self._runtime.settings.agent_heartbeat_seconds
         while not self._stop_event.is_set():
+            if self._batch_enabled:
+                batch = await self._next_batch()
+                if not await self.send_batch(batch):
+                    return
+                continue
+            batch = await self._next_batch()
+            for event in batch.events:
+                if not await self.send_event(event):
+                    return
+
+    async def _next_batch(self) -> CodexRealtimeBatch:
+        """读取 hub 已切分的批次；空闲时生成无正文的连接心跳。"""
+
+        try:
+            return await asyncio.wait_for(
+                self._subscription.take_batch(),
+                timeout=self._runtime.settings.agent_heartbeat_seconds,
+            )
+        except TimeoutError:
+            event = self._subscription.build_local_event(
+                event_type=CodexRealtimeEventType.CONNECTION_HEARTBEAT,
+                host_id=CODEX_REALTIME_ZERO_HOST_ID,
+                payload={"server_time": datetime.now(UTC).isoformat()},
+            )
+            return self._subscription.build_batch((event,), barrier=False)
+
+    async def _next_event(self) -> CodexRealtimeEvent:
+        """兼容旧单事件调用方，从 hub 批次中逐事件读取。"""
+
+        if self._pending_event is not None:
+            event = self._pending_event
+            self._pending_event = None
+            return event
+        if self._legacy_pending_events:
+            return self._legacy_pending_events.popleft()
+        batch = await self._next_batch()
+        self._legacy_pending_events.extend(batch.events[1:])
+        return batch.events[0]
+
+    async def _collect_batch(self, first_event: CodexRealtimeEvent) -> CodexRealtimeBatch:
+        """兼容旧调用方的 40ms 合帧入口；生产发送直接消费 hub 已切分批次。"""
+
+        events = [first_event]
+        if is_codex_realtime_batch_barrier(first_event.header.detail_kind):
+            return self._subscription.build_batch(tuple(events), barrier=True)
+        started_at = monotonic()
+        total_bytes = len(first_event.model_dump_json().encode("utf-8"))
+        while len(events) < CODEX_REALTIME_BATCH_MAX_EVENTS:
+            remaining = 0.04 - (monotonic() - started_at)
+            if remaining <= 0:
+                break
             try:
-                event = await asyncio.wait_for(
-                    self._subscription.queue.get(),
-                    timeout=heartbeat_seconds,
-                )
+                candidate = await asyncio.wait_for(self._next_event(), timeout=remaining)
             except TimeoutError:
-                event = self._subscription.build_local_event(
-                    event_type=CodexRealtimeEventType.CONNECTION_HEARTBEAT,
-                    host_id=CODEX_REALTIME_ZERO_HOST_ID,
-                    payload={"server_time": datetime.now(UTC).isoformat()},
-                )
-            if not await self.send_event(event):
-                return
+                break
+            candidate_bytes = len(candidate.model_dump_json().encode("utf-8"))
+            if (
+                is_codex_realtime_batch_barrier(candidate.header.detail_kind)
+                or candidate.header.stream_epoch != first_event.header.stream_epoch
+                or (candidate.header.cursor is None) != (first_event.header.cursor is None)
+                or total_bytes + candidate_bytes > CODEX_REALTIME_BATCH_MAX_BYTES
+            ):
+                self._pending_event = candidate
+                break
+            events.append(candidate)
+            total_bytes += candidate_bytes
+        return self._subscription.build_batch(tuple(events), barrier=False)
 
     async def _wait_for_disconnect(self) -> None:
         try:
@@ -222,6 +307,8 @@ class CodexRealtimeRouteCatalog:
         websocket: WebSocket,
         ticket: str = Query(min_length=32, max_length=512),
         cursor: str | None = Query(default=None, max_length=512),
+        stream_epoch: str | None = Query(default=None, max_length=128),
+        batch_version: int = Query(default=1, ge=1, le=2),
     ) -> None:
         """消费票据后建立主体固定、epoch 独立的长期连接。"""
 
@@ -260,13 +347,18 @@ class CodexRealtimeRouteCatalog:
             websocket=websocket,
             subscription=subscription,
             runtime=runtime,
+            batch_enabled=is_codex_realtime_batch_negotiated(
+                batch_version,
+                runtime.settings.codex_realtime_batch_v2,
+            ),
         )
         try:
+            replay_cursor = cursor if stream_epoch in {None, CODEX_REALTIME_STREAM_EPOCH} else None
             replayed = await self._replay_cursor_events(
                 session=session,
                 subscription=subscription,
                 runtime=runtime,
-                cursor=cursor,
+                cursor=replay_cursor,
             )
             if not replayed:
                 await self._enqueue_initial_events(websocket, subscription, runtime)

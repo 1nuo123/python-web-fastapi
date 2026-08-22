@@ -40,6 +40,10 @@ from src.infrastructure.codex_agent.agent_configuration import (
     AgentWorkspaceSettings,
     CodexHostAgentSettings,
 )
+from src.infrastructure.codex_agent.agent_deployment_profile import (
+    AgentDeploymentProfile,
+    resolve_agent_deployment_paths,
+)
 from src.infrastructure.codex_agent.windows_dpapi_device_key_store import (
     WindowsCurrentUserAclEnforcer,
 )
@@ -141,7 +145,10 @@ class CodexAgentSetupUsecase:
         expected_codex_version: str,
         agent_version: str,
         schema_digest: str,
+        codex_binary: str = "codex",
         workspace: AgentWorkspaceSettings | None,
+        deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
+        development_ca_certificate_path: Path | None = None,
         enrollment_intent_token: str | None = None,
         default_workspace_key: str = "default",
         default_workspace_name: str = "默认工作区",
@@ -201,9 +208,14 @@ class CodexAgentSetupUsecase:
                     host_id=status.host_id,
                     key_id=key_id,
                     display_name=display_name,
+                    deployment_profile=deployment_profile,
                     control_plane_url=websocket_url,
                     control_plane_api_url=api_url,
-                    state_database=config_path.parent / "state.sqlite",
+                    development_ca_certificate_path=development_ca_certificate_path,
+                    codex_binary=codex_binary,
+                    state_database=resolve_agent_deployment_paths(
+                        deployment_profile
+                    ).state_database,
                 ),
                 protocol=AgentProtocolSettings(
                     agent_schema_version=CodexConnectionProtocolVersion.V2,

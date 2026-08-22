@@ -1,0 +1,12 @@
+{
+  "default_flags": {
+    "codex_scroll_controller_v2": false,
+    "codex_realtime_batch_v2": false,
+    "codex_authority_recovery_v2": false
+  },
+  "server_approved_flags": {
+    "codex_scroll_controller_v2": true,
+    "codex_realtime_batch_v2": false,
+    "codex_authority_recovery_v2": true
+  }
+}

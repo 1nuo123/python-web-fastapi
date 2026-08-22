@@ -7,11 +7,14 @@ from http import HTTPStatus
 from fastapi.testclient import TestClient
 
 from src.api.testing.test_app_factory import TestAppFactory
+from src.core.codex_contract.enrollment_intent_contract import (
+    CODEX_ENROLLMENT_LAUNCH_URI_PATTERN,
+)
 
 OPENAPI_PATH = "/openapi.json"
 ENROLLMENT_ISSUED_SCHEMA_NAME = "CodexEnrollmentIntentIssuedDetail"
 LAUNCH_URI_FIELD = "launch_uri"
-EXPECTED_LAUNCH_URI_PATTERN = r"^codexremote://enroll\?token="
+EXPECTED_LAUNCH_URI_PATTERN = CODEX_ENROLLMENT_LAUNCH_URI_PATTERN
 REQUIRED_CODEX_PATHS = frozenset(
     {
         "/admin/codex/hosts",

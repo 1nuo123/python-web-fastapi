@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
-import random
+import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -86,6 +86,7 @@ from src.core.codex_contract.app_server_schema_manifest_contract import (
 )
 from src.core.codex_contract.approval_contract import (
     CodexApprovalCommandAction,
+    CodexApprovalDecision,
     CodexApprovalFileChange,
     CodexApprovalKind,
     CodexApprovalRiskLevel,
@@ -114,7 +115,10 @@ from src.infrastructure.codex.codex_connection_session import (
 )
 from src.infrastructure.codex_agent.agent_command_executor import AgentCommandExecutor
 from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJournal
-from src.infrastructure.codex_agent.agent_configuration import CodexHostAgentSettings
+from src.infrastructure.codex_agent.agent_configuration import (
+    CodexHostAgentSettings,
+    build_agent_tls_context,
+)
 from src.infrastructure.codex_agent.agent_event_batcher import AgentEventBatcher
 from src.infrastructure.codex_agent.agent_event_replay_buffer import (
     AgentBufferedEvent,
@@ -126,6 +130,9 @@ from src.infrastructure.codex_agent.agent_snapshot_builder import AgentSnapshotB
 from src.infrastructure.codex_agent.agent_thread_history_capacity_registry import (
     AgentThreadHistoryCapacityRegistry,
 )
+from src.infrastructure.codex_agent.agent_thread_history_window_cache import (
+    AgentThreadHistoryWindowCache,
+)
 from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspaceRegistry
 from src.infrastructure.codex_agent.app_server_process_supervisor import (
     AppServerProcessHandle,
@@ -133,6 +140,8 @@ from src.infrastructure.codex_agent.app_server_process_supervisor import (
 )
 from src.infrastructure.codex_agent.app_server_protocol_adapter import AppServerProtocolAdapter
 from src.infrastructure.worktree.git_worktree_adapter import GitWorktreeAdapter
+
+_SYSTEM_RANDOM = secrets.SystemRandom()
 
 INTERNAL_PROTOCOL_WARNING_METHOD = "internal/protocol.warning"
 UNRESOLVED_WORKSPACE_KEY = "unresolved"
@@ -255,6 +264,8 @@ class PendingAgentApproval:
     display: AgentApprovalDisplaySummary
     expires_at: datetime
     requested_permissions: JsonValue | None = None
+    proposed_execpolicy_amendment: tuple[str, ...] = ()
+    proposed_network_policy_amendments: tuple[dict[str, JsonValue], ...] = ()
 
 
 class AgentControlChannel:
@@ -271,6 +282,10 @@ class AgentControlChannel:
         logger: logging.Logger,
     ) -> None:
         self._settings = settings
+        self._tls_context = build_agent_tls_context(
+            deployment_profile=settings.agent.deployment_profile,
+            development_ca_certificate_path=settings.agent.development_ca_certificate_path,
+        )
         self._secret_store = secret_store
         self._connection_ticket_provider = connection_ticket_provider
         self._workspace_registry = workspace_registry
@@ -297,6 +312,7 @@ class AgentControlChannel:
         self._history_capacity_registry = AgentThreadHistoryCapacityRegistry(
             max_source_bytes=settings.agent.max_app_server_line_bytes
         )
+        self._history_window_cache = AgentThreadHistoryWindowCache()
         self._app_server_protocol_adapter = AppServerProtocolAdapter()
         self._supervisor = AppServerProcessSupervisor(
             codex_binary=settings.agent.codex_binary,
@@ -319,6 +335,8 @@ class AgentControlChannel:
             while not self._shutdown_event.is_set():
                 try:
                     if handle.process.returncode is not None or not handle.client.running:
+                        # 新 App Server 代次不继承旧进程的实时事件序列，必须丢弃正文窗口。
+                        self._history_window_cache.clear()
                         handle = await self._supervisor.restart()
                     await self._run_connection(handle, legacy_token)
                     delay = self._settings.agent.reconnect_min_seconds
@@ -349,7 +367,7 @@ class AgentControlChannel:
                         )
                         wait_seconds = max(
                             AGENT_RETRY_MIN_WAIT_SECONDS,
-                            delay + random.uniform(-jitter, jitter),
+                            delay + _SYSTEM_RANDOM.uniform(-jitter, jitter),
                             retry_after_seconds,
                         )
                         await asyncio.wait_for(
@@ -371,6 +389,7 @@ class AgentControlChannel:
                 return_exceptions=True,
             )
             self._metadata_refresh_tasks.clear()
+            self._history_window_cache.clear()
             await self._supervisor.stop()
 
     def request_shutdown(self) -> None:
@@ -398,6 +417,7 @@ class AgentControlChannel:
             additional_headers=headers,
             max_size=self._settings.agent.max_app_server_line_bytes,
             ping_interval=None,
+            ssl=self._tls_context,
         ) as connection:
             session = CodexDuplexConnectionSession(
                 transport=AgentWebSocketTransport(connection),
@@ -556,6 +576,7 @@ class AgentControlChannel:
             ),
             approval_reply_handler=self._reply_approval,
             history_capacity_registry=self._history_capacity_registry,
+            history_window_cache=self._history_window_cache,
             worktree_port=self._worktree_port,
             execution_root_store=self._execution_root_store,
             workspace_registry=self._workspace_registry,
@@ -686,6 +707,8 @@ class AgentControlChannel:
 
     async def _accept_app_server_notification(self, method: str, params: JsonValue) -> None:
         adapted = self._app_server_protocol_adapter.adapt_notification(method=method, params=params)
+        if adapted.notification is not None:
+            self._invalidate_history_window_for_notification(adapted.notification.detail)
         if self._protocol_version == CodexConnectionProtocolVersion.V2:
             if adapted.notification is None:
                 detail: AgentEventDetail = AgentProtocolWarningEventDetail(
@@ -727,6 +750,30 @@ class AgentControlChannel:
             product_notification=product_notification,
         )
         await self._send_or_buffer(self._build_model_frame("realtime.event", event))
+
+    def _invalidate_history_window_for_notification(
+        self,
+        detail: AppServerProductNotificationDetail,
+    ) -> None:
+        """上游线程变更到达时删除完整历史缓存，避免流式增量被旧窗口覆盖。"""
+
+        if isinstance(detail, AppServerThreadChangedDetail):
+            thread_id = detail.thread.thread_id
+        elif isinstance(
+            detail,
+            (
+                AppServerThreadMetadataChangedDetail,
+                AppServerTurnChangedDetail,
+                AppServerItemChangedDetail,
+                AppServerItemDeltaDetail,
+                AppServerPlanChangedDetail,
+                AppServerDiffChangedDetail,
+            ),
+        ):
+            thread_id = detail.thread_id
+        else:
+            return
+        self._history_window_cache.invalidate_thread(thread_id)
 
     def _schedule_metadata_refresh(self, thread_id: str) -> None:
         """按会话合并 turn 完成后的权威元数据刷新。"""
@@ -817,6 +864,8 @@ class AgentControlChannel:
             risk_level=risk_level,
             reason=reason,
         )
+        proposed_execpolicy_amendment = self._read_execpolicy_amendment(mapping)
+        proposed_network_policy_amendments = self._read_network_policy_amendments(mapping)
         self._pending_approvals[approval_id] = PendingAgentApproval(
             request_id=request_id,
             approval_id=approval_id,
@@ -832,6 +881,8 @@ class AgentControlChannel:
             requested_permissions=(
                 mapping.get("permissions") if approval_kind == "permissions" else None
             ),
+            proposed_execpolicy_amendment=proposed_execpolicy_amendment,
+            proposed_network_policy_amendments=proposed_network_policy_amendments,
         )
         approval = CodexAgentApprovalOpened(
             approval_id=approval_id,
@@ -904,6 +955,10 @@ class AgentControlChannel:
         network_requested = mapping.get("networkApprovalContext") is not None or (
             isinstance(permissions, Mapping) and permissions.get("network") is not None
         )
+        allowed_actions = self._allowed_approval_actions(
+            approval_kind=approval_kind,
+            mapping=mapping,
+        )
         risk_reason = (
             "network_access"
             if network_requested
@@ -935,7 +990,60 @@ class AgentControlChannel:
             network_requested=network_requested,
             extra_root_requested=grant_root is not None,
             risk_reason=risk_reason,
+            allowed_actions=allowed_actions,
         )
+
+    def _read_execpolicy_amendment(
+        self,
+        mapping: Mapping[str, JsonValue],
+    ) -> tuple[str, ...]:
+        """只保留官方 execpolicy proposal 的受限字符串列表。"""
+
+        value = mapping.get("proposedExecpolicyAmendment")
+        if not isinstance(value, list):
+            return ()
+        return tuple(item[:1_024] for item in value[:64] if isinstance(item, str) and item)
+
+    def _read_network_policy_amendments(
+        self,
+        mapping: Mapping[str, JsonValue],
+    ) -> tuple[dict[str, JsonValue], ...]:
+        """只保留 schema 定义的单主机 allow/deny proposal。"""
+
+        value = mapping.get("proposedNetworkPolicyAmendments")
+        if not isinstance(value, list):
+            return ()
+        proposals: list[dict[str, JsonValue]] = []
+        for item in value[:16]:
+            if not isinstance(item, Mapping):
+                continue
+            action = item.get("action")
+            host = item.get("host")
+            if action not in {"allow", "deny"} or not isinstance(host, str) or not host:
+                continue
+            proposals.append({"action": action, "host": host[:256]})
+        return tuple(proposals)
+
+    def _allowed_approval_actions(
+        self,
+        *,
+        approval_kind: str,
+        mapping: Mapping[str, JsonValue],
+    ) -> tuple[CodexApprovalDecision, ...]:
+        """根据官方 request 中实际存在的 proposal 生成可见动作。"""
+
+        actions = [CodexApprovalDecision.ACCEPT, CodexApprovalDecision.ACCEPT_FOR_SESSION]
+        if approval_kind == "command":
+            if self._read_execpolicy_amendment(mapping):
+                actions.append(CodexApprovalDecision.ACCEPT_WITH_EXECPOLICY_AMENDMENT)
+            if len(self._read_network_policy_amendments(mapping)) == 1:
+                actions.append(CodexApprovalDecision.APPLY_NETWORK_POLICY_AMENDMENT)
+            actions.extend((CodexApprovalDecision.DECLINE, CodexApprovalDecision.CANCEL))
+        elif approval_kind == "file_change":
+            actions.extend((CodexApprovalDecision.DECLINE, CodexApprovalDecision.CANCEL))
+        else:
+            actions.append(CodexApprovalDecision.DECLINE)
+        return tuple(actions)
 
     def _build_command_actions(
         self,
@@ -1048,7 +1156,9 @@ class AgentControlChannel:
         decision = command.params.get("decision")
         if not isinstance(approval_value, str) or not isinstance(decision, str):
             raise ValueError("审批决定缺少approvalId或decision。")
-        if decision not in {"accept", "decline", "cancel"}:
+        try:
+            parsed_decision = CodexApprovalDecision(decision)
+        except ValueError:
             raise ValueError("审批决定不受支持。")
         approval_id = UUID(approval_value)
         pending = self._pending_approvals.get(approval_id)
@@ -1059,15 +1169,45 @@ class AgentControlChannel:
             raise ValueError("审批已经过期。")
         if pending.app_server_instance_id != self._supervisor.handle.instance_id:
             raise ValueError("审批所属App Server代次已经失效。")
+        if parsed_decision not in pending.display.allowed_actions:
+            raise ValueError("审批决定不在该官方请求的允许动作内。")
         response: dict[str, JsonValue]
         if pending.method == "item/permissions/requestApproval":
             response = {
-                "permissions": (pending.requested_permissions if decision == "accept" else {}),
-                "scope": "turn",
-                "strictAutoReview": True,
+                "permissions": (
+                    pending.requested_permissions
+                    if parsed_decision
+                    in {
+                        CodexApprovalDecision.ACCEPT,
+                        CodexApprovalDecision.ACCEPT_FOR_SESSION,
+                    }
+                    and isinstance(pending.requested_permissions, Mapping)
+                    else {}
+                ),
+                "scope": (
+                    "session"
+                    if parsed_decision is CodexApprovalDecision.ACCEPT_FOR_SESSION
+                    else "turn"
+                ),
+            }
+        elif parsed_decision is CodexApprovalDecision.ACCEPT_WITH_EXECPOLICY_AMENDMENT:
+            response = {
+                "decision": {
+                    "acceptWithExecpolicyAmendment": {
+                        "execpolicy_amendment": list(pending.proposed_execpolicy_amendment),
+                    }
+                }
+            }
+        elif parsed_decision is CodexApprovalDecision.APPLY_NETWORK_POLICY_AMENDMENT:
+            response = {
+                "decision": {
+                    "applyNetworkPolicyAmendment": {
+                        "network_policy_amendment": pending.proposed_network_policy_amendments[0],
+                    }
+                }
             }
         else:
-            response = {"decision": decision}
+            response = {"decision": parsed_decision.value}
         await self._supervisor.handle.client.reply(pending.request_id, response)
         self._pending_approvals.pop(approval_id, None)
         return {"approvalId": approval_value, "state": "applied"}
@@ -1279,7 +1419,7 @@ class AgentControlChannel:
 
         return AgentEventBatcher(
             window=timedelta(milliseconds=self._settings.agent.event_batch_window_milliseconds),
-            max_chars=self._settings.agent.event_batch_max_chars,
+            max_bytes=self._settings.agent.event_batch_max_bytes,
         )
 
     async def _send_v2_batch(self, batch: AgentEventBatchV2Detail) -> None:

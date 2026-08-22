@@ -11,6 +11,11 @@ from enum import StrEnum
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Gauge, Histogram
 from prometheus_client.exposition import generate_latest
 
+from src.core.codex_contract.client_diagnostic_contract import CodexClientDiagnosticSource
+from src.core.codex_contract.client_performance_contract import (
+    CodexClientPerformanceMetric,
+    CodexClientPerformanceObservation,
+)
 from src.core.logging_contract.log_writer_contract import LogWriteReason
 from src.core.security_contract.security_event_contract import (
     SecurityEventDecision,
@@ -49,6 +54,12 @@ STREAM_QUEUE_SATURATION_NAME = "fastapi_stream_queue_saturation_ratio"
 STREAM_QUEUE_SATURATION_DESCRIPTION = "流式会话队列饱和度"
 STREAM_RESUME_TOTAL_NAME = "fastapi_stream_resume_total"
 STREAM_RESUME_TOTAL_DESCRIPTION = "流式有限恢复结果总数"
+CODEX_CLIENT_DIAGNOSTIC_TOTAL_NAME = "fastapi_codex_client_diagnostic_total"
+CODEX_CLIENT_DIAGNOSTIC_TOTAL_DESCRIPTION = "Codex 客户端诊断处理结果总数"
+CODEX_CLIENT_PERFORMANCE_SAMPLE_TOTAL_NAME = "fastapi_codex_client_performance_sample_total"
+CODEX_CLIENT_PERFORMANCE_SAMPLE_TOTAL_DESCRIPTION = "Codex 客户端性能样本总数"
+CODEX_CLIENT_PERFORMANCE_VALUE_NAME = "fastapi_codex_client_performance_value"
+CODEX_CLIENT_PERFORMANCE_VALUE_DESCRIPTION = "Codex 客户端最新性能样本值"
 REQUEST_METHOD_LABEL = "method"
 REQUEST_PATH_LABEL = "path"
 REQUEST_STATUS_CODE_LABEL = "status_code"
@@ -64,6 +75,11 @@ STREAM_TRANSPORT_LABEL = "transport"
 STREAM_OUTCOME_LABEL = "outcome"
 STREAM_REASON_LABEL = "reason"
 STREAM_EVENT_KIND_LABEL = "event_kind"
+CODEX_CLIENT_DIAGNOSTIC_SOURCE_LABEL = "source"
+CODEX_CLIENT_DIAGNOSTIC_ERROR_CODE_LABEL = "error_code"
+CODEX_CLIENT_DIAGNOSTIC_OUTCOME_LABEL = "outcome"
+CODEX_CLIENT_PERFORMANCE_METRIC_LABEL = "metric"
+CODEX_CLIENT_PERFORMANCE_OBSERVATION_LABEL = "observation"
 READY_TRUE_VALUE = 1.0
 READY_FALSE_VALUE = 0.0
 BOOLEAN_LABEL_TRUE = "true"
@@ -135,6 +151,13 @@ class StreamMetricEventKind(StrEnum):
             return cls(event_kind)
         except ValueError:
             return cls.BUSINESS
+
+
+class CodexClientDiagnosticMetricOutcome(StrEnum):
+    """客户端诊断在服务端的处理结果，标签值保持低基数。"""
+
+    RECORDED = "recorded"
+    RATE_LIMITED = "rate_limited"
 
 
 @dataclass(frozen=True, slots=True)
@@ -284,6 +307,24 @@ class StreamResumeMetric:
 
 
 @dataclass(frozen=True, slots=True)
+class CodexClientDiagnosticMetric:
+    """服务端二次脱敏后的 Codex 客户端诊断计数输入。"""
+
+    source: CodexClientDiagnosticSource
+    error_code: str
+    outcome: CodexClientDiagnosticMetricOutcome
+
+
+@dataclass(frozen=True, slots=True)
+class CodexClientPerformanceMetricSample:
+    """服务端已按封闭词表校验的客户端性能指标输入。"""
+
+    metric: CodexClientPerformanceMetric
+    observation: CodexClientPerformanceObservation
+    value: float
+
+
+@dataclass(frozen=True, slots=True)
 class PrometheusMetricsRegistryOptions:
     """
     Prometheus 指标注册器开关选项。
@@ -303,6 +344,7 @@ class PrometheusMetricsRegistryOptions:
     include_log_buffer_metrics: bool = True
     include_saturation_metrics: bool = True
     include_stream_metrics: bool = True
+    include_codex_diagnostic_metrics: bool = True
 
 
 class PrometheusMetricsRegistry:
@@ -476,6 +518,46 @@ class PrometheusMetricsRegistry:
             if resolved_options.include_stream_metrics
             else None
         )
+        self._codex_client_diagnostic_total: Counter | None = (
+            Counter(
+                CODEX_CLIENT_DIAGNOSTIC_TOTAL_NAME,
+                CODEX_CLIENT_DIAGNOSTIC_TOTAL_DESCRIPTION,
+                [
+                    CODEX_CLIENT_DIAGNOSTIC_SOURCE_LABEL,
+                    CODEX_CLIENT_DIAGNOSTIC_ERROR_CODE_LABEL,
+                    CODEX_CLIENT_DIAGNOSTIC_OUTCOME_LABEL,
+                ],
+                registry=self._collector_registry,
+            )
+            if resolved_options.include_codex_diagnostic_metrics
+            else None
+        )
+        self._codex_client_performance_sample_total: Counter | None = (
+            Counter(
+                CODEX_CLIENT_PERFORMANCE_SAMPLE_TOTAL_NAME,
+                CODEX_CLIENT_PERFORMANCE_SAMPLE_TOTAL_DESCRIPTION,
+                [
+                    CODEX_CLIENT_PERFORMANCE_METRIC_LABEL,
+                    CODEX_CLIENT_PERFORMANCE_OBSERVATION_LABEL,
+                ],
+                registry=self._collector_registry,
+            )
+            if resolved_options.include_codex_diagnostic_metrics
+            else None
+        )
+        self._codex_client_performance_value: Gauge | None = (
+            Gauge(
+                CODEX_CLIENT_PERFORMANCE_VALUE_NAME,
+                CODEX_CLIENT_PERFORMANCE_VALUE_DESCRIPTION,
+                [
+                    CODEX_CLIENT_PERFORMANCE_METRIC_LABEL,
+                    CODEX_CLIENT_PERFORMANCE_OBSERVATION_LABEL,
+                ],
+                registry=self._collector_registry,
+            )
+            if resolved_options.include_codex_diagnostic_metrics
+            else None
+        )
 
     def record_http_request(self, metric: HttpRequestMetric) -> None:
         """
@@ -634,6 +716,35 @@ class PrometheusMetricsRegistry:
             transport=metric.transport.value,
             outcome=metric.outcome.value,
         ).inc()
+
+    def record_codex_client_diagnostic(self, metric: CodexClientDiagnosticMetric) -> None:
+        """记录已被服务端白名单收敛的客户端诊断结果。"""
+
+        if self._codex_client_diagnostic_total is None:
+            return
+        self._codex_client_diagnostic_total.labels(
+            source=metric.source.value,
+            error_code=metric.error_code,
+            outcome=metric.outcome.value,
+        ).inc()
+
+    def record_codex_client_performance(
+        self,
+        sample: CodexClientPerformanceMetricSample,
+    ) -> None:
+        """记录封闭性能样本的计数和最新值，禁止将用户输入作为标签。"""
+
+        if (
+            self._codex_client_performance_sample_total is None
+            or self._codex_client_performance_value is None
+        ):
+            return
+        labels = {
+            CODEX_CLIENT_PERFORMANCE_METRIC_LABEL: sample.metric.value,
+            CODEX_CLIENT_PERFORMANCE_OBSERVATION_LABEL: sample.observation.value,
+        }
+        self._codex_client_performance_sample_total.labels(**labels).inc()
+        self._codex_client_performance_value.labels(**labels).set(sample.value)
 
     def _normalize_path_label(self, path: str) -> str:
         """

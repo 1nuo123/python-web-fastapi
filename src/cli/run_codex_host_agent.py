@@ -6,10 +6,14 @@ import argparse
 import asyncio
 import logging
 import logging.handlers
+import os
 import platform
-import subprocess
+
+# 此处只引用 SubprocessError，进程启动由受限 launcher 负责。
+import subprocess  # nosec B404
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Final
 from urllib.parse import parse_qs, urlparse
@@ -36,11 +40,16 @@ from src.infrastructure.codex_agent.agent_configuration import (
     AgentWorkspaceSettings,
     CodexHostAgentSettings,
     CodexHostAgentSettingsLoader,
+    build_agent_tls_context,
 )
 from src.infrastructure.codex_agent.agent_connection_ticket_provider import (
     AgentConnectionTicketProvider,
 )
 from src.infrastructure.codex_agent.agent_control_channel import AgentControlChannel
+from src.infrastructure.codex_agent.agent_deployment_profile import (
+    AgentDeploymentProfile,
+    resolve_agent_deployment_paths,
+)
 from src.infrastructure.codex_agent.agent_doctor import AgentDoctor
 from src.infrastructure.codex_agent.agent_executable_selector import (
     AgentExecutableSelector,
@@ -88,11 +97,13 @@ AGENT_COMMAND_URI: Final[str] = "uri"
 AGENT_COMMAND_SETTINGS: Final[str] = "settings"
 AGENT_COMMAND_LAUNCH: Final[str] = "launch"
 AGENT_BOOTSTRAP_FILE_NAME: Final[str] = "agent-bootstrap.toml"
+AGENT_DEVELOPMENT_CA_CERTIFICATE_FILE_NAME: Final[str] = "codex-dev-root-ca.crt"
 CODEX_REMOTE_URI_SCHEME: Final[str] = "codexremote"
 CODEX_REMOTE_ENROLL_HOST: Final[str] = "enroll"
 CODEX_REMOTE_TOKEN_QUERY_KEY: Final[str] = "token"
 DEFAULT_AGENT_DISPLAY_NAME: Final[str] = "Windows 电脑"
 DEFAULT_AGENT_VERSION: Final[str] = "0.1.0"
+DEFAULT_CODEX_BINARY: Final[str] = "codex"
 AGENT_UPDATE_RESTART_EXIT_CODE: Final[int] = 75
 AGENT_HTTP_TIMEOUT_SECONDS = 30
 AGENT_HTTP_MAX_CONNECTIONS = 8
@@ -112,8 +123,13 @@ class CodexHostAgentCli:
         """构建带子命令的参数解析器。"""
 
         parser = argparse.ArgumentParser(description="运行 Windows Codex 远程控制 Agent")
-        parser.add_argument("--config", type=Path, default=DEFAULT_AGENT_CONFIG_PATH)
-        parser.add_argument("--bootstrap", type=Path, default=self._default_bootstrap_path())
+        parser.add_argument(
+            "--deployment-profile",
+            choices=[profile.value for profile in AgentDeploymentProfile],
+            default=AgentDeploymentProfile.PRODUCTION.value,
+        )
+        parser.add_argument("--config", type=Path)
+        parser.add_argument("--bootstrap", type=Path)
         subparsers = parser.add_subparsers(dest="command", required=False)
         subparsers.add_parser(AGENT_COMMAND_RUN, help="启动 Agent 主循环")
         subparsers.add_parser(AGENT_COMMAND_DOCTOR, help="执行脱敏诊断")
@@ -127,7 +143,9 @@ class CodexHostAgentCli:
         setup_parser.add_argument("--workspace-name", default="默认工作区")
         setup_parser.add_argument("--agent-version", default=DEFAULT_AGENT_VERSION)
         setup_parser.add_argument("--codex-version", required=True)
+        setup_parser.add_argument("--codex-binary", default=DEFAULT_CODEX_BINARY)
         setup_parser.add_argument("--schema-digest", required=True)
+        setup_parser.add_argument("--development-ca-certificate-path", type=Path)
         uri_parser = subparsers.add_parser(AGENT_COMMAND_URI, help="处理网站发起的设备连接")
         uri_parser.add_argument("uri")
         subparsers.add_parser(AGENT_COMMAND_SETTINGS, help="打开 Agent 设置窗口")
@@ -186,50 +204,59 @@ class CodexHostAgentCli:
             timeout=0,
             flags=portalocker.LockFlags.EXCLUSIVE | portalocker.LockFlags.NON_BLOCKING,
         ):
-            update_exit_code = await self._apply_startup_update(
-                settings=runtime_settings,
-                config_path=config_path,
-                bootstrap_path=bootstrap_path,
-                bootstrap=bootstrap,
-                agent_logger=agent_logger,
-            )
-            if update_exit_code is not None:
-                return update_exit_code
-            journal = AgentCommandJournal(runtime_settings.agent.state_database)
-            async_http_resource = SharedAsyncHttpClient(
-                AsyncHttpClientDetail(
-                    timeout_seconds=AGENT_HTTP_TIMEOUT_SECONDS,
-                    max_connections=AGENT_HTTP_MAX_CONNECTIONS,
-                    max_keepalive_connections=AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
+            with self._hold_runtime_profile_resources(
+                state_directory=runtime_settings.agent.state_database.parent
+            ):
+                update_exit_code = await self._apply_startup_update(
+                    settings=runtime_settings,
+                    config_path=config_path,
+                    bootstrap_path=bootstrap_path,
+                    bootstrap=bootstrap,
+                    agent_logger=agent_logger,
                 )
-            )
-            key_store = WindowsDpapiDeviceKeyStore(
-                root=runtime_settings.agent.state_database.parent / "keys"
-            )
-            channel = AgentControlChannel(
-                settings=runtime_settings,
-                secret_store=WindowsAgentSecretStore(),
-                connection_ticket_provider=(
-                    AgentConnectionTicketProvider(
-                        client=async_http_resource.get_client(),
-                        control_plane_api_url=runtime_settings.agent.control_plane_api_url,
-                        key_store=key_store,
-                    )
-                    if runtime_settings.protocol.agent_schema_version
-                    is CodexConnectionProtocolVersion.V2
-                    else None
-                ),
-                workspace_registry=AgentWorkspaceRegistry(
-                    [workspace.to_definition() for workspace in runtime_settings.workspaces]
-                ),
-                journal=journal,
-                logger=agent_logger,
-            )
-            try:
-                await channel.run()
-            finally:
-                journal.close()
-                await async_http_resource.close()
+                if update_exit_code is not None:
+                    return update_exit_code
+                journal = AgentCommandJournal(runtime_settings.agent.state_database)
+                async_http_resource = SharedAsyncHttpClient(
+                    AsyncHttpClientDetail(
+                        timeout_seconds=AGENT_HTTP_TIMEOUT_SECONDS,
+                        max_connections=AGENT_HTTP_MAX_CONNECTIONS,
+                        max_keepalive_connections=AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
+                    ),
+                    tls_context=build_agent_tls_context(
+                        deployment_profile=runtime_settings.agent.deployment_profile,
+                        development_ca_certificate_path=(
+                            runtime_settings.agent.development_ca_certificate_path
+                        ),
+                    ),
+                )
+                key_store = WindowsDpapiDeviceKeyStore(
+                    root=runtime_settings.agent.state_database.parent / "keys"
+                )
+                channel = AgentControlChannel(
+                    settings=runtime_settings,
+                    secret_store=WindowsAgentSecretStore(),
+                    connection_ticket_provider=(
+                        AgentConnectionTicketProvider(
+                            client=async_http_resource.get_client(),
+                            control_plane_api_url=runtime_settings.agent.control_plane_api_url,
+                            key_store=key_store,
+                        )
+                        if runtime_settings.protocol.agent_schema_version
+                        is CodexConnectionProtocolVersion.V2
+                        else None
+                    ),
+                    workspace_registry=AgentWorkspaceRegistry(
+                        [workspace.to_definition() for workspace in runtime_settings.workspaces]
+                    ),
+                    journal=journal,
+                    logger=agent_logger,
+                )
+                try:
+                    await channel.run()
+                finally:
+                    journal.close()
+                    await async_http_resource.close()
         return 0
 
     async def run_doctor(self, settings: CodexHostAgentSettings) -> int:
@@ -259,23 +286,32 @@ class CodexHostAgentCli:
         agent_version: str,
         codex_version: str,
         schema_digest: str,
+        codex_binary: str = DEFAULT_CODEX_BINARY,
+        deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
+        development_ca_certificate_path: Path | None = None,
         enrollment_intent_token: str | None = None,
         bootstrap: AgentBootstrapSettings | None = None,
     ) -> int:
         """运行首次授权并写入不含密钥材料的 Agent 配置。"""
 
-        self._validate_codex_prerequisite(codex_version)
+        self._validate_codex_prerequisite(codex_version, codex_binary)
+        deployment_paths = resolve_agent_deployment_paths(deployment_profile)
+        tls_context = build_agent_tls_context(
+            deployment_profile=deployment_profile,
+            development_ca_certificate_path=development_ca_certificate_path,
+        )
         http_resource = SharedAsyncHttpClient(
             AsyncHttpClientDetail(
                 timeout_seconds=AGENT_HTTP_TIMEOUT_SECONDS,
                 max_connections=AGENT_HTTP_MAX_CONNECTIONS,
                 max_keepalive_connections=AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
-            )
+            ),
+            tls_context=tls_context,
         )
         try:
             await CodexAgentSetupUsecase(
                 client=http_resource.get_client(),
-                key_store=WindowsDpapiDeviceKeyStore(root=config_path.parent / "keys"),
+                key_store=WindowsDpapiDeviceKeyStore(root=deployment_paths.device_key_directory),
                 ui=WindowsEnrollmentUi(),
                 acl_enforcer=WindowsCurrentUserAclEnforcer(),
             ).execute(
@@ -286,6 +322,7 @@ class CodexHostAgentCli:
                 display_name=display_name,
                 platform="windows",
                 expected_codex_version=codex_version,
+                codex_binary=codex_binary,
                 agent_version=agent_version,
                 schema_digest=schema_digest,
                 workspace=(
@@ -298,6 +335,8 @@ class CodexHostAgentCli:
                     if workspace_root is not None
                     else None
                 ),
+                deployment_profile=deployment_profile,
+                development_ca_certificate_path=development_ca_certificate_path,
                 enrollment_intent_token=enrollment_intent_token,
                 default_workspace_key=(
                     bootstrap.default_workspace_key if bootstrap is not None else workspace_key
@@ -311,11 +350,19 @@ class CodexHostAgentCli:
         finally:
             await http_resource.close()
 
-    def run_uri(self, *, config_path: Path, bootstrap_path: Path, uri: str) -> int:
+    def run_uri(
+        self,
+        *,
+        config_path: Path,
+        bootstrap_path: Path,
+        uri: str,
+        deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
+    ) -> int:
         """消费自定义 URI 中的一次性 token 并启动计划任务。"""
 
-        token = self._read_enrollment_token(uri)
+        token = self._read_enrollment_token(uri, deployment_profile=deployment_profile)
         bootstrap = AgentBootstrapSettingsLoader().load(bootstrap_path)
+        bootstrap.validate_deployment_profile(deployment_profile)
         enrollment_lock_path = config_path.parent / "enrollment.lock"
         enrollment_lock_path.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -327,12 +374,18 @@ class CodexHostAgentCli:
             ):
                 if config_path.is_file():
                     self.load_settings(config_path)
-                    self._start_scheduled_agent(config_path)
+                    if deployment_profile is AgentDeploymentProfile.DEVELOPMENT:
+                        self._start_scheduled_agent(
+                            config_path,
+                            deployment_profile=deployment_profile,
+                        )
+                    else:
+                        self._start_scheduled_agent(config_path)
                     WindowsEnrollmentUi().show_info(
                         "这台电脑已经连接。Agent 已启动，不会重复注册设备。"
                     )
                     return 0
-                connection = bootstrap.require_connection()
+                connection = bootstrap.require_connection_for_profile(deployment_profile)
                 result = asyncio.run(
                     self.run_setup(
                         config_path=config_path,
@@ -346,22 +399,41 @@ class CodexHostAgentCli:
                         agent_version=bootstrap.agent_version,
                         codex_version=bootstrap.expected_codex_version,
                         schema_digest=bootstrap.app_server_schema_digest,
+                        deployment_profile=deployment_profile,
+                        development_ca_certificate_path=(
+                            self._resolve_development_ca_certificate_path(bootstrap_path)
+                            if deployment_profile is AgentDeploymentProfile.DEVELOPMENT
+                            else None
+                        ),
                         enrollment_intent_token=token,
                         bootstrap=bootstrap,
                     )
                 )
                 if result == 0:
-                    self._start_scheduled_agent(config_path)
+                    if deployment_profile is AgentDeploymentProfile.DEVELOPMENT:
+                        self._start_scheduled_agent(
+                            config_path,
+                            deployment_profile=deployment_profile,
+                        )
+                    else:
+                        self._start_scheduled_agent(config_path)
                 return result
         except portalocker.exceptions.LockException as exc:
             raise PermissionError("另一项电脑连接操作正在进行，请等待完成后重试。") from exc
 
-    def run_settings(self, *, config_path: Path, bootstrap_path: Path) -> int:
+    def run_settings(
+        self,
+        *,
+        config_path: Path,
+        bootstrap_path: Path,
+        deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
+    ) -> int:
         """打开最小设置窗口。"""
 
         WindowsAgentSettingsWindow(
             config_path=config_path,
             bootstrap=AgentBootstrapSettingsLoader().load(bootstrap_path),
+            deployment_profile=deployment_profile,
         ).show()
         return 0
 
@@ -372,10 +444,12 @@ class CodexHostAgentCli:
         bootstrap_path: Path,
         launch_command: str,
         uri: str | None,
+        deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
     ) -> int:
         """选择可信的较新 Agent，并完整转发稳定安装入口。"""
 
         bootstrap = AgentBootstrapSettingsLoader().load(bootstrap_path)
+        bootstrap.validate_deployment_profile(deployment_profile)
         release = bootstrap.release
         selector = AgentExecutableSelector(
             version_reader=WindowsAgentFileVersionReader(),
@@ -403,6 +477,11 @@ class CodexHostAgentCli:
                 str(bootstrap_path),
                 launch_command,
             ]
+            if deployment_profile is AgentDeploymentProfile.DEVELOPMENT:
+                forwarded_arguments[0:0] = [
+                    "--deployment-profile",
+                    deployment_profile.value,
+                ]
             if launch_command == AGENT_COMMAND_URI:
                 if uri is None:
                     raise ValueError("Agent URI启动入口缺少URI参数。")
@@ -426,20 +505,46 @@ class CodexHostAgentCli:
         """执行命令行。"""
 
         arguments = self.build_argument_parser().parse_args(argv)
+        deployment_profile = AgentDeploymentProfile(arguments.deployment_profile)
+        deployment_paths = resolve_agent_deployment_paths(deployment_profile)
+        config_path = arguments.config or deployment_paths.config_path
+        bootstrap_path = arguments.bootstrap or self._default_bootstrap_path()
         command = arguments.command or AGENT_COMMAND_RUN
-        self._configure_logging(arguments.config.parent)
+        self._configure_logging(config_path.parent)
         try:
             if command == AGENT_COMMAND_LAUNCH:
                 return self.run_launcher(
-                    config_path=arguments.config,
-                    bootstrap_path=arguments.bootstrap,
+                    config_path=config_path,
+                    bootstrap_path=bootstrap_path,
                     launch_command=arguments.launch_command,
                     uri=getattr(arguments, "uri", None),
+                    deployment_profile=deployment_profile,
                 )
             if command == AGENT_COMMAND_SETUP:
+                if deployment_profile is AgentDeploymentProfile.DEVELOPMENT:
+                    return asyncio.run(
+                        self.run_setup(
+                            config_path=config_path,
+                            api_url=arguments.api_url,
+                            websocket_url=arguments.websocket_url,
+                            verification_url=arguments.verification_url,
+                            display_name=arguments.display_name,
+                            workspace_root=arguments.workspace_root,
+                            workspace_key=arguments.workspace_key,
+                            workspace_name=arguments.workspace_name,
+                            agent_version=arguments.agent_version,
+                            codex_version=arguments.codex_version,
+                            codex_binary=arguments.codex_binary,
+                            schema_digest=arguments.schema_digest,
+                            deployment_profile=deployment_profile,
+                            development_ca_certificate_path=(
+                                arguments.development_ca_certificate_path
+                            ),
+                        )
+                    )
                 return asyncio.run(
                     self.run_setup(
-                        config_path=arguments.config,
+                        config_path=config_path,
                         api_url=arguments.api_url,
                         websocket_url=arguments.websocket_url,
                         verification_url=arguments.verification_url,
@@ -449,29 +554,36 @@ class CodexHostAgentCli:
                         workspace_name=arguments.workspace_name,
                         agent_version=arguments.agent_version,
                         codex_version=arguments.codex_version,
+                        codex_binary=arguments.codex_binary,
                         schema_digest=arguments.schema_digest,
+                        development_ca_certificate_path=(arguments.development_ca_certificate_path),
                     )
                 )
             if command == AGENT_COMMAND_URI:
                 return self.run_uri(
-                    config_path=arguments.config,
-                    bootstrap_path=arguments.bootstrap,
+                    config_path=config_path,
+                    bootstrap_path=bootstrap_path,
                     uri=arguments.uri,
+                    deployment_profile=deployment_profile,
                 )
             if command == AGENT_COMMAND_SETTINGS:
                 return self.run_settings(
-                    config_path=arguments.config,
-                    bootstrap_path=arguments.bootstrap,
+                    config_path=config_path,
+                    bootstrap_path=bootstrap_path,
+                    deployment_profile=deployment_profile,
                 )
-            settings = self.load_settings(arguments.config)
+            settings = self.load_settings(config_path)
+            if settings.agent.deployment_profile is not deployment_profile:
+                raise ValueError("Agent配置的deployment_profile与启动参数不一致。")
             if command == AGENT_COMMAND_DOCTOR:
                 return asyncio.run(self.run_doctor(settings))
-            bootstrap = AgentBootstrapSettingsLoader().load(arguments.bootstrap)
+            bootstrap = AgentBootstrapSettingsLoader().load(bootstrap_path)
+            bootstrap.validate_deployment_profile(deployment_profile)
             return asyncio.run(
                 self.run_agent(
                     settings,
-                    config_path=arguments.config,
-                    bootstrap_path=arguments.bootstrap,
+                    config_path=config_path,
+                    bootstrap_path=bootstrap_path,
                     bootstrap=bootstrap,
                 )
             )
@@ -520,9 +632,9 @@ class CodexHostAgentCli:
         handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
         agent_logger.addHandler(handler)
 
-    def _validate_codex_prerequisite(self, expected_version: str) -> None:
+    def _validate_codex_prerequisite(self, expected_version: str, codex_binary: str) -> None:
         try:
-            command = CodexProcessSupport.resolve_command("codex")
+            command = CodexProcessSupport.resolve_command(codex_binary)
             completed = self._subprocess_launcher.run(
                 WindowsSubprocessRequest(
                     argv=(*command, "--version"),
@@ -571,9 +683,26 @@ class CodexHostAgentCli:
         )
         return executable_directory / AGENT_BOOTSTRAP_FILE_NAME
 
-    def _read_enrollment_token(self, uri: str) -> str:
+    @staticmethod
+    def _resolve_development_ca_certificate_path(bootstrap_path: Path) -> Path:
+        """解析与 Development MSI 同目录的 Caddy 开发 CA 证书。"""
+
+        certificate_path = (
+            bootstrap_path.parent / AGENT_DEVELOPMENT_CA_CERTIFICATE_FILE_NAME
+        ).resolve()
+        if not certificate_path.is_file():
+            raise FileNotFoundError("开发Agent安装包缺少 Caddy CA 证书。")
+        return certificate_path
+
+    def _read_enrollment_token(
+        self,
+        uri: str,
+        *,
+        deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
+    ) -> str:
         parsed = urlparse(uri)
-        if parsed.scheme != CODEX_REMOTE_URI_SCHEME or parsed.netloc != CODEX_REMOTE_ENROLL_HOST:
+        uri_scheme = resolve_agent_deployment_paths(deployment_profile).uri_scheme
+        if parsed.scheme != uri_scheme or parsed.netloc != CODEX_REMOTE_ENROLL_HOST:
             raise ValueError("不支持的Codex Remote URI。")
         query = parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True)
         if set(query) != {CODEX_REMOTE_TOKEN_QUERY_KEY}:
@@ -583,8 +712,34 @@ class CodexHostAgentCli:
             raise ValueError("Codex Remote URI一次性token无效。")
         return values[0]
 
-    def _start_scheduled_agent(self, config_path: Path) -> None:
-        WindowsAgentTaskController(config_path=config_path).start()
+    def _start_scheduled_agent(
+        self,
+        config_path: Path,
+        *,
+        deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
+    ) -> None:
+        WindowsAgentTaskController(
+            config_path=config_path,
+            deployment_profile=deployment_profile,
+        ).start()
+
+    @contextmanager
+    def _hold_runtime_profile_resources(self, *, state_directory: Path) -> Iterator[None]:
+        """在持有实例锁期间创建 profile 专属目录并清理瞬态 PID 文件。"""
+
+        log_directory = state_directory / "logs"
+        temporary_directory = state_directory / "tmp"
+        pid_path = state_directory / "agent.pid"
+        for directory in (state_directory, log_directory, temporary_directory):
+            directory.mkdir(parents=True, exist_ok=True)
+        temporary_pid_path = pid_path.with_suffix(".pid.tmp")
+        temporary_pid_path.write_text(str(os.getpid()), encoding="ascii")
+        temporary_pid_path.replace(pid_path)
+        try:
+            yield
+        finally:
+            pid_path.unlink(missing_ok=True)
+            temporary_pid_path.unlink(missing_ok=True)
 
     async def _apply_startup_update(
         self,

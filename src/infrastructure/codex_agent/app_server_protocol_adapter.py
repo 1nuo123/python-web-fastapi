@@ -33,6 +33,7 @@ from src.core.codex_contract.app_server_product_contract import (
     AppServerTurnProductSnapshot,
     AppServerUserMessageItem,
     AppServerWarningDetail,
+    parse_app_server_client_operation_id,
 )
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerNotificationName,
@@ -212,6 +213,41 @@ class AppServerProtocolAdapter:
                 unified_diff=self._bounded_text(diff),
                 truncated=len(diff) > APP_SERVER_PRODUCT_MAX_TEXT_CHARS,
             )
+        if method == AppServerNotificationName.REMOTE_CONTROL_STATUS_CHANGED:
+            # 该通知没有产品正文；仍严格校验官方必填字段，避免把任意未知
+            # payload 当作合法事件，同时只向控制面投影有限状态摘要。
+            self._read_string(params, "installationId")
+            self._read_string(params, "serverName")
+            status = self._read_string(params, "status")
+            if status not in {"disabled", "connecting", "connected", "errored"}:
+                raise ValueError("remoteControl/status/changed状态不在官方枚举内。")
+            return AppServerWarningDetail(reason_code=method.value, error_code=status)
+        if method == AppServerNotificationName.MCP_SERVER_STARTUP_STATUS_UPDATED:
+            # MCP 启动失败的 error 可能含连接配置或服务端细节。产品只需要知道
+            # 官方状态枚举，仍校验所有结构字段但绝不投影原始错误文本。
+            self._read_string(params, "name")
+            status = self._read_string(params, "status")
+            if status not in {"starting", "ready", "failed", "cancelled"}:
+                raise ValueError("mcpServer/startupStatus/updated状态不在官方枚举内。")
+            self._read_optional_string(params.get("threadId"))
+            self._read_optional_string(params.get("error"))
+            failure_reason = self._read_optional_string(params.get("failureReason"))
+            if failure_reason not in {None, "reauthenticationRequired"}:
+                raise ValueError("mcpServer/startupStatus/updated失败原因不在官方枚举内。")
+            return AppServerWarningDetail(reason_code=method.value, error_code=status)
+        if method == AppServerNotificationName.ACCOUNT_RATE_LIMITS_UPDATED:
+            # 额度快照由 App Server 在回合期间高频推送。产品不保存账户额度，
+            # 但必须验证完整官方结构，避免未审核的账户数据进入事件流。
+            rate_limits = self._read_required_mapping(params, "rateLimits")
+            self._validate_rate_limit_snapshot(rate_limits)
+            reached_type = self._read_required_nullable_string(
+                rate_limits,
+                "rateLimitReachedType",
+            )
+            return AppServerWarningDetail(
+                reason_code=method.value,
+                error_code=reached_type,
+            )
         error_code = self._read_optional_string(params.get("code"))
         return AppServerWarningDetail(reason_code=method.value, error_code=error_code)
 
@@ -225,6 +261,18 @@ class AppServerProtocolAdapter:
             return {}
         if not isinstance(value, Mapping):
             raise ValueError("App Server字段必须是对象。")
+        return cast(Mapping[str, JsonValue], value)
+
+    def _read_required_mapping(
+        self,
+        mapping: Mapping[str, JsonValue],
+        key: str,
+    ) -> Mapping[str, JsonValue]:
+        """读取必填对象，避免缺失字段被当作空对象接受。"""
+
+        value = mapping.get(key)
+        if not isinstance(value, Mapping):
+            raise ValueError("App Server必填字段必须是对象。")
         return cast(Mapping[str, JsonValue], value)
 
     def _read_string(
@@ -245,6 +293,176 @@ class AppServerProtocolAdapter:
         if not isinstance(value, str) or not value:
             raise ValueError("App Server可选字段不是非空字符串。")
         return value
+
+    def _read_required_nullable_string(
+        self,
+        mapping: Mapping[str, JsonValue],
+        key: str,
+    ) -> str | None:
+        """读取 schema 中必填但允许 null 的字符串字段。"""
+
+        if key not in mapping:
+            raise ValueError("App Server必填字段缺失。")
+        value = mapping[key]
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value:
+            raise ValueError("App Server字段必须是非空字符串或null。")
+        return value
+
+    def _read_required_nullable_boolean(
+        self,
+        mapping: Mapping[str, JsonValue],
+        key: str,
+    ) -> bool | None:
+        """读取 schema 中必填但允许 null 的布尔字段。"""
+
+        if key not in mapping:
+            raise ValueError("App Server必填字段缺失。")
+        value = mapping[key]
+        if value is None:
+            return None
+        if not isinstance(value, bool):
+            raise ValueError("App Server字段必须是布尔值或null。")
+        return value
+
+    def _read_required_nullable_number(
+        self,
+        mapping: Mapping[str, JsonValue],
+        key: str,
+    ) -> int | float | None:
+        """读取 schema 中必填但允许 null 的数值字段。"""
+
+        if key not in mapping:
+            raise ValueError("App Server必填字段缺失。")
+        value = mapping[key]
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("App Server字段必须是数值或null。")
+        return value
+
+    def _read_required_boolean(
+        self,
+        mapping: Mapping[str, JsonValue],
+        key: str,
+    ) -> bool:
+        """读取 schema 中不允许缺失或 null 的布尔字段。"""
+
+        value = self._read_required_nullable_boolean(mapping, key)
+        if value is None:
+            raise ValueError("App Server字段不允许为null。")
+        return value
+
+    def _read_required_number(
+        self,
+        mapping: Mapping[str, JsonValue],
+        key: str,
+    ) -> int | float:
+        """读取 schema 中不允许缺失或 null 的数值字段。"""
+
+        value = self._read_required_nullable_number(mapping, key)
+        if value is None:
+            raise ValueError("App Server字段不允许为null。")
+        return value
+
+    def _validate_rate_limit_snapshot(self, snapshot: Mapping[str, JsonValue]) -> None:
+        """校验官方额度快照，但不向产品层暴露账户额度内容。"""
+
+        self._read_required_nullable_string(snapshot, "limitId")
+        self._read_required_nullable_string(snapshot, "limitName")
+        self._validate_nullable_rate_limit_window(snapshot, "primary")
+        self._validate_nullable_rate_limit_window(snapshot, "secondary")
+        self._validate_nullable_credits_snapshot(snapshot, "credits")
+        self._validate_nullable_spend_control_snapshot(snapshot, "individualLimit")
+        self._read_required_nullable_boolean(snapshot, "spendControlReached")
+        plan_type = self._read_required_nullable_string(snapshot, "planType")
+        if plan_type not in {
+            None,
+            "free",
+            "go",
+            "plus",
+            "pro",
+            "prolite",
+            "team",
+            "self_serve_business_usage_based",
+            "business",
+            "enterprise_cbp_usage_based",
+            "enterprise",
+            "edu",
+            "unknown",
+        }:
+            raise ValueError("account/rateLimits/updated计划类型不在官方枚举内。")
+        reached_type = self._read_required_nullable_string(snapshot, "rateLimitReachedType")
+        if reached_type not in {
+            None,
+            "rate_limit_reached",
+            "workspace_owner_credits_depleted",
+            "workspace_member_credits_depleted",
+            "workspace_owner_usage_limit_reached",
+            "workspace_member_usage_limit_reached",
+        }:
+            raise ValueError("account/rateLimits/updated额度状态不在官方枚举内。")
+
+    def _validate_nullable_rate_limit_window(
+        self,
+        snapshot: Mapping[str, JsonValue],
+        key: str,
+    ) -> None:
+        """校验一个可空额度窗口的官方字段。"""
+
+        if key not in snapshot:
+            raise ValueError("account/rateLimits/updated额度窗口缺失。")
+        value = snapshot[key]
+        if value is None:
+            return
+        if not isinstance(value, Mapping):
+            raise ValueError("account/rateLimits/updated额度窗口必须是对象或null。")
+        window = cast(Mapping[str, JsonValue], value)
+        self._read_required_number(window, "usedPercent")
+        self._read_required_nullable_number(window, "windowDurationMins")
+        self._read_required_nullable_number(window, "resetsAt")
+
+    def _validate_nullable_credits_snapshot(
+        self,
+        snapshot: Mapping[str, JsonValue],
+        key: str,
+    ) -> None:
+        """校验可空 credits 对象；余额文本不离开协议边界。"""
+
+        if key not in snapshot:
+            raise ValueError("account/rateLimits/updated credits字段缺失。")
+        value = snapshot[key]
+        if value is None:
+            return
+        if not isinstance(value, Mapping):
+            raise ValueError("account/rateLimits/updated credits必须是对象或null。")
+        credits = cast(Mapping[str, JsonValue], value)
+        self._read_required_boolean(credits, "hasCredits")
+        self._read_required_boolean(credits, "unlimited")
+        self._read_required_nullable_string(credits, "balance")
+
+    def _validate_nullable_spend_control_snapshot(
+        self,
+        snapshot: Mapping[str, JsonValue],
+        key: str,
+    ) -> None:
+        """校验可空 spend-control 对象，阻止额度文本进入产品模型。"""
+
+        if key not in snapshot:
+            raise ValueError("account/rateLimits/updated spend-control字段缺失。")
+        value = snapshot[key]
+        if value is None:
+            return
+        if not isinstance(value, Mapping):
+            raise ValueError("account/rateLimits/updated spend-control必须是对象或null。")
+        spend_control = cast(Mapping[str, JsonValue], value)
+        if self._read_required_nullable_string(spend_control, "limit") is None:
+            raise ValueError("account/rateLimits/updated spend-control limit不允许为null。")
+        if self._read_required_nullable_string(spend_control, "used") is None:
+            raise ValueError("account/rateLimits/updated spend-control used不允许为null。")
+        self._read_required_number(spend_control, "remainingPercent")
+        self._read_required_number(spend_control, "resetsAt")
 
     def _read_status(self, value: JsonValue | None) -> str:
         if isinstance(value, str) and value:
@@ -319,6 +537,7 @@ class AppServerProtocolAdapter:
             return AppServerUserMessageItem(
                 item_id=item_id,
                 text=self._read_user_message_text(item.get("content")),
+                client_operation_id=parse_app_server_client_operation_id(item.get("clientId")),
             )
         if item_type == "agentMessage":
             return AppServerAgentMessageItem(

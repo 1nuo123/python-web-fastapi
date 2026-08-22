@@ -22,6 +22,9 @@ from src.core.logging_contract.log_event_contract import (
     SECURITY_LOG_DETAIL_KIND,
     TASK_FAILURE_LOG_DETAIL_KIND,
     AccessLogDetail,
+    CodexClientDiagnosticLogDetail,
+    CodexClientPerformanceLogDetail,
+    CodexExperienceFeatureFlagsLogDetail,
     ExceptionLogDetail,
     LogEventKind,
     LogLevel,
@@ -324,6 +327,9 @@ class AdminLogRecordDetailMapper:
             | TaskFailureLogDetail
             | SecurityLogDetail
             | StreamAccessLogDetail
+            | CodexClientDiagnosticLogDetail
+            | CodexClientPerformanceLogDetail
+            | CodexExperienceFeatureFlagsLogDetail
             | AdminUnparsedLogDetail
         ),
     ) -> AdminLogRecordDetailPayload:
@@ -347,6 +353,8 @@ class AdminLogRecordDetailMapper:
         if isinstance(detail, SecurityLogDetail):
             return AdminSecurityLogDetailPayload.from_detail(detail)
         if isinstance(detail, StreamAccessLogDetail):
+            return AdminUnparsedLogDetailPayload(summary=ADMIN_LOG_UNSUPPORTED_DETAIL_SUMMARY)
+        if isinstance(detail, CodexExperienceFeatureFlagsLogDetail):
             return AdminUnparsedLogDetailPayload(summary=ADMIN_LOG_UNSUPPORTED_DETAIL_SUMMARY)
         if isinstance(detail, AdminUnparsedLogDetail):
             return AdminUnparsedLogDetailPayload.from_detail(detail)

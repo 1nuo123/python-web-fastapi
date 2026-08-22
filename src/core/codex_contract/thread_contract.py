@@ -13,6 +13,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.core.codex_contract.turn_runtime_contract import CodexTurnRuntime
+
 CODEX_THREAD_TITLE_MAX_LENGTH: Final = 256
 CODEX_THREAD_MODEL_MAX_LENGTH: Final = 128
 CODEX_THREAD_STATUS_MAX_LENGTH: Final = 32
@@ -23,6 +25,11 @@ CODEX_CONVERSATION_CURSOR_SCHEMA_VERSION: Final = "1.0"
 CODEX_CONVERSATION_PAGE_LIMIT_DEFAULT: Final = 50
 CODEX_CONVERSATION_PAGE_LIMIT_MINIMUM: Final = 1
 CODEX_CONVERSATION_PAGE_LIMIT_MAXIMUM: Final = 200
+CODEX_HISTORY_PAGE_LIMIT_DEFAULT: Final = 50
+CODEX_HISTORY_PAGE_LIMIT_MINIMUM: Final = 1
+CODEX_HISTORY_PAGE_LIMIT_MAXIMUM: Final = 100
+CODEX_HISTORY_ITEM_RELOAD_MAXIMUM: Final = 50
+CODEX_HISTORY_REVISION_LENGTH: Final = 64
 
 
 class CodexThreadTitleSource(StrEnum):
@@ -60,6 +67,23 @@ class CodexThreadHistoryStatus(StrEnum):
     NOT_REQUESTED = "not_requested"
     OMITTED_TOO_LARGE = "omitted_too_large"
     NOT_AVAILABLE_YET = "not_available_yet"
+
+
+class CodexThreadHistoryQuery(BaseModel):
+    """向前读取会话历史的受限查询参数。
+
+    ``before_cursor`` 只允许服务端签发的短期游标；客户端不得构造 offset
+    或依据正文推断分页位置。
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    before_cursor: str | None = Field(default=None, min_length=1, max_length=2_048)
+    limit: int = Field(
+        default=CODEX_HISTORY_PAGE_LIMIT_DEFAULT,
+        ge=CODEX_HISTORY_PAGE_LIMIT_MINIMUM,
+        le=CODEX_HISTORY_PAGE_LIMIT_MAXIMUM,
+    )
 
 
 class CodexTimelineItemKind(StrEnum):
@@ -227,6 +251,7 @@ class CodexThreadIndexSnapshot(BaseModel):
     reasoning_effort: str | None = Field(default=None, max_length=64)
     status: CodexThreadStatus
     active_turn_id: str | None = Field(default=None, max_length=256)
+    turn_runtime: CodexTurnRuntime | None = None
     archived: bool
     is_pinned: bool
     source_kind: str | None = Field(default=None, max_length=64)
@@ -393,6 +418,8 @@ class CodexTimelineItemHeader(BaseModel):
     schema_version: Literal["1.0"] = CODEX_TIMELINE_ITEM_SCHEMA_VERSION
     status: CodexTimelineItemStatus
     created_at: str | None = None
+    # 仅 user message 可携带；用于替换同一操作的本地乐观占位符。
+    client_operation_id: UUID | None = None
 
 
 class CodexTimelineDetailBase(BaseModel):
@@ -497,6 +524,11 @@ class CodexTimelineItemEnvelope(BaseModel):
             raise ValueError("时间线条目头与扩展类型不一致。")
         if self.header.schema_version != self.detail.schema_version:
             raise ValueError("时间线条目头与扩展版本不一致。")
+        if (
+            self.header.client_operation_id is not None
+            and self.detail.kind != CodexTimelineItemKind.USER_MESSAGE
+        ):
+            raise ValueError("client_operation_id 只能出现在 user_message 条目。")
         return self
 
 
@@ -509,4 +541,43 @@ class CodexThreadAuthoritySnapshot(BaseModel):
     turns: list[CodexTurnSnapshot]
     items: list[CodexTimelineItemEnvelope]
     history_status: CodexThreadHistoryStatus = CodexThreadHistoryStatus.COMPLETE
-    next_history_cursor: str | None = Field(default=None, max_length=512)
+    history_before_cursor: str | None = Field(default=None, max_length=2_048)
+    history_has_more: bool = False
+    history_revision: str | None = Field(
+        default=None,
+        min_length=CODEX_HISTORY_REVISION_LENGTH,
+        max_length=CODEX_HISTORY_REVISION_LENGTH,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+
+class CodexThreadHistoryPage(BaseModel):
+    """一个按稳定边界向前翻页的历史窗口。
+
+    仅返回当前页正文；游标携带的所有权和版本信息由服务端验证，不进入
+    PostgreSQL、文件或浏览器持久化存储。
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: list[CodexTimelineItemEnvelope]
+    before_cursor: str | None = Field(default=None, max_length=2_048)
+    has_more: bool
+    history_revision: str = Field(
+        min_length=CODEX_HISTORY_REVISION_LENGTH,
+        max_length=CODEX_HISTORY_REVISION_LENGTH,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+
+class CodexThreadHistoryItemReload(BaseModel):
+    """按稳定 item ID 恢复浏览器已回收正文的受限响应。
+
+    仅用于当前标签页内存回收后的用户显式恢复，不接受 offset、正文或任何
+    可推断会话内容的查询条件。缺失 ID 说明上游历史已变化或不可读取。
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: list[CodexTimelineItemEnvelope]
+    missing_item_ids: list[str] = Field(default_factory=list)

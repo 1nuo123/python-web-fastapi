@@ -34,6 +34,8 @@ class CodexTurnStartRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    # 此值同时是幂等键和 App Server 的 clientUserMessageId，不能由服务端重写。
+    client_operation_id: UUID
     message: str = Field(min_length=1, max_length=200_000)
     execution: CodexExecutionOptions = Field(default_factory=CodexExecutionOptions)
 
@@ -45,6 +47,8 @@ class CodexOperationAccepted(BaseModel):
 
     operation_id: UUID
     command_id: UUID
+    # turn 操作回显客户端身份，前端据此与乐观消息稳定对账。
+    client_operation_id: UUID | None = None
     status: str
     replayed: bool = False
 

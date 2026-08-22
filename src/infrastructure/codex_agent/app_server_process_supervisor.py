@@ -45,6 +45,9 @@ from src.infrastructure.process.windows_subprocess_launcher import (
 CODEX_PARENT_PROCESS_VARIABLES: Final = frozenset(
     {
         "CODEX_CI",
+        # Codex Desktop 注入的路径可能指向另一套 alpha CLI。Agent 必须
+        # 只使用自身解析出的、经版本白名单校验的 codex 入口，避免开发/生产串环境。
+        "CODEX_CLI_PATH",
         "CODEX_INTERNAL_ORIGINATOR_OVERRIDE",
         "CODEX_SHELL",
         "CODEX_THREAD_ID",

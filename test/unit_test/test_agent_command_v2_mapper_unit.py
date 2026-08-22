@@ -20,6 +20,7 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
 from src.core.codex_contract.host_contract import CodexApprovalPolicy, CodexSandboxMode
 from src.domain.codex.agent_command_policy import calculate_agent_request_digest
 from src.infrastructure.codex.agent_protocol_codec import (
+    CLIENT_USER_MESSAGE_ID_PARAM,
     THREAD_START_COMMAND_TYPE,
     TURN_START_COMMAND_TYPE,
     AgentCommandV2Mapper,
@@ -71,6 +72,24 @@ class TestAgentCommandV2MapperUnit:
 
         assert isinstance(detail, AgentTurnSteerCommandDetail)
         assert detail.turn_id == "turn-1"
+
+    def test_turn_start_should_round_trip_client_operation_id(self) -> None:
+        """客户端重试身份必须无损经过 v1/v2 Agent 映射。"""
+
+        client_operation_id = "11111111-1111-4111-8111-111111111111"
+        params: dict[str, JsonValue] = {
+            "workspace_key": "work",
+            "threadId": "thread-1",
+            CLIENT_USER_MESSAGE_ID_PARAM: client_operation_id,
+            "input": [{"type": "text", "text": "继续", "text_elements": []}],
+        }
+        command = self._build_command("turn.start", params)
+        mapper = AgentCommandV2Mapper()
+
+        mapped = mapper.from_v1_command(command)
+        restored = mapper.to_v1_command(host_id=command.host_id, command=mapped)
+
+        assert restored == command
 
     def test_approval_decision_should_preserve_approval_version(self) -> None:
         approval_id = UUID("22222222-2222-2222-2222-222222222222")

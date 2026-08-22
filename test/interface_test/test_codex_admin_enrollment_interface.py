@@ -28,6 +28,7 @@ from src.infrastructure.codex.codex_enrollment_intent_store import (
     CODEX_ENROLLMENT_INTENT_KEY_NAMESPACE,
     CODEX_ENROLLMENT_INTENT_TOKEN_NAMESPACE,
 )
+from src.infrastructure.settings.raw_application_settings import SettingsOverrideMapping
 from test.fixtures.codex_device_authorization_test_support import (
     CodexDeviceAuthorizationTestSupport,
 )
@@ -161,6 +162,48 @@ class TestCodexAdminEnrollmentInterface:
                 if record is not None:
                     record_version = record.version
                 assert cross_session_response.status_code == HTTPStatus.NOT_FOUND
+            finally:
+                if intent_id is not None and intent_token:
+                    self._delete_enrollment_intent(
+                        app=app,
+                        intent_id=intent_id,
+                        intent_token=intent_token,
+                        record_version=record_version,
+                    )
+
+    def test_development_enrollment_intent_should_launch_development_agent(self) -> None:
+        """开发控制面只能返回 Development MSI 注册的独立 URI。"""
+
+        overrides: SettingsOverrideMapping = {
+            "runtime": {"codex_control": {"agent_deployment_profile": "development"}}
+        }
+        app = TestAppFactory().create(overrides=overrides)
+        intent_token = ""
+        intent_id: UUID | None = None
+        record_version = 1
+        with TestClient(app) as client:
+            try:
+                access_token = CodexDeviceAuthorizationTestSupport.issue_browser_access_token(
+                    client
+                )
+                response = client.post(
+                    CODEX_ENROLLMENT_INTENT_PATH,
+                    headers=self._authorization_headers(access_token),
+                    json=CodexEnrollmentIntentCreateRequestEnvelope(
+                        header=CodexEnrollmentIntentRequestHeader(request_id=uuid4()),
+                        detail=CodexEnrollmentIntentCreateDetail(),
+                    ).model_dump(mode="json"),
+                )
+                response.raise_for_status()
+                created = ResponseEnvelope[CodexEnrollmentIntentEnvelope].model_validate(
+                    response.json()
+                )
+                assert isinstance(created.data.detail, CodexEnrollmentIntentIssuedDetail)
+                intent_id = created.data.header.intent_id
+                parsed_launch_uri = urlparse(created.data.detail.launch_uri)
+                intent_token = parse_qs(parsed_launch_uri.query)[INTENT_TOKEN_QUERY_FIELD][0]
+                assert parsed_launch_uri.scheme == "codexremote-dev"
+                assert parsed_launch_uri.netloc == "enroll"
             finally:
                 if intent_id is not None and intent_token:
                     self._delete_enrollment_intent(

@@ -6,12 +6,14 @@ import base64
 import hashlib
 import logging
 import sqlite3
+import ssl
 import subprocess
 import tomllib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID, uuid4
 
+import certifi
 import httpx
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -32,6 +34,7 @@ from src.core.codex_contract.device_authorization_contract import (
     DeviceAuthorizationState,
     DeviceAuthorizationStatusDetail,
 )
+from src.core.http_contract.outbound_http_client_contract import AsyncHttpClientDetail
 from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJournal
 from src.infrastructure.codex_agent.agent_configuration import (
     AgentBootstrapConnectionSettings,
@@ -44,6 +47,8 @@ from src.infrastructure.codex_agent.agent_configuration import (
 from src.infrastructure.codex_agent.agent_connection_ticket_provider import (
     AgentConnectionTicketProvider,
 )
+from src.infrastructure.codex_agent.agent_control_channel import AgentControlChannel
+from src.infrastructure.codex_agent.agent_deployment_profile import AgentDeploymentProfile
 from src.infrastructure.codex_agent.agent_doctor import AgentDoctor
 from src.infrastructure.codex_agent.agent_secret_store import (
     AgentSecretNotFoundError,
@@ -62,6 +67,7 @@ from src.infrastructure.codex_agent.windows_dpapi_device_key_store import (
     WindowsCurrentUserDpapi,
     WindowsDpapiDeviceKeyStore,
 )
+from src.infrastructure.resource_slot.shared_async_http_client import SharedAsyncHttpClient
 
 FROZEN_SCHEMA_DIGEST = "a" * 64
 DEVICE_CODE = "device-code-0123456789abcdef0123456789abcdef"
@@ -232,7 +238,9 @@ class TestAgentLocalRuntimeUnit:
             workspace_name: str,
             agent_version: str,
             codex_version: str,
+            codex_binary: str,
             schema_digest: str,
+            development_ca_certificate_path: Path | None,
         ) -> int:
             assert config_path == tmp_path / "agent.toml"
             assert api_url == "https://control.example"
@@ -244,7 +252,9 @@ class TestAgentLocalRuntimeUnit:
             assert workspace_name == "Workspace"
             assert agent_version == TEST_AGENT_VERSION
             assert codex_version == "0.145.0"
+            assert codex_binary == "C:\\tools\\codex-0.145.0.exe"
             assert schema_digest == FROZEN_SCHEMA_DIGEST
+            assert development_ca_certificate_path is None
             return 0
 
         def reject_config_load(_config_path: Path) -> CodexHostAgentSettings:
@@ -272,12 +282,67 @@ class TestAgentLocalRuntimeUnit:
                 "Workspace",
                 "--codex-version",
                 "0.145.0",
+                "--codex-binary",
+                "C:\\tools\\codex-0.145.0.exe",
                 "--schema-digest",
                 FROZEN_SCHEMA_DIGEST,
             ]
         )
 
         assert exit_code == 0
+
+    @pytest.mark.asyncio
+    async def test_development_certificate_should_reach_http_transport_and_wss_client(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """开发 CA 必须同时进入 HTTPS ticket 与 WSS，而非依赖进程环境变量。"""
+
+        certificate_path = Path(certifi.where()).resolve()
+        context = ssl.create_default_context(cafile=str(certificate_path))
+        http_resource = SharedAsyncHttpClient(
+            AsyncHttpClientDetail(
+                timeout_seconds=1,
+                max_connections=1,
+                max_keepalive_connections=1,
+            ),
+            tls_context=context,
+        )
+        try:
+            pool = http_resource._transport._pool  # noqa: SLF001
+            assert getattr(pool, "_ssl_context") is context
+        finally:
+            await http_resource.close()
+
+        settings = self._settings(tmp_path).model_copy(
+            update={
+                "agent": self._settings(tmp_path).agent.model_copy(
+                    update={
+                        "deployment_profile": AgentDeploymentProfile.DEVELOPMENT,
+                        "development_ca_certificate_path": certificate_path,
+                    }
+                )
+            }
+        )
+        journal = AgentCommandJournal(tmp_path / "agent-events.sqlite")
+        try:
+            channel = AgentControlChannel(
+                settings=settings,
+                secret_store=WindowsAgentSecretStore(),
+                connection_ticket_provider=None,
+                workspace_registry=AgentWorkspaceRegistry(
+                    [workspace.to_definition() for workspace in settings.workspaces]
+                ),
+                journal=journal,
+                logger=logging.getLogger("agent-development-tls-test"),
+            )
+            websocket_context = channel._tls_context  # noqa: SLF001
+        finally:
+            journal.close()
+
+        assert isinstance(websocket_context, ssl.SSLContext)
+        assert websocket_context.verify_mode is ssl.CERT_REQUIRED
+        assert websocket_context.check_hostname is True
 
     @pytest.mark.asyncio
     async def test_run_v2_should_create_signed_connection_ticket_provider(
@@ -358,6 +423,7 @@ class TestAgentLocalRuntimeUnit:
         config_path = tmp_path / "agent" / "agent.toml"
         workspace_root = tmp_path / "workspace"
         workspace_root.mkdir()
+        codex_binary = str(tmp_path / "codex-0.145.0.exe")
         monkeypatch.setattr(setup_module.asyncio, "sleep", self._ignore_sleep)
         async with httpx.AsyncClient(
             transport=transport,
@@ -376,6 +442,7 @@ class TestAgentLocalRuntimeUnit:
                 display_name="Workstation",
                 platform="windows",
                 expected_codex_version="0.145.0",
+                codex_binary=codex_binary,
                 agent_version=TEST_AGENT_VERSION,
                 schema_digest=FROZEN_SCHEMA_DIGEST,
                 workspace=AgentWorkspaceSettings(
@@ -389,6 +456,7 @@ class TestAgentLocalRuntimeUnit:
         assert settings.agent.host_id is not None
         assert settings.agent.key_id == transport.key_id
         assert settings.agent.key_id is not None
+        assert settings.agent.codex_binary == codex_binary
         assert config_path.exists()
         assert acl.paths == [config_path]
         assert ui.user_code == USER_CODE
@@ -403,6 +471,7 @@ class TestAgentLocalRuntimeUnit:
         assert transport.poll_count == 2
         persisted_settings = tomllib.loads(config_path.read_text(encoding="utf-8"))
         assert "legacy_credential_id" not in persisted_settings["agent"]
+        assert persisted_settings["agent"]["codex_binary"] == codex_binary
 
     @pytest.mark.asyncio
     async def test_setup_when_denied_should_delete_generated_key(
@@ -480,6 +549,12 @@ class TestAgentLocalRuntimeUnit:
         class MissingLegacySecretStore:
             def read(self, credential_id: str) -> str:
                 raise AgentSecretNotFoundError(f"旧凭据不存在：{credential_id}")
+
+            def write(self, credential_id: str, token: str) -> None:
+                raise AssertionError(f"doctor 不应写入旧凭据：{credential_id}:{len(token)}")
+
+            def delete(self, credential_id: str) -> None:
+                raise AssertionError(f"doctor 不应删除旧凭据：{credential_id}")
 
         healthy_with_legacy_store = await AgentDoctor(
             settings=settings,

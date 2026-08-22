@@ -5,11 +5,13 @@ from __future__ import annotations
 import os
 import socket
 import subprocess
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
+from threading import local
 from typing import Final, NoReturn, Protocol, cast
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import psycopg
 import pytest
@@ -53,6 +55,10 @@ RESOURCE_ALLOWED_PORTS: Final = {
     ExternalResourceMarker.RABBITMQ: frozenset({5672, 15672}),
     ExternalResourceMarker.DOCKER: frozenset({2375, 2376}),
     ExternalResourceMarker.PUBLIC_NETWORK: frozenset(),
+}
+RESOURCE_URL_ENVIRONMENT_VARIABLES: Final = {
+    ExternalResourceMarker.POSTGRES: ("TEST_DATABASE_URL", "DATABASE_URL"),
+    ExternalResourceMarker.REDIS: ("REDIS_TEST_URL", "REDIS_URL"),
 }
 
 
@@ -117,14 +123,20 @@ class OfflineExternalResourceGuard:
         socket_connect: ExternalConnectCallable,
         postgres_connect: ExternalConnectCallable,
         process_launcher: ExternalConnectCallable,
+        allowed_ports: frozenset[int] | None = None,
     ) -> None:
-        """保存逐资源授权和原始连接入口。"""
+        """保存逐资源授权、可信端口与原始连接入口。"""
 
         self._enabled_resources = enabled_resources
         self._socket_create_connection = socket_create_connection
         self._socket_connect = socket_connect
         self._postgres_connect = postgres_connect
         self._process_launcher = process_launcher
+        self._allowed_ports = allowed_ports or self.resolve_allowed_ports(
+            enabled_resources=enabled_resources,
+        )
+        self._configured_external_ports = self._read_configured_external_ports()
+        self._process_local_socketpair_state = local()
 
     @staticmethod
     def enforce(
@@ -149,6 +161,9 @@ class OfflineExternalResourceGuard:
             socket_connect=cast(ExternalConnectCallable, socket.socket.connect),
             postgres_connect=cast(ExternalConnectCallable, psycopg.connect),
             process_launcher=cast(ExternalConnectCallable, subprocess.Popen),
+            allowed_ports=OfflineExternalResourceGuard.resolve_allowed_ports(
+                enabled_resources=enabled_resources,
+            ),
         )
 
         def guarded_socket_connect(socket_instance: socket.socket, address: object) -> object:
@@ -156,10 +171,24 @@ class OfflineExternalResourceGuard:
 
             return guard.connect_socket(socket_instance, address)
 
+        original_socketpair = cast(
+            Callable[..., tuple[socket.socket, socket.socket]],
+            socket.socketpair,
+        )
+
+        def guarded_socketpair(
+            *args: object, **kwargs: object
+        ) -> tuple[socket.socket, socket.socket]:
+            """仅放行 socketpair 自建监听端的内部回连，仍拦截普通 socket.connect。"""
+
+            with guard._allow_process_local_socketpair_connection():
+                return original_socketpair(*args, **kwargs)
+
         try:
             monkeypatch.setattr(psycopg, "connect", guard.connect_postgres)
             monkeypatch.setattr(socket, "create_connection", guard.create_socket_connection)
             monkeypatch.setattr(socket.socket, "connect", guarded_socket_connect)
+            monkeypatch.setattr(socket, "socketpair", guarded_socketpair)
             monkeypatch.setattr(subprocess, "Popen", guard.launch_process)
             yield
         finally:
@@ -170,6 +199,69 @@ class OfflineExternalResourceGuard:
         """拒绝未声明的外部连接。"""
 
         raise RuntimeError(OFFLINE_CONNECTION_BLOCKED_MESSAGE)
+
+    @classmethod
+    def resolve_allowed_ports(
+        cls,
+        *,
+        enabled_resources: frozenset[ExternalResourceMarker],
+        environment: Mapping[str, str] | None = None,
+    ) -> frozenset[int]:
+        """合并静态端口与显式测试 URL 中的回环端口。
+
+        Docker 开发环境可选择不同宿主机映射端口；仅在测试进程显式配置
+        PostgreSQL 或 Redis URL 且目标仍为回环地址时扩展对应 marker 的端口。
+        资源 marker、地址类型和非回环访问限制保持不变。
+        """
+
+        configured_environment = os.environ if environment is None else environment
+        static_ports = frozenset(
+            port_number
+            for resource in enabled_resources
+            for port_number in RESOURCE_ALLOWED_PORTS[resource]
+        )
+        configured_ports = frozenset(
+            port_number
+            for resource in enabled_resources
+            for variable_name in RESOURCE_URL_ENVIRONMENT_VARIABLES.get(resource, ())
+            for port_number in cls._read_loopback_url_port(
+                configured_environment.get(variable_name)
+            )
+        )
+        return static_ports | configured_ports
+
+    @staticmethod
+    def _read_loopback_url_port(url: str | None) -> tuple[int, ...]:
+        """读取单个可信 URL 的显式回环端口；畸形或非回环配置不放行。"""
+
+        if not url:
+            return ()
+        try:
+            parsed = urlsplit(url)
+            host = parsed.hostname
+            port = parsed.port
+        except ValueError:
+            return ()
+        if host not in LOOPBACK_ADDRESSES or port is None:
+            return ()
+        return (port,)
+
+    @classmethod
+    def _read_configured_external_ports(cls) -> frozenset[int]:
+        """收集已配置资源端口，避免其被通用 ephemeral 规则绕过。"""
+
+        static_external_ports = frozenset(
+            port_number
+            for resource_ports in RESOURCE_ALLOWED_PORTS.values()
+            for port_number in resource_ports
+        )
+        configured_url_ports = frozenset(
+            port_number
+            for variable_names in RESOURCE_URL_ENVIRONMENT_VARIABLES.values()
+            for variable_name in variable_names
+            for port_number in cls._read_loopback_url_port(os.environ.get(variable_name))
+        )
+        return static_external_ports | configured_url_ports
 
     def connect_postgres(self, *args: object, **kwargs: object) -> object:
         """只在当前测试声明 PostgreSQL marker 时放行连接。"""
@@ -187,8 +279,31 @@ class OfflineExternalResourceGuard:
     def connect_socket(self, socket_instance: socket.socket, address: object) -> object:
         """覆盖直接 ``socket.connect`` 入口并执行逐资源授权。"""
 
+        if self._is_process_local_socketpair_connection():
+            return self._socket_connect(socket_instance, address)
         self._validate_address(address)
         return self._socket_connect(socket_instance, address)
+
+    @contextmanager
+    def _allow_process_local_socketpair_connection(self) -> Iterator[None]:
+        """为 Windows socketpair 的自建 loopback 回连建立线程局部、嵌套安全的豁免。
+
+        Windows 的 socket.socketpair() 通过临时监听 socket 和 loopback connect()
+        模拟 Unix socketpair。该连接只会返回到刚刚在同一调用内创建的监听端，不属于
+        可访问外部资源的测试行为；豁免严格限制在原始 socketpair 调用栈中。
+        """
+
+        depth = getattr(self._process_local_socketpair_state, "depth", 0)
+        self._process_local_socketpair_state.depth = depth + 1
+        try:
+            yield
+        finally:
+            self._process_local_socketpair_state.depth = depth
+
+    def _is_process_local_socketpair_connection(self) -> bool:
+        """判断当前线程是否正由受控 socketpair 创建内部连接。"""
+
+        return getattr(self._process_local_socketpair_state, "depth", 0) > 0
 
     def launch_process(self, *args: object, **kwargs: object) -> object:
         """阻止未声明 Docker marker 的测试通过 CLI 访问守护进程。"""
@@ -230,14 +345,14 @@ class OfflineExternalResourceGuard:
             and ExternalResourceMarker.PUBLIC_NETWORK in self._enabled_resources
         ):
             return
-        if isinstance(host, str) and port >= EPHEMERAL_PORT_MINIMUM and host in LOOPBACK_ADDRESSES:
+        if (
+            isinstance(host, str)
+            and port >= EPHEMERAL_PORT_MINIMUM
+            and host in LOOPBACK_ADDRESSES
+            and port not in self._configured_external_ports
+        ):
             return
-        allowed_ports = frozenset(
-            port_number
-            for resource in self._enabled_resources
-            for port_number in RESOURCE_ALLOWED_PORTS[resource]
-        )
-        if port not in allowed_ports:
+        if port not in self._allowed_ports:
             self.reject()
 
 

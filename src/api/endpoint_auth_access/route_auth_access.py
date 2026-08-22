@@ -51,6 +51,7 @@ from src.core.security_contract.security_event_contract import SecurityEventType
 from src.domain.auth.auth_error_code import AuthErrorCode
 from src.infrastructure.security.browser_origin_resolver import (
     build_allowed_browser_origins,
+    is_trusted_https_request,
 )
 from src.infrastructure.settings.application_settings import AppEnvironment
 
@@ -396,7 +397,7 @@ class AuthAccessRouteCatalog:
         response.delete_cookie(
             key=AUTH_BROWSER_REFRESH_COOKIE_NAME,
             path=AUTH_BROWSER_COOKIE_PATH,
-            secure=self._is_production(request),
+            secure=self._should_use_secure_browser_cookie(request),
             httponly=True,
             samesite="strict",
         )
@@ -480,7 +481,7 @@ class AuthAccessRouteCatalog:
             value=token_bundle.refresh_token,
             max_age=token_bundle.refresh_expires_in_seconds,
             path=AUTH_BROWSER_COOKIE_PATH,
-            secure=self._is_production(request),
+            secure=self._should_use_secure_browser_cookie(request),
             httponly=True,
             samesite="strict",
         )
@@ -502,11 +503,20 @@ class AuthAccessRouteCatalog:
             ),
         )
 
-    def _is_production(self, request: Request) -> bool:
-        """读取当前环境是否要求 Secure Cookie。"""
+    def _should_use_secure_browser_cookie(self, request: Request) -> bool:
+        """按环境和可信公共传输层决定浏览器 Cookie 的 Secure 属性。
 
-        settings = self._accessor.read_resource_mount(request).read_runtime_bundle().settings
-        return settings.app.environment == AppEnvironment.PRODUCTION
+        生产环境始终要求 Secure Cookie。开发环境保留直连 HTTP 调试能力，
+        但只要请求位于直连 HTTPS 或受信 Caddy 所声明的 HTTPS 边界，
+        Cookie 就必须同样带有 Secure，避免开发 HTTPS 与生产行为分叉。
+        """
+
+        resource_mount = self._accessor.read_resource_mount(request)
+        settings = resource_mount.read_runtime_bundle().settings
+        return settings.app.environment == AppEnvironment.PRODUCTION or is_trusted_https_request(
+            request,
+            resource_mount.get_client_ip_resolver(),
+        )
 
     def _record_token_issue_failure(
         self,
