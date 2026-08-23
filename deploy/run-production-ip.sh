@@ -88,6 +88,23 @@ caddy_compose=(
   -f "$BACKEND_ROOT/deploy/caddy/compose.yml"
 )
 
+cloudflare_origin_https_port="$(
+  awk -F= '$1 == "CADDY_CLOUDFLARE_ORIGIN_HTTPS_PORT" {
+    print substr($0, index($0, "=") + 1)
+  }' "$BACKEND_ENV_FILE" | tail -n 1
+)"
+
+if [[ -n "$cloudflare_origin_https_port" ]]; then
+  case "$cloudflare_origin_https_port" in
+    8443) ;;
+    *)
+      echo "CADDY_CLOUDFLARE_ORIGIN_HTTPS_PORT must be 8443." >&2
+      exit 1
+      ;;
+  esac
+  caddy_compose+=(-f "$BACKEND_ROOT/deploy/caddy/compose.cloudflare-origin-port.yml")
+fi
+
 if [[ "$PRODUCTION_RESOURCE_PROFILE" == "small" ]]; then
   backend_compose+=(-f "$BACKEND_ROOT/compose.production.small.yml")
   frontend_compose+=(-f "$FRONTEND_ROOT/compose.production.small.yml")

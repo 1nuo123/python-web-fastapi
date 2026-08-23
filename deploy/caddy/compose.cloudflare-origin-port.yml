@@ -1,0 +1,4 @@
+services:
+  caddy:
+    ports:
+      - '${CADDY_CLOUDFLARE_ORIGIN_HTTPS_PORT}:443'
