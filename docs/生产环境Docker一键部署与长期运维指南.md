@@ -388,7 +388,7 @@ curl -Iv https://nuotop.xyz
 
 ### 4.5 Codex Remote 内部体验入口
 
-该节保留 "Codex Remote 发布门禁" 的检索别名，当前门禁已调整为内部体验发布资产、账户权限和设备授权的前置检查。
+该节保留 "Codex Remote 发布门禁" 的检索别名，当前门禁已调整为内部体验发布资产、账户权限和设备授权的前置检查。Windows Agent 上报本机实际 Codex 版本；未知版本或 schema 由隔离 capability probe 判定，不再因版本号变化直接拒绝。
 
 正式发布通道仍要求 Authenticode 签名、TUF 发布元数据、下载与更新验收，以及域名 HTTPS/WSS 全链路验收。
 
