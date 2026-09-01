@@ -396,6 +396,8 @@ class SettingsReloadCoordinator:
             }
         if isinstance(value, list):
             return [self._normalize_secret_values(item) for item in value]
+        if isinstance(value, tuple):
+            return [self._normalize_secret_values(item) for item in value]
         if isinstance(value, str | int | float | bool) or value is None:
             return value
         raise TypeError(f"配置序列化不支持类型：{type(value).__name__}。")

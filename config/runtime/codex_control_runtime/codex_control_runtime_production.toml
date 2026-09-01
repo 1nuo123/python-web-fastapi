@@ -1,9 +1,14 @@
 [runtime]
 max_connected_agents = 1
 max_active_turns_per_host = 1
-agent_release_version = "0.1.16"
+agent_release_version = "0.1.17"
 agent_release_distribution_mode = "internal"
-agent_release_artifact_sha256 = "cd312a6fe5abcc582e6a918369a31040abf67c0cb15b2b93a8f1089f4fe7fcf6"
-agent_release_download_url = "https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.16/CodexRemoteAgent.msi"
-agent_release_manifest_url = "https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.16/internal-release.json"
+agent_release_artifact_sha256 = "0ebd60f055ab3863491314f0db60727eece7cd800597f4bfe5a9aea76deea585"
+agent_release_download_url = "https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.17/CodexRemoteAgent.msi"
+agent_release_manifest_url = "https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.17/internal-release.json"
 agent_release_minimum_security_version = "0.1.16"
+minimum_version = "0.145.0"
+unknown_version_policy = "probe"
+unknown_schema_policy = "probe"
+allow_prerelease = false
+blocked_versions = []

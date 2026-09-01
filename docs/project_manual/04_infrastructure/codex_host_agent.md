@@ -2,11 +2,11 @@
 
 ## 本地 Docker 启动流程
 
-本仓库当前唯一已审核的 Codex App Server 版本是 `0.145.0`。本机 Codex CLI 必须与该版本一致；`0.146.x` 没有对应审核 manifest，Agent 会被控制面拒绝。
+`0.145.0` 是仓库保留的历史审核基线，不是运行时最高版本限制。Agent 启动后上报本机实际 Codex 版本，并由 App Server capability probe 决定 `compatible`、`read_only` 或 `blocked`。
 
 1. 后端目录执行 `docker compose up -d`，确认 `app`、`postgres`、`redis`、`rabbitmq` 均为 healthy。
 2. 前端目录执行 `docker compose up -d`，确认 `frontend` 为 healthy，浏览器打开 `http://127.0.0.1:3000`。
-3. 确认 `codex --version` 输出 `codex-cli 0.145.0`。
+3. 运行 `codex --version` 记录实际版本；普通版本升级无需修改 Remote。未知版本会先执行隔离 capability probe。
 4. 首次绑定或正式撤销后重新绑定时运行 `./scripts/codex/setup_local_agent.ps1`；不要手工把旧 `credential_id` 改成 `key_id`。
 5. 保持 Agent 的 `run` 命令持续运行，电脑状态变为“在线”后才能创建任务。
 
@@ -33,7 +33,7 @@ codex_binary = "codex"
 
 [protocol]
 agent_schema_version = "2.0"
-expected_codex_version = "0.145.0"
+expected_codex_version = "0.145.0" # legacy diagnostic field; no longer a hard runtime gate
 app_server_schema_digest = "86501505d7a626582cd7ded6eee36ab6bbaae30fd5d5c1021c0330e3f99d8109"
 allow_experimental_api = false
 
@@ -63,12 +63,12 @@ allow_write = true
 .\scripts\codex\setup_local_agent.ps1
 ```
 
-脚本固定本地 Docker API、前端验证页、审核版 Codex 和 schema digest，并自动使用当前仓库作为工作区。浏览器批准设备后，脚本会保存 v2 配置和 current-user DPAPI 设备私钥。
+脚本使用本地 Docker API、前端验证页和当前实际 Codex。已知 manifest 才携带对应 schema digest；未知版本不复用旧 digest，启动后必须通过 capability probe。浏览器批准设备后，脚本会保存 v2 配置和 current-user DPAPI 设备私钥。
 
 只有排查脚本或接入非默认环境时才需要使用完整命令：
 
 ```powershell
-uv run python -m src.cli.run_codex_host_agent --config "$env:LOCALAPPDATA\CodexRemoteAgent\agent.toml" setup --api-url "http://127.0.0.1:8000" --websocket-url "ws://127.0.0.1:8000/internal/codex-agents/connect" --display-name "ThinkPad" --workspace-root "E:\python_web_fastapi\work" --workspace-key "fastapi-work" --workspace-name "FastAPI Backend" --codex-version "0.145.0" --schema-digest "86501505d7a626582cd7ded6eee36ab6bbaae30fd5d5c1021c0330e3f99d8109"
+uv run python -m src.cli.run_codex_host_agent --config "$env:LOCALAPPDATA\CodexRemoteAgent\agent.toml" setup --api-url "http://127.0.0.1:8000" --websocket-url "ws://127.0.0.1:8000/internal/codex-agents/connect" --display-name "ThinkPad" --workspace-root "E:\python_web_fastapi\work" --workspace-key "fastapi-work" --workspace-name "FastAPI Backend"
 ```
 
 ### 日常启动
@@ -109,7 +109,7 @@ uv run python -m src.cli.probe_codex_app_server --codex-bin codex --workspace "E
 
 ### 环境与消息闭环
 
-2026-08-08 使用当前源码执行 `docker compose up -d --build`，`app`、PostgreSQL、Redis 和 RabbitMQ 均为 healthy，`/health/ready` 返回 200。Windows Agent 使用 Codex `0.145.0` 和冻结 schema digest，`doctor` 的 sqlite、workspace policy、Codex binary、DPAPI、control-plane DNS 五项全部通过。
+2026-08-08 的 `0.145.0` 运行记录保留为回归基线。后续验收应同时记录实际版本、可选 digest、capabilities 和 probe outcome；版本差异本身不再导致 BLOCKED。
 
 浏览器任务 `019fe08e-2950-7e20-b377-0775243afcfd` 先后发送固定消息并收到 `REMOTE_CODEX_OK`、`REMOTE_CODEX_REGRESSION_OK`；刷新页面后两轮用户消息和 Agent 正文仍完整显示。对应 operation、command 和 outbox 均为 `completed`，首次投递成功，thread 最终为 `idle`。
 

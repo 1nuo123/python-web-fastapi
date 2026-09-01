@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import fnmatch
 import gc
 import hashlib
 import logging
@@ -24,6 +23,7 @@ from src.core.codex_contract.agent_diagnostic_contract import (
     AgentProcessExitDiagnosticDetail,
     AgentStderrDiagnosticDetail,
 )
+from src.core.codex_contract.app_server_capability_contract import AppServerCapabilityProbeResult
 from src.core.codex_contract.app_server_jsonrpc_contract import (
     AppServerLineReaderPort,
     AppServerMessageTooLargeError,
@@ -46,7 +46,7 @@ CODEX_PARENT_PROCESS_VARIABLES: Final = frozenset(
     {
         "CODEX_CI",
         # Codex Desktop 注入的路径可能指向另一套 alpha CLI。Agent 必须
-        # 只使用自身解析出的、经版本白名单校验的 codex 入口，避免开发/生产串环境。
+        # 只使用自身配置解析出的 codex 入口，避免开发/生产串环境。
         "CODEX_CLI_PATH",
         "CODEX_INTERNAL_ORIGINATOR_OVERRIDE",
         "CODEX_SHELL",
@@ -96,7 +96,7 @@ class CodexProcessSupport:
 
 
 class AppServerVersionMismatchError(RuntimeError):
-    """本机 Codex CLI 不满足冻结版本白名单。"""
+    """保留旧异常类型，版本不再由 supervisor 启动前硬阻断。"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,10 +108,11 @@ class AppServerProcessHandle:
     process: asyncio.subprocess.Process
     client: AppServerJsonRpcClient
     initialize_result: JsonValue
+    probe_result: AppServerCapabilityProbeResult | None = None
 
 
 class AppServerProcessSupervisor:
-    """校验版本、启动 stdio App Server 并负责有序关闭。"""
+    """读取版本、启动 stdio App Server 并负责有序关闭。"""
 
     def __init__(
         self,
@@ -128,6 +129,8 @@ class AppServerProcessSupervisor:
     ) -> None:
         self._codex_binary = codex_binary
         self._codex_command = CodexProcessSupport.resolve_command(codex_binary)
+        # Deprecated compatibility input. Capability policy owns decisions
+        # after initialize; keeping the argument preserves old callers.
         self._allowed_versions = list(allowed_versions)
         self._max_line_bytes = max_line_bytes
         self._notification_handler = notification_handler
@@ -153,8 +156,6 @@ class AppServerProcessSupervisor:
         if self._handle is not None:
             raise RuntimeError("App Server监督器不能重复启动。")
         codex_version = await self._read_codex_version()
-        if not any(fnmatch.fnmatch(codex_version, pattern) for pattern in self._allowed_versions):
-            raise AppServerVersionMismatchError("本机Codex版本不在允许范围内。")
         process = await self._subprocess_launcher.create_async(
             WindowsSubprocessRequest(
                 argv=(*self._codex_command, "app-server", "--stdio"),

@@ -36,7 +36,7 @@ class AgentBootstrapBuildCommand(BaseModel):
     local_origin: str | None = None
     agent_version: str
     expected_codex_version: str
-    app_server_schema_digest: str = Field(min_length=64, max_length=128)
+    app_server_schema_digest: str | None = Field(default=None, min_length=64, max_length=128)
     release_enabled: bool = False
     release_manifest_target_path: Literal["codex-agent-release.json"] = (
         AGENT_RELEASE_MANIFEST_TARGET_PATH
@@ -178,7 +178,7 @@ class AgentBootstrapPayload(TypedDict, total=False):
     connection: dict[str, str]
     agent_version: str
     expected_codex_version: str
-    app_server_schema_digest: str
+    app_server_schema_digest: str | None
     default_workspace_key: str
     default_workspace_name: str
     release: AgentReleasePayload
@@ -194,10 +194,11 @@ class CodexAgentBootstrapBuilder:
             "deployment_state": command.deployment_state,
             "agent_version": command.agent_version,
             "expected_codex_version": command.expected_codex_version,
-            "app_server_schema_digest": command.app_server_schema_digest,
             "default_workspace_key": "default",
             "default_workspace_name": "默认工作区",
         }
+        if command.app_server_schema_digest is not None:
+            payload["app_server_schema_digest"] = command.app_server_schema_digest
         if command.deployment_state != "unconfigured":
             connection = command.build_connection_settings()
             payload["connection"] = connection.model_dump(mode="json")
@@ -239,7 +240,7 @@ class CodexAgentBootstrapCli:
         parser.add_argument("--local-origin")
         parser.add_argument("--agent-version", required=True)
         parser.add_argument("--expected-codex-version", required=True)
-        parser.add_argument("--app-server-schema-digest", required=True)
+        parser.add_argument("--app-server-schema-digest")
         parser.add_argument("--enable-release", action="store_true")
         parser.add_argument("--release-repository-url")
         parser.add_argument("--repository-host", action="append", default=[])

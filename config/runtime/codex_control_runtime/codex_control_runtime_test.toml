@@ -1,3 +1,8 @@
 [runtime]
 max_connected_agents = 1
 max_active_turns_per_host = 1
+minimum_version = "0.145.0"
+unknown_version_policy = "probe"
+unknown_schema_policy = "probe"
+allow_prerelease = false
+blocked_versions = []

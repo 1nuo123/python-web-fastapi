@@ -285,7 +285,7 @@ class CodexHostAgentCli:
         workspace_name: str,
         agent_version: str,
         codex_version: str,
-        schema_digest: str,
+        schema_digest: str | None,
         codex_binary: str = DEFAULT_CODEX_BINARY,
         deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
         development_ca_certificate_path: Path | None = None,
@@ -651,11 +651,13 @@ class CodexHostAgentCli:
             ) from exc
         tokens = completed.stdout.strip().split()
         actual_version = tokens[-1] if tokens else ""
-        if actual_version != expected_version:
-            raise ValueError(
-                f"Codex CLI 版本不兼容。需要 {expected_version}，当前为 "
-                f"{actual_version or '未知版本'}。"
-            )
+        if not actual_version:
+            raise OSError("Codex CLI未返回版本信息。")
+        logging.getLogger("codex_host_agent").info(
+            "Codex CLI 已就绪，使用实际版本 %s（旧配置期望值 %s 仅作观测）",
+            actual_version,
+            expected_version,
+        )
 
     def _format_interactive_error(self, error: Exception) -> str:
         if isinstance(error, httpx.TimeoutException):

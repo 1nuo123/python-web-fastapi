@@ -23,7 +23,10 @@ class AppServerJsonRpcError(BaseModel):
 class AppServerProtocolMessage(BaseModel):
     """按字段方向分类前的 App Server 消息。"""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    # App Server is an upstream evolving protocol. Unknown envelope fields are
+    # ignored here and surfaced only through the narrow adapter warning path;
+    # Remote's own Agent Protocol v2 remains strict.
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     id: JsonRpcId | None = None
     method: str | None = None

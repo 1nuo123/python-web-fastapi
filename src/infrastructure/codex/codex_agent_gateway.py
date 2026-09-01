@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import fnmatch
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Final, cast
@@ -52,6 +51,9 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentThreadMetadataChangedEventDetail,
     AgentThreadReadCommandResult,
     AgentTurnChangedEventDetail,
+)
+from src.core.codex_contract.app_server_capability_contract import (
+    AppServerCapabilityProbeResult,
 )
 from src.core.codex_contract.app_server_product_contract import (
     AppServerAgentMessageItem,
@@ -254,6 +256,7 @@ class CodexAgentGatewayHandler:
             protocol_version=hello.agent_protocol_version,
             schema_digest=hello.app_server_schema_digest,
             capabilities=self._read_v1_capabilities(hello),
+            probe_result=hello.probe_result,
         )
         await self._hello_observer(hello, self._principal)
         await self._compatibility_observer(hello.host_id, self._principal, decision)
@@ -285,6 +288,7 @@ class CodexAgentGatewayHandler:
             protocol_version=CodexConnectionProtocolVersion.V2.value,
             schema_digest=hello.app_server_schema_digest,
             capabilities=frozenset(item.code for item in hello.capabilities),
+            probe_result=hello.probe_result,
         )
         legacy_hello = CodexAgentHello(
             host_id=host_id,
@@ -292,6 +296,7 @@ class CodexAgentGatewayHandler:
             codex_version=hello.codex_version,
             agent_protocol_version=CodexConnectionProtocolVersion.V2.value,
             app_server_schema_digest=hello.app_server_schema_digest,
+            probe_result=hello.probe_result,
             capabilities={
                 "items": [item.model_dump(mode="json") for item in hello.capabilities],
                 "model_ids": list(hello.model_ids),
@@ -361,19 +366,17 @@ class CodexAgentGatewayHandler:
         *,
         codex_version: str,
         protocol_version: str,
-        schema_digest: str,
+        schema_digest: str | None,
         capabilities: frozenset[AppServerCapabilityCode],
+        probe_result: AppServerCapabilityProbeResult | None = None,
     ) -> CodexCompatibilityDecision:
-        if not any(
-            fnmatch.fnmatch(codex_version, pattern) for pattern in self._allowed_codex_versions
-        ):
-            raise ValueError("Agent Codex版本不符合外围版本约束。")
         result = self._compatibility_policy.evaluate_connection(
             CodexConnectionCompatibilityTuple(
                 codex_version=codex_version,
                 agent_protocol_version=protocol_version,
                 app_server_schema_digest=schema_digest,
                 capabilities=capabilities,
+                probe_result=probe_result,
             )
         )
         if result.decision in {

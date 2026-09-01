@@ -207,7 +207,7 @@ class AgentProtocolSettings(BaseModel):
     agent_schema_version: CodexConnectionProtocolVersion
     agent_version: str = Field(default="0.1.0", min_length=1, max_length=64)
     expected_codex_version: str = Field(min_length=1, max_length=64)
-    app_server_schema_digest: str = Field(min_length=64, max_length=128)
+    app_server_schema_digest: str | None = Field(default=None, min_length=64, max_length=128)
     allow_experimental_api: bool = False
 
 
@@ -476,7 +476,7 @@ class AgentBootstrapSettings(BaseModel):
     ) = None
     agent_version: str = Field(min_length=1, max_length=64)
     expected_codex_version: str = Field(min_length=1, max_length=64)
-    app_server_schema_digest: str = Field(min_length=64, max_length=128)
+    app_server_schema_digest: str | None = Field(default=None, min_length=64, max_length=128)
     default_workspace_key: str = Field(default="default", min_length=1, max_length=128)
     default_workspace_name: str = Field(default="默认工作区", min_length=1, max_length=128)
     release: AgentReleaseBootstrapSettings | None = None

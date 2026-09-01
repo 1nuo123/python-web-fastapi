@@ -45,10 +45,25 @@ class AppServerManifestRegistry:
             raise AppServerManifestValidationError("没有可加载的App Server manifest。")
         return tuple(manifests)
 
-    def build_policy(self) -> CodexCompatibilityPolicy:
+    def build_policy(
+        self,
+        *,
+        minimum_version: str | None = None,
+        unknown_version_policy: str = "probe",
+        unknown_schema_policy: str = "probe",
+        blocked_versions: tuple[str, ...] = (),
+        allow_prerelease: bool = False,
+    ) -> CodexCompatibilityPolicy:
         """使用已验证 manifest 构造领域兼容策略。"""
 
-        return CodexCompatibilityPolicy(self.load_manifests())
+        return CodexCompatibilityPolicy(
+            self.load_manifests(),
+            minimum_version=minimum_version,
+            unknown_version_policy=unknown_version_policy,
+            unknown_schema_policy=unknown_schema_policy,
+            blocked_versions=blocked_versions,
+            allow_prerelease=allow_prerelease,
+        )
 
     def calculate_directory_digest(self, directory: str | Path) -> str:
         """按相对 POSIX 路径和原始字节计算稳定 SHA-256。"""

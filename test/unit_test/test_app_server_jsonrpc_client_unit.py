@@ -147,3 +147,45 @@ async def test_read_loop_when_message_exceeds_limit_should_reject_only_inflight_
     assert client.running is True
     assert warnings == ["App Server单条输出超过4 MiB，已省略该消息，连接继续可用。"]
     await client.close()
+
+
+@pytest.mark.asyncio
+async def test_response_unknown_field_should_warn_and_preserve_known_result() -> None:
+    reader = FakeLineReader()
+    writer = FakeLineWriter()
+    warnings: list[str] = []
+
+    async def ignore_notification(_method: str, _params: JsonValue) -> None:
+        return
+
+    async def ignore_request(_id: JsonRpcId, _method: str, _params: JsonValue) -> None:
+        return
+
+    async def record_warning(warning: str) -> None:
+        warnings.append(warning)
+
+    client = AppServerJsonRpcClient(
+        reader=reader,
+        writer=writer,
+        max_line_bytes=1024,
+        notification_handler=ignore_notification,
+        request_handler=ignore_request,
+        warning_handler=record_warning,
+    )
+    await client.start()
+    pending = asyncio.create_task(client.request("model/list", {}, timeout_seconds=1))
+    request = await writer.messages.get()
+    await reader.lines.put(
+        json.dumps(
+            {
+                "id": request["id"],
+                "result": {"data": []},
+                "futureEnvelopeField": {"ignored": True},
+            }
+        ).encode()
+        + b"\n"
+    )
+
+    assert await pending == {"data": []}
+    assert warnings == ["App Server消息包含未知字段，已忽略。"]
+    await client.close()

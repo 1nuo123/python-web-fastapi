@@ -56,6 +56,12 @@ codex_authority_recovery_v2 = false
 allow_legacy_agent_bearer = false
 allow_experimental_app_server_api = false
 allowed_codex_versions = ["0.145.0"]
+# Version is observational; compatibility is capability/probe driven.
+minimum_version = "0.145.0"
+unknown_version_policy = "probe"
+unknown_schema_policy = "probe"
+allow_prerelease = false
+blocked_versions = []
 agent_release_version = "0.1.15"
 agent_release_distribution_mode = "verified"
 agent_release_artifact_sha256 = "ca07e19c6c881c40c5d12257d84957d20962bb7f24cf45344ee81fc2cdd930b6"

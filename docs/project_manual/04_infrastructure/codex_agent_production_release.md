@@ -89,7 +89,9 @@ D:\CodexAgentTuf\public\root.json
 
 所有 PEM 均为加密 PKCS#8。将 root 密钥、targets 密钥和各自口令分开备份到至少两个受控介质；日常发布机不得长期保留 root 私钥。`root.json` 是公开信任材料，可进入 CI Secret 和 MSI。
 
-## 3. 每次版本发布
+## 3. 每次 Agent 版本发布
+
+普通 Codex CLI 更新属于运行时能力观测，不要求重建 Agent MSI。Agent 只有在 Remote 源码、配置契约或安装器本身变化时才需要新的 MSI；新 Codex 版本先在隔离 workspace 运行 capability probe，再依据结果进入 `compatible`、`read_only` 或 `blocked`。
 
 ### 3.1 生成并签名 EXE
 

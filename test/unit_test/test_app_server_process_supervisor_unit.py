@@ -18,7 +18,6 @@ from src.core.codex_contract.app_server_jsonrpc_contract import (
 from src.infrastructure.codex_agent.app_server_process_supervisor import (
     CODEX_PARENT_PROCESS_VARIABLES,
     AppServerProcessSupervisor,
-    AppServerVersionMismatchError,
     CodexProcessSupport,
 )
 
@@ -113,7 +112,7 @@ class TestAppServerProcessSupervisorUnit:
             await supervisor.stop()
 
     @pytest.mark.asyncio
-    async def test_supervisor_should_reject_version_outside_frozen_allowlist(
+    async def test_supervisor_should_start_version_outside_legacy_allowlist(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -147,8 +146,8 @@ class TestAppServerProcessSupervisorUnit:
             logger=logging.getLogger("test.app-server-supervisor"),
         )
 
-        with pytest.raises(AppServerVersionMismatchError, match="允许范围"):
-            await supervisor.start()
+        handle = await supervisor.start()
+        assert handle.codex_version == FROZEN_CODEX_VERSION
         await supervisor.stop()
 
     def test_process_support_should_strip_parent_environment_and_resolve_entries(
