@@ -94,6 +94,23 @@ class CodexProcessSupport:
         if transport is not None:
             transport.close()
 
+    @staticmethod
+    async def terminate_process_tree(process: asyncio.subprocess.Process) -> None:
+        """在 Windows 上终止 npm/node wrapper 及其 App Server 子进程。"""
+
+        if os.name != "nt" or process.pid is None:
+            return
+        taskkill = await asyncio.create_subprocess_exec(
+            "taskkill.exe",
+            "/PID",
+            str(process.pid),
+            "/T",
+            "/F",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await taskkill.wait()
+
 
 class AppServerVersionMismatchError(RuntimeError):
     """保留旧异常类型，版本不再由 supervisor 启动前硬阻断。"""
@@ -213,6 +230,7 @@ class AppServerProcessSupervisor:
             await client.close()
             process.kill()
             await process.wait()
+            await CodexProcessSupport.terminate_process_tree(process)
             await self._stop_stderr_task()
             raise
         self._handle = AppServerProcessHandle(
@@ -265,6 +283,7 @@ class AppServerProcessSupervisor:
                     detail=AgentProcessExitDiagnosticDetail(exit_code=handle.process.returncode),
                 ).to_log_line()
             )
+        await CodexProcessSupport.terminate_process_tree(handle.process)
         CodexProcessSupport.close_windows_subprocess_transport(handle.process)
         del handle
         gc.collect()

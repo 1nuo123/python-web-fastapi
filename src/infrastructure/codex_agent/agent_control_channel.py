@@ -466,13 +466,25 @@ class AgentControlChannel:
         """运行一个控制面连接代次，断线不停止本地 App Server。"""
 
         connection_url, headers = await self._build_connection_request(legacy_token)
-        async with connect(
-            connection_url,
-            additional_headers=headers,
-            max_size=self._settings.agent.max_app_server_line_bytes,
-            ping_interval=None,
-            ssl=self._tls_context,
-        ) as connection:
+        # websockets rejects an explicit ``ssl=None`` for wss:// URLs. The
+        # default system trust store is selected by omitting the argument;
+        # development profiles may still provide an explicit SSLContext.
+        if self._tls_context is not None:
+            connection_context = connect(
+                connection_url,
+                additional_headers=headers,
+                max_size=self._settings.agent.max_app_server_line_bytes,
+                ping_interval=None,
+                ssl=self._tls_context,
+            )
+        else:
+            connection_context = connect(
+                connection_url,
+                additional_headers=headers,
+                max_size=self._settings.agent.max_app_server_line_bytes,
+                ping_interval=None,
+            )
+        async with connection_context as connection:
             session = CodexDuplexConnectionSession(
                 transport=AgentWebSocketTransport(connection),
                 inbound_handler=self._handle_control_frame,
