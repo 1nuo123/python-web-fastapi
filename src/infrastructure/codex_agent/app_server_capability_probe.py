@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Mapping
 from typing import Final, Protocol, cast
 
@@ -32,7 +33,7 @@ NO_TOOL_PROMPT: Final = (
     "Reply exactly CODEX_REMOTE_CAPABILITY_OK. Do not use tools, execute commands, or modify files."
 )
 APPROVAL_PROMPT: Final = (
-    "Use the shell to print the current working directory exactly once. Do not read or "
+    "You MUST use the shell tool now. Run exactly one command: pwd. Do not read or "
     "modify files. Wait for approval before executing the command."
 )
 INTERRUPT_PROMPT: Final = (
@@ -186,7 +187,7 @@ class AppServerCapabilityProbe:
                 AppServerMethodName.THREAD_START.value,
                 {
                     "cwd": self._workspace,
-                    "sandbox": "workspace-write",
+                    "sandbox": "read-only",
                     "approvalPolicy": "untrusted",
                     "approvalsReviewer": "user",
                     "ephemeral": True,
@@ -220,7 +221,6 @@ class AppServerCapabilityProbe:
                 await self._wait_for_turn(approval_turn, READ_TIMEOUT_SECONDS)
             except TimeoutError:
                 await self._interrupt_turn(approval_turn)
-            await self._interrupt_turn(approval_turn)
             interrupt_turn = await self._start_turn(INTERRUPT_PROMPT)
             await self._interrupt_turn(interrupt_turn)
             delete_succeeded = await self._delete_thread()
@@ -281,7 +281,15 @@ class AppServerCapabilityProbe:
                 {"threadId": thread_id},
                 timeout_seconds=READ_TIMEOUT_SECONDS,
             )
-        except (AppServerProtocolError, AppServerRpcError, ConnectionError, TimeoutError):
+        except (AppServerProtocolError, AppServerRpcError, ConnectionError, TimeoutError) as exc:
+            if isinstance(exc, AppServerRpcError) and "not persisted" in exc.error.message:
+                # Ephemeral probe threads are automatically discarded by Codex
+                # 0.152; thread/delete correctly reports that there is nothing
+                # persisted to delete.
+                self._thread_id = None
+                self._thread_cleaned = True
+                return True
+            logging.getLogger(__name__).warning("capability probe thread/delete failed: %s", exc)
             return False
         self._thread_id = None
         self._thread_cleaned = True

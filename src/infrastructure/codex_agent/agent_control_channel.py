@@ -323,6 +323,12 @@ class AgentControlChannel:
         self._supervisor = AppServerProcessSupervisor(
             codex_binary=settings.agent.codex_binary,
             allowed_versions=[settings.protocol.expected_codex_version],
+            # Codex 0.152 accepts ``on-request`` as the interactive policy;
+            # this prevents the user's global ``approval_policy=never`` from
+            # silently disabling Remote approvals. Per-turn legacy values stay
+            # compatible at the Remote protocol boundary.
+            approval_policy="on-request",
+            sandbox_mode=settings.app_server_security.sandbox_mode,
             max_line_bytes=settings.agent.max_app_server_line_bytes,
             notification_handler=self._accept_app_server_notification,
             request_handler=self._accept_app_server_request,

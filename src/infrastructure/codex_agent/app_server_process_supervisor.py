@@ -136,6 +136,10 @@ class AppServerProcessSupervisor:
         *,
         codex_binary: str,
         allowed_versions: list[str],
+        approval_policy: Literal["untrusted", "on-request"] = "on-request",
+        sandbox_mode: Literal[
+            "read-only", "workspace-write", "danger-full-access"
+        ] = "workspace-write",
         max_line_bytes: int,
         notification_handler: AppServerNotificationHandler,
         request_handler: AppServerRequestHandler,
@@ -149,6 +153,8 @@ class AppServerProcessSupervisor:
         # Deprecated compatibility input. Capability policy owns decisions
         # after initialize; keeping the argument preserves old callers.
         self._allowed_versions = list(allowed_versions)
+        self._approval_policy = approval_policy
+        self._sandbox_mode = sandbox_mode
         self._max_line_bytes = max_line_bytes
         self._notification_handler = notification_handler
         self._request_handler = request_handler
@@ -175,7 +181,15 @@ class AppServerProcessSupervisor:
         codex_version = await self._read_codex_version()
         process = await self._subprocess_launcher.create_async(
             WindowsSubprocessRequest(
-                argv=(*self._codex_command, "app-server", "--stdio"),
+                argv=(
+                    *self._codex_command,
+                    "app-server",
+                    "--stdio",
+                    "-c",
+                    f'approval_policy="{self._approval_policy}"',
+                    "-c",
+                    f'sandbox_mode="{self._sandbox_mode}"',
+                ),
                 environment=CodexProcessSupport.build_standalone_environment(),
                 stream_limit_bytes=self._max_line_bytes + 1,
                 log_category=WindowsSubprocessLogCategory.CODEX,
