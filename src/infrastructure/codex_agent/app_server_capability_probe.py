@@ -187,7 +187,7 @@ class AppServerCapabilityProbe:
                 AppServerMethodName.THREAD_START.value,
                 {
                     "cwd": self._workspace,
-                    "sandbox": "read-only",
+                    "sandbox": "workspace-write",
                     "approvalPolicy": "untrusted",
                     "approvalsReviewer": "user",
                     "ephemeral": True,
