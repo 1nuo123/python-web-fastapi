@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import secrets
+import shutil
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
@@ -411,21 +412,22 @@ class AgentControlChannel:
             return replace(handle, probe_result=None)
         state_directory = self._settings.agent.state_database.parent.resolve()
         state_directory.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(
+        temporary_workspace = tempfile.mkdtemp(
             prefix="codex-remote-capability-probe-",
             dir=state_directory,
-        ) as temporary_workspace:
-            workspace = Path(temporary_workspace).resolve(strict=True)
-            probe = AppServerCapabilityProbe(
-                handle.client,
-                workspace=str(workspace),
-                initialize_passed=isinstance(handle.initialize_result, Mapping),
-            )
-            self._capability_probe = probe
-            try:
-                result = await probe.run(confirm_full_capabilities=True)
-            finally:
-                self._capability_probe = None
+        )
+        workspace = Path(temporary_workspace).resolve(strict=True)
+        probe = AppServerCapabilityProbe(
+            handle.client,
+            workspace=str(workspace),
+            initialize_passed=isinstance(handle.initialize_result, Mapping),
+        )
+        self._capability_probe = probe
+        try:
+            result = await probe.run(confirm_full_capabilities=True)
+        finally:
+            self._capability_probe = None
+            await self._remove_probe_workspace(workspace)
         self._logger.info(
             "Codex App Server capability probe completed: version=%s outcome=%s failure=%s",
             handle.codex_version,
@@ -433,6 +435,21 @@ class AgentControlChannel:
             result.failure.value if result.failure is not None else None,
         )
         return replace(handle, probe_result=result)
+
+    async def _remove_probe_workspace(self, workspace: Path) -> None:
+        """释放 App Server 后再回收 probe workspace；失败只记录告警。"""
+
+        for attempt in range(3):
+            try:
+                shutil.rmtree(workspace)
+                return
+            except FileNotFoundError:
+                return
+            except PermissionError:
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+                    continue
+                self._logger.warning("Capability probe workspace cleanup deferred: %s", workspace)
 
     def _raise_if_connection_closed_unexpectedly(self) -> None:
         """把非停机导致的正常关闭转换为可退避重试的连接异常。"""
