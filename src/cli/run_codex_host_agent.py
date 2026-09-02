@@ -144,7 +144,10 @@ class CodexHostAgentCli:
         setup_parser.add_argument("--agent-version", default=DEFAULT_AGENT_VERSION)
         setup_parser.add_argument("--codex-version", required=True)
         setup_parser.add_argument("--codex-binary", default=DEFAULT_CODEX_BINARY)
-        setup_parser.add_argument("--schema-digest", required=True)
+        # A digest is only available for an approved manifest. Unknown/newer
+        # Codex versions must enter the capability probe with an explicit
+        # unknown digest instead of reusing a historical snapshot.
+        setup_parser.add_argument("--schema-digest")
         setup_parser.add_argument("--development-ca-certificate-path", type=Path)
         uri_parser = subparsers.add_parser(AGENT_COMMAND_URI, help="处理网站发起的设备连接")
         uri_parser.add_argument("uri")
