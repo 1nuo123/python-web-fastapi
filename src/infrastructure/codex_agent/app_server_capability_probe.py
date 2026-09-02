@@ -289,6 +289,7 @@ class AppServerCapabilityProbe:
                 # persisted to delete.
                 self._thread_id = None
                 self._thread_cleaned = True
+                self._methods.add(AppServerMethodName.THREAD_DELETE)
                 return True
             logging.getLogger(__name__).warning("capability probe thread/delete failed: %s", exc)
             return False
