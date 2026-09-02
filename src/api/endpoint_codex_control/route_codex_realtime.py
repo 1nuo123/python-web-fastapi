@@ -267,7 +267,13 @@ class CodexRealtimeRouteCatalog:
         self._accessor.read_authorized_principal(request, CODEX_READ_AUTHORIZATION_REQUIREMENT)
 
     async def issue_ticket(self, request: Request) -> ResponseEnvelope[CodexRealtimeTicket]:
-        """签发绑定主体与客户端地址的高熵一次性票据。"""
+        """签发绑定主体的高熵一次性浏览器票据。
+
+        浏览器的 HTTP 与 WebSocket 连接可能经过不同的代理链，也可能在
+        IPv4/IPv6 之间切换；因此票据不绑定瞬时客户端 IP。一次性消费、主体
+        绑定、Origin 校验和短 TTL 仍然构成访问边界，连接本身继续使用解析后
+        的客户端 IP 进行会话限额与审计。
+        """
 
         if not self._origin_allowed(
             request.headers.get("origin"),
@@ -281,13 +287,12 @@ class CodexRealtimeRouteCatalog:
         principal = self._accessor.read_authenticated_principal(request)
         resource_mount = request.app.state.container.resource_mount
         runtime = self._read_runtime(resource_mount)
-        client_ip = resource_mount.get_client_ip_resolver().resolve_client_ip(request)
         envelope = await runtime.stream_ticket_service.issue(
             subject_id=CodexRealtimeTicketSubject(
                 owner_subject_id=principal.subject_id,
             ).encode(),
             operation_name=CODEX_REALTIME_OPERATION_NAME,
-            client_ip=client_ip,
+            client_ip=None,
         )
         if not isinstance(envelope.detail, StreamAccessTicketIssuedDetail):
             raise RuntimeError("Codex实时票据签发未返回issued扩展。")
@@ -324,7 +329,7 @@ class CodexRealtimeRouteCatalog:
             record = await runtime.stream_ticket_service.consume_record(
                 ticket=ticket,
                 operation_name=CODEX_REALTIME_OPERATION_NAME,
-                client_ip=client_ip,
+                client_ip=None,
             )
             if record is None:
                 raise PermissionError("Codex实时票据无效或已消费。")
