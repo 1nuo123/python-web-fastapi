@@ -33,8 +33,9 @@ NO_TOOL_PROMPT: Final = (
     "Reply exactly CODEX_REMOTE_CAPABILITY_OK. Do not use tools, execute commands, or modify files."
 )
 APPROVAL_PROMPT: Final = (
-    "You MUST use the shell tool now. Run exactly one command: pwd. Do not read or "
-    "modify files. Wait for approval before executing the command."
+    "You MUST use the shell tool now. Run exactly this command: echo APPROVAL_PROBE > "
+    ".codex-remote-approval-probe. Do not read any files. Wait for approval before "
+    "executing the command."
 )
 INTERRUPT_PROMPT: Final = (
     "Write a very long numbered list and continue until the request is interrupted. "
