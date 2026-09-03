@@ -144,7 +144,7 @@ class CodexAgentSetupUsecase:
         platform: str,
         expected_codex_version: str,
         agent_version: str,
-        schema_digest: str | None,
+        schema_digest: str,
         codex_binary: str = "codex",
         workspace: AgentWorkspaceSettings | None,
         deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
@@ -221,7 +221,7 @@ class CodexAgentSetupUsecase:
                     agent_schema_version=CodexConnectionProtocolVersion.V2,
                     agent_version=agent_version,
                     expected_codex_version=expected_codex_version,
-                    app_server_schema_digest=schema_digest or None,
+                    app_server_schema_digest=schema_digest,
                 ),
                 workspaces=[resolved_workspace],
             )

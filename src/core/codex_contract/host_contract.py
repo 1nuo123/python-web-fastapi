@@ -143,7 +143,7 @@ class CodexHostHelloObservationDetail(CodexHostObservationDetailBase):
     agent_version: str = Field(min_length=1, max_length=64)
     codex_version: str = Field(min_length=1, max_length=64)
     agent_protocol_version: str = Field(min_length=1, max_length=64)
-    app_server_schema_digest: str | None = Field(default=None, max_length=128)
+    app_server_schema_digest: str = Field(min_length=1, max_length=128)
     capabilities: CodexHostCapabilities
 
 

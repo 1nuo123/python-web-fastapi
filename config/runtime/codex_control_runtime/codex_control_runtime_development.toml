@@ -1,7 +1,2 @@
 [runtime]
 agent_deployment_profile = "development"
-minimum_version = "0.145.0"
-unknown_version_policy = "probe"
-unknown_schema_policy = "probe"
-allow_prerelease = false
-blocked_versions = []

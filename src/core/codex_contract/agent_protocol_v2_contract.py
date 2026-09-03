@@ -17,9 +17,6 @@ from pydantic import (
     model_validator,
 )
 
-from src.core.codex_contract.app_server_capability_contract import (
-    AppServerCapabilityProbeResult,
-)
 from src.core.codex_contract.app_server_product_contract import (
     APP_SERVER_PRODUCT_MAX_DELTA_CHARS,
     APP_SERVER_PRODUCT_MAX_TEXT_CHARS,
@@ -92,10 +89,7 @@ class AgentHelloV2Detail(AgentProtocolV2DetailBase):
     kind: Literal["hello"] = "hello"
     agent_version: str = Field(min_length=1, max_length=64)
     codex_version: str = Field(min_length=1, max_length=64)
-    # Unknown/newer App Server versions do not reuse an old digest. ``None``
-    # means unknown and requires a capability probe before mutations.
-    app_server_schema_digest: str | None = Field(default=None, pattern=SHA256_HEX_PATTERN)
-    probe_result: AppServerCapabilityProbeResult | None = None
+    app_server_schema_digest: str = Field(pattern=SHA256_HEX_PATTERN)
     capabilities: tuple[AppServerCapabilityDetail, ...]
     model_ids: tuple[str, ...] = ()
     reasoning_efforts: tuple[str, ...] = ()

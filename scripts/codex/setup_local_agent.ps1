@@ -19,17 +19,8 @@ $stateDirectory = if ($DeploymentProfile -eq "development") {
 }
 $configPath = Join-Path $stateDirectory "agent.toml"
 $workspaceRoot = $repositoryRoot
-$codexVersionOutput = & $CodexBinary --version 2>$null
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($codexVersionOutput)) {
-    throw "无法读取本机 Codex CLI 版本，请先安装或修复 Codex。"
-}
-$codexVersion = ($codexVersionOutput -split '\s+')[-1].Trim()
-$schemaDigest = ""
-$manifestPath = Join-Path $repositoryRoot ("protocol\codex_app_server\{0}\manifest.json" -f $codexVersion)
-if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
-    $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
-    $schemaDigest = [string]$manifest.detail.json_schema_bundle_sha256
-}
+$schemaDigest = "86501505d7a626582cd7ded6eee36ab6bbaae30fd5d5c1021c0330e3f99d8109"
+$codexVersion = "0.145.0"
 
 if ($DeploymentProfile -eq "development") {
     if ([string]::IsNullOrWhiteSpace($DevelopmentCaCertificatePath)) {

@@ -14,9 +14,7 @@ param(
 
   [Parameter(Mandatory)]
   [ValidatePattern('^https://[^?#]+$')]
-  [string]$DownloadUrl,
-
-  [string]$CodexBinary = "codex"
+  [string]$DownloadUrl
 )
 
 Set-StrictMode -Version Latest
@@ -24,6 +22,7 @@ $ErrorActionPreference = "Stop"
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $releaseRepository = (Resolve-Path -LiteralPath $ReleaseRepositoryRoot).Path
+$schemaManifestPath = Join-Path $repositoryRoot "protocol\codex_app_server\0.145.0\manifest.json"
 $distRoot = Join-Path $repositoryRoot "dist"
 $payloadRoot = Join-Path $distRoot "installer-payload-internal-$Version"
 $identityPath = Join-Path $distRoot "windows-installer-identity-internal-$Version.json"
@@ -43,17 +42,9 @@ foreach ($immutablePath in @($releaseInstallerPath, $releaseManifestPath, $relea
   }
 }
 
-$codexVersionOutput = & $CodexBinary --version 2>$null
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($codexVersionOutput)) {
-  throw "无法读取本机 Codex CLI 版本。"
-}
-$codexVersion = (($codexVersionOutput -split '\s+')[-1]).Trim()
-$schemaDigest = ""
-$schemaManifestPath = Join-Path $repositoryRoot ("protocol\codex_app_server\{0}\manifest.json" -f $codexVersion)
-if (Test-Path -LiteralPath $schemaManifestPath -PathType Leaf) {
-  $schemaManifest = Get-Content -LiteralPath $schemaManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-  $schemaDigest = [string]$schemaManifest.detail.json_schema_bundle_sha256
-}
+$schemaManifest = Get-Content -LiteralPath $schemaManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$codexVersion = [string]$schemaManifest.header.codex_version
+$schemaDigest = [string]$schemaManifest.detail.json_schema_bundle_sha256
 
 Push-Location $repositoryRoot
 try {
@@ -81,17 +72,12 @@ try {
   Copy-Item -LiteralPath (Join-Path $repositoryRoot "packaging\windows\scripts\unregister_task_scheduler.ps1") -Destination $payloadRoot -Force
   Copy-Item -LiteralPath (Join-Path $repositoryRoot "packaging\windows\scripts\purge_agent_state.ps1") -Destination $payloadRoot -Force
 
-  $bootstrapArguments = @(
-    "-m", "src.cli.build_codex_agent_bootstrap",
-    "--output", (Join-Path $payloadRoot "agent-bootstrap.toml"),
-    "--public-origin", $PublicOrigin,
-    "--agent-version", $Version,
-    "--expected-codex-version", $codexVersion
-  )
-  if (-not [string]::IsNullOrWhiteSpace($schemaDigest)) {
-    $bootstrapArguments += @("--app-server-schema-digest", $schemaDigest)
-  }
-  & uv run python @bootstrapArguments
+  & uv run python -m src.cli.build_codex_agent_bootstrap `
+    --output (Join-Path $payloadRoot "agent-bootstrap.toml") `
+    --public-origin $PublicOrigin `
+    --agent-version $Version `
+    --expected-codex-version $codexVersion `
+    --app-server-schema-digest $schemaDigest
   if ($LASTEXITCODE -ne 0) {
     throw "Internal Agent bootstrap generation failed."
   }

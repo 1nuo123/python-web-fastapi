@@ -107,14 +107,16 @@ class AgentDoctor:
     def _check_codex_binary(self) -> AgentDoctorCheck:
         try:
             version = self._read_codex_version()
+            if version != self._settings.protocol.expected_codex_version:
+                return AgentDoctorCheck(
+                    name="codex_binary",
+                    state=AgentDoctorCheckState.BLOCKED,
+                    reason_code="codex_version_mismatch",
+                )
             return AgentDoctorCheck(
                 name="codex_binary",
                 state=AgentDoctorCheckState.PASS,
                 reason_code="codex_binary_ok",
-                detail=(
-                    f"实际版本={version}; 旧配置期望值="
-                    f"{self._settings.protocol.expected_codex_version}（仅观测）"
-                ),
             )
         except (OSError, subprocess.SubprocessError, ValueError):
             return AgentDoctorCheck(

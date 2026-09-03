@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import fnmatch
 import gc
 import hashlib
 import logging
@@ -23,7 +24,6 @@ from src.core.codex_contract.agent_diagnostic_contract import (
     AgentProcessExitDiagnosticDetail,
     AgentStderrDiagnosticDetail,
 )
-from src.core.codex_contract.app_server_capability_contract import AppServerCapabilityProbeResult
 from src.core.codex_contract.app_server_jsonrpc_contract import (
     AppServerLineReaderPort,
     AppServerMessageTooLargeError,
@@ -46,7 +46,7 @@ CODEX_PARENT_PROCESS_VARIABLES: Final = frozenset(
     {
         "CODEX_CI",
         # Codex Desktop 注入的路径可能指向另一套 alpha CLI。Agent 必须
-        # 只使用自身配置解析出的 codex 入口，避免开发/生产串环境。
+        # 只使用自身解析出的、经版本白名单校验的 codex 入口，避免开发/生产串环境。
         "CODEX_CLI_PATH",
         "CODEX_INTERNAL_ORIGINATOR_OVERRIDE",
         "CODEX_SHELL",
@@ -94,26 +94,9 @@ class CodexProcessSupport:
         if transport is not None:
             transport.close()
 
-    @staticmethod
-    async def terminate_process_tree(process: asyncio.subprocess.Process) -> None:
-        """在 Windows 上终止 npm/node wrapper 及其 App Server 子进程。"""
-
-        if os.name != "nt" or process.pid is None:
-            return
-        taskkill = await asyncio.create_subprocess_exec(
-            "taskkill.exe",
-            "/PID",
-            str(process.pid),
-            "/T",
-            "/F",
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
-        )
-        await taskkill.wait()
-
 
 class AppServerVersionMismatchError(RuntimeError):
-    """保留旧异常类型，版本不再由 supervisor 启动前硬阻断。"""
+    """本机 Codex CLI 不满足冻结版本白名单。"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,21 +108,16 @@ class AppServerProcessHandle:
     process: asyncio.subprocess.Process
     client: AppServerJsonRpcClient
     initialize_result: JsonValue
-    probe_result: AppServerCapabilityProbeResult | None = None
 
 
 class AppServerProcessSupervisor:
-    """读取版本、启动 stdio App Server 并负责有序关闭。"""
+    """校验版本、启动 stdio App Server 并负责有序关闭。"""
 
     def __init__(
         self,
         *,
         codex_binary: str,
         allowed_versions: list[str],
-        approval_policy: Literal["untrusted", "on-request"] = "on-request",
-        sandbox_mode: Literal[
-            "read-only", "workspace-write", "danger-full-access"
-        ] = "workspace-write",
         max_line_bytes: int,
         notification_handler: AppServerNotificationHandler,
         request_handler: AppServerRequestHandler,
@@ -150,11 +128,7 @@ class AppServerProcessSupervisor:
     ) -> None:
         self._codex_binary = codex_binary
         self._codex_command = CodexProcessSupport.resolve_command(codex_binary)
-        # Deprecated compatibility input. Capability policy owns decisions
-        # after initialize; keeping the argument preserves old callers.
         self._allowed_versions = list(allowed_versions)
-        self._approval_policy = approval_policy
-        self._sandbox_mode = sandbox_mode
         self._max_line_bytes = max_line_bytes
         self._notification_handler = notification_handler
         self._request_handler = request_handler
@@ -179,17 +153,11 @@ class AppServerProcessSupervisor:
         if self._handle is not None:
             raise RuntimeError("App Server监督器不能重复启动。")
         codex_version = await self._read_codex_version()
+        if not any(fnmatch.fnmatch(codex_version, pattern) for pattern in self._allowed_versions):
+            raise AppServerVersionMismatchError("本机Codex版本不在允许范围内。")
         process = await self._subprocess_launcher.create_async(
             WindowsSubprocessRequest(
-                argv=(
-                    *self._codex_command,
-                    "app-server",
-                    "--stdio",
-                    "-c",
-                    f'approval_policy="{self._approval_policy}"',
-                    "-c",
-                    f'sandbox_mode="{self._sandbox_mode}"',
-                ),
+                argv=(*self._codex_command, "app-server", "--stdio"),
                 environment=CodexProcessSupport.build_standalone_environment(),
                 stream_limit_bytes=self._max_line_bytes + 1,
                 log_category=WindowsSubprocessLogCategory.CODEX,
@@ -244,7 +212,6 @@ class AppServerProcessSupervisor:
             await client.close()
             process.kill()
             await process.wait()
-            await CodexProcessSupport.terminate_process_tree(process)
             await self._stop_stderr_task()
             raise
         self._handle = AppServerProcessHandle(
@@ -297,7 +264,6 @@ class AppServerProcessSupervisor:
                     detail=AgentProcessExitDiagnosticDetail(exit_code=handle.process.returncode),
                 ).to_log_line()
             )
-        await CodexProcessSupport.terminate_process_tree(handle.process)
         CodexProcessSupport.close_windows_subprocess_transport(handle.process)
         del handle
         gc.collect()

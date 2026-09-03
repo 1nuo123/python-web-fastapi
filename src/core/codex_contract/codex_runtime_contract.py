@@ -107,14 +107,7 @@ class CodexRuntimeSettings(BaseModel):
     codex_authority_recovery_v2: bool = False
     allow_legacy_agent_bearer: bool = False
     allow_experimental_app_server_api: bool = False
-    # Deprecated compatibility input retained for old configuration files. It
-    # is no longer consulted as a runtime hard allow-list.
-    allowed_codex_versions: list[str] = Field(default_factory=list)
-    minimum_version: str | None = Field(default=None, min_length=1, max_length=64)
-    unknown_version_policy: str = Field(default="probe", min_length=1, max_length=32)
-    unknown_schema_policy: str = Field(default="probe", min_length=1, max_length=32)
-    allow_prerelease: bool = False
-    blocked_versions: tuple[str, ...] = ()
+    allowed_codex_versions: list[str] = Field(min_length=1)
     agent_release_version: str = Field(min_length=1, max_length=64)
     agent_release_distribution_mode: CodexAgentReleaseDistributionMode
     agent_release_artifact_sha256: str = Field(min_length=64, max_length=64)
@@ -132,12 +125,6 @@ class CodexRuntimeSettings(BaseModel):
             raise ValueError("agent_reconnect_max_seconds 不得小于 agent_reconnect_min_seconds。")
         if any(version.strip() == "" for version in self.allowed_codex_versions):
             raise ValueError("allowed_codex_versions 不允许空字符串。")
-        if any(version.strip() == "" for version in self.blocked_versions):
-            raise ValueError("blocked_versions 不允许空字符串。")
-        if self.unknown_version_policy not in {"probe", "blocked"}:
-            raise ValueError("unknown_version_policy 必须是 probe 或 blocked。")
-        if self.unknown_schema_policy not in {"probe", "read_only", "blocked"}:
-            raise ValueError("unknown_schema_policy 必须是 probe、read_only 或 blocked。")
         parse_agent_release_version(self.agent_release_version)
         parse_agent_release_version(self.agent_release_minimum_security_version)
         if parse_agent_release_version(

@@ -332,9 +332,6 @@ class AppServerJsonRpcClient:
     async def _route_message(self, message: AppServerProtocolMessage) -> None:
         """区分 response、notification 与 server request。"""
 
-        if message.model_extra:
-            await self._warning_handler("App Server消息包含未知字段，已忽略。")
-
         fields = message.model_fields_set
         if message.id is not None and ("result" in fields or message.error is not None):
             await self._resolve_response(message)

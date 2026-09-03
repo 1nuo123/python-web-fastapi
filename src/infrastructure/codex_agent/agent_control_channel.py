@@ -7,12 +7,10 @@ import hashlib
 import json
 import logging
 import secrets
-import shutil
-import tempfile
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from pathlib import Path, PureWindowsPath
+from pathlib import PureWindowsPath
 from typing import Final, Literal, cast
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -136,9 +134,6 @@ from src.infrastructure.codex_agent.agent_thread_history_window_cache import (
     AgentThreadHistoryWindowCache,
 )
 from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspaceRegistry
-from src.infrastructure.codex_agent.app_server_capability_probe import (
-    AppServerCapabilityProbe,
-)
 from src.infrastructure.codex_agent.app_server_process_supervisor import (
     AppServerProcessHandle,
     AppServerProcessSupervisor,
@@ -319,16 +314,9 @@ class AgentControlChannel:
         )
         self._history_window_cache = AgentThreadHistoryWindowCache()
         self._app_server_protocol_adapter = AppServerProtocolAdapter()
-        self._capability_probe: AppServerCapabilityProbe | None = None
         self._supervisor = AppServerProcessSupervisor(
             codex_binary=settings.agent.codex_binary,
             allowed_versions=[settings.protocol.expected_codex_version],
-            # Codex 0.152 accepts ``on-request`` as the interactive policy;
-            # this prevents the user's global ``approval_policy=never`` from
-            # silently disabling Remote approvals. Per-turn legacy values stay
-            # compatible at the Remote protocol boundary.
-            approval_policy="on-request",
-            sandbox_mode=settings.app_server_security.sandbox_mode,
             max_line_bytes=settings.agent.max_app_server_line_bytes,
             notification_handler=self._accept_app_server_notification,
             request_handler=self._accept_app_server_request,
@@ -341,7 +329,6 @@ class AgentControlChannel:
         """启动 App Server 一次，并在控制面 WSS 失败时指数退避重连。"""
 
         handle = await self._supervisor.start()
-        handle = await self._probe_and_publish(handle)
         legacy_token = self._read_legacy_token()
         delay = self._settings.agent.reconnect_min_seconds
         try:
@@ -351,7 +338,6 @@ class AgentControlChannel:
                         # 新 App Server 代次不继承旧进程的实时事件序列，必须丢弃正文窗口。
                         self._history_window_cache.clear()
                         handle = await self._supervisor.restart()
-                        handle = await self._probe_and_publish(handle)
                     await self._run_connection(handle, legacy_token)
                     delay = self._settings.agent.reconnect_min_seconds
                 except asyncio.CancelledError:
@@ -411,52 +397,6 @@ class AgentControlChannel:
 
         self._shutdown_event.set()
 
-    async def _probe_and_publish(self, handle: AppServerProcessHandle) -> AppServerProcessHandle:
-        """在控制面 hello 前完成一次短生命周期能力确认。"""
-
-        if self._schema_digest_for_version(handle.codex_version) is not None:
-            return replace(handle, probe_result=None)
-        state_directory = self._settings.agent.state_database.parent.resolve()
-        state_directory.mkdir(parents=True, exist_ok=True)
-        temporary_workspace = tempfile.mkdtemp(
-            prefix="codex-remote-capability-probe-",
-            dir=state_directory,
-        )
-        workspace = Path(temporary_workspace).resolve(strict=True)
-        probe = AppServerCapabilityProbe(
-            handle.client,
-            workspace=str(workspace),
-            initialize_passed=isinstance(handle.initialize_result, Mapping),
-        )
-        self._capability_probe = probe
-        try:
-            result = await probe.run(confirm_full_capabilities=True)
-        finally:
-            self._capability_probe = None
-            await self._remove_probe_workspace(workspace)
-        self._logger.info(
-            "Codex App Server capability probe completed: version=%s outcome=%s failure=%s",
-            handle.codex_version,
-            result.outcome.value,
-            result.failure.value if result.failure is not None else None,
-        )
-        return replace(handle, probe_result=result)
-
-    async def _remove_probe_workspace(self, workspace: Path) -> None:
-        """释放 App Server 后再回收 probe workspace；失败只记录告警。"""
-
-        for attempt in range(3):
-            try:
-                shutil.rmtree(workspace)
-                return
-            except FileNotFoundError:
-                return
-            except PermissionError:
-                if attempt < 2:
-                    await asyncio.sleep(0.5 * (attempt + 1))
-                    continue
-                self._logger.warning("Capability probe workspace cleanup deferred: %s", workspace)
-
     def _raise_if_connection_closed_unexpectedly(self) -> None:
         """把非停机导致的正常关闭转换为可退避重试的连接异常。"""
 
@@ -472,25 +412,13 @@ class AgentControlChannel:
         """运行一个控制面连接代次，断线不停止本地 App Server。"""
 
         connection_url, headers = await self._build_connection_request(legacy_token)
-        # websockets rejects an explicit ``ssl=None`` for wss:// URLs. The
-        # default system trust store is selected by omitting the argument;
-        # development profiles may still provide an explicit SSLContext.
-        if self._tls_context is not None:
-            connection_context = connect(
-                connection_url,
-                additional_headers=headers,
-                max_size=self._settings.agent.max_app_server_line_bytes,
-                ping_interval=None,
-                ssl=self._tls_context,
-            )
-        else:
-            connection_context = connect(
-                connection_url,
-                additional_headers=headers,
-                max_size=self._settings.agent.max_app_server_line_bytes,
-                ping_interval=None,
-            )
-        async with connection_context as connection:
+        async with connect(
+            connection_url,
+            additional_headers=headers,
+            max_size=self._settings.agent.max_app_server_line_bytes,
+            ping_interval=None,
+            ssl=self._tls_context,
+        ) as connection:
             session = CodexDuplexConnectionSession(
                 transport=AgentWebSocketTransport(connection),
                 inbound_handler=self._handle_control_frame,
@@ -745,13 +673,6 @@ class AgentControlChannel:
                 await self._send_model(sender, AgentV1MessageType.HEARTBEAT.value, heartbeat)
 
     def _build_hello_frame(self, handle: AppServerProcessHandle) -> CodexConnectionFrame:
-        schema_digest = self._schema_digest_for_version(handle.codex_version)
-        probe_result = handle.probe_result
-        capabilities = (
-            probe_result.capabilities
-            if probe_result is not None
-            else AppServerDefaultCatalog().build_capabilities()
-        )
         if self._protocol_version == CodexConnectionProtocolVersion.V2:
             return self._protocol_codec.encode_v2(
                 host_id=self._settings.agent.host_id,
@@ -760,9 +681,8 @@ class AgentControlChannel:
                 detail=AgentHelloV2Detail(
                     agent_version=self._settings.protocol.agent_version,
                     codex_version=handle.codex_version,
-                    app_server_schema_digest=schema_digest,
-                    probe_result=probe_result,
-                    capabilities=capabilities,
+                    app_server_schema_digest=self._settings.protocol.app_server_schema_digest,
+                    capabilities=AppServerDefaultCatalog().build_capabilities(),
                     model_ids=(),
                     reasoning_efforts=(),
                     agent_event_epoch=self._event_epoch,
@@ -773,8 +693,7 @@ class AgentControlChannel:
             agent_version=self._settings.protocol.agent_version,
             codex_version=handle.codex_version,
             agent_protocol_version=CODEX_AGENT_PROTOCOL_VERSION,
-            app_server_schema_digest=schema_digest,
-            probe_result=probe_result,
+            app_server_schema_digest=self._settings.protocol.app_server_schema_digest,
             capabilities={
                 "thread": ["list", "read", "start", "resume"],
                 "turn": ["start", "steer", "interrupt"],
@@ -786,25 +705,7 @@ class AgentControlChannel:
             hello,
         )
 
-    def _schema_digest_for_version(self, codex_version: str) -> str | None:
-        """仅对配置声明的已知版本携带审核 digest，未知版本保持 unknown。"""
-
-        expected = self._settings.protocol.expected_codex_version
-        if expected == codex_version:
-            return self._settings.protocol.app_server_schema_digest
-        # 历史配置允许使用类似 ``0.145.*`` 的观测模式；这只用于选择
-        # 是否携带已审核 digest，不参与连接放行/拒绝。
-        if expected.endswith(".*") and codex_version.startswith(expected[:-1]):
-            return self._settings.protocol.app_server_schema_digest
-        return None
-
     async def _accept_app_server_notification(self, method: str, params: JsonValue) -> None:
-        capability_probe = getattr(self, "_capability_probe", None)
-        if capability_probe is not None and await capability_probe.accept_notification(
-            method,
-            params,
-        ):
-            return
         adapted = self._app_server_protocol_adapter.adapt_notification(method=method, params=params)
         if adapted.notification is not None:
             self._invalidate_history_window_for_notification(adapted.notification.detail)
@@ -919,14 +820,6 @@ class AgentControlChannel:
         params: JsonValue,
     ) -> None:
         """把支持的审批收窄并绑定当前进程代次，拒绝未知请求。"""
-
-        capability_probe = getattr(self, "_capability_probe", None)
-        if capability_probe is not None and await capability_probe.accept_request(
-            request_id,
-            method,
-            params,
-        ):
-            return
 
         approval_kinds = {
             "item/commandExecution/requestApproval": "command",

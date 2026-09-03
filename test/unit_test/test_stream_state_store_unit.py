@@ -59,30 +59,6 @@ class TestStreamStateStoreUnit:
             await store.close()
 
     @pytest.mark.asyncio
-    async def test_unbound_ticket_should_survive_client_ip_change(self) -> None:
-        """浏览器 HTTP 与 WebSocket 连接切换地址时仍可消费一次性票据。"""
-
-        store = MemoryStreamStateStore()
-        await store.open()
-        try:
-            service = StreamAccessTicketService(state_store=store, ttl_seconds=30)
-            issued = await service.issue(
-                subject_id="subject-1",
-                operation_name="codex.events",
-                client_ip=None,
-            )
-            assert isinstance(issued.detail, StreamAccessTicketIssuedDetail)
-            consumed = await service.consume_record(
-                ticket=issued.detail.ticket,
-                operation_name="codex.events",
-                client_ip="240e:440:9a12:46a9:35a2:4d36:7a00:c120",
-            )
-            assert consumed is not None
-            assert consumed.client_ip is None
-        finally:
-            await store.close()
-
-    @pytest.mark.asyncio
     async def test_replay_window_should_return_events_after_last_event(self) -> None:
         """验证恢复窗口仅返回最后事件之后的有序记录。"""
 

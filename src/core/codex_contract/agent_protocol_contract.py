@@ -9,9 +9,6 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from src.core.codex_contract.agent_protocol_v2_contract import AgentEventDetail
-from src.core.codex_contract.app_server_capability_contract import (
-    AppServerCapabilityProbeResult,
-)
 from src.core.codex_contract.app_server_product_contract import (
     AppServerProductNotification,
 )
@@ -36,8 +33,7 @@ class CodexAgentHello(BaseModel):
     agent_version: str = Field(min_length=1, max_length=64)
     codex_version: str = Field(min_length=1, max_length=64)
     agent_protocol_version: str = Field(min_length=1, max_length=64)
-    app_server_schema_digest: str | None = Field(default=None, min_length=64, max_length=128)
-    probe_result: AppServerCapabilityProbeResult | None = None
+    app_server_schema_digest: str = Field(min_length=64, max_length=128)
     capabilities: dict[str, JsonValue] = Field(default_factory=dict)
 
 
