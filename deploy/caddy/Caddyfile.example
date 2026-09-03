@@ -19,6 +19,18 @@
 	}
 
 	route {
+		@codex_realtime_ticket path /api/codex/realtime-tickets
+		handle @codex_realtime_ticket {
+			rewrite * /codex/realtime-tickets
+			reverse_proxy app:8000 {
+				# Keep ticket issuance on the same public gateway as the WebSocket.
+				header_up -Forwarded
+				health_uri /health/ready
+				health_interval 30s
+				health_timeout 5s
+			}
+		}
+
 		@codex_events path /codex/events
 		reverse_proxy @codex_events app:8000 {
 			# Caddy is the public boundary; never propagate a client-supplied Forwarded header.

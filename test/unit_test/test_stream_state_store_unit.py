@@ -59,6 +59,40 @@ class TestStreamStateStoreUnit:
             await store.close()
 
     @pytest.mark.asyncio
+    async def test_unbound_ticket_should_survive_proxy_address_change(self) -> None:
+        """浏览器票据不绑定瞬时代理地址，但仍保持一次性消费。"""
+
+        store = MemoryStreamStateStore()
+        await store.open()
+        try:
+            service = StreamAccessTicketService(state_store=store, ttl_seconds=30)
+            ticket = await service.issue(
+                subject_id="subject-1",
+                operation_name="codex.realtime",
+                client_ip=None,
+            )
+            assert isinstance(ticket.detail, StreamAccessTicketIssuedDetail)
+
+            consumed = await service.consume_record(
+                ticket=ticket.detail.ticket,
+                operation_name="codex.realtime",
+                client_ip="172.30.0.4",
+            )
+
+            assert consumed is not None
+            assert consumed.subject_id == "subject-1"
+            assert (
+                await service.consume_record(
+                    ticket=ticket.detail.ticket,
+                    operation_name="codex.realtime",
+                    client_ip="172.30.0.3",
+                )
+                is None
+            )
+        finally:
+            await store.close()
+
+    @pytest.mark.asyncio
     async def test_replay_window_should_return_events_after_last_event(self) -> None:
         """验证恢复窗口仅返回最后事件之后的有序记录。"""
 

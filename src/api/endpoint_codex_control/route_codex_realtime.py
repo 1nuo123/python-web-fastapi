@@ -281,13 +281,17 @@ class CodexRealtimeRouteCatalog:
         principal = self._accessor.read_authenticated_principal(request)
         resource_mount = request.app.state.container.resource_mount
         runtime = self._read_runtime(resource_mount)
-        client_ip = resource_mount.get_client_ip_resolver().resolve_client_ip(request)
         envelope = await runtime.stream_ticket_service.issue(
             subject_id=CodexRealtimeTicketSubject(
                 owner_subject_id=principal.subject_id,
             ).encode(),
             operation_name=CODEX_REALTIME_OPERATION_NAME,
-            client_ip=client_ip,
+            # Browser ticket issuance and WebSocket upgrade may traverse
+            # different trusted proxy hops (Nuxt API proxy vs Caddy).  The
+            # ticket remains bound to the authenticated subject, operation,
+            # Origin and one-time TTL; binding it to a transient proxy/IP
+            # would reject legitimate same-browser upgrades.
+            client_ip=None,
         )
         if not isinstance(envelope.detail, StreamAccessTicketIssuedDetail):
             raise RuntimeError("Codex实时票据签发未返回issued扩展。")
@@ -324,7 +328,7 @@ class CodexRealtimeRouteCatalog:
             record = await runtime.stream_ticket_service.consume_record(
                 ticket=ticket,
                 operation_name=CODEX_REALTIME_OPERATION_NAME,
-                client_ip=client_ip,
+                client_ip=None,
             )
             if record is None:
                 raise PermissionError("Codex实时票据无效或已消费。")

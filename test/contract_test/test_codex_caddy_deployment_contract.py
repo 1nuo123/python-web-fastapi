@@ -15,6 +15,8 @@ def test_caddy_template_should_proxy_same_origin_without_secrets() -> None:
     assert "reverse_proxy frontend:3000" in content
     assert "reverse_proxy @backend app:8000" in content
     assert "reverse_proxy @codex_events app:8000" in content
+    assert "@codex_realtime_ticket path /api/codex/realtime-tickets" in content
+    assert "rewrite * /codex/realtime-tickets" in content
     assert "/codex/*" not in content
     assert content.index("reverse_proxy @codex_events") < content.index(
         "reverse_proxy frontend:3000"
@@ -22,7 +24,7 @@ def test_caddy_template_should_proxy_same_origin_without_secrets() -> None:
     assert content.index("reverse_proxy @backend") < content.index("reverse_proxy frontend:3000")
     for forbidden in ("access_token", "refresh_token", "api_key", "Authorization:"):
         assert forbidden not in content
-    assert content.count("header_up -Forwarded") == 3
+    assert content.count("header_up -Forwarded") == 4
 
 
 def test_caddy_compose_should_keep_gateway_state_separate() -> None:
@@ -66,7 +68,9 @@ def test_development_caddy_profile_should_use_internal_tls_and_a_separate_edge()
     assert "{$CADDY_DEV_SITE_ADDRESS:codex-dev.lan}" in caddyfile
     assert "tls internal" in caddyfile
     assert "reverse_proxy @codex_events app:8000" in caddyfile
-    assert caddyfile.count("header_up -Forwarded") == 3
+    assert "@codex_realtime_ticket path /api/codex/realtime-tickets" in caddyfile
+    assert "rewrite * /codex/realtime-tickets" in caddyfile
+    assert caddyfile.count("header_up -Forwarded") == 4
     assert "fastapi-web-development-edge" in compose
     assert "gateway: {}" in compose
     assert "caddy_development_data:/data" in compose
