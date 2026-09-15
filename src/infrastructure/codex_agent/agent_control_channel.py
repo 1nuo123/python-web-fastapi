@@ -241,9 +241,7 @@ class AgentWebSocketTransport(CodexConnectionTransportPort):
         try:
             payload = await self._connection.recv()
         except ConnectionClosed as exc:
-            error = CodexConnectionTransportClosed(
-                f"控制面WebSocket已关闭(code={exc.code})。"
-            )
+            error = CodexConnectionTransportClosed(f"控制面WebSocket已关闭(code={exc.code})。")
             setattr(error, "close_code", exc.code)
             raise error from exc
         if not isinstance(payload, str):
@@ -256,9 +254,7 @@ class AgentWebSocketTransport(CodexConnectionTransportPort):
         try:
             await self._connection.send(payload)
         except ConnectionClosed as exc:
-            error = CodexConnectionTransportClosed(
-                f"控制面WebSocket已关闭(code={exc.code})。"
-            )
+            error = CodexConnectionTransportClosed(f"控制面WebSocket已关闭(code={exc.code})。")
             setattr(error, "close_code", exc.code)
             raise error from exc
 
@@ -451,7 +447,10 @@ class AgentControlChannel:
     ) -> None:
         """运行一个控制面连接代次，断线不停止本地 App Server。"""
 
-        if self._model_catalog_instance != handle.instance_id or self._model_catalog.state != "ready":
+        if (
+            self._model_catalog_instance != handle.instance_id
+            or self._model_catalog.state != "ready"
+        ):
             self._model_catalog = await read_model_catalog(handle.client)
             self._model_catalog_instance = handle.instance_id
         connection_url, headers = await self._build_connection_request(legacy_token)
@@ -742,9 +741,15 @@ class AgentControlChannel:
                     app_server_schema_digest=self._settings.protocol.app_server_schema_digest,
                     capabilities=AppServerDefaultCatalog().build_capabilities(),
                     model_ids=tuple(item.model for item in self._model_catalog.models),
-                    reasoning_efforts=tuple(sorted({
-                        effort for item in self._model_catalog.models for effort in item.reasoning_efforts
-                    })),
+                    reasoning_efforts=tuple(
+                        sorted(
+                            {
+                                effort
+                                for item in self._model_catalog.models
+                                for effort in item.reasoning_efforts
+                            }
+                        )
+                    ),
                     model_catalog=self._model_catalog,
                     runtime_status=self._runtime_status,
                     app_server_instance_id=handle.instance_id,
@@ -770,48 +775,42 @@ class AgentControlChannel:
 
     async def _accept_app_server_notification(self, method: str, params: JsonValue) -> None:
         if method == AppServerNotificationName.SERVER_REQUEST_RESOLVED.value:
-            if isinstance(params, Mapping):
-                for pending in tuple(self._pending_approvals.values()):
-                    if pending.thread_id == params.get("threadId") and pending.request_id == params.get("requestId"):
-                        await self._close_pending_approval(pending, "resolved")
+            if not isinstance(params, Mapping):
+                await self._accept_protocol_warning(
+                    AppServerProtocolWarning(
+                        "App Server审批收束通知缺少结构化定位字段。",
+                        reason_code="malformed_payload",
+                        method=method,
+                    )
+                )
+                return
+            resolved_thread_id = params.get("threadId")
+            resolved_request_id = params.get("requestId")
+            if not isinstance(resolved_thread_id, str) or not isinstance(
+                resolved_request_id,
+                (str, int),
+            ):
+                await self._accept_protocol_warning(
+                    AppServerProtocolWarning(
+                        "App Server审批收束通知缺少稳定定位字段。",
+                        reason_code="malformed_payload",
+                        method=method,
+                    )
+                )
+                return
+            for pending in tuple(self._pending_approvals.values()):
+                if (
+                    pending.thread_id == resolved_thread_id
+                    and pending.request_id == resolved_request_id
+                ):
+                    await self._close_pending_approval(pending, "resolved")
             return
         adapted = self._app_server_protocol_adapter.adapt_notification(method=method, params=params)
-        if adapted.notification is not None:
-            sanitized_detail = self._sanitize_file_change_detail(adapted.notification.detail)
-            if sanitized_detail is not adapted.notification.detail:
-                adapted = adapted.model_copy(
-                    update={
-                        "notification": adapted.notification.model_copy(
-                            update={"detail": sanitized_detail}
-                        )
-                    }
-                )
-            self._invalidate_history_window_for_notification(sanitized_detail)
-            product_detail = sanitized_detail
-            if isinstance(product_detail, AppServerItemChangedDetail) and isinstance(
-                product_detail.item, AppServerDiffItem
-            ) and product_detail.turn_id is not None:
-                self._file_change_items[
-                    (product_detail.thread_id, product_detail.turn_id, product_detail.item.item_id)
-                ] = product_detail.item
-                if len(self._file_change_items) > 512:
-                    self._file_change_items.pop(next(iter(self._file_change_items)))
-                await self._refresh_pending_file_change_approval(product_detail)
-            if (
-                isinstance(product_detail, AppServerTurnChangedDetail)
-                and product_detail.status
-                in {"completed", "failed", "interrupted", "cancelled", "systemError"}
-            ):
-                self._clear_file_change_items_for_turn(
-                    product_detail.thread_id,
-                    product_detail.turn_id,
-                )
-                for pending in tuple(self._pending_approvals.values()):
-                    if pending.thread_id == product_detail.thread_id and pending.turn_id == product_detail.turn_id:
-                        await self._close_pending_approval(pending, "turn_ended")
-        if self._protocol_version == CodexConnectionProtocolVersion.V2:
-            if adapted.notification is None:
-                detail: AgentEventDetail = AgentProtocolWarningEventDetail(
+        notification = adapted.notification
+        if notification is None:
+            await self._accept_protocol_warning(
+                AppServerProtocolWarning(
+                    "App Server通知未通过已审核产品适配。",
                     reason_code=(
                         adapted.warning_reason.value
                         if adapted.warning_reason is not None
@@ -819,8 +818,46 @@ class AgentControlChannel:
                     ),
                     method=adapted.warning_method or method,
                 )
-            else:
-                detail = self._map_product_notification(adapted.notification.detail, method)
+            )
+            return
+        sanitized_detail = self._sanitize_file_change_detail(notification.detail)
+        if sanitized_detail is not notification.detail:
+            notification = notification.model_copy(update={"detail": sanitized_detail})
+        self._invalidate_history_window_for_notification(sanitized_detail)
+        product_detail = sanitized_detail
+        if (
+            isinstance(product_detail, AppServerItemChangedDetail)
+            and isinstance(product_detail.item, AppServerDiffItem)
+            and product_detail.turn_id is not None
+        ):
+            self._file_change_items[
+                (product_detail.thread_id, product_detail.turn_id, product_detail.item.item_id)
+            ] = product_detail.item
+            if len(self._file_change_items) > 512:
+                self._file_change_items.pop(next(iter(self._file_change_items)))
+            await self._refresh_pending_file_change_approval(product_detail)
+        if isinstance(product_detail, AppServerTurnChangedDetail) and product_detail.status in {
+            "completed",
+            "failed",
+            "interrupted",
+            "cancelled",
+            "systemError",
+        }:
+            self._clear_file_change_items_for_turn(
+                product_detail.thread_id,
+                product_detail.turn_id,
+            )
+            for pending in tuple(self._pending_approvals.values()):
+                if (
+                    pending.thread_id == product_detail.thread_id
+                    and pending.turn_id == product_detail.turn_id
+                ):
+                    await self._close_pending_approval(pending, "turn_ended")
+        if self._protocol_version == CodexConnectionProtocolVersion.V2:
+            detail: AgentEventDetail = self._map_product_notification(
+                notification.detail,
+                method,
+            )
             await self._queue_v2_event(detail)
             if (
                 isinstance(detail, AgentTurnChangedEventDetail)
@@ -828,26 +865,13 @@ class AgentControlChannel:
             ):
                 self._schedule_metadata_refresh(detail.thread_id)
             return
-        if adapted.notification is not None:
-            event_method = method
-            event_params: JsonValue = {}
-            product_notification = adapted.notification
-        else:
-            event_method = INTERNAL_PROTOCOL_WARNING_METHOD
-            event_params = {
-                "reason_code": adapted.warning_reason.value
-                if adapted.warning_reason is not None
-                else "malformed_payload",
-                "method": adapted.warning_method or method,
-            }
-            product_notification = None
         event = CodexAgentRealtimeEvent(
             host_id=self._settings.agent.host_id,
             app_server_instance_id=self._supervisor.handle.instance_id,
             occurred_at=datetime.now(UTC),
-            method=event_method,
-            params=event_params,
-            product_notification=product_notification,
+            method=method,
+            params={},
+            product_notification=notification,
         )
         await self._send_or_buffer(self._build_model_frame("realtime.event", event))
 
@@ -1191,9 +1215,7 @@ class AgentControlChannel:
             self._pending_approvals[pending.approval_id] = updated
             if self._protocol_version == CodexConnectionProtocolVersion.V2:
                 await self._queue_v2_event(
-                    AgentApprovalOpenedEventDetail(
-                        approval=self._to_v2_pending_approval(updated)
-                    )
+                    AgentApprovalOpenedEventDetail(approval=self._to_v2_pending_approval(updated))
                 )
             else:
                 await self._send_or_buffer(
@@ -1224,12 +1246,14 @@ class AgentControlChannel:
         self._pending_approvals.pop(pending.approval_id, None)
         self._file_change_items.pop((pending.thread_id, pending.turn_id, pending.item_id), None)
         if self._protocol_version == CodexConnectionProtocolVersion.V2:
-            await self._queue_v2_event(AgentApprovalResolvedEventDetail(
-                approval_id=pending.approval_id,
-                thread_id=pending.thread_id,
-                turn_id=pending.turn_id,
-                reason=reason,
-            ))
+            await self._queue_v2_event(
+                AgentApprovalResolvedEventDetail(
+                    approval_id=pending.approval_id,
+                    thread_id=pending.thread_id,
+                    turn_id=pending.turn_id,
+                    reason=reason,
+                )
+            )
 
     def _build_approval_display(
         self,
@@ -1608,9 +1632,10 @@ class AgentControlChannel:
         )
         warning_method = warning.method if isinstance(warning, AppServerProtocolWarning) else None
         warning_key = (reason_code, warning_method)
-        if warning_key not in self._protocol_warning_counts and len(
-            self._protocol_warning_counts
-        ) >= AGENT_PROTOCOL_WARNING_MAX_KEYS:
+        if (
+            warning_key not in self._protocol_warning_counts
+            and len(self._protocol_warning_counts) >= AGENT_PROTOCOL_WARNING_MAX_KEYS
+        ):
             self._protocol_warning_counts.pop(next(iter(self._protocol_warning_counts)))
         warning_count = self._protocol_warning_counts.get(warning_key, 0) + 1
         self._protocol_warning_counts[warning_key] = warning_count

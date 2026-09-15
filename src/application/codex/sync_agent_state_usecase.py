@@ -134,9 +134,13 @@ class SyncCodexAgentStateUsecase:
                     continue
             return CodexHostCapabilities(
                 items=tuple(items),
-                model_catalog=CodexModelCatalog.model_validate(hello.capabilities.get("model_catalog") or {}),
+                model_catalog=CodexModelCatalog.model_validate(
+                    hello.capabilities.get("model_catalog") or {}
+                ),
                 app_server_instance_id=(
-                    value if isinstance(value := hello.capabilities.get("app_server_instance_id"), str) else None
+                    value
+                    if isinstance(value := hello.capabilities.get("app_server_instance_id"), str)
+                    else None
                 ),
                 model_ids=self._read_capability_strings(hello, "model_ids"),
                 reasoning_efforts=self._read_capability_strings(
@@ -655,8 +659,18 @@ class SyncCodexAgentStateUsecase:
         elif detail is None and event.method == AppServerNotificationName.THREAD_UNARCHIVED.value:
             archived = False
             activity_at = event.occurred_at
-        execution_settings = detail.execution_settings if isinstance(detail, AgentThreadMetadataChangedEventDetail) else None
-        if status is None and display_name is None and archived is None and activity_at is None and execution_settings is None:
+        execution_settings = (
+            detail.execution_settings
+            if isinstance(detail, AgentThreadMetadataChangedEventDetail)
+            else None
+        )
+        if (
+            status is None
+            and display_name is None
+            and archived is None
+            and activity_at is None
+            and execution_settings is None
+        ):
             return None
         unit_of_work = self._control_port.create_unit_of_work()
         try:
@@ -671,7 +685,9 @@ class SyncCodexAgentStateUsecase:
             if thread is None:
                 unit_of_work.commit()
                 return None
-            if thread.turn_runtime is not None and isinstance(detail, AgentThreadChangedEventDetail):
+            if thread.turn_runtime is not None and isinstance(
+                detail, AgentThreadChangedEventDetail
+            ):
                 # Thread metadata has no turn identity or fencing information.
                 status = thread_status_for_phase(thread.turn_runtime.phase)
                 active_turn_mode = CodexActiveTurnUpdateMode.PRESERVE
@@ -745,19 +761,38 @@ class SyncCodexAgentStateUsecase:
     ) -> CodexApprovalAuditSnapshot | None:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
-            repository = self._control_port.create_codex_approval_repository(unit_of_work.get_session())
-            approval = repository.get_by_id_and_owner(detail.approval_id, principal.owner_subject_id)
-            if approval is None or approval.host_id != host_id or approval.thread_id != detail.thread_id or approval.turn_id != detail.turn_id:
+            repository = self._control_port.create_codex_approval_repository(
+                unit_of_work.get_session()
+            )
+            approval = repository.get_by_id_and_owner(
+                detail.approval_id, principal.owner_subject_id, for_update=True
+            )
+            if (
+                approval is None
+                or approval.host_id != host_id
+                or approval.thread_id != detail.thread_id
+                or approval.turn_id != detail.turn_id
+            ):
                 return None
-            if approval.state in {CodexApprovalState.APPLIED, CodexApprovalState.CANCELLED, CodexApprovalState.EXPIRED}:
+            if approval.state in {
+                CodexApprovalState.APPLIED,
+                CodexApprovalState.CANCELLED,
+                CodexApprovalState.EXPIRED,
+            }:
                 return approval
             now = datetime.now(UTC)
             applied = detail.reason == "resolved" and approval.decision is not None
-            updated = approval.model_copy(update={
-                "state": CodexApprovalState.APPLIED if applied else CodexApprovalState.EXPIRED if detail.reason == "expired" else CodexApprovalState.CANCELLED,
-                "applied_at": now if applied else approval.applied_at,
-                "updated_at": now,
-            })
+            updated = approval.model_copy(
+                update={
+                    "state": CodexApprovalState.APPLIED
+                    if applied
+                    else CodexApprovalState.EXPIRED
+                    if detail.reason == "expired"
+                    else CodexApprovalState.CANCELLED,
+                    "applied_at": now if applied else approval.applied_at,
+                    "updated_at": now,
+                }
+            )
             repository.save(updated)
             unit_of_work.commit()
             return updated
@@ -797,6 +832,7 @@ class SyncCodexAgentStateUsecase:
                 repository.get_by_id_and_owner(
                     approval.approval_id,
                     principal.owner_subject_id,
+                    for_update=True,
                 )
                 is None
             ):
@@ -814,7 +850,7 @@ class SyncCodexAgentStateUsecase:
                         payload_digest=approval.payload_digest,
                         display_summary=approval.display_summary,
                         state=CodexApprovalState.PENDING,
-                        version=1,
+                        version=approval.version,
                         expires_at=approval.expires_at,
                         created_at=now,
                         updated_at=now,
@@ -824,12 +860,18 @@ class SyncCodexAgentStateUsecase:
                 current = repository.get_by_id_and_owner(
                     approval.approval_id,
                     principal.owner_subject_id,
+                    for_update=True,
                 )
-                if current is not None and approval.version > current.version and current.state in {
-                    CodexApprovalState.PENDING,
-                    CodexApprovalState.CLAIMED,
-                    CodexApprovalState.DELIVERY_FAILED,
-                }:
+                if (
+                    current is not None
+                    and approval.version > current.version
+                    and current.state
+                    in {
+                        CodexApprovalState.PENDING,
+                        CodexApprovalState.CLAIMED,
+                        CodexApprovalState.DELIVERY_FAILED,
+                    }
+                ):
                     repository.save(
                         current.model_copy(
                             update={

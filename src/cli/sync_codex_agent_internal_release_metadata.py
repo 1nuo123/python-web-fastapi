@@ -33,7 +33,7 @@ _REQUIRED_RUNTIME_RELEASE_KEYS = _RELEASE_KEYS - {
     "agent_release_source_revision",
     "agent_release_source_dirty",
 }
-_ASSIGNMENT = re.compile(r"^(?P<indent>\s*)(?P<key>[a-z_]+)\s*=.*$")
+_ASSIGNMENT = re.compile(r"^(?P<indent>\s*)(?P<key>[a-z_][a-z0-9_]*)\s*=.*$")
 
 
 class InternalReleaseMetadataSyncCommand(BaseModel):

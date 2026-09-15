@@ -18,6 +18,8 @@ class CodexApprovalRepositoryPort(Protocol):
         self,
         approval_id: UUID,
         owner_subject_id: str,
+        *,
+        for_update: bool = False,
     ) -> CodexApprovalAuditSnapshot | None: ...
 
     def add(self, snapshot: CodexApprovalAuditSnapshot) -> None: ...

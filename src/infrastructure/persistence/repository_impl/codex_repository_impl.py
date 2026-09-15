@@ -902,8 +902,7 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
                     (
                         CodexThreadIndexOrmModel.lease_expires_at.is_(None)
                         if previous.lease_expires_at is None
-                        else CodexThreadIndexOrmModel.lease_expires_at
-                        == previous.lease_expires_at
+                        else CodexThreadIndexOrmModel.lease_expires_at == previous.lease_expires_at
                     ),
                 )
             )
@@ -941,9 +940,7 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
                 lease_generation=0,
                 lease_expires_at=None,
             )
-        self._session.execute(
-            update(CodexThreadIndexOrmModel).where(*conditions).values(**values)
-        )
+        self._session.execute(update(CodexThreadIndexOrmModel).where(*conditions).values(**values))
         return self.get_by_upstream_id_and_owner(
             expected.host_id, expected.upstream_thread_id, expected.owner_subject_id
         )
@@ -1563,11 +1560,15 @@ class CodexApprovalRepositoryImpl(CodexApprovalRepositoryPort):
         self,
         approval_id: UUID,
         owner_subject_id: str,
+        *,
+        for_update: bool = False,
     ) -> CodexApprovalAuditSnapshot | None:
         statement = select(CodexApprovalAuditOrmModel).where(
             CodexApprovalAuditOrmModel.approval_id == approval_id,
             CodexApprovalAuditOrmModel.owner_subject_id == owner_subject_id,
         )
+        if for_update:
+            statement = statement.with_for_update()
         row = self._session.scalars(statement).one_or_none()
         return None if row is None else self._to_snapshot(row)
 
@@ -1605,10 +1606,14 @@ class CodexApprovalRepositoryImpl(CodexApprovalRepositoryPort):
                 CodexApprovalAuditOrmModel.owner_subject_id == owner_subject_id,
                 CodexApprovalAuditOrmModel.state == "pending",
                 CodexApprovalAuditOrmModel.version == expected_version,
+                or_(
+                    CodexApprovalAuditOrmModel.expires_at.is_(None),
+                    CodexApprovalAuditOrmModel.expires_at > decided_at,
+                ),
             )
             .values(
                 state="claimed",
-                version=expected_version + 1,
+                version=expected_version,
                 decided_by=decided_by,
                 decision=decision,
                 decided_at=decided_at,

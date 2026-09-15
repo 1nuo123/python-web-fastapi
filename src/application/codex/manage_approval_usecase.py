@@ -171,12 +171,27 @@ class ManageCodexApprovalUsecase:
                 error_code=CodexErrorCode.AGENT_ACK_TIMEOUT,
                 message="审批交付结果未知，必须按原command_id核对。",
             ) from exc
+        if result.outcome == "unknown":
+            _, approval = await asyncio.to_thread(
+                self._update_delivery,
+                prepared,
+                CodexOperationStatus.TIMED_OUT,
+                CodexApprovalState.CLAIMED,
+                result.error_code or CodexErrorCode.AGENT_ACK_TIMEOUT.value,
+            )
+            await self._event_port.publish_approval_resolved(approval)
+            raise HttpFaultException(
+                status_code=HTTPStatus.GATEWAY_TIMEOUT,
+                error_code=CodexErrorCode.AGENT_ACK_TIMEOUT,
+                message="审批交付结果未知，必须按原command_id核对。",
+            )
         applied = result.outcome == "completed"
         operation, approval = await asyncio.to_thread(
             self._update_delivery,
             prepared,
             CodexOperationStatus.COMPLETED if applied else CodexOperationStatus.FAILED,
             (CodexApprovalState.APPLIED if applied else CodexApprovalState.DELIVERY_FAILED),
+            result.error_code,
         )
         await self._event_port.publish_approval_resolved(approval)
         return self._acceptance(operation, replayed=False)
@@ -198,6 +213,7 @@ class ManageCodexApprovalUsecase:
             approval = approval_repository.get_by_id_and_owner(
                 approval_id,
                 actor_subject_id,
+                for_update=True,
             )
             if approval is None:
                 raise self._not_found()
@@ -247,7 +263,10 @@ class ManageCodexApprovalUsecase:
                         }
                     )
                     operation_repository.save(operation)
-                    if approval.state == CodexApprovalState.DELIVERY_FAILED:
+                    if (
+                        approval.state == CodexApprovalState.DELIVERY_FAILED
+                        and approval.version == approval_version
+                    ):
                         approval = approval.model_copy(
                             update={
                                 "state": CodexApprovalState.CLAIMED,
@@ -365,13 +384,17 @@ class ManageCodexApprovalUsecase:
             approval = approval_repository.get_by_id_and_owner(
                 prepared.approval.approval_id,
                 prepared.approval.owner_subject_id,
+                for_update=True,
             )
             if operation is None or approval is None:
                 raise RuntimeError("审批交付状态更新目标不存在。")
             if approval.state in {CodexApprovalState.EXPIRED, CodexApprovalState.CANCELLED}:
                 unit_of_work.commit()
                 return operation, approval
-            if approval.state is CodexApprovalState.APPLIED and approval_state is not CodexApprovalState.APPLIED:
+            if (
+                approval.state is CodexApprovalState.APPLIED
+                and approval_state is not CodexApprovalState.APPLIED
+            ):
                 unit_of_work.commit()
                 return operation, approval
             now = datetime.now(UTC)
@@ -390,6 +413,10 @@ class ManageCodexApprovalUsecase:
                 }
             )
             operation_repository.save(updated_operation)
+            # A delayed result belongs only to the reviewed proposal revision.
+            if approval.version != prepared.command.params.get("approvalVersion"):
+                unit_of_work.commit()
+                return updated_operation, approval
             updated_approval = approval.model_copy(
                 update={
                     "state": approval_state,
