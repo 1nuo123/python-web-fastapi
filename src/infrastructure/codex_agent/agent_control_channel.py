@@ -1163,6 +1163,13 @@ class AgentControlChannel:
                 or pending.item_id != detail.item.item_id
             ):
                 continue
+            latest_digest = self._file_change_digest(
+                thread_id=pending.thread_id,
+                turn_id=pending.turn_id,
+                item_id=pending.item_id,
+            )
+            if latest_digest == pending.file_change_digest:
+                continue
             changes = self._build_file_changes_from_item(detail.item)
             display = pending.display.model_copy(
                 update={
@@ -1178,11 +1185,7 @@ class AgentControlChannel:
             updated = dataclass_replace(
                 pending,
                 display=display,
-                file_change_digest=self._file_change_digest(
-                    thread_id=pending.thread_id,
-                    turn_id=pending.turn_id,
-                    item_id=pending.item_id,
-                ),
+                file_change_digest=latest_digest,
                 version=pending.version + 1,
             )
             self._pending_approvals[pending.approval_id] = updated

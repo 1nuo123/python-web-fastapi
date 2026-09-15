@@ -33,6 +33,11 @@ $releaseInstallerPath = Join-Path $releaseRoot "CodexRemoteAgent.msi"
 $releaseManifestPath = Join-Path $releaseRoot "internal-release.json"
 $releaseChecksumsPath = Join-Path $releaseRoot "SHA256SUMS.json"
 $versionInfoPath = Join-Path $repositoryRoot ".build\windows-agent-version-info-$Version.txt"
+$sourceRevision = (& git -C $repositoryRoot rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sourceRevision)) {
+  throw "Unable to resolve source revision for release provenance."
+}
+$sourceDirty = -not [string]::IsNullOrWhiteSpace((& git -C $repositoryRoot status --porcelain --untracked-files=no))
 $wixToolDirectory = Join-Path $repositoryRoot ".tools"
 $wixExecutable = Join-Path $wixToolDirectory "wix.exe"
 
@@ -122,11 +127,19 @@ try {
   }
 
   Copy-Item -LiteralPath $localInstallerPath -Destination $releaseInstallerPath
-  & uv run python -m src.cli.build_codex_agent_internal_release_manifest `
-    --installer $releaseInstallerPath `
-    --output $releaseManifestPath `
-    --version $Version `
-    --download-url $DownloadUrl
+  $manifestArguments = @(
+    "-m", "src.cli.build_codex_agent_internal_release_manifest",
+    "--installer", $releaseInstallerPath,
+    "--output", $releaseManifestPath,
+    "--version", $Version,
+    "--download-url", $DownloadUrl,
+    "--source-repository", "1nuo123/python-web-fastapi",
+    "--source-revision", $sourceRevision
+  )
+  if ($sourceDirty) {
+    $manifestArguments += "--source-dirty"
+  }
+  & uv run python @manifestArguments
   if ($LASTEXITCODE -ne 0) {
     throw "Internal Agent release manifest generation failed."
   }
