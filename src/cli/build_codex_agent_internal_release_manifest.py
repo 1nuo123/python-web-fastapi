@@ -30,7 +30,7 @@ class AgentInternalReleaseManifestBuildCommand(BaseModel):
     download_url: str = Field(min_length=1, max_length=2_048)
     source_repository: str | None = Field(default=None, max_length=256)
     source_revision: str | None = Field(default=None, max_length=128)
-    source_dirty: bool | None = None
+    source_dirty: bool = False
 
     @field_validator("version")
     @classmethod
@@ -100,7 +100,7 @@ class CodexAgentInternalReleaseManifestCli:
             download_url=arguments.download_url,
             source_repository=arguments.source_repository,
             source_revision=arguments.source_revision,
-            source_dirty=True if arguments.source_dirty else None,
+            source_dirty=arguments.source_dirty,
         )
         CodexAgentInternalReleaseManifestBuilder().build(command)
         logger.info("Agent内部体验发布清单已生成：{}", command.output)
