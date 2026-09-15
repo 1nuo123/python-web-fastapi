@@ -29,13 +29,14 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentWorkspaceSnapshot,
 )
 from src.core.codex_contract.agent_protocol_v2_contract import (
-    AgentApprovalResolvedEventDetail,
     AgentApprovalOpenedEventDetail,
+    AgentApprovalResolvedEventDetail,
     AgentItemChangedEventDetail,
     AgentThreadChangedEventDetail,
     AgentThreadMetadataChangedEventDetail,
     AgentTurnChangedEventDetail,
 )
+from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerCapabilityCode,
     AppServerCapabilityDetail,
@@ -53,12 +54,16 @@ from src.core.codex_contract.host_contract import (
     CodexHostCompatibilityObservationDetail,
     CodexHostCompatibilityState,
     CodexHostDisconnectObservationDetail,
+    CodexHostDoctorDetail,
+    CodexHostDoctorState,
     CodexHostHeartbeatObservationDetail,
     CodexHostHelloObservationDetail,
     CodexHostObservation,
     CodexHostObservationHeader,
     CodexHostObservationType,
     CodexHostSnapshot,
+    CodexHostUpdateDetail,
+    CodexHostUpdateState,
     CodexSandboxMode,
 )
 from src.core.codex_contract.model_catalog_contract import CodexModelCatalog
@@ -99,6 +104,22 @@ class SyncCodexAgentStateUsecase:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
             repository = self._control_port.create_codex_host_repository(unit_of_work.get_session())
+            runtime = AgentRuntimeStatus.model_validate(
+                hello.capabilities.get("runtime_status") or {}
+            )
+            doctor_state = {
+                "pass": CodexHostDoctorState.HEALTHY,
+                "warn": CodexHostDoctorState.DEGRADED,
+                "failed": CodexHostDoctorState.DEGRADED,
+                "blocked": CodexHostDoctorState.BLOCKED,
+            }.get(runtime.doctor_state or "", CodexHostDoctorState.UNKNOWN)
+            update_state = {
+                "current": CodexHostUpdateState.CURRENT,
+                "updated": CodexHostUpdateState.CURRENT,
+                "rolled_back": CodexHostUpdateState.FAILED,
+                "failed": CodexHostUpdateState.FAILED,
+                "blocked": CodexHostUpdateState.FAILED,
+            }.get(runtime.update_state or "", CodexHostUpdateState.UNKNOWN)
             observation = CodexHostObservation(
                 header=CodexHostObservationHeader(
                     detail_kind=CodexHostObservationType.HELLO,
@@ -112,6 +133,18 @@ class SyncCodexAgentStateUsecase:
                     agent_protocol_version=hello.agent_protocol_version,
                     app_server_schema_digest=hello.app_server_schema_digest,
                     capabilities=self._map_host_capabilities(hello),
+                    doctor=CodexHostDoctorDetail(
+                        state=doctor_state,
+                        checked_at=runtime.doctor_checked_at,
+                        issue_codes=runtime.doctor_issue_codes,
+                    ),
+                    update=CodexHostUpdateDetail(
+                        state=update_state,
+                        current_version=hello.agent_version,
+                        target_version=runtime.update_target_version,
+                        last_checked_at=runtime.update_checked_at,
+                        last_result=runtime.update_reason_code or runtime.update_state,
+                    ),
                 ),
             )
             if repository.apply_observation(observation) is None:

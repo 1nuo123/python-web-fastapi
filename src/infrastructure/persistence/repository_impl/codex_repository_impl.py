@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Final, cast
 from uuid import UUID
 
+from pydantic import JsonValue
 from sqlalchemy import and_, case, func, or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
@@ -47,10 +48,12 @@ from src.core.codex_contract.host_contract import (
     CodexHostCompatibilityObservationDetail,
     CodexHostCompatibilityState,
     CodexHostDisconnectObservationDetail,
+    CodexHostDoctorDetail,
     CodexHostHeartbeatObservationDetail,
     CodexHostHelloObservationDetail,
     CodexHostObservation,
     CodexHostSnapshot,
+    CodexHostUpdateDetail,
 )
 from src.core.codex_contract.operation_contract import (
     CodexControlOperationSnapshot,
@@ -198,7 +201,9 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
                 agent_protocol_version=snapshot.agent_protocol_version,
                 app_server_schema_digest=snapshot.app_server_schema_digest,
                 status=snapshot.status,
-                capabilities=snapshot.capabilities.model_dump(mode="json"),
+                capabilities=self._capabilities_payload(
+                    snapshot.capabilities, snapshot.doctor, snapshot.update
+                ),
                 compatibility_state=snapshot.compatibility.state.value,
                 compatibility_reason_code=snapshot.compatibility.reason_code,
                 last_seen_at=snapshot.last_seen_at,
@@ -223,7 +228,9 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
                 agent_protocol_version=snapshot.agent_protocol_version,
                 app_server_schema_digest=snapshot.app_server_schema_digest,
                 status=snapshot.status,
-                capabilities=snapshot.capabilities.model_dump(mode="json"),
+                capabilities=self._capabilities_payload(
+                    snapshot.capabilities, snapshot.doctor, snapshot.update
+                ),
                 compatibility_state=snapshot.compatibility.state.value,
                 compatibility_reason_code=snapshot.compatibility.reason_code,
                 last_seen_at=snapshot.last_seen_at,
@@ -254,7 +261,9 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
                 agent_protocol_version=detail.agent_protocol_version,
                 app_server_schema_digest=detail.app_server_schema_digest,
                 status=CodexHostStatus.ONLINE.value,
-                capabilities=detail.capabilities.model_dump(mode="json"),
+                capabilities=self._capabilities_payload(
+                    detail.capabilities, detail.doctor, detail.update
+                ),
                 last_seen_at=observation.header.observed_at,
                 updated_at=CodexHostOrmModel.updated_at,
             )
@@ -363,6 +372,9 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
         return None if row is None else self._to_snapshot(row)
 
     def _to_snapshot(self, row: CodexHostOrmModel) -> CodexHostSnapshot:
+        capabilities = dict(row.capabilities)
+        health = capabilities.pop("runtime_health", {})
+        health = health if isinstance(health, dict) else {}
         return CodexHostSnapshot(
             host_id=row.host_id,
             owner_subject_id=row.owner_subject_id,
@@ -373,7 +385,9 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
             agent_protocol_version=row.agent_protocol_version,
             app_server_schema_digest=row.app_server_schema_digest,
             status=row.status,
-            capabilities=CodexHostCapabilities.model_validate(row.capabilities),
+            capabilities=CodexHostCapabilities.model_validate(capabilities),
+            doctor=CodexHostDoctorDetail.model_validate(health.get("doctor", {})),
+            update=CodexHostUpdateDetail.model_validate(health.get("update", {})),
             compatibility=CodexHostCompatibilityDetail(
                 state=CodexHostCompatibilityState(row.compatibility_state),
                 reason_code=row.compatibility_reason_code,
@@ -384,6 +398,19 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
             updated_at=CodexRepositoryDatetimeConverter.normalize_required(row.updated_at),
             version=row.version,
         )
+
+    @staticmethod
+    def _capabilities_payload(
+        capabilities: CodexHostCapabilities,
+        doctor: CodexHostDoctorDetail,
+        update_status: CodexHostUpdateDetail,
+    ) -> dict[str, JsonValue]:
+        payload = capabilities.model_dump(mode="json")
+        payload["runtime_health"] = {
+            "doctor": doctor.model_dump(mode="json"),
+            "update": update_status.model_dump(mode="json"),
+        }
+        return cast(dict[str, JsonValue], payload)
 
 
 class CodexAgentCredentialRepositoryImpl(CodexAgentCredentialRepositoryPort):
