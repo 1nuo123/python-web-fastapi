@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import fnmatch
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Final, cast
@@ -296,6 +295,13 @@ class CodexAgentGatewayHandler:
                 "items": [item.model_dump(mode="json") for item in hello.capabilities],
                 "model_ids": list(hello.model_ids),
                 "reasoning_efforts": list(hello.reasoning_efforts),
+                "model_catalog": hello.model_catalog.model_dump(mode="json"),
+                "app_server_instance_id": hello.app_server_instance_id,
+                "runtime_status": (
+                    hello.runtime_status.model_dump(mode="json")
+                    if hello.runtime_status is not None
+                    else None
+                ),
                 "sandbox_modes": [item.value for item in hello.sandbox_modes],
                 "approval_policies": [item.value for item in hello.approval_policies],
             },
@@ -364,10 +370,6 @@ class CodexAgentGatewayHandler:
         schema_digest: str,
         capabilities: frozenset[AppServerCapabilityCode],
     ) -> CodexCompatibilityDecision:
-        if not any(
-            fnmatch.fnmatch(codex_version, pattern) for pattern in self._allowed_codex_versions
-        ):
-            raise ValueError("Agent Codex版本不符合外围版本约束。")
         result = self._compatibility_policy.evaluate_connection(
             CodexConnectionCompatibilityTuple(
                 codex_version=codex_version,
@@ -501,6 +503,9 @@ class CodexAgentGatewayHandler:
         result: dict[str, JsonValue] = {}
         if isinstance(payload, AgentThreadReadCommandResult):
             snapshot = payload.snapshot
+            # 应用层历史读取优先消费此冻结产品快照，与实时 typed event
+            # 使用同一归一化路径；下方 legacy 字段仅服务 v1 兼容消费者。
+            result["productThreadRead"] = cast(JsonValue, snapshot.model_dump(mode="json"))
             result[COMMAND_RESULT_THREAD_FIELD] = {
                 "id": snapshot.thread.thread_id,
                 "name": snapshot.thread.display_name,
@@ -564,12 +569,30 @@ class CodexAgentGatewayHandler:
                 "command": item.command,
                 "aggregatedOutput": item.output,
                 "exitCode": item.exit_code,
+                "status": item.status,
             }
         if isinstance(item, AppServerDiffItem):
             return {
                 "id": item.item_id,
                 "type": "fileChange",
-                "changes": [{"diff": item.unified_diff}],
+                "status": item.status,
+                "changes": [
+                    {
+                        "path": change.path,
+                        "kind": {
+                            "type": (
+                                "add"
+                                if change.change_kind == "added"
+                                else "delete"
+                                if change.change_kind == "deleted"
+                                else "update"
+                            ),
+                            "move_path": change.old_path,
+                        },
+                        "diff": change.diff,
+                    }
+                    for change in item.changes
+                ],
             }
         if isinstance(item, AppServerContextCompactionItem):
             return {"id": item.item_id, "type": "contextCompaction"}
@@ -613,6 +636,7 @@ class CodexAgentGatewayHandler:
                             item_id=approval.item_id,
                             risk_level=approval.display.risk_level,
                             payload_digest=approval.payload_digest,
+                            version=approval.version,
                             display_summary=approval.display,
                             expires_at=approval.expires_at,
                         ),

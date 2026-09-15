@@ -39,6 +39,7 @@ def build_codex_workspace_capabilities_revision(
             "approval_policies": sorted(item.value for item in capabilities.approval_policies),
             "model_ids": sorted(capabilities.model_ids),
             "reasoning_efforts": sorted(capabilities.reasoning_efforts),
+            "model_catalog": capabilities.model_catalog.model_dump(mode="json"),
             "sandbox_modes": sorted(item.value for item in capabilities.sandbox_modes),
         },
         ensure_ascii=True,
@@ -59,21 +60,14 @@ def revalidate_codex_workspace_execution_preferences(
 ]:
     """按当前 capability 和请求主体权限收敛工作区偏好。
 
-    失效的 model 或 reasoning 会被清空，由 App Server 使用当前默认值；安全策略
-    永远收敛到可用集合中最严格的选项，不能保留过期能力的较宽松配置。
+    保留用户明确选择的模型和推理强度，由命令入口校验支持情况。
+    安全策略收敛到可用集合，不能保留过期能力的较宽松配置。
     """
 
     adjusted_fields: list[CodexWorkspacePreferenceAdjustedField] = []
     capability_revision = build_codex_workspace_capabilities_revision(capabilities)
     model = preferences.model
-    if model is not None and model not in capabilities.model_ids:
-        model = None
-        adjusted_fields.append(CodexWorkspacePreferenceAdjustedField.MODEL)
-
     reasoning_effort = preferences.reasoning_effort
-    if reasoning_effort is not None and reasoning_effort not in capabilities.reasoning_efforts:
-        reasoning_effort = None
-        adjusted_fields.append(CodexWorkspacePreferenceAdjustedField.REASONING_EFFORT)
 
     sandbox_mode = _resolve_sandbox_mode(
         requested=preferences.sandbox_mode,

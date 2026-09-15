@@ -139,13 +139,13 @@ class RuntimeResourceReleaser:
                 RESOURCE_RELEASE_RUNTIME_LOG_FLUSH,
                 lambda: mount.flush_runtime_logs(reason=LogWriteReason.SHUTDOWN),
             ),
-            (RESOURCE_TASK, lambda: self._release_task_runtime(mount)),
-            (RESOURCE_CACHE, lambda: self._release_cache(mount)),
-            (RESOURCE_HTTP_CLIENT, lambda: self._release_http_resources(mount)),
             (
                 RESOURCE_TASK_MESSAGE_TRANSPORT,
                 lambda: self._release_message_resource(mount),
             ),
+            (RESOURCE_TASK, lambda: self._release_task_runtime(mount)),
+            (RESOURCE_CACHE, lambda: self._release_cache(mount)),
+            (RESOURCE_HTTP_CLIENT, lambda: self._release_http_resources(mount)),
             (RESOURCE_DATABASE, lambda: self._release_database(mount)),
             (RESOURCE_LOGGING, lambda: self._release_logging(mount)),
             (
@@ -195,7 +195,7 @@ class RuntimeResourceReleaser:
         )
 
         try:
-            mount.get_task_message_transport().close()
+            mount.close_message_resource()
         except HttpFaultException as exc:
             if (
                 exc.status_code != HTTPStatus.SERVICE_UNAVAILABLE

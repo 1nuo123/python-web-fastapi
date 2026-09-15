@@ -98,6 +98,7 @@ from src.infrastructure.persistence.sqlalchemy_session_factory import (
     SqlAlchemySessionFactory,
     SqlAlchemyUnitOfWork,
 )
+from src.infrastructure.resource_mount.message_resource_owner import MessageResourceOwner
 from src.infrastructure.resource_mount.runtime_accessor_refresher import (
     RuntimeAccessorRefresher,
 )
@@ -350,6 +351,8 @@ class SharedResourceLifecycle:
         self._logger_factory = logger_factory
         self._telemetry_bridge = telemetry_bridge
         self._reload_lock = threading.RLock()
+        self._lifecycle_lock = threading.Lock()
+        self._lifecycle_state = "CREATED"
         self._request_context_manager = RequestContextManagerImpl()
         self._oauth2_scheme_provider = OAuth2SchemeProvider()
         self._authorization_policy_evaluator = AuthorizationPolicyEvaluator()
@@ -361,6 +364,7 @@ class SharedResourceLifecycle:
         self._http_resource_manager = SharedHttpResourceManager(logger=logger)
         self._runtime_resource_bootstrapper = RuntimeResourceBootstrapper()
         self._runtime_resource_releaser = RuntimeResourceReleaser()
+        self._message_resource_owner = MessageResourceOwner()
         self._streaming_runtime_factory = StreamingRuntimeFactory()
         self._streaming_resources: StreamingRuntimeResourceSet | None = None
         self._pending_streaming_components: list[StreamingOperationComponentSet] = []
@@ -480,33 +484,50 @@ class SharedResourceLifecycle:
         启动共享资源。
         """
 
-        settings = self.read_runtime_bundle().settings
-        self._logger.info(RESOURCE_STARTUP_BEGIN_MESSAGE)
-        try:
-            self._runtime_resource_bootstrapper.startup(
-                mount=self,
-                settings=settings,
-            )
-            self._ready = True
-            self.refresh_runtime_saturation()
-            self._logger.info(RESOURCE_STARTUP_FINISH_MESSAGE)
-        except Exception as exc:
-            self._ready = False
-            self._mark_failed_states(detail=str(exc))
-            self._logger.error(RESOURCE_STARTUP_FAILED_MESSAGE, str(exc))
-            raise
+        with self._lifecycle_lock:
+            if self._lifecycle_state == "READY":
+                return
+            if self._lifecycle_state in {"STARTING", "STOPPING"}:
+                raise RuntimeError(f"运行时正处于 {self._lifecycle_state} 状态，不能重复启动。")
+            self._lifecycle_state = "STARTING"
+            settings = self.read_runtime_bundle().settings
+            self._logger.info(RESOURCE_STARTUP_BEGIN_MESSAGE)
+            try:
+                self._runtime_resource_bootstrapper.startup(
+                    mount=self,
+                    settings=settings,
+                )
+                self._ready = True
+                self._lifecycle_state = "READY"
+                self.refresh_runtime_saturation()
+                self._logger.info(RESOURCE_STARTUP_FINISH_MESSAGE)
+            except Exception as exc:
+                self._ready = False
+                self._lifecycle_state = "FAILED"
+                self._mark_failed_states(detail=str(exc))
+                self._logger.error(RESOURCE_STARTUP_FAILED_MESSAGE, str(exc))
+                raise
 
     def shutdown(self) -> RuntimeResourceReleaseEnvelope:
         """
         关闭共享资源。
         """
 
-        self._logger.info(RESOURCE_RELEASE_BEGIN_MESSAGE)
-        self._ready = False
-        release_result = self._runtime_resource_releaser.shutdown(self)
-        self._last_resource_release_result = release_result
-        self._logger.info(RESOURCE_RELEASE_FINISH_MESSAGE)
-        return release_result
+        with self._lifecycle_lock:
+            if self._lifecycle_state == "STOPPED":
+                return self._last_resource_release_result or self._runtime_resource_releaser.build_contract([])
+            self._lifecycle_state = "STOPPING"
+            self._logger.info(RESOURCE_RELEASE_BEGIN_MESSAGE)
+            self._ready = False
+            try:
+                release_result = self._runtime_resource_releaser.shutdown(self)
+                self._last_resource_release_result = release_result
+                self._lifecycle_state = "STOPPED"
+                self._logger.info(RESOURCE_RELEASE_FINISH_MESSAGE)
+                return release_result
+            except Exception:
+                self._lifecycle_state = "FAILED"
+                raise
 
     async def startup_streaming(self) -> None:
         """在应用 lifespan 内启动统一流式资源。
@@ -733,6 +754,7 @@ class SharedResourceLifecycle:
             )
             self._http_runtime_accessor = next_http_accessor
             self._task_runtime_accessor = next_task_accessor
+            self._message_resource_owner.attach(candidate_task_runtime.message_bus)
             self._password_hasher = candidate_runtime_dependencies.password_hasher
             self._jwt_token_service = candidate_runtime_dependencies.jwt_token_service
             self._bootstrap_admin_synchronizer = (
@@ -784,7 +806,7 @@ class SharedResourceLifecycle:
         def rollback_action() -> list[str]:
             candidate_task_runtime.runtime_assembly.outbox_publisher.shutdown()
             candidate_task_runtime.runtime_assembly.dispatcher.shutdown()
-            candidate_task_runtime.message_bus.close()
+            self.close_message_bus(candidate_task_runtime.message_bus)
             self._http_resource_manager.close_resource_set(candidate_http_resources)
             self._settings_holder.current_settings = current_settings
             self._http_runtime_accessor = HttpRuntimeAccessor(resource_set=current_http_resources)
@@ -795,6 +817,8 @@ class SharedResourceLifecycle:
                 outbox_publisher=current_outbox_publisher,
                 bootstrap_snapshot=current_task_snapshot,
             )
+            if current_message_bus is not None:
+                self._message_resource_owner.attach(current_message_bus)
             self._password_hasher = current_runtime_dependencies.password_hasher
             self._jwt_token_service = current_runtime_dependencies.jwt_token_service
             self._bootstrap_admin_synchronizer = (
@@ -863,7 +887,7 @@ class SharedResourceLifecycle:
             if retired_resource.dispatcher is not None:
                 retired_resource.dispatcher.shutdown()
             if retired_resource.message_bus is not None:
-                retired_resource.message_bus.close()
+                self.close_message_bus(retired_resource.message_bus)
 
     def install_metrics_registry(self, metrics_registry: PrometheusMetricsRegistry) -> None:
         """
@@ -1602,8 +1626,6 @@ class SharedResourceLifecycle:
                 current_task_accessor.outbox_publisher.shutdown()
             if current_task_accessor.dispatcher is not None:
                 current_task_accessor.dispatcher.shutdown()
-            if current_task_accessor.message_bus is not None:
-                current_task_accessor.message_bus.close()
             next_task_accessor = TaskRuntimeAccessor(
                 registration_registry=current_task_accessor.registration_registry,
                 message_bus=None,
@@ -1612,6 +1634,7 @@ class SharedResourceLifecycle:
                 bootstrap_snapshot=None,
             )
             self._task_runtime_accessor = next_task_accessor
+
             self._runtime_generation += 1
             self._runtime_bundle = RuntimeBundle(
                 settings=current_bundle.settings,
@@ -1624,6 +1647,16 @@ class SharedResourceLifecycle:
                 capacity_policy=current_bundle.capacity_policy,
                 generation=self._runtime_generation,
             )
+
+    def install_message_resource(self, message_bus: MessageBus) -> None:
+        self._message_resource_owner.attach(message_bus)
+
+    def close_message_resource(self) -> None:
+        self._message_resource_owner.close()
+
+    def close_message_bus(self, message_bus: MessageBus | None) -> None:
+        if message_bus is not None:
+            self._message_resource_owner.close(message_bus)
 
     def refresh_runtime_accessors(
         self,

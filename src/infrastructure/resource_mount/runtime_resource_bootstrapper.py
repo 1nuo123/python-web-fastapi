@@ -422,6 +422,7 @@ class RuntimeResourceBootstrapper:
 
         self._validate_task_message_topology(settings)
         message_bus = self.build_task_message_transport(settings)
+        mount.install_message_resource(message_bus)
         self._apply_message_runtime_state(mount=mount, settings=settings)
         mount.mark_runtime_resource_state(
             RESOURCE_TASK,

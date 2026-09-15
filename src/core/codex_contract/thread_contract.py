@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from src.core.codex_contract.model_catalog_contract import CodexEffectiveExecutionSettings
+
 import base64
 import binascii
 import hashlib
@@ -215,6 +217,7 @@ class CodexThreadRuntimeStateUpdate(BaseModel):
     active_turn_mode: CodexActiveTurnUpdateMode = CodexActiveTurnUpdateMode.PRESERVE
     active_turn_id: str | None = Field(default=None, max_length=256)
     archived: bool | None = None
+    execution_settings: CodexEffectiveExecutionSettings | None = None
     synchronized_at: datetime
 
     @model_validator(mode="after")

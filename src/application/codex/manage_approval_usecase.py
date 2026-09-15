@@ -138,37 +138,40 @@ class ManageCodexApprovalUsecase:
         if prepared.replayed:
             return self._acceptance(prepared.operation, replayed=True)
         try:
-            ack = await self._dispatch_port.dispatch(
+            result = await self._dispatch_port.dispatch_and_wait_result(
                 prepared.command,
                 ack_timeout_seconds=self._ack_timeout_seconds,
+                result_timeout_seconds=self._ack_timeout_seconds,
             )
         except CodexHostOfflineError as exc:
-            await asyncio.to_thread(
+            _, approval = await asyncio.to_thread(
                 self._update_delivery,
                 prepared,
                 CodexOperationStatus.FAILED,
                 CodexApprovalState.DELIVERY_FAILED,
                 CodexErrorCode.HOST_OFFLINE.value,
             )
+            await self._event_port.publish_approval_resolved(approval)
             raise HttpFaultException(
                 status_code=HTTPStatus.CONFLICT,
                 error_code=CodexErrorCode.HOST_OFFLINE,
                 message="Codex主机离线，审批可按原Idempotency-Key重试。",
             ) from exc
         except TimeoutError as exc:
-            await asyncio.to_thread(
+            _, approval = await asyncio.to_thread(
                 self._update_delivery,
                 prepared,
                 CodexOperationStatus.TIMED_OUT,
                 CodexApprovalState.CLAIMED,
                 CodexErrorCode.AGENT_ACK_TIMEOUT.value,
             )
+            await self._event_port.publish_approval_resolved(approval)
             raise HttpFaultException(
                 status_code=HTTPStatus.GATEWAY_TIMEOUT,
                 error_code=CodexErrorCode.AGENT_ACK_TIMEOUT,
                 message="审批交付结果未知，必须按原command_id核对。",
             ) from exc
-        applied = ack.state in {"accepted", "executing", "completed"}
+        applied = result.outcome == "completed"
         operation, approval = await asyncio.to_thread(
             self._update_delivery,
             prepared,
@@ -176,7 +179,7 @@ class ManageCodexApprovalUsecase:
             (CodexApprovalState.APPLIED if applied else CodexApprovalState.DELIVERY_FAILED),
         )
         await self._event_port.publish_approval_resolved(approval)
-        return self._acceptance(operation, replayed=ack.replayed)
+        return self._acceptance(operation, replayed=False)
 
     def _prepare(
         self,
@@ -365,6 +368,12 @@ class ManageCodexApprovalUsecase:
             )
             if operation is None or approval is None:
                 raise RuntimeError("审批交付状态更新目标不存在。")
+            if approval.state in {CodexApprovalState.EXPIRED, CodexApprovalState.CANCELLED}:
+                unit_of_work.commit()
+                return operation, approval
+            if approval.state is CodexApprovalState.APPLIED and approval_state is not CodexApprovalState.APPLIED:
+                unit_of_work.commit()
+                return operation, approval
             now = datetime.now(UTC)
             updated_operation = operation.model_copy(
                 update={

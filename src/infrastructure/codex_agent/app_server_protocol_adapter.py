@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from src.core.codex_contract.model_catalog_contract import CodexEffectiveExecutionSettings
+
 from collections.abc import Mapping
 from typing import Literal, cast
 
@@ -14,6 +16,7 @@ from src.core.codex_contract.app_server_product_contract import (
     AppServerContextCompactionItem,
     AppServerDiffChangedDetail,
     AppServerDiffItem,
+    AppServerFileChange,
     AppServerItemChangedDetail,
     AppServerItemDeltaDetail,
     AppServerNoticeItem,
@@ -151,6 +154,16 @@ class AppServerProtocolAdapter:
                 thread_id=self._read_string(params, "threadId"),
                 display_name=self._read_optional_string(params.get("threadName")),
             )
+        if method == AppServerNotificationName.THREAD_SETTINGS_UPDATED:
+            settings = self._read_mapping(params, "threadSettings")
+            return AppServerThreadMetadataChangedDetail(
+                thread_id=self._read_string(params, "threadId"),
+                execution_settings=CodexEffectiveExecutionSettings(
+                    model=self._read_string(settings, "model"),
+                    model_provider=self._read_string(settings, "modelProvider"),
+                    reasoning_effort=self._read_optional_string(settings.get("effort")),
+                ),
+            )
         if method in {
             AppServerNotificationName.THREAD_ARCHIVED,
             AppServerNotificationName.THREAD_UNARCHIVED,
@@ -168,6 +181,18 @@ class AppServerProtocolAdapter:
                 thread_id=self._read_string(params, "threadId"),
                 turn_id=self._read_string(turn, "id"),
                 status=self._read_status(turn.get("status")),
+            )
+        if method == AppServerNotificationName.FILE_PATCH_UPDATED:
+            return AppServerItemChangedDetail(
+                thread_id=self._read_string(params, "threadId"),
+                turn_id=self._read_string(params, "turnId"),
+                status="started",
+                item=self._to_timeline_item({
+                    "id": self._read_string(params, "itemId"),
+                    "type": "fileChange",
+                    "status": "inProgress",
+                    "changes": params.get("changes"),
+                }),
             )
         if method in {
             AppServerNotificationName.ITEM_STARTED,
@@ -571,21 +596,71 @@ class AppServerProtocolAdapter:
                     self._read_optional_string(item.get("aggregatedOutput")) or ""
                 ),
                 exit_code=self._read_optional_int(item.get("exitCode")),
+                status=self._read_tool_status(item.get("status")),
             )
         if item_type == "fileChange":
             changes = item.get("changes")
             diffs: list[str] = []
+            structured_changes: list[AppServerFileChange] = []
             if isinstance(changes, list):
-                for change in changes:
-                    if isinstance(change, Mapping):
-                        diff = cast(Mapping[str, JsonValue], change).get("diff")
-                        if isinstance(diff, str):
-                            diffs.append(diff)
+                for change in changes[:64]:
+                    if not isinstance(change, Mapping):
+                        continue
+                    change_mapping = cast(Mapping[str, JsonValue], change)
+                    path = change_mapping.get("path")
+                    kind = change_mapping.get("kind")
+                    diff = change_mapping.get("diff")
+                    if not isinstance(path, str) or not path:
+                        continue
+                    if not isinstance(kind, Mapping):
+                        continue
+                    kind_mapping = cast(Mapping[str, JsonValue], kind)
+                    kind_type = kind_mapping.get("type")
+                    move_path = kind_mapping.get("move_path")
+                    if kind_type == "add":
+                        normalized_kind: Literal["added", "modified", "deleted", "renamed"] = "added"
+                    elif kind_type == "delete":
+                        normalized_kind = "deleted"
+                    elif kind_type == "update" and isinstance(move_path, str) and move_path:
+                        normalized_kind = "renamed"
+                    elif kind_type == "update":
+                        normalized_kind = "modified"
+                    else:
+                        continue
+                    bounded_diff = self._bounded_text(diff) if isinstance(diff, str) else ""
+                    diffs.append(bounded_diff)
+                    structured_changes.append(
+                        AppServerFileChange(
+                            path=self._bounded_text(path, limit=1_024),
+                            change_kind=normalized_kind,
+                            diff=bounded_diff,
+                            old_path=(
+                                self._bounded_text(move_path, limit=1_024)
+                                if normalized_kind == "renamed"
+                                and isinstance(move_path, str)
+                                and move_path
+                                else None
+                            ),
+                        )
+                    )
             return AppServerDiffItem(
                 item_id=item_id,
                 unified_diff=self._bounded_text("\n".join(diffs)),
+                status=self._read_tool_status(item.get("status")),
+                changes=tuple(structured_changes),
             )
         raise AppServerUnknownItemTypeError("App Server条目类型尚未纳入产品契约。")
+
+    def _read_tool_status(
+        self,
+        value: JsonValue | None,
+    ) -> Literal["inProgress", "completed", "failed", "declined"]:
+        """只接受冻结协议列出的工具 item 状态。"""
+
+        status = self._read_status(value) if value is not None else "completed"
+        if status not in {"inProgress", "completed", "failed", "declined"}:
+            raise ValueError("App Server工具条目状态不受支持。")
+        return cast(Literal["inProgress", "completed", "failed", "declined"], status)
 
     def _to_plan_steps(self, values: list[JsonValue]) -> tuple[AppServerPlanStep, ...]:
         """把官方计划数组转换为封闭状态集合。"""

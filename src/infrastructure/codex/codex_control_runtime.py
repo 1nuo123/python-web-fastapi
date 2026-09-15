@@ -63,7 +63,7 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentApprovalOpened,
     CodexAgentRealtimeEvent,
 )
-from src.core.codex_contract.agent_protocol_v2_contract import AgentApprovalOpenedEventDetail
+from src.core.codex_contract.agent_protocol_v2_contract import AgentApprovalOpenedEventDetail, AgentApprovalResolvedEventDetail
 from src.core.codex_contract.approval_contract import CodexApprovalKind
 from src.core.codex_contract.codex_runtime_contract import CodexRuntimeSettings
 from src.core.codex_contract.command_outbox_contract import CodexCommandOutboxSnapshot
@@ -576,6 +576,33 @@ class CodexControlRuntime:
             return
         publications: list[CodexAgentEventPublication] = []
         for event in events:
+            if isinstance(event.detail, AgentApprovalResolvedEventDetail):
+                approval = await asyncio.to_thread(
+                    self.state_synchronizer.accept_approval_resolved, event.detail, event.host_id, principal
+                )
+                resolved_events: list[CodexProductEvent] = []
+                if approval is not None:
+                    resumed = await self.turn_runtime_coordinator.observe_approval_resolved(approval)
+                    resolved_events.append(CodexProductEvent(
+                        host_id=approval.host_id,
+                        workspace_id=approval.workspace_id,
+                        thread_id=approval.thread_id,
+                        turn_id=approval.turn_id,
+                        item_id=approval.item_id,
+                        event_type=CodexRealtimeEventType.APPROVAL_RESOLVED,
+                        payload={"approval": approval.model_dump(mode="json")},
+                        occurred_at=event.occurred_at,
+                    ))
+                    if resumed is not None:
+                        resolved_events.append(self._build_thread_updated_product_event(resumed, occurred_at=event.occurred_at))
+                publications.append(CodexAgentEventPublication(
+                    event=event,
+                    updated_thread=None,
+                    overflowed=await self.event_buffer.publish(event, principal),
+                    requires_state_sync=False,
+                    approval_events=tuple(resolved_events),
+                ))
+                continue
             if isinstance(event.detail, AgentApprovalOpenedEventDetail):
                 approval_events = await self._prepare_approval_opened(event, principal)
                 overflowed = await self.event_buffer.publish(event, principal)
@@ -594,29 +621,21 @@ class CodexControlRuntime:
             )
             if runtime_outcome.handled and not runtime_outcome.accepted:
                 continue
+            updated_thread = runtime_outcome.thread
+            if not runtime_outcome.handled:
+                updated_thread = await asyncio.to_thread(
+                    self.state_synchronizer.accept_realtime_event,
+                    event,
+                    principal,
+                )
             publications.append(
                 CodexAgentEventPublication(
                     event=event,
-                    updated_thread=runtime_outcome.thread,
+                    updated_thread=updated_thread,
                     overflowed=await self.event_buffer.publish(event, principal),
-                    requires_state_sync=not runtime_outcome.handled,
+                    requires_state_sync=False,
                 )
             )
-        pending_state_sync = tuple(
-            publication for publication in publications if publication.requires_state_sync
-        )
-        if pending_state_sync:
-            synchronized_threads = await asyncio.to_thread(
-                self.state_synchronizer.accept_realtime_events,
-                tuple(publication.event for publication in pending_state_sync),
-                principal,
-            )
-            for publication, synchronized_thread in zip(
-                pending_state_sync,
-                synchronized_threads,
-                strict=True,
-            ):
-                publication.updated_thread = synchronized_thread
         product_events: list[CodexProductEvent] = []
         for publication in publications:
             workspace_id: UUID | None
@@ -693,6 +712,7 @@ class CodexControlRuntime:
             title_source=thread.title_source.value,
             model=thread.model,
             model_provider=thread.model_provider,
+            reasoning_effort=thread.reasoning_effort,
             status=thread.status,
             active_turn_id=thread.active_turn_id,
             turn_runtime=thread.turn_runtime,
@@ -776,6 +796,7 @@ class CodexControlRuntime:
                 item_id=approval.item_id,
                 risk_level=approval.display.risk_level,
                 payload_digest=approval.payload_digest,
+                version=approval.version,
                 display_summary=approval.display,
                 expires_at=approval.expires_at,
             ),

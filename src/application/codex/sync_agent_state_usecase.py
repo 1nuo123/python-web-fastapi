@@ -29,6 +29,7 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentWorkspaceSnapshot,
 )
 from src.core.codex_contract.agent_protocol_v2_contract import (
+    AgentApprovalResolvedEventDetail,
     AgentApprovalOpenedEventDetail,
     AgentItemChangedEventDetail,
     AgentThreadChangedEventDetail,
@@ -60,6 +61,7 @@ from src.core.codex_contract.host_contract import (
     CodexHostSnapshot,
     CodexSandboxMode,
 )
+from src.core.codex_contract.model_catalog_contract import CodexModelCatalog
 from src.core.codex_contract.product_command_contract import CodexProductCommandCode
 from src.core.codex_contract.thread_contract import (
     CodexActiveTurnUpdateMode,
@@ -75,6 +77,7 @@ from src.core.codex_contract.workspace_contract import (
 )
 from src.core.persistence_contract.unit_of_work_contract import PersistenceSession
 from src.domain.codex.codex_compatibility_policy import CodexCompatibilityDecision
+from src.domain.codex.thread_execution_state import thread_status_for_phase
 from src.domain.codex.thread_title_policy import CodexThreadTitlePolicy
 
 
@@ -131,6 +134,10 @@ class SyncCodexAgentStateUsecase:
                     continue
             return CodexHostCapabilities(
                 items=tuple(items),
+                model_catalog=CodexModelCatalog.model_validate(hello.capabilities.get("model_catalog") or {}),
+                app_server_instance_id=(
+                    value if isinstance(value := hello.capabilities.get("app_server_instance_id"), str) else None
+                ),
                 model_ids=self._read_capability_strings(hello, "model_ids"),
                 reasoning_efforts=self._read_capability_strings(
                     hello,
@@ -548,10 +555,6 @@ class SyncCodexAgentStateUsecase:
                 thread.model_copy(
                     update={
                         "archived": archived,
-                        "status": (
-                            CodexThreadStatus.ARCHIVED if archived else CodexThreadStatus.IDLE
-                        ),
-                        "active_turn_id": None,
                         "updated_at": now,
                         "last_synced_at": now,
                     }
@@ -604,8 +607,6 @@ class SyncCodexAgentStateUsecase:
             display_name = detail.display_name
             archived = detail.archived
             if archived is not None:
-                status = CodexThreadStatus.ARCHIVED if archived else CodexThreadStatus.IDLE
-                active_turn_mode = CodexActiveTurnUpdateMode.CLEAR
                 activity_at = event.occurred_at
         elif isinstance(detail, AgentItemChangedEventDetail):
             thread_id = detail.thread_id
@@ -650,15 +651,12 @@ class SyncCodexAgentStateUsecase:
             display_name = raw_name if isinstance(raw_name, str) and raw_name else None
         elif detail is None and event.method == AppServerNotificationName.THREAD_ARCHIVED.value:
             archived = True
-            status = CodexThreadStatus.ARCHIVED
-            active_turn_mode = CodexActiveTurnUpdateMode.CLEAR
             activity_at = event.occurred_at
         elif detail is None and event.method == AppServerNotificationName.THREAD_UNARCHIVED.value:
             archived = False
-            status = CodexThreadStatus.IDLE
-            active_turn_mode = CodexActiveTurnUpdateMode.CLEAR
             activity_at = event.occurred_at
-        if status is None and display_name is None and archived is None and activity_at is None:
+        execution_settings = detail.execution_settings if isinstance(detail, AgentThreadMetadataChangedEventDetail) else None
+        if status is None and display_name is None and archived is None and activity_at is None and execution_settings is None:
             return None
         unit_of_work = self._control_port.create_unit_of_work()
         try:
@@ -673,6 +671,11 @@ class SyncCodexAgentStateUsecase:
             if thread is None:
                 unit_of_work.commit()
                 return None
+            if thread.turn_runtime is not None and isinstance(detail, AgentThreadChangedEventDetail):
+                # Thread metadata has no turn identity or fencing information.
+                status = thread_status_for_phase(thread.turn_runtime.phase)
+                active_turn_mode = CodexActiveTurnUpdateMode.PRESERVE
+                active_turn_id = None
             synchronized_at = datetime.now(UTC)
             if display_name is not None:
                 title = CodexThreadTitlePolicy().resolve(
@@ -700,7 +703,7 @@ class SyncCodexAgentStateUsecase:
                     )
                     or thread
                 )
-            if status is not None or archived is not None:
+            if status is not None or archived is not None or execution_settings is not None:
                 thread = (
                     repository.apply_runtime_state(
                         host_id=event.host_id,
@@ -711,6 +714,7 @@ class SyncCodexAgentStateUsecase:
                             active_turn_mode=active_turn_mode,
                             active_turn_id=active_turn_id,
                             archived=archived,
+                            execution_settings=execution_settings,
                             synchronized_at=synchronized_at,
                         ),
                     )
@@ -732,6 +736,36 @@ class SyncCodexAgentStateUsecase:
         """按 Agent 已验证顺序同步一批控制面事件，不在该层广播浏览器消息。"""
 
         return tuple(self.accept_realtime_event(event, principal) for event in events)
+
+    def accept_approval_resolved(
+        self,
+        detail: AgentApprovalResolvedEventDetail,
+        host_id: UUID,
+        principal: AgentDevicePrincipal,
+    ) -> CodexApprovalAuditSnapshot | None:
+        unit_of_work = self._control_port.create_unit_of_work()
+        try:
+            repository = self._control_port.create_codex_approval_repository(unit_of_work.get_session())
+            approval = repository.get_by_id_and_owner(detail.approval_id, principal.owner_subject_id)
+            if approval is None or approval.host_id != host_id or approval.thread_id != detail.thread_id or approval.turn_id != detail.turn_id:
+                return None
+            if approval.state in {CodexApprovalState.APPLIED, CodexApprovalState.CANCELLED, CodexApprovalState.EXPIRED}:
+                return approval
+            now = datetime.now(UTC)
+            applied = detail.reason == "resolved" and approval.decision is not None
+            updated = approval.model_copy(update={
+                "state": CodexApprovalState.APPLIED if applied else CodexApprovalState.EXPIRED if detail.reason == "expired" else CodexApprovalState.CANCELLED,
+                "applied_at": now if applied else approval.applied_at,
+                "updated_at": now,
+            })
+            repository.save(updated)
+            unit_of_work.commit()
+            return updated
+        except BaseException:
+            unit_of_work.rollback()
+            raise
+        finally:
+            unit_of_work.dispose()
 
     def accept_approval_opened(
         self,
@@ -786,6 +820,32 @@ class SyncCodexAgentStateUsecase:
                         updated_at=now,
                     )
                 )
+            else:
+                current = repository.get_by_id_and_owner(
+                    approval.approval_id,
+                    principal.owner_subject_id,
+                )
+                if current is not None and approval.version > current.version and current.state in {
+                    CodexApprovalState.PENDING,
+                    CodexApprovalState.CLAIMED,
+                    CodexApprovalState.DELIVERY_FAILED,
+                }:
+                    repository.save(
+                        current.model_copy(
+                            update={
+                                "payload_digest": approval.payload_digest,
+                                "display_summary": approval.display_summary,
+                                "version": approval.version,
+                                "state": CodexApprovalState.PENDING,
+                                "decided_by": None,
+                                "decision": None,
+                                "decided_at": None,
+                                "applied_at": None,
+                                "expires_at": approval.expires_at,
+                                "updated_at": now,
+                            }
+                        )
+                    )
             unit_of_work.commit()
         except BaseException:
             unit_of_work.rollback()
@@ -1026,8 +1086,6 @@ class SyncCodexAgentStateUsecase:
             # Agent 索引快照尚未加载线程状态时，只能保留服务端权威投影；
             # 将其当作非 active 会把仍在运行的 turn 错误中断。
             status = existing.status
-        elif existing is not None and existing.status == "active" and status != "active":
-            status = CodexThreadStatus.INTERRUPTED
         title_source = raw_thread.title_source
         display_name = raw_thread.display_name
         if existing is not None and existing.title_source is CodexThreadTitleSource.MANUAL:
@@ -1062,7 +1120,7 @@ class SyncCodexAgentStateUsecase:
             upstream_thread_id=thread_id,
             display_name=display_name,
             title_source=title_source,
-            model=raw_thread.model_id,
+            model=raw_thread.model_id or (existing.model if existing is not None else None),
             model_provider=raw_thread.model_provider,
             reasoning_effort=existing.reasoning_effort if existing is not None else None,
             status=status,
@@ -1094,13 +1152,7 @@ class SyncCodexAgentStateUsecase:
     def _status_for_turn_runtime(runtime: CodexTurnRuntime) -> CodexThreadStatus:
         """将不含正文的权威运行阶段投影为旧会话状态契约。"""
 
-        if runtime.phase is CodexTurnPhase.INTERRUPTED:
-            return CodexThreadStatus.INTERRUPTED
-        if runtime.phase is CodexTurnPhase.FAILED:
-            return CodexThreadStatus.FAILED
-        if runtime.phase is CodexTurnPhase.COMPLETED:
-            return CodexThreadStatus.IDLE
-        return CodexThreadStatus.ACTIVE
+        return thread_status_for_phase(runtime.phase)
 
     def _read_thread_status(self, value: JsonValue | None) -> CodexThreadStatus:
         status = self._read_raw_thread_status(value)

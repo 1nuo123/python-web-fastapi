@@ -28,6 +28,9 @@ class AgentInternalReleaseManifestBuildCommand(BaseModel):
     output: Path
     version: str = Field(min_length=1, max_length=64)
     download_url: str = Field(min_length=1, max_length=2_048)
+    source_repository: str | None = Field(default=None, max_length=256)
+    source_revision: str | None = Field(default=None, max_length=128)
+    source_dirty: bool | None = None
 
     @field_validator("version")
     @classmethod
@@ -60,6 +63,9 @@ class CodexAgentInternalReleaseManifestBuilder:
                 artifact_sha256=hashlib.sha256(command.installer.read_bytes()).hexdigest(),
                 download_url=command.download_url,
                 published_at=datetime.now(UTC),
+                source_repository=command.source_repository,
+                source_revision=command.source_revision,
+                source_dirty=command.source_dirty,
             ),
         )
         command.output.parent.mkdir(parents=True, exist_ok=True)
@@ -83,12 +89,18 @@ class CodexAgentInternalReleaseManifestCli:
         parser.add_argument("--output", required=True, type=Path)
         parser.add_argument("--version", required=True)
         parser.add_argument("--download-url", required=True)
+        parser.add_argument("--source-repository")
+        parser.add_argument("--source-revision")
+        parser.add_argument("--source-dirty", action="store_true")
         arguments = parser.parse_args(argv)
         command = AgentInternalReleaseManifestBuildCommand(
             installer=arguments.installer,
             output=arguments.output,
             version=arguments.version,
             download_url=arguments.download_url,
+            source_repository=arguments.source_repository,
+            source_revision=arguments.source_revision,
+            source_dirty=True if arguments.source_dirty else None,
         )
         CodexAgentInternalReleaseManifestBuilder().build(command)
         logger.info("Agent内部体验发布清单已生成：{}", command.output)

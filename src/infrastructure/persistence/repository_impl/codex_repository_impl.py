@@ -873,6 +873,81 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
 
         self._session.merge(self._to_orm(snapshot))
 
+    def reconcile_execution(
+        self,
+        *,
+        expected: CodexThreadIndexSnapshot,
+        observed: CodexThreadIndexSnapshot,
+        synchronized_at: datetime,
+    ) -> CodexThreadIndexSnapshot | None:
+        """CAS only execution fields; events received during a read take precedence."""
+
+        previous = expected.turn_runtime
+        conditions = [
+            CodexThreadIndexOrmModel.host_id == expected.host_id,
+            CodexThreadIndexOrmModel.upstream_thread_id == expected.upstream_thread_id,
+            CodexThreadIndexOrmModel.owner_subject_id == expected.owner_subject_id,
+            CodexThreadIndexOrmModel.status == expected.status.value,
+            CodexThreadIndexOrmModel.active_turn_id == expected.active_turn_id,
+        ]
+        if previous is None:
+            conditions.append(CodexThreadIndexOrmModel.runtime_turn_id.is_(None))
+        else:
+            conditions.extend(
+                (
+                    CodexThreadIndexOrmModel.runtime_turn_id == previous.turn_id,
+                    CodexThreadIndexOrmModel.phase == previous.phase.value,
+                    CodexThreadIndexOrmModel.lease_generation == previous.lease_generation,
+                    CodexThreadIndexOrmModel.last_activity_at == previous.last_activity_at,
+                    (
+                        CodexThreadIndexOrmModel.lease_expires_at.is_(None)
+                        if previous.lease_expires_at is None
+                        else CodexThreadIndexOrmModel.lease_expires_at
+                        == previous.lease_expires_at
+                    ),
+                )
+            )
+        runtime = observed.turn_runtime
+        values: dict[str, object] = {
+            "status": observed.status.value,
+            "active_turn_id": observed.active_turn_id,
+            "recency_at": case(
+                (
+                    CodexThreadIndexOrmModel.recency_at < observed.recency_at,
+                    observed.recency_at,
+                ),
+                else_=CodexThreadIndexOrmModel.recency_at,
+            ),
+            "updated_at": synchronized_at,
+            "last_synced_at": synchronized_at,
+        }
+        if runtime is not None:
+            values.update(
+                runtime_turn_id=runtime.turn_id,
+                phase=runtime.phase.value,
+                last_activity_at=runtime.last_activity_at,
+                stalled_reason=runtime.stalled_reason,
+                lease_generation=runtime.lease_generation,
+                lease_expires_at=runtime.lease_expires_at,
+            )
+        elif previous is not None:
+            # A successful CAS may explicitly retire the runtime projection;
+            # otherwise stale lease columns would survive a terminal read.
+            values.update(
+                runtime_turn_id=None,
+                phase=None,
+                last_activity_at=None,
+                stalled_reason=None,
+                lease_generation=0,
+                lease_expires_at=None,
+            )
+        self._session.execute(
+            update(CodexThreadIndexOrmModel).where(*conditions).values(**values)
+        )
+        return self.get_by_upstream_id_and_owner(
+            expected.host_id, expected.upstream_thread_id, expected.owner_subject_id
+        )
+
     def advance_activity(
         self,
         *,
@@ -956,6 +1031,8 @@ class CodexThreadRepositoryImpl(CodexThreadRepositoryPort):
             values["status"] = state_update.status.value
         if state_update.archived is not None:
             values["archived"] = state_update.archived
+        if state_update.execution_settings is not None:
+            values.update(state_update.execution_settings.model_dump())
         if state_update.active_turn_mode is CodexActiveTurnUpdateMode.SET:
             values["active_turn_id"] = state_update.active_turn_id
         elif state_update.active_turn_mode is CodexActiveTurnUpdateMode.CLEAR:

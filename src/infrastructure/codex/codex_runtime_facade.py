@@ -57,6 +57,13 @@ class CodexRuntimeFacade(CodexAgentCommandDispatchPort, CodexRealtimeEventPort):
     ) -> None:
         """向同一 owner 的所有浏览器发布审批终态。"""
 
+        thread = await self._runtime.turn_runtime_coordinator.observe_approval_resolved(approval)
+        if thread is not None:
+            await self._runtime.publish_thread_updated(
+                owner_subject_id=approval.owner_subject_id,
+                thread=thread,
+                occurred_at=approval.updated_at,
+            )
         await self._runtime.browser_event_hub.publish(
             approval.owner_subject_id,
             CodexProductEvent(

@@ -128,6 +128,7 @@ class CodexAgentApprovalOpened(BaseModel):
     item_id: str = Field(min_length=1, max_length=256)
     risk_level: CodexApprovalRiskLevel
     payload_digest: str = Field(min_length=64, max_length=64)
+    version: int = Field(default=1, ge=1)
     display_summary: CodexApprovalDisplaySummary
     expires_at: datetime
 

@@ -25,6 +25,7 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentTurnChangedEventDetail,
 )
 from src.core.codex_contract.app_server_schema_manifest_contract import AppServerNotificationName
+from src.core.codex_contract.approval_contract import CodexApprovalAuditSnapshot, CodexApprovalState
 from src.core.codex_contract.thread_contract import (
     CodexActiveTurnUpdateMode,
     CodexThreadIndexSnapshot,
@@ -35,6 +36,10 @@ from src.core.concurrency_contract.fenced_lease_contract import (
     FencedLease,
     FencedLeasePort,
     FencedLeaseRequest,
+)
+from src.domain.codex.thread_execution_state import (
+    TERMINAL_TURN_PHASES,
+    thread_status_for_phase,
 )
 
 TURN_RUNTIME_STALLED_REASON = "lease_expired_no_activity"
@@ -121,7 +126,7 @@ class CodexTurnRuntimeCoordinator:
         heartbeat: CodexAgentHeartbeat,
         principal: AgentDevicePrincipal,
     ) -> tuple[CodexThreadIndexSnapshot, ...]:
-        """只续租当前 Agent 已经认领的 turn，并把心跳作为服务端活动事实。"""
+        """只续租连接持有的 turn，不把连接存活记为任务实际进展。"""
 
         candidates = await asyncio.to_thread(
             self._list_active_turn_runtimes,
@@ -150,10 +155,6 @@ class CodexTurnRuntimeCoordinator:
                 continue
             refreshed_runtime = runtime.model_copy(
                 update={
-                    "last_activity_at": self._latest_activity_at(
-                        runtime.last_activity_at,
-                        heartbeat.sent_at,
-                    ),
                     "lease_expires_at": renewed.expires_at,
                 }
             )
@@ -169,6 +170,63 @@ class CodexTurnRuntimeCoordinator:
             if persisted is not None:
                 updated.append(persisted)
         return tuple(updated)
+
+    async def observe_approval_resolved(
+        self, approval: CodexApprovalAuditSnapshot
+    ) -> CodexThreadIndexSnapshot | None:
+        """Resume a turn only after all its pending requests have settled."""
+
+        return await asyncio.to_thread(self._resume_after_approval, approval)
+
+    def _resume_after_approval(
+        self, approval: CodexApprovalAuditSnapshot
+    ) -> CodexThreadIndexSnapshot | None:
+        unit_of_work = self._control_port.create_unit_of_work()
+        try:
+            session = unit_of_work.get_session()
+            repository = self._control_port.create_codex_thread_repository(session)
+            thread = repository.get_by_upstream_id_and_owner(
+                approval.host_id, approval.thread_id, approval.owner_subject_id
+            )
+            if thread is None or thread.turn_runtime is None:
+                return None
+            runtime = thread.turn_runtime
+            if runtime.turn_id != approval.turn_id or runtime.phase is not CodexTurnPhase.AWAITING_APPROVAL:
+                return None
+            now = self._clock()
+            pending = self._control_port.create_codex_approval_repository(session).list_by_owner(
+                approval.owner_subject_id
+            )
+            if any(
+                item.host_id == approval.host_id
+                and item.thread_id == approval.thread_id
+                and item.turn_id == approval.turn_id
+                and item.state in {
+                    CodexApprovalState.PENDING,
+                    CodexApprovalState.CLAIMED,
+                    CodexApprovalState.DELIVERY_FAILED,
+                }
+                and (item.expires_at is None or item.expires_at > now)
+                for item in pending
+            ):
+                return None
+            observed = thread.model_copy(update={
+                "status": CodexThreadStatus.ACTIVE,
+                "turn_runtime": runtime.model_copy(update={
+                    "phase": CodexTurnPhase.RUNNING,
+                    "last_activity_at": max(runtime.last_activity_at, approval.updated_at),
+                }),
+            })
+            updated = repository.reconcile_execution(
+                expected=thread, observed=observed, synchronized_at=now
+            )
+            unit_of_work.commit()
+            return updated
+        except BaseException:
+            unit_of_work.rollback()
+            raise
+        finally:
+            unit_of_work.dispose()
 
     async def mark_expired_turns_stalled(self) -> tuple[CodexThreadIndexSnapshot, ...]:
         """仅在 lease 已消失且活动超时后标记 stalled，绝不自动创建新 turn。"""
@@ -231,6 +289,13 @@ class CodexTurnRuntimeCoordinator:
         if current is None:
             return TurnRuntimeEventOutcome(handled=True, accepted=False, thread=None)
         current_runtime = current.turn_runtime
+        if (
+            current_runtime is not None
+            and current_runtime.turn_id == signal.turn_id
+            and current_runtime.phase in TERMINAL_TURN_PHASES
+            and not signal.terminal
+        ):
+            return TurnRuntimeEventOutcome(handled=True, accepted=False, thread=None)
         if (
             signal.phase is CodexTurnPhase.RUNNING
             and current_runtime is not None
@@ -489,13 +554,7 @@ class CodexTurnRuntimeCoordinator:
     def _status_for_phase(phase: CodexTurnPhase) -> CodexThreadStatus:
         """保持旧线程状态契约，同时让 runtime phase 承担更细粒度语义。"""
 
-        if phase is CodexTurnPhase.INTERRUPTED:
-            return CodexThreadStatus.INTERRUPTED
-        if phase is CodexTurnPhase.FAILED:
-            return CodexThreadStatus.FAILED
-        if phase is CodexTurnPhase.COMPLETED:
-            return CodexThreadStatus.IDLE
-        return CodexThreadStatus.ACTIVE
+        return thread_status_for_phase(phase)
 
     @staticmethod
     def _matches_lease(

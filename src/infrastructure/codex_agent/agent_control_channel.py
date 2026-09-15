@@ -8,9 +8,9 @@ import json
 import logging
 import secrets
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as dataclass_replace
 from datetime import UTC, datetime, timedelta
-from pathlib import PureWindowsPath
+from pathlib import Path, PureWindowsPath
 from typing import Final, Literal, cast
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -29,6 +29,7 @@ from src.core.codex_contract.agent_diagnostic_contract import (
     AgentDiagnosticHeader,
     AgentProtocolWarningDiagnosticDetail,
 )
+from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.agent_protocol_contract import (
     CODEX_AGENT_PROTOCOL_VERSION,
     CodexAgentApprovalOpened,
@@ -41,6 +42,7 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentRealtimeEvent,
 )
 from src.core.codex_contract.agent_protocol_v2_contract import (
+    AgentApprovalResolvedEventDetail,
     AgentApprovalDisplaySummary,
     AgentApprovalOpenedEventDetail,
     AgentCommandAckV2Detail,
@@ -71,12 +73,15 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
 from src.core.codex_contract.app_server_jsonrpc_contract import JsonRpcId
 from src.core.codex_contract.app_server_product_contract import (
     AppServerDiffChangedDetail,
+    AppServerDiffItem,
+    AppServerFileChange,
     AppServerItemChangedDetail,
     AppServerItemDeltaDetail,
     AppServerPlanChangedDetail,
     AppServerProductNotificationDetail,
     AppServerThreadChangedDetail,
     AppServerThreadMetadataChangedDetail,
+    AppServerThreadReadProductResult,
     AppServerTurnChangedDetail,
     AppServerWarningDetail,
 )
@@ -99,6 +104,7 @@ from src.core.codex_contract.connection_session_contract import (
     CodexOutboundFrameSenderPort,
 )
 from src.core.codex_contract.host_contract import CodexApprovalPolicy
+from src.core.codex_contract.model_catalog_contract import CodexModelCatalog
 from src.domain.codex.agent_command_policy import (
     AgentAppServerSecurityPolicy,
     AgentCommandPolicy,
@@ -134,6 +140,8 @@ from src.infrastructure.codex_agent.agent_thread_history_window_cache import (
     AgentThreadHistoryWindowCache,
 )
 from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspaceRegistry
+from src.infrastructure.codex_agent.app_server_jsonrpc_client import AppServerProtocolWarning
+from src.infrastructure.codex_agent.app_server_model_catalog import read_model_catalog
 from src.infrastructure.codex_agent.app_server_process_supervisor import (
     AppServerProcessHandle,
     AppServerProcessSupervisor,
@@ -152,6 +160,7 @@ AGENT_SEND_ENQUEUE_TIMEOUT_SECONDS: Final = 1.0
 AGENT_RETRY_MIN_WAIT_SECONDS: Final = 0.01
 AGENT_METADATA_REFRESH_DEBOUNCE_SECONDS: Final = 0.2
 AGENT_METADATA_REFRESH_TIMEOUT_SECONDS: Final = 10.0
+AGENT_PROTOCOL_WARNING_MAX_KEYS: Final = 128
 
 
 class AgentControlConnectionPolicy:
@@ -180,6 +189,9 @@ class AgentControlConnectionPolicy:
         status_code = AgentControlConnectionPolicy.read_status_code(exc)
         if status_code is not None:
             return f"HTTP {status_code}"
+        close_code = getattr(exc, "close_code", None)
+        if isinstance(close_code, int):
+            return f"WebSocket close_code={close_code}"
         return type(exc).__name__
 
     @staticmethod
@@ -229,7 +241,11 @@ class AgentWebSocketTransport(CodexConnectionTransportPort):
         try:
             payload = await self._connection.recv()
         except ConnectionClosed as exc:
-            raise CodexConnectionTransportClosed("控制面WebSocket已关闭。") from exc
+            error = CodexConnectionTransportClosed(
+                f"控制面WebSocket已关闭(code={exc.code})。"
+            )
+            setattr(error, "close_code", exc.code)
+            raise error from exc
         if not isinstance(payload, str):
             raise ValueError("Agent控制通道不接受二进制帧。")
         return payload
@@ -240,7 +256,11 @@ class AgentWebSocketTransport(CodexConnectionTransportPort):
         try:
             await self._connection.send(payload)
         except ConnectionClosed as exc:
-            raise CodexConnectionTransportClosed("控制面WebSocket已关闭。") from exc
+            error = CodexConnectionTransportClosed(
+                f"控制面WebSocket已关闭(code={exc.code})。"
+            )
+            setattr(error, "close_code", exc.code)
+            raise error from exc
 
     async def close(self, *, code: int, reason: str) -> None:
         """关闭 WebSocket 客户端连接。"""
@@ -266,6 +286,8 @@ class PendingAgentApproval:
     requested_permissions: JsonValue | None = None
     proposed_execpolicy_amendment: tuple[str, ...] = ()
     proposed_network_policy_amendments: tuple[dict[str, JsonValue], ...] = ()
+    file_change_digest: str | None = None
+    version: int = 1
 
 
 class AgentControlChannel:
@@ -280,6 +302,7 @@ class AgentControlChannel:
         workspace_registry: AgentWorkspaceRegistry,
         journal: AgentCommandJournal,
         logger: logging.Logger,
+        runtime_status: AgentRuntimeStatus | None = None,
     ) -> None:
         self._settings = settings
         self._tls_context = build_agent_tls_context(
@@ -295,6 +318,7 @@ class AgentControlChannel:
         )
         self._journal = journal
         self._logger = logger
+        self._runtime_status = runtime_status
         self._protocol_version = settings.protocol.agent_schema_version
         self._protocol_codec = AgentProtocolCodecRegistry()
         self._command_mapper = AgentCommandV2Mapper()
@@ -309,6 +333,12 @@ class AgentControlChannel:
         self._batch_flush_task: asyncio.Task[None] | None = None
         self._metadata_refresh_tasks: dict[str, asyncio.Task[None]] = {}
         self._pending_approvals: dict[UUID, PendingAgentApproval] = {}
+        self._protocol_warning_counts: dict[tuple[str, str | None], int] = {}
+        # App Server 的 fileChange approval params 只含稳定 item 定位；保留最近
+        # 已审核 item，供审批摘要展示真实 path/kind/diff 事实。
+        self._file_change_items: dict[tuple[str, str, str], AppServerDiffItem] = {}
+        self._model_catalog = CodexModelCatalog()
+        self._model_catalog_instance: str | None = None
         self._history_capacity_registry = AgentThreadHistoryCapacityRegistry(
             max_source_bytes=settings.agent.max_app_server_line_bytes
         )
@@ -335,8 +365,11 @@ class AgentControlChannel:
             while not self._shutdown_event.is_set():
                 try:
                     if handle.process.returncode is not None or not handle.client.running:
+                        for pending in tuple(self._pending_approvals.values()):
+                            await self._close_pending_approval(pending, "instance_replaced")
                         # 新 App Server 代次不继承旧进程的实时事件序列，必须丢弃正文窗口。
                         self._history_window_cache.clear()
+                        self._file_change_items.clear()
                         handle = await self._supervisor.restart()
                     await self._run_connection(handle, legacy_token)
                     delay = self._settings.agent.reconnect_min_seconds
@@ -359,7 +392,13 @@ class AgentControlChannel:
                             AgentControlConnectionPolicy.describe(exc),
                         )
                         raise
-                    self._logger.warning("Agent控制通道连接失败，将重试：%s", exc)
+                    phase = "established" if self._hello_ack_event.is_set() else "handshake"
+                    self._logger.warning(
+                        "Agent控制通道连接失败，将重试：phase=%s error_type=%s detail=%s",
+                        phase,
+                        type(exc).__name__,
+                        AgentControlConnectionPolicy.describe(exc),
+                    )
                     try:
                         jitter = delay * self._settings.agent.reconnect_jitter_ratio
                         retry_after_seconds = (
@@ -390,6 +429,7 @@ class AgentControlChannel:
             )
             self._metadata_refresh_tasks.clear()
             self._history_window_cache.clear()
+            self._file_change_items.clear()
             await self._supervisor.stop()
 
     def request_shutdown(self) -> None:
@@ -411,6 +451,9 @@ class AgentControlChannel:
     ) -> None:
         """运行一个控制面连接代次，断线不停止本地 App Server。"""
 
+        if self._model_catalog_instance != handle.instance_id or self._model_catalog.state != "ready":
+            self._model_catalog = await read_model_catalog(handle.client)
+            self._model_catalog_instance = handle.instance_id
         connection_url, headers = await self._build_connection_request(legacy_token)
         # websockets rejects an explicit ``ssl=None`` for wss:// URLs. The
         # default system trust store is selected by omitting the argument;
@@ -659,6 +702,9 @@ class AgentControlChannel:
 
         while True:
             await asyncio.sleep(self._settings.agent.heartbeat_seconds)
+            for pending in tuple(self._pending_approvals.values()):
+                if pending.expires_at <= datetime.now(UTC):
+                    await self._close_pending_approval(pending, "expired")
             epoch = self._connection_epoch
             if epoch is None:
                 raise RuntimeError("Agent心跳缺少连接代次。")
@@ -695,8 +741,13 @@ class AgentControlChannel:
                     codex_version=handle.codex_version,
                     app_server_schema_digest=self._settings.protocol.app_server_schema_digest,
                     capabilities=AppServerDefaultCatalog().build_capabilities(),
-                    model_ids=(),
-                    reasoning_efforts=(),
+                    model_ids=tuple(item.model for item in self._model_catalog.models),
+                    reasoning_efforts=tuple(sorted({
+                        effort for item in self._model_catalog.models for effort in item.reasoning_efforts
+                    })),
+                    model_catalog=self._model_catalog,
+                    runtime_status=self._runtime_status,
+                    app_server_instance_id=handle.instance_id,
                     agent_event_epoch=self._event_epoch,
                 ),
             )
@@ -718,9 +769,46 @@ class AgentControlChannel:
         )
 
     async def _accept_app_server_notification(self, method: str, params: JsonValue) -> None:
+        if method == AppServerNotificationName.SERVER_REQUEST_RESOLVED.value:
+            if isinstance(params, Mapping):
+                for pending in tuple(self._pending_approvals.values()):
+                    if pending.thread_id == params.get("threadId") and pending.request_id == params.get("requestId"):
+                        await self._close_pending_approval(pending, "resolved")
+            return
         adapted = self._app_server_protocol_adapter.adapt_notification(method=method, params=params)
         if adapted.notification is not None:
-            self._invalidate_history_window_for_notification(adapted.notification.detail)
+            sanitized_detail = self._sanitize_file_change_detail(adapted.notification.detail)
+            if sanitized_detail is not adapted.notification.detail:
+                adapted = adapted.model_copy(
+                    update={
+                        "notification": adapted.notification.model_copy(
+                            update={"detail": sanitized_detail}
+                        )
+                    }
+                )
+            self._invalidate_history_window_for_notification(sanitized_detail)
+            product_detail = sanitized_detail
+            if isinstance(product_detail, AppServerItemChangedDetail) and isinstance(
+                product_detail.item, AppServerDiffItem
+            ) and product_detail.turn_id is not None:
+                self._file_change_items[
+                    (product_detail.thread_id, product_detail.turn_id, product_detail.item.item_id)
+                ] = product_detail.item
+                if len(self._file_change_items) > 512:
+                    self._file_change_items.pop(next(iter(self._file_change_items)))
+                await self._refresh_pending_file_change_approval(product_detail)
+            if (
+                isinstance(product_detail, AppServerTurnChangedDetail)
+                and product_detail.status
+                in {"completed", "failed", "interrupted", "cancelled", "systemError"}
+            ):
+                self._clear_file_change_items_for_turn(
+                    product_detail.thread_id,
+                    product_detail.turn_id,
+                )
+                for pending in tuple(self._pending_approvals.values()):
+                    if pending.thread_id == product_detail.thread_id and pending.turn_id == product_detail.turn_id:
+                        await self._close_pending_approval(pending, "turn_ended")
         if self._protocol_version == CodexConnectionProtocolVersion.V2:
             if adapted.notification is None:
                 detail: AgentEventDetail = AgentProtocolWarningEventDetail(
@@ -786,6 +874,133 @@ class AgentControlChannel:
         else:
             return
         self._history_window_cache.invalidate_thread(thread_id)
+
+    def _sanitize_file_change_detail(
+        self,
+        detail: AppServerProductNotificationDetail,
+    ) -> AppServerProductNotificationDetail:
+        """在 Agent 本机可信执行根内将文件事实降为可公开的相对路径。"""
+
+        if isinstance(detail, AppServerItemChangedDetail) and isinstance(
+            detail.item, AppServerDiffItem
+        ):
+            return detail.model_copy(
+                update={
+                    "item": self._sanitize_file_change_item(
+                        thread_id=detail.thread_id,
+                        item=detail.item,
+                    )
+                }
+            )
+        if isinstance(detail, AppServerDiffChangedDetail):
+            return detail.model_copy(
+                update={"unified_diff": self._remove_diff_path_metadata(detail.unified_diff)}
+            )
+        return detail
+
+    def _sanitize_thread_read_product_result(
+        self,
+        result: AppServerThreadReadProductResult,
+    ) -> AppServerThreadReadProductResult:
+        """确保 history/read 和实时事件使用相同的文件脱敏规则。"""
+
+        sanitized_turns = tuple(
+            turn.model_copy(
+                update={
+                    "items": tuple(
+                        self._sanitize_file_change_item(result.thread.thread_id, item)
+                        if isinstance(item, AppServerDiffItem)
+                        else item
+                        for item in turn.items
+                    )
+                }
+            )
+            for turn in result.turns
+        )
+        return result.model_copy(update={"turns": sanitized_turns})
+
+    def _sanitize_file_change_item(
+        self,
+        thread_id: str,
+        item: AppServerDiffItem,
+    ) -> AppServerDiffItem:
+        root = self._read_trusted_execution_root(thread_id)
+        if root is None:
+            return item.model_copy(update={"unified_diff": "", "changes": ()})
+        changes: list[AppServerFileChange] = []
+        for change in item.changes:
+            path = self._to_trusted_relative_path(change.path, root)
+            if path is None:
+                continue
+            old_path = (
+                self._to_trusted_relative_path(change.old_path, root)
+                if change.old_path is not None
+                else None
+            )
+            if change.old_path is not None and old_path is None:
+                continue
+            changes.append(
+                change.model_copy(
+                    update={
+                        "path": path,
+                        "old_path": old_path,
+                        "diff": self._remove_diff_path_metadata(change.diff),
+                    }
+                )
+            )
+        return item.model_copy(update={"unified_diff": "", "changes": tuple(changes)})
+
+    def _read_trusted_execution_root(self, thread_id: str) -> Path | None:
+        binding = self._execution_root_store.load(thread_id)
+        if binding is None:
+            return None
+        try:
+            workspace_root = self._workspace_registry.resolve_root(binding.workspace_key)
+            execution_root = binding.execution_root.resolve(strict=True)
+        except (OSError, ValueError):
+            return None
+        if execution_root != workspace_root and not execution_root.is_relative_to(workspace_root):
+            return None
+        return execution_root
+
+    @staticmethod
+    def _to_trusted_relative_path(value: str, root: Path) -> str | None:
+        try:
+            candidate = Path(value)
+            resolved = (
+                candidate.resolve(strict=False)
+                if candidate.is_absolute()
+                else (root / candidate).resolve(strict=False)
+            )
+            if resolved == root or not resolved.is_relative_to(root):
+                return None
+            return str(resolved.relative_to(root))[:1_024]
+        except (OSError, ValueError):
+            return None
+
+    @staticmethod
+    def _remove_diff_path_metadata(value: str) -> str:
+        """保留 hunk 正文，剥离可能含有本机绝对路径的 Git 元数据。"""
+
+        path_metadata_prefixes = (
+            "diff --git ",
+            "index ",
+            "--- ",
+            "+++ ",
+            "rename from ",
+            "rename to ",
+            "similarity index ",
+            "new file mode ",
+            "deleted file mode ",
+        )
+        return "\n".join(
+            line for line in value.splitlines() if not line.startswith(path_metadata_prefixes)
+        )
+
+    def _clear_file_change_items_for_turn(self, thread_id: str, turn_id: str) -> None:
+        for key in tuple(self._file_change_items):
+            if key[:2] == (thread_id, turn_id):
+                self._file_change_items.pop(key, None)
 
     def _schedule_metadata_refresh(self, thread_id: str) -> None:
         """按会话合并 turn 完成后的权威元数据刷新。"""
@@ -876,6 +1091,15 @@ class AgentControlChannel:
             risk_level=risk_level,
             reason=reason,
         )
+        file_change_digest = (
+            self._file_change_digest(
+                thread_id=cast(str, thread_id),
+                turn_id=cast(str, turn_id),
+                item_id=cast(str, item_id),
+            )
+            if approval_kind == "file_change"
+            else None
+        )
         proposed_execpolicy_amendment = self._read_execpolicy_amendment(mapping)
         proposed_network_policy_amendments = self._read_network_policy_amendments(mapping)
         self._pending_approvals[approval_id] = PendingAgentApproval(
@@ -895,6 +1119,8 @@ class AgentControlChannel:
             ),
             proposed_execpolicy_amendment=proposed_execpolicy_amendment,
             proposed_network_policy_amendments=proposed_network_policy_amendments,
+            file_change_digest=file_change_digest,
+            version=1,
         )
         approval = CodexAgentApprovalOpened(
             approval_id=approval_id,
@@ -906,6 +1132,7 @@ class AgentControlChannel:
             item_id=cast(str, item_id),
             risk_level=CodexApprovalRiskLevel(risk_level),
             payload_digest=payload_digest,
+            version=1,
             display_summary=display,
             expires_at=expires_at,
         )
@@ -920,6 +1147,87 @@ class AgentControlChannel:
                 self._build_model_frame(AgentV1MessageType.APPROVAL_OPENED.value, approval)
             )
 
+    async def _refresh_pending_file_change_approval(
+        self,
+        detail: AppServerItemChangedDetail,
+    ) -> None:
+        """同一原生审批请求的 proposal 变化时递增版本并刷新展示。"""
+
+        if not isinstance(detail.item, AppServerDiffItem) or detail.turn_id is None:
+            return
+        for pending in tuple(self._pending_approvals.values()):
+            if (
+                pending.approval_kind != "file_change"
+                or pending.thread_id != detail.thread_id
+                or pending.turn_id != detail.turn_id
+                or pending.item_id != detail.item.item_id
+            ):
+                continue
+            changes = self._build_file_changes_from_item(detail.item)
+            display = pending.display.model_copy(
+                update={
+                    "file_changes": changes,
+                    "file_scope": tuple(change.path for change in changes),
+                    "allowed_actions": self._allowed_approval_actions(
+                        approval_kind="file_change",
+                        mapping={},
+                        file_review_available=bool(changes),
+                    ),
+                }
+            )
+            updated = dataclass_replace(
+                pending,
+                display=display,
+                file_change_digest=self._file_change_digest(
+                    thread_id=pending.thread_id,
+                    turn_id=pending.turn_id,
+                    item_id=pending.item_id,
+                ),
+                version=pending.version + 1,
+            )
+            self._pending_approvals[pending.approval_id] = updated
+            if self._protocol_version == CodexConnectionProtocolVersion.V2:
+                await self._queue_v2_event(
+                    AgentApprovalOpenedEventDetail(
+                        approval=self._to_v2_pending_approval(updated)
+                    )
+                )
+            else:
+                await self._send_or_buffer(
+                    self._build_model_frame(
+                        AgentV1MessageType.APPROVAL_OPENED.value,
+                        CodexAgentApprovalOpened(
+                            approval_id=updated.approval_id,
+                            host_id=self._settings.agent.host_id,
+                            app_server_instance_id=updated.app_server_instance_id,
+                            approval_kind=CodexApprovalKind.FILE_CHANGE,
+                            thread_id=updated.thread_id,
+                            turn_id=updated.turn_id,
+                            item_id=updated.item_id,
+                            risk_level=updated.display.risk_level,
+                            payload_digest=updated.payload_digest,
+                            version=updated.version,
+                            display_summary=updated.display,
+                            expires_at=updated.expires_at,
+                        ),
+                    )
+                )
+
+    async def _close_pending_approval(
+        self,
+        pending: PendingAgentApproval,
+        reason: Literal["resolved", "expired", "turn_ended", "instance_replaced"],
+    ) -> None:
+        self._pending_approvals.pop(pending.approval_id, None)
+        self._file_change_items.pop((pending.thread_id, pending.turn_id, pending.item_id), None)
+        if self._protocol_version == CodexConnectionProtocolVersion.V2:
+            await self._queue_v2_event(AgentApprovalResolvedEventDetail(
+                approval_id=pending.approval_id,
+                thread_id=pending.thread_id,
+                turn_id=pending.turn_id,
+                reason=reason,
+            ))
+
     def _build_approval_display(
         self,
         *,
@@ -933,7 +1241,21 @@ class AgentControlChannel:
         cwd = mapping.get("cwd")
         grant_root = mapping.get("grantRoot")
         workspace_name = self._path_name(cwd)
-        file_changes = self._build_file_changes(mapping.get("fileChanges"), cwd)
+        file_changes = (
+            self._build_file_changes(mapping.get("fileChanges"), cwd)
+            if approval_kind != "file_change"
+            else ()
+        )
+        if approval_kind == "file_change":
+            thread_id = mapping.get("threadId")
+            turn_id = mapping.get("turnId")
+            item_id = mapping.get("itemId")
+            if all(isinstance(value, str) and value for value in (thread_id, turn_id, item_id)):
+                cached = getattr(self, "_file_change_items", {}).get((thread_id, turn_id, item_id))
+                if cached is not None:
+                    file_changes = self._build_file_changes_from_item(cached)
+                root = self._read_trusted_execution_root(cast(str, thread_id))
+                workspace_name = root.name if root is not None else None
         relative_grant_root = self._relative_path(grant_root, cwd)
         file_scope = tuple(
             dict.fromkeys(
@@ -970,6 +1292,7 @@ class AgentControlChannel:
         allowed_actions = self._allowed_approval_actions(
             approval_kind=approval_kind,
             mapping=mapping,
+            file_review_available=bool(file_changes),
         )
         risk_reason = (
             "network_access"
@@ -1041,6 +1364,7 @@ class AgentControlChannel:
         *,
         approval_kind: str,
         mapping: Mapping[str, JsonValue],
+        file_review_available: bool = True,
     ) -> tuple[CodexApprovalDecision, ...]:
         """根据官方 request 中实际存在的 proposal 生成可见动作。"""
 
@@ -1052,6 +1376,8 @@ class AgentControlChannel:
                 actions.append(CodexApprovalDecision.APPLY_NETWORK_POLICY_AMENDMENT)
             actions.extend((CodexApprovalDecision.DECLINE, CodexApprovalDecision.CANCEL))
         elif approval_kind == "file_change":
+            if not file_review_available:
+                return (CodexApprovalDecision.DECLINE, CodexApprovalDecision.CANCEL)
             actions.extend((CodexApprovalDecision.DECLINE, CodexApprovalDecision.CANCEL))
         else:
             actions.append(CodexApprovalDecision.DECLINE)
@@ -1131,6 +1457,31 @@ class AgentControlChannel:
             )
         return tuple(changes)
 
+    def _build_file_changes_from_item(
+        self,
+        item: AppServerDiffItem,
+    ) -> tuple[CodexApprovalFileChange, ...]:
+        """把已审核 fileChange item 的 path/kind 映射为审批展示摘要。"""
+
+        result: list[CodexApprovalFileChange] = []
+        for change in item.changes[:64]:
+            result.append(
+                CodexApprovalFileChange(
+                    path=change.path,
+                    change_kind=change.change_kind,
+                    sensitive=self._is_sensitive_path(change.path),
+                    diff=change.diff[:32_768],
+                    truncated=len(change.diff) > 32_768,
+                )
+            )
+        return tuple(result)
+
+    def _file_change_digest(self, *, thread_id: str, turn_id: str, item_id: str) -> str | None:
+        item = self._file_change_items.get((thread_id, turn_id, item_id))
+        if item is None:
+            return None
+        return hashlib.sha256(item.model_dump_json().encode("utf-8")).hexdigest()
+
     def _relative_path(
         self,
         value: JsonValue | None,
@@ -1166,7 +1517,13 @@ class AgentControlChannel:
     async def _reply_approval(self, command: CodexAgentCommand) -> JsonValue:
         approval_value = command.params.get("approvalId")
         decision = command.params.get("decision")
-        if not isinstance(approval_value, str) or not isinstance(decision, str):
+        approval_version = command.params.get("approvalVersion")
+        if (
+            not isinstance(approval_value, str)
+            or not isinstance(decision, str)
+            or not isinstance(approval_version, int)
+            or isinstance(approval_version, bool)
+        ):
             raise ValueError("审批决定缺少approvalId或decision。")
         try:
             parsed_decision = CodexApprovalDecision(decision)
@@ -1177,12 +1534,26 @@ class AgentControlChannel:
         if pending is None:
             raise ValueError("审批RPC关联不存在或已失效。")
         if pending.expires_at <= datetime.now(UTC):
-            self._pending_approvals.pop(approval_id, None)
+            await self._close_pending_approval(pending, "expired")
             raise ValueError("审批已经过期。")
         if pending.app_server_instance_id != self._supervisor.handle.instance_id:
             raise ValueError("审批所属App Server代次已经失效。")
+        if approval_version != pending.version:
+            raise ValueError("审批对应的文件提议已经变更，请重新读取后处理。")
         if parsed_decision not in pending.display.allowed_actions:
             raise ValueError("审批决定不在该官方请求的允许动作内。")
+        if (
+            pending.file_change_digest is not None
+            and parsed_decision
+            in {CodexApprovalDecision.ACCEPT, CodexApprovalDecision.ACCEPT_FOR_SESSION}
+            and pending.file_change_digest
+            != self._file_change_digest(
+                thread_id=pending.thread_id,
+                turn_id=pending.turn_id,
+                item_id=pending.item_id,
+            )
+        ):
+            raise ValueError("审批对应的文件提议已经变更，请重新读取后处理。")
         response: dict[str, JsonValue]
         if pending.method == "item/permissions/requestApproval":
             response = {
@@ -1224,30 +1595,49 @@ class AgentControlChannel:
         self._pending_approvals.pop(approval_id, None)
         return {"approvalId": approval_value, "state": "applied"}
 
-    async def _accept_protocol_warning(self, warning: str) -> None:
-        warning_digest = hashlib.sha256(warning.encode("utf-8")).hexdigest()[:16]
-        handle = self._supervisor.handle
-        self._logger.warning(
-            AgentDiagnosticEnvelope(
-                header=AgentDiagnosticHeader(
-                    detail_kind=AgentDiagnosticCode.APP_SERVER_PROTOCOL_WARNING,
-                    host_id=str(self._settings.agent.host_id),
-                    app_server_instance_id=handle.instance_id,
-                    process_id=handle.process.pid,
-                    codex_version=handle.codex_version,
-                    occurred_at=datetime.now(UTC),
-                ),
-                detail=AgentProtocolWarningDiagnosticDetail(
-                    byte_count=len(warning.encode("utf-8")),
-                    digest=warning_digest,
-                ),
-            ).to_log_line()
+    async def _accept_protocol_warning(self, warning: AppServerProtocolWarning | str) -> None:
+        warning_text = str(warning)
+        warning_digest = hashlib.sha256(warning_text.encode("utf-8")).hexdigest()[:16]
+        reason_code = (
+            warning.reason_code
+            if isinstance(warning, AppServerProtocolWarning)
+            else "app_server_protocol_warning"
         )
+        warning_method = warning.method if isinstance(warning, AppServerProtocolWarning) else None
+        warning_key = (reason_code, warning_method)
+        if warning_key not in self._protocol_warning_counts and len(
+            self._protocol_warning_counts
+        ) >= AGENT_PROTOCOL_WARNING_MAX_KEYS:
+            self._protocol_warning_counts.pop(next(iter(self._protocol_warning_counts)))
+        warning_count = self._protocol_warning_counts.get(warning_key, 0) + 1
+        self._protocol_warning_counts[warning_key] = warning_count
+        handle = self._supervisor.handle
+        if warning_count == 1 or warning_count & (warning_count - 1) == 0:
+            self._logger.warning(
+                AgentDiagnosticEnvelope(
+                    header=AgentDiagnosticHeader(
+                        detail_kind=AgentDiagnosticCode.APP_SERVER_PROTOCOL_WARNING,
+                        host_id=str(self._settings.agent.host_id),
+                        app_server_instance_id=handle.instance_id,
+                        process_id=handle.process.pid,
+                        codex_version=handle.codex_version,
+                        occurred_at=datetime.now(UTC),
+                    ),
+                    detail=AgentProtocolWarningDiagnosticDetail(
+                        byte_count=len(warning_text.encode("utf-8")),
+                        digest=warning_digest,
+                        reason_code=reason_code,
+                        method=warning_method,
+                        count=warning_count,
+                    ),
+                ).to_log_line()
+            )
         if self._protocol_version == CodexConnectionProtocolVersion.V2:
             await self._queue_v2_event(
                 AgentProtocolWarningEventDetail(
-                    reason_code="app_server_protocol_warning",
-                    method=warning_digest,
+                    reason_code=reason_code,
+                    method=warning_method,
+                    count=warning_count,
                 )
             )
             return
@@ -1256,7 +1646,12 @@ class AgentControlChannel:
             app_server_instance_id=self._supervisor.handle.instance_id,
             occurred_at=datetime.now(UTC),
             method="internal/protocol.warning",
-            params={"warning_digest": warning_digest},
+            params={
+                "warning_digest": warning_digest,
+                "reason_code": reason_code,
+                "method": warning_method,
+                "count": warning_count,
+            },
         )
         await self._send_or_buffer(
             self._build_model_frame(AgentV1MessageType.REALTIME_EVENT.value, event)
@@ -1373,8 +1768,8 @@ class AgentControlChannel:
             and result.outcome == "completed"
             and result.result is not None
         ):
-            product_result = self._app_server_protocol_adapter.adapt_thread_read_result(
-                result.result
+            product_result = self._sanitize_thread_read_product_result(
+                self._app_server_protocol_adapter.adapt_thread_read_result(result.result)
             )
             typed_result = AgentThreadReadCommandResult(snapshot=product_result)
         await sender.send(
@@ -1549,7 +1944,7 @@ class AgentControlChannel:
             turn_id=pending.turn_id,
             item_id=pending.item_id,
             payload_digest=pending.payload_digest,
-            version=1,
+            version=pending.version,
             expires_at=pending.expires_at,
             display=pending.display,
         )
@@ -1577,12 +1972,14 @@ class AgentControlChannel:
                         AppServerNotificationName.THREAD_NAME_UPDATED,
                         AppServerNotificationName.THREAD_ARCHIVED,
                         AppServerNotificationName.THREAD_UNARCHIVED,
+                        AppServerNotificationName.THREAD_SETTINGS_UPDATED,
                     ],
                     AppServerNotificationName(method),
                 ),
                 thread_id=detail.thread_id,
                 display_name=detail.display_name,
                 archived=detail.archived,
+                execution_settings=detail.execution_settings,
             )
         if isinstance(detail, AppServerTurnChangedDetail):
             return AgentTurnChangedEventDetail(
@@ -1603,6 +2000,7 @@ class AgentControlChannel:
                     Literal[
                         AppServerNotificationName.ITEM_STARTED,
                         AppServerNotificationName.ITEM_COMPLETED,
+                        AppServerNotificationName.FILE_PATCH_UPDATED,
                     ],
                     AppServerNotificationName(method),
                 ),

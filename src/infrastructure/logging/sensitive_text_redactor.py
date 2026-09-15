@@ -24,7 +24,7 @@ BEARER_TOKEN_REDACTION_PATTERN = r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+"
 JWT_TEXT_REDACTION_PATTERN = r"\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"
 KEY_VALUE_SECRET_REDACTION_PATTERN = (
     r"(?i)\b(?P<key>[A-Za-z0-9_]*(?:PASSWORD|TOKEN|SECRET)"
-    r"|(?:api|secret|access|private|public)?_?key|password|passwd|pwd)"
+    r"|(?:api|secret|access|private|public)?_?key|password|passwd|pwd|ticket)"
     r"(?P<separator>\s*[:=]\s*)"
     r"(?P<quote>[\"']?)"
     r"(?P<value>[^\"'\s,;&|]+)"

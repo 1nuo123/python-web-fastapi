@@ -68,6 +68,8 @@ class CodexApprovalFileChange(BaseModel):
     added_lines: int | None = Field(default=None, ge=0)
     deleted_lines: int | None = Field(default=None, ge=0)
     sensitive: bool = False
+    diff: str | None = Field(default=None, max_length=32_768)
+    truncated: bool = False
 
 
 class CodexApprovalDisplaySummary(BaseModel):

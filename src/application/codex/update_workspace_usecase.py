@@ -17,6 +17,7 @@ from src.core.codex_contract.workspace_contract import (
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.persistence_contract.unit_of_work_contract import UnitOfWork
 from src.domain.codex.codex_error_code import CodexErrorCode
+from src.domain.codex.model_selection_policy import model_selection_error
 from src.domain.codex.workspace_execution_preference_policy import (
     revalidate_codex_workspace_execution_preferences,
 )
@@ -142,6 +143,15 @@ class UpdateCodexWorkspaceUsecase:
                 workspace_id=workspace_id,
                 owner_subject_id=owner_subject_id,
             )
+            selection_error = model_selection_error(
+                capabilities, request.model, request.reasoning_effort
+            )
+            if selection_error:
+                raise HttpFaultException(
+                    status_code=HTTPStatus.CONFLICT,
+                    error_code=CodexErrorCode.STATE_CONFLICT,
+                    message=selection_error,
+                )
             effective_preferences, adjusted_fields = (
                 revalidate_codex_workspace_execution_preferences(
                     request,

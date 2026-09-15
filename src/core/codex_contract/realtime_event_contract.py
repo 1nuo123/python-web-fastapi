@@ -145,6 +145,7 @@ class CodexThreadPatch(BaseModel):
     title_source: str | None = Field(default=None, max_length=32)
     model: str | None = Field(default=None, max_length=128)
     model_provider: str | None = Field(default=None, max_length=128)
+    reasoning_effort: str | None = Field(default=None, max_length=64)
     status: CodexThreadStatus | None = None
     active_turn_id: str | None = Field(default=None, max_length=256)
     turn_runtime: CodexTurnRuntime | None = None

@@ -44,8 +44,10 @@ class ApplicationLifespanContext:
             await self._resource_mount.startup_streaming()
         except Exception:
             self._app.state.ready = False
-            await self._resource_mount.shutdown_streaming()
-            self._resource_mount.shutdown()
+            try:
+                await self._resource_mount.shutdown_streaming()
+            finally:
+                self._resource_mount.shutdown()
             raise
         self._app.state.ready = True
         return None
@@ -70,8 +72,10 @@ class ApplicationLifespanContext:
         """
 
         self._app.state.ready = False
-        await self._resource_mount.shutdown_streaming()
-        self._resource_mount.shutdown()
+        try:
+            await self._resource_mount.shutdown_streaming()
+        finally:
+            self._resource_mount.shutdown()
         return False
 
 

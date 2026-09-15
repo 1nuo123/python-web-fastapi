@@ -33,6 +33,7 @@ class CodexCompatibilityReason(StrEnum):
     MANIFEST_NOT_APPROVED = "manifest_not_approved"
     AGENT_PROTOCOL_NOT_SUPPORTED = "agent_protocol_not_supported"
     UNKNOWN_SCHEMA_READ_ONLY = "unknown_schema_read_only"
+    UNKNOWN_VERSION_READ_ONLY = "unknown_version_read_only"
     UNKNOWN_SCHEMA_MUTATION_BLOCKED = "unknown_schema_mutation_blocked"
     METHOD_NOT_SUPPORTED = "method_not_supported"
     CAPABILITY_MISSING = "capability_missing"
@@ -156,8 +157,11 @@ class CodexCompatibilityPolicy:
         manifest = self._manifests.get(compatibility.codex_version)
         if manifest is None:
             return CodexCompatibilityResult(
-                decision=CodexCompatibilityDecision.UPGRADE_REQUIRED,
-                reason=CodexCompatibilityReason.VERSION_NOT_SUPPORTED,
+                # A CLI version is an observation, not a write grant.  An
+                # unreviewed version may still expose safe read-only data;
+                # all mutations remain fenced by the connection decision.
+                decision=CodexCompatibilityDecision.READ_ONLY,
+                reason=CodexCompatibilityReason.UNKNOWN_VERSION_READ_ONLY,
             )
         if manifest.header.review_status != AppServerSchemaReviewStatus.APPROVED:
             return CodexCompatibilityResult(

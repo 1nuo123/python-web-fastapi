@@ -51,6 +51,7 @@ from src.core.persistence_contract.unit_of_work_contract import PersistenceSessi
 from src.domain.codex.agent_command_policy import calculate_agent_request_digest
 from src.domain.codex.codex_error_code import CodexErrorCode
 from src.domain.codex.host_status import CodexOperationStatus
+from src.domain.codex.model_selection_policy import model_selection_error
 from src.domain.codex.thread_title_policy import CodexThreadTitlePolicy
 
 
@@ -490,11 +491,6 @@ class ExecuteCodexThreadCommandUsecase:
             host = host_repository.get_by_id_and_owner(host_id, actor_subject_id)
             if host is None:
                 raise self._not_found()
-            self._validate_host_command(
-                host=host,
-                operation_type=operation_type,
-                execution=execution,
-            )
             thread_repository = self._control_port.create_codex_thread_repository(session)
             thread = thread_repository.get_by_upstream_id_and_owner(
                 host_id,
@@ -503,6 +499,12 @@ class ExecuteCodexThreadCommandUsecase:
             )
             if thread is None:
                 raise self._not_found()
+            self._validate_host_command(
+                host=host,
+                operation_type=operation_type,
+                execution=execution,
+                inherited_model=thread.model,
+            )
             if (
                 operation_type == "turn.start"
                 and thread.turn_runtime is not None
@@ -881,6 +883,7 @@ class ExecuteCodexThreadCommandUsecase:
         host: CodexHostSnapshot,
         operation_type: str,
         execution: CodexExecutionOptions | None,
+        inherited_model: str | None = None,
     ) -> None:
         try:
             command = CodexProductCommandCode(operation_type)
@@ -906,20 +909,15 @@ class ExecuteCodexThreadCommandUsecase:
             )
         if execution is None:
             return
-        if execution.model is not None and execution.model not in host.capabilities.model_ids:
+        selection_error = model_selection_error(
+            host.capabilities, execution.model, execution.reasoning_effort,
+            inherited_model=inherited_model,
+        )
+        if selection_error:
             raise HttpFaultException(
                 status_code=HTTPStatus.CONFLICT,
                 error_code=CodexErrorCode.STATE_CONFLICT,
-                message="所选模型不在Agent capability快照中。",
-            )
-        if (
-            execution.reasoning_effort is not None
-            and execution.reasoning_effort not in host.capabilities.reasoning_efforts
-        ):
-            raise HttpFaultException(
-                status_code=HTTPStatus.CONFLICT,
-                error_code=CodexErrorCode.STATE_CONFLICT,
-                message="所选推理强度不在Agent capability快照中。",
+                message=selection_error,
             )
         if execution.sandbox_mode not in host.capabilities.sandbox_modes:
             raise HttpFaultException(

@@ -60,6 +60,9 @@ class AgentProtocolWarningDiagnosticDetail(BaseModel):
     schema_version: Literal["1.0"] = AGENT_DIAGNOSTIC_SCHEMA_VERSION
     byte_count: int = Field(ge=0)
     digest: str = Field(pattern=AGENT_DIAGNOSTIC_DIGEST_PATTERN)
+    reason_code: str = Field(default="app_server_protocol_warning", min_length=1, max_length=128)
+    method: str | None = Field(default=None, max_length=128)
+    count: int = Field(default=1, ge=1)
 
 
 class AgentProcessExitDiagnosticDetail(BaseModel):

@@ -114,6 +114,9 @@ class CodexRuntimeSettings(BaseModel):
     agent_release_download_url: str = Field(min_length=1, max_length=2_048)
     agent_release_manifest_url: str = Field(min_length=1, max_length=2_048)
     agent_release_minimum_security_version: str = Field(min_length=1, max_length=64)
+    agent_release_source_repository: str | None = Field(default=None, max_length=256)
+    agent_release_source_revision: str | None = Field(default=None, max_length=128)
+    agent_release_source_dirty: bool | None = None
 
     @model_validator(mode="after")
     def validate_runtime_boundaries(self) -> CodexRuntimeSettings:

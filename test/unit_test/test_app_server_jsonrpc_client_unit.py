@@ -14,7 +14,10 @@ from src.core.codex_contract.app_server_jsonrpc_contract import (
     AppServerProtocolError,
     JsonRpcId,
 )
-from src.infrastructure.codex_agent.app_server_jsonrpc_client import AppServerJsonRpcClient
+from src.infrastructure.codex_agent.app_server_jsonrpc_client import (
+    AppServerJsonRpcClient,
+    AppServerProtocolWarning,
+)
 
 
 class FakeLineReader:
@@ -146,4 +149,42 @@ async def test_read_loop_when_message_exceeds_limit_should_reject_only_inflight_
     assert await following == {"data": []}
     assert client.running is True
     assert warnings == ["App Server单条输出超过4 MiB，已省略该消息，连接继续可用。"]
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_unknown_notification_should_forward_a_bounded_sanitized_method() -> None:
+    reader = FakeLineReader()
+    writer = FakeLineWriter()
+    warnings: list[AppServerProtocolWarning] = []
+
+    async def ignore_notification(_method: str, _params: JsonValue) -> None:
+        return
+
+    async def ignore_request(_id: JsonRpcId, _method: str, _params: JsonValue) -> None:
+        return
+
+    async def record_warning(warning: AppServerProtocolWarning) -> None:
+        warnings.append(warning)
+
+    client = AppServerJsonRpcClient(
+        reader=reader,
+        writer=writer,
+        max_line_bytes=1024,
+        notification_handler=ignore_notification,
+        request_handler=ignore_request,
+        warning_handler=record_warning,
+    )
+    await client.start()
+    await reader.lines.put(json.dumps({"method": "x\n" + "a" * 200}).encode() + b"\n")
+
+    for _ in range(10):
+        if warnings:
+            break
+        await asyncio.sleep(0)
+
+    assert len(warnings) == 1
+    assert warnings[0].reason_code == "unknown_notification"
+    assert warnings[0].method == "x" + "a" * 127
+    assert "\n" not in warnings[0].method
     await client.close()

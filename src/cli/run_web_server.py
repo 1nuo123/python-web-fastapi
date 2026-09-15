@@ -8,6 +8,7 @@ from typing import Final
 import uvicorn
 
 from src.core.stream_contract.stream_runtime_contract import StreamRuntimeDetailBase
+from src.infrastructure.logging.web_server_logging import build_web_server_log_config
 from src.infrastructure.settings.app_settings_loader import AppSettingsLoader
 
 ASGI_APPLICATION_FACTORY: Final = "src.api.asgi_entry:create_app"
@@ -66,6 +67,7 @@ class WebServerRunner:
             ws_ping_interval=projection.websocket_ping_interval_seconds,
             ws_ping_timeout=projection.websocket_ping_timeout_seconds,
             timeout_graceful_shutdown=projection.graceful_shutdown_seconds,
+            log_config=build_web_server_log_config(),
         )
 
 

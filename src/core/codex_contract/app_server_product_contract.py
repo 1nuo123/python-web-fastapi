@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from src.core.codex_contract.model_catalog_contract import CodexEffectiveExecutionSettings
+
 from enum import StrEnum
 from typing import Annotated, Final, Literal
 from uuid import RFC_4122, UUID
@@ -109,6 +111,18 @@ class AppServerCommandItem(AppServerProductItemBase):
     command: str = Field(max_length=APP_SERVER_PRODUCT_MAX_TEXT_CHARS)
     output: str = Field(max_length=APP_SERVER_PRODUCT_MAX_TEXT_CHARS)
     exit_code: int | None = None
+    status: Literal["inProgress", "completed", "failed", "declined"] = "completed"
+
+
+class AppServerFileChange(BaseModel):
+    """单个官方文件变更的脱敏结构。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: str = Field(min_length=1, max_length=1_024)
+    change_kind: Literal["added", "modified", "deleted", "renamed"]
+    diff: str = Field(default="", max_length=APP_SERVER_PRODUCT_MAX_TEXT_CHARS)
+    old_path: str | None = Field(default=None, max_length=1_024)
 
 
 class AppServerDiffItem(AppServerProductItemBase):
@@ -116,6 +130,8 @@ class AppServerDiffItem(AppServerProductItemBase):
 
     kind: Literal["diff"] = "diff"
     unified_diff: str = Field(max_length=APP_SERVER_PRODUCT_MAX_TEXT_CHARS)
+    status: Literal["inProgress", "completed", "failed", "declined"] = "completed"
+    changes: tuple[AppServerFileChange, ...] = Field(default=(), max_length=64)
 
 
 AppServerProductTimelineItem = Annotated[
@@ -199,6 +215,7 @@ class AppServerThreadMetadataChangedDetail(BaseModel):
     thread_id: str = Field(min_length=1, max_length=256)
     display_name: str | None = Field(default=None, max_length=256)
     archived: bool | None = None
+    execution_settings: CodexEffectiveExecutionSettings | None = None
 
 
 class AppServerTurnChangedDetail(BaseModel):

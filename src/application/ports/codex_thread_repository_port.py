@@ -39,6 +39,14 @@ class CodexThreadRepositoryPort(Protocol):
 
     def save(self, snapshot: CodexThreadIndexSnapshot) -> None: ...
 
+    def reconcile_execution(
+        self,
+        *,
+        expected: CodexThreadIndexSnapshot,
+        observed: CodexThreadIndexSnapshot,
+        synchronized_at: datetime,
+    ) -> CodexThreadIndexSnapshot | None: ...
+
     def advance_activity(
         self,
         *,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import fnmatch
 import gc
 import hashlib
 import logging
@@ -153,8 +152,6 @@ class AppServerProcessSupervisor:
         if self._handle is not None:
             raise RuntimeError("App Server监督器不能重复启动。")
         codex_version = await self._read_codex_version()
-        if not any(fnmatch.fnmatch(codex_version, pattern) for pattern in self._allowed_versions):
-            raise AppServerVersionMismatchError("本机Codex版本不在允许范围内。")
         process = await self._subprocess_launcher.create_async(
             WindowsSubprocessRequest(
                 argv=(*self._codex_command, "app-server", "--stdio"),

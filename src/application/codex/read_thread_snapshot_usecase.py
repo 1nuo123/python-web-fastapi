@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -20,6 +21,7 @@ from src.application.ports.codex_agent_command_dispatch_port import (
     CodexAgentCommandDispatchPort,
 )
 from src.application.ports.codex_control_port import CodexControlPort
+from src.application.ports.codex_realtime_event_port import CodexRealtimeEventPort
 from src.core.codex_contract.agent_protocol_contract import CodexAgentCommand
 from src.core.codex_contract.connection_session_contract import CodexHostOfflineError
 from src.core.codex_contract.thread_contract import (
@@ -29,13 +31,13 @@ from src.core.codex_contract.thread_contract import (
     CodexThreadHistoryQuery,
     CodexThreadHistoryStatus,
     CodexThreadIndexSnapshot,
-    CodexThreadStatus,
     CodexTimelineItemEnvelope,
     CodexTurnSnapshot,
 )
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.domain.codex.agent_command_policy import calculate_agent_request_digest
 from src.domain.codex.codex_error_code import CodexErrorCode
+from src.domain.codex.thread_execution_state import merge_authoritative_execution
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,11 +59,13 @@ class ReadCodexThreadSnapshotUsecase:
         timeout_seconds: int,
         history_cursor_signing_key: bytes,
         history_cursor_ttl_seconds: int = 300,
+        event_port: CodexRealtimeEventPort | None = None,
     ) -> None:
         self._control_port = control_port
         self._dispatch_port = dispatch_port
         self._timeout_seconds = timeout_seconds
         self._mapper = CodexProtocolMapper()
+        self._event_port = event_port
         self._history_page_resolver = CodexHistoryPageResolver(
             SignedCodexHistoryCursorCodec(
                 signing_key=history_cursor_signing_key,
@@ -179,8 +183,12 @@ class ReadCodexThreadSnapshotUsecase:
                     limit=history_limit,
                 ),
             )
+        merged = self._merge_authoritative_thread(thread, mapped.thread, turns)
+        persisted = await asyncio.to_thread(self._reconcile_execution, thread, merged)
+        if self._event_port is not None and persisted != thread:
+            await self._event_port.publish_thread_updated(persisted, occurred_at=datetime.now(UTC))
         return CodexThreadAuthoritySnapshot(
-            thread=self._merge_authoritative_thread(thread, mapped.thread, turns),
+            thread=persisted,
             turns=turns,
             items=(
                 reloaded_items
@@ -302,34 +310,35 @@ class ReadCodexThreadSnapshotUsecase:
         """保留索引权威字段，仅合并 ``thread/read`` 的易失状态。"""
 
         mapped_status = mapped.get("status")
-        status = mapped_status if isinstance(mapped_status, str) else indexed.status
-        active_turn_id = indexed.active_turn_id
-        if turns:
-            latest = turns[-1]
-            if latest.status in {"active", "inProgress"}:
-                status = CodexThreadStatus.ACTIVE
-                active_turn_id = latest.turn_id
-            elif latest.status in {"interrupted", "cancelled"}:
-                status = CodexThreadStatus.INTERRUPTED
-                active_turn_id = None
-            elif latest.status == "completed":
-                status = CodexThreadStatus.IDLE
-                active_turn_id = None
-            elif latest.status in {"failed", "systemError"}:
-                status = CodexThreadStatus.FAILED
-                active_turn_id = None
-            else:
-                status = CodexThreadStatus.UNKNOWN
-        elif status == "notLoaded":
-            # ``notLoaded`` 只是上游尚未装载完整运行态的标记，不能用它降级
-            # 控制面此前已经确认的线程状态或活动 turn。
-            status = indexed.status
+        return merge_authoritative_execution(
+            indexed,
+            mapped_status if isinstance(mapped_status, str) else None,
+            turns[-1] if turns else None,
+            observed_at=datetime.now(UTC),
+        )
 
-        updates: dict[str, object] = {
-            "status": status,
-            "active_turn_id": active_turn_id,
-        }
-        return CodexThreadIndexSnapshot.model_validate({**indexed.model_dump(), **updates})
+    def _reconcile_execution(
+        self,
+        expected: CodexThreadIndexSnapshot,
+        observed: CodexThreadIndexSnapshot,
+    ) -> CodexThreadIndexSnapshot:
+        unit_of_work = self._control_port.create_unit_of_work()
+        try:
+            repository = self._control_port.create_codex_thread_repository(
+                unit_of_work.get_session()
+            )
+            persisted = repository.reconcile_execution(
+                expected=expected,
+                observed=observed,
+                synchronized_at=datetime.now(UTC),
+            )
+            unit_of_work.commit()
+            return persisted or expected
+        except BaseException:
+            unit_of_work.rollback()
+            raise
+        finally:
+            unit_of_work.dispose()
 
     def _read_owned_thread(
         self,

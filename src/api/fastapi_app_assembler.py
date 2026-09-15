@@ -734,6 +734,7 @@ class FastApiAppAssembler:
             read_codex_thread_snapshot_usecase=ReadCodexThreadSnapshotUsecase(
                 control_port=resource_mount,
                 dispatch_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
+                event_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
                 timeout_seconds=(
                     resource_mount.read_codex_runtime_settings().agent_rpc_ack_timeout_seconds
                 ),

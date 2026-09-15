@@ -92,6 +92,9 @@ class CodexAdminRouteCatalog:
                     settings.agent_release_distribution_mode
                     is CodexAgentReleaseDistributionMode.VERIFIED
                 ),
+                source_repository=settings.agent_release_source_repository,
+                source_revision=settings.agent_release_source_revision,
+                source_dirty=settings.agent_release_source_dirty,
             ),
         )
         return self._response(request, payload, "Codex Agent当前版本读取成功。")

@@ -14,6 +14,7 @@ import subprocess  # nosec B404
 import sys
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
 from urllib.parse import parse_qs, urlparse
@@ -25,6 +26,7 @@ from loguru import logger
 from src.core.artifact_release_contract.runtime_contract import (
     ArtifactReleaseRuntimeSettings,
 )
+from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.connection_session_contract import (
     CodexConnectionProtocolVersion,
 )
@@ -250,6 +252,7 @@ class CodexHostAgentCli:
                         [workspace.to_definition() for workspace in runtime_settings.workspaces]
                     ),
                     journal=journal,
+                    runtime_status=self._read_runtime_status(runtime_settings.agent.state_database),
                     logger=agent_logger,
                 )
                 try:
@@ -269,8 +272,54 @@ class CodexHostAgentCli:
                 root=settings.agent.state_database.parent / "keys"
             ),
         ).run()
+        self._write_runtime_status(
+            settings.agent.state_database,
+            AgentRuntimeStatus.from_doctor_report(report, checked_at=datetime.now(UTC)),
+        )
         logger.info("Agent doctor结果：{}", report.model_dump_json())
         return int(report.exit_code)
+
+    @staticmethod
+    def _runtime_status_path(state_database: Path) -> Path:
+        return state_database.with_name("runtime-status.json")
+
+    @classmethod
+    def _read_runtime_status(cls, state_database: Path) -> AgentRuntimeStatus | None:
+        path = cls._runtime_status_path(state_database)
+        try:
+            return AgentRuntimeStatus.model_validate_json(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+    @classmethod
+    def _write_runtime_status(cls, state_database: Path, status: AgentRuntimeStatus) -> None:
+        path = cls._runtime_status_path(state_database)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = path.with_name(f".{path.name}.tmp")
+        temporary_path.write_text(status.model_dump_json(indent=2) + "\n", encoding="utf-8")
+        temporary_path.replace(path)
+
+    @classmethod
+    def _record_update_status(
+        cls,
+        state_database: Path,
+        *,
+        state: str,
+        target_version: str | None,
+        reason_code: str | None,
+    ) -> None:
+        previous = cls._read_runtime_status(state_database) or AgentRuntimeStatus()
+        cls._write_runtime_status(
+            state_database,
+            previous.model_copy(
+                update={
+                    "update_state": state,
+                    "update_checked_at": datetime.now(UTC),
+                    "update_target_version": target_version,
+                    "update_reason_code": reason_code,
+                }
+            ),
+        )
 
     async def run_setup(
         self,
@@ -649,13 +698,9 @@ class CodexHostAgentCli:
             raise OSError(
                 "未找到可用的 Codex CLI。请先安装 Codex CLI，重新登录 Windows 后再连接电脑。"
             ) from exc
-        tokens = completed.stdout.strip().split()
-        actual_version = tokens[-1] if tokens else ""
-        if actual_version != expected_version:
-            raise ValueError(
-                f"Codex CLI 版本不兼容。需要 {expected_version}，当前为 "
-                f"{actual_version or '未知版本'}。"
-            )
+        # The CLI version is an observation.  The control plane performs the
+        # schema/capability decision after App Server initialize; an unreviewed
+        # version is allowed to connect read-only and can never grant writes.
 
     def _format_interactive_error(self, error: Exception) -> str:
         if isinstance(error, httpx.TimeoutException):
@@ -752,6 +797,12 @@ class CodexHostAgentCli:
     ) -> int | None:
         release = bootstrap.release
         if release is None or not release.enabled:
+            self._record_update_status(
+                settings.agent.state_database,
+                state="disabled",
+                target_version=None,
+                reason_code="release_channel_disabled",
+            )
             return None
         runtime_settings = ArtifactReleaseRuntimeSettings(
             enabled=True,
@@ -768,6 +819,7 @@ class CodexHostAgentCli:
             minimum_security_version=release.minimum_security_version,
         )
         runtime = CodexAgentReleaseRuntime.build(runtime_settings)
+        target_version: str | None = None
         try:
             updater = CodexAgentStartupUpdater(
                 runtime=runtime,
@@ -787,18 +839,50 @@ class CodexHostAgentCli:
                     timeout_seconds=release.health_timeout_seconds,
                 ),
             )
+            target_version = updater.last_target_version
         except PermissionError:
+            self._record_update_status(
+                settings.agent.state_database,
+                state="blocked",
+                target_version=None,
+                reason_code="minimum_security_version_blocked",
+            )
             raise
-        except Exception:
+        except Exception as exc:
+            self._record_update_status(
+                settings.agent.state_database,
+                state="failed",
+                target_version=None,
+                reason_code=f"{type(exc).__name__}"[:128],
+            )
             agent_logger.exception("Agent启动更新检查失败，继续运行当前安全版本。")
             return None
         finally:
             await runtime.close()
         if state is AgentStartupUpdateState.UPDATED:
+            self._record_update_status(
+                settings.agent.state_database,
+                state="updated",
+                target_version=target_version,
+                reason_code=None,
+            )
             agent_logger.info("Agent新版本已通过健康检查，将由计划任务重启应用。")
             return AGENT_UPDATE_RESTART_EXIT_CODE
         if state is AgentStartupUpdateState.ROLLED_BACK:
+            self._record_update_status(
+                settings.agent.state_database,
+                state="rolled_back",
+                target_version=None,
+                reason_code="health_check_failed",
+            )
             agent_logger.error("Agent新版本健康检查失败，已恢复上一版本。")
+        else:
+            self._record_update_status(
+                settings.agent.state_database,
+                state="current",
+                target_version=None,
+                reason_code="no_update_available",
+            )
         return None
 
 

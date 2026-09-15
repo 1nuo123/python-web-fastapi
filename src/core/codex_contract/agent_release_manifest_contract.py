@@ -159,6 +159,9 @@ class CodexAgentInternalReleaseManifestDetail(BaseModel):
     download_url: str = Field(min_length=1, max_length=2_048)
     automatic_updates_enabled: Literal[False] = False
     published_at: datetime
+    source_repository: str | None = Field(default=None, max_length=256)
+    source_revision: str | None = Field(default=None, max_length=128)
+    source_dirty: bool | None = None
 
     @field_validator("version")
     @classmethod
@@ -204,6 +207,9 @@ class CodexAgentReleaseDownloadDetail(BaseModel):
     manifest_url: str = Field(min_length=1, max_length=2_048)
     minimum_security_version: str = Field(min_length=1, max_length=64)
     automatic_updates_enabled: bool
+    source_repository: str | None = Field(default=None, max_length=256)
+    source_revision: str | None = Field(default=None, max_length=128)
+    source_dirty: bool | None = None
 
     @field_validator("download_url", "manifest_url")
     @classmethod

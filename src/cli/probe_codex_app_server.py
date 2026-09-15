@@ -18,6 +18,7 @@ from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerSchemaManifestEnvelope,
 )
 from src.domain.codex.agent_command_policy import read_upstream_identifiers
+from src.infrastructure.codex_agent.app_server_jsonrpc_client import AppServerProtocolWarning
 from src.infrastructure.codex_agent.app_server_process_supervisor import (
     AppServerProcessSupervisor,
 )
@@ -193,7 +194,7 @@ class CodexAppServerCompatibilityProbe:
     ) -> None:
         raise RuntimeError(f"兼容性探针收到非预期App Server请求：{method}")
 
-    async def _record_warning(self, warning: str) -> None:
+    async def _record_warning(self, warning: AppServerProtocolWarning) -> None:
         logging.getLogger("codex_app_server_probe").warning("App Server协议告警：%s", warning)
 
     def _read_manifest_version(self) -> str:

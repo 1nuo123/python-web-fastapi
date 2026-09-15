@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID
 
 from pydantic import JsonValue
@@ -29,9 +29,11 @@ from src.core.codex_contract.app_server_product_contract import (
     AppServerCommandItem,
     AppServerContextCompactionItem,
     AppServerDiffItem,
+    AppServerFileChange,
     AppServerNoticeItem,
     AppServerPlanItem,
     AppServerProductTimelineItem,
+    AppServerThreadReadProductResult,
     AppServerUserMessageItem,
     parse_app_server_client_operation_id,
 )
@@ -61,6 +63,7 @@ DIFF_HUNK_HEADER_PATTERN = re.compile(
     r"^@@\s+-(?P<old_start>\d+)(?:,\d+)?\s+\+(?P<new_start>\d+)(?:,\d+)?\s+@@"
 )
 HIDDEN_DIFF_PATH = "[路径已隐藏]"
+APP_SERVER_THREAD_READ_PRODUCT_FIELD = "productThreadRead"
 
 
 @dataclass(frozen=True, slots=True)
@@ -325,6 +328,7 @@ class CodexProtocolMapper:
                         "display_name": detail.display_name,
                         "title_source": "app_server" if detail.display_name else None,
                         "archived": detail.archived,
+                        **(detail.execution_settings.model_dump(mode="json") if detail.execution_settings is not None else {}),
                     }
                 },
             )
@@ -428,12 +432,13 @@ class CodexProtocolMapper:
     ) -> CodexTimelineItemEnvelope:
         """把 Agent 强类型产品条目映射为浏览器时间线判别联合。"""
 
+        item_status = self._timeline_item_status(item, completed=completed)
         header: dict[str, JsonValue] = {
             "item_id": item.item_id,
             "thread_id": thread_id,
             "turn_id": turn_id,
             "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
-            "status": "completed" if completed else "streaming",
+            "status": item_status,
         }
         if isinstance(item, AppServerUserMessageItem):
             payload: dict[str, JsonValue] = {
@@ -482,10 +487,107 @@ class CodexProtocolMapper:
             payload = {
                 "kind": "diff",
                 "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
-                "diff": self._parse_diff(item.unified_diff).model_dump(mode="json"),
+                "diff": self._structured_diff(item.changes, item.unified_diff).model_dump(mode="json"),
             }
         header["detail_kind"] = cast(str, payload["kind"])
         return CodexTimelineItemEnvelope.model_validate({"header": header, "detail": payload})
+
+    def _timeline_item_status(
+        self,
+        item: AppServerProductTimelineItem,
+        *,
+        completed: bool,
+    ) -> str:
+        """保留官方 item 终态，避免历史条目无条件标记 completed。"""
+
+        if isinstance(item, (AppServerCommandItem, AppServerDiffItem)):
+            if item.status in {"failed", "declined"}:
+                return "failed"
+            if item.status == "inProgress":
+                return "streaming"
+        return "completed" if completed else "streaming"
+
+    def _structured_diff(
+        self,
+        changes: tuple[AppServerFileChange, ...],
+        unified_diff: str,
+    ) -> CodexDiffSnapshot:
+        """优先使用上游结构化 path/kind，正文存在时复用其 hunk。"""
+
+        if not changes:
+            return self._parse_diff(unified_diff)
+        files: list[CodexDiffFileSnapshot] = []
+        for change in changes[:MAX_PRODUCT_DIFF_FILES]:
+            parsed = self._parse_diff(change.diff) if change.diff else None
+            parsed_file = parsed.files[0] if parsed is not None and parsed.files else None
+            has_parsed_hunks = parsed_file is not None and bool(parsed_file.hunks)
+            try:
+                change_kind = CodexDiffChangeKind(change.change_kind)
+            except ValueError:
+                continue
+            files.append(
+                CodexDiffFileSnapshot(
+                    path=self._sanitize_diff_path(change.path),
+                    old_path=(
+                        self._sanitize_diff_path(change.old_path)
+                        if change.old_path is not None
+                        else (parsed_file.old_path if parsed_file is not None else None)
+                    ),
+                    change_kind=change_kind,
+                    binary=(
+                        parsed_file.binary if has_parsed_hunks and parsed_file is not None else False
+                    ),
+                    large=(
+                        parsed_file.large if has_parsed_hunks and parsed_file is not None else False
+                    ),
+                    truncated=(
+                        parsed_file.truncated
+                        if has_parsed_hunks and parsed_file is not None
+                        else len(change.diff.splitlines()) > MAX_PRODUCT_DIFF_LINES_PER_FILE
+                    ),
+                    hunks=(
+                        parsed_file.hunks
+                        if has_parsed_hunks and parsed_file is not None
+                        else self._raw_added_content_hunks(change)
+                    ),
+                )
+            )
+        return CodexDiffSnapshot(
+            files=tuple(files),
+            total_characters=sum(len(change.diff) for change in changes),
+            truncated=(
+                len(changes) > MAX_PRODUCT_DIFF_FILES
+                or any(file.truncated for file in files)
+            ),
+        )
+
+    def _raw_added_content_hunks(
+        self,
+        change: AppServerFileChange,
+    ) -> tuple[CodexDiffHunkSnapshot, ...]:
+        """将新增文件的非 unified-diff 正文变成可审阅的新增 hunk。"""
+
+        if change.change_kind != "added" or not change.diff:
+            return ()
+        lines = change.diff.splitlines()
+        if not lines:
+            return ()
+        limited_lines = lines[:MAX_PRODUCT_DIFF_LINES_PER_FILE]
+        return (
+            CodexDiffHunkSnapshot(
+                header=f"@@ -0,0 +1,{len(lines)} @@",
+                old_start=0,
+                new_start=1,
+                lines=tuple(
+                    CodexDiffLineSnapshot(
+                        kind=CodexDiffLineKind.ADDITION,
+                        content=line[:MAX_PRODUCT_DIFF_LINE_CHARS],
+                        new_line_number=index,
+                    )
+                    for index, line in enumerate(limited_lines, start=1)
+                ),
+            ),
+        )
 
     def to_thread(
         self,
@@ -545,7 +647,7 @@ class CodexProtocolMapper:
         item_type = self._string(item, "type")
         if item_id is None or item_type is None:
             return None
-        status = "completed" if completed else "streaming"
+        status = self._legacy_item_status(item, completed=completed)
         header: dict[str, JsonValue] = {
             "item_id": item_id,
             "thread_id": thread_id,
@@ -608,21 +710,67 @@ class CodexProtocolMapper:
             }
         elif item_type == "fileChange":
             changes = item.get("changes")
-            diffs = []
+            file_changes: list[AppServerFileChange] = []
+            diffs: list[str] = []
             if isinstance(changes, list):
                 for change in changes:
                     mapping = self._mapping(change)
-                    if mapping is not None and isinstance(mapping.get("diff"), str):
-                        diffs.append(cast(str, mapping["diff"]))
+                    if mapping is None:
+                        continue
+                    diff = mapping.get("diff")
+                    if isinstance(diff, str):
+                        diffs.append(diff)
+                    path = mapping.get("path")
+                    kind = self._mapping(mapping.get("kind"))
+                    kind_type = kind.get("type") if kind is not None else None
+                    move_path = kind.get("move_path") if kind is not None else None
+                    change_kind = (
+                        "added"
+                        if kind_type == "add"
+                        else "deleted"
+                        if kind_type == "delete"
+                        else "renamed"
+                        if kind_type == "update" and isinstance(move_path, str) and move_path
+                        else "modified"
+                        if kind_type == "update"
+                        else None
+                    )
+                    if isinstance(path, str) and path and change_kind is not None:
+                        file_changes.append(
+                            AppServerFileChange(
+                                path=path[:1_024],
+                                change_kind=cast(
+                                    Literal["added", "modified", "deleted", "renamed"],
+                                    change_kind,
+                                ),
+                                diff=diff if isinstance(diff, str) else "",
+                                old_path=(move_path[:1_024] if isinstance(move_path, str) else None),
+                            )
+                        )
             detail = {
                 "kind": "diff",
                 "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
-                "diff": self._parse_diff("\n".join(diffs)).model_dump(mode="json"),
+                "diff": self._structured_diff(
+                    tuple(file_changes),
+                    "\n".join(diffs),
+                ).model_dump(mode="json"),
             }
         else:
             return None
         header["detail_kind"] = cast(str, detail["kind"])
         return CodexTimelineItemEnvelope.model_validate({"header": header, "detail": detail})
+
+    @staticmethod
+    def _legacy_item_status(item: Mapping[str, JsonValue], *, completed: bool) -> str:
+        """为仍走 v1 兼容输入的工具 item 保留官方终态。"""
+
+        if item.get("type") in {"commandExecution", "fileChange"}:
+            upstream_status = item.get("status")
+            if upstream_status in {"failed", "declined"}:
+                return "failed"
+            if upstream_status == "inProgress":
+                return "streaming"
+        return "completed" if completed else "streaming"
 
     def to_thread_snapshot(
         self,
@@ -632,6 +780,18 @@ class CodexProtocolMapper:
         workspace_id: UUID,
     ) -> CodexMappedThreadSnapshot:
         response = self._mapping(raw)
+        product_snapshot = (
+            response.get(APP_SERVER_THREAD_READ_PRODUCT_FIELD) if response is not None else None
+        )
+        if isinstance(product_snapshot, Mapping):
+            try:
+                return self._to_product_thread_snapshot(
+                    AppServerThreadReadProductResult.model_validate(product_snapshot),
+                    host_id=host_id,
+                    workspace_id=workspace_id,
+                )
+            except ValueError as exc:
+                raise ValueError("thread/read产品快照不符合冻结契约。") from exc
         thread = self._mapping(response.get("thread")) if response is not None else None
         if thread is None:
             raise ValueError("thread/read响应缺少thread。")
@@ -668,6 +828,52 @@ class CodexProtocolMapper:
             turns=turns_payload,
             items=items_payload,
         )
+
+    def _to_product_thread_snapshot(
+        self,
+        snapshot: AppServerThreadReadProductResult,
+        *,
+        host_id: UUID,
+        workspace_id: UUID,
+    ) -> CodexMappedThreadSnapshot:
+        """历史读取复用 Agent 实时事件的强类型 item 归一化。"""
+
+        thread = self.to_thread(
+            {
+                "id": snapshot.thread.thread_id,
+                "name": snapshot.thread.display_name,
+                "modelProvider": snapshot.thread.model_provider,
+                "status": snapshot.thread.status,
+                "createdAt": snapshot.thread.created_at,
+                "updatedAt": snapshot.thread.updated_at,
+                "recencyAt": snapshot.thread.recency_at,
+            },
+            host_id,
+            workspace_id,
+        )
+        turns: list[dict[str, JsonValue]] = []
+        items: list[CodexTimelineItemEnvelope] = []
+        for turn in snapshot.turns:
+            turns.append(
+                {
+                    "turn_id": turn.turn_id,
+                    "thread_id": snapshot.thread.thread_id,
+                    "status": turn.status,
+                    "started_at": self._iso_epoch(turn.started_at),
+                    "completed_at": self._iso_epoch(turn.completed_at),
+                    "error_message": turn.error_message,
+                }
+            )
+            items.extend(
+                self._to_product_timeline_item(
+                    item,
+                    thread_id=snapshot.thread.thread_id,
+                    turn_id=turn.turn_id,
+                    completed=True,
+                )
+                for item in turn.items
+            )
+        return CodexMappedThreadSnapshot(thread=thread, turns=turns, items=items)
 
     def _event(
         self,

@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerCapabilityDetail,
 )
+from src.core.codex_contract.model_catalog_contract import CodexModelCatalog
 
 CODEX_HOST_OBSERVATION_SCHEMA_VERSION: Final = "1.0"
 
@@ -76,6 +77,8 @@ class CodexHostCapabilities(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     items: tuple[AppServerCapabilityDetail, ...] = ()
+    app_server_instance_id: str | None = Field(default=None, max_length=128)
+    model_catalog: CodexModelCatalog = Field(default_factory=CodexModelCatalog)
     model_ids: tuple[str, ...] = ()
     reasoning_efforts: tuple[str, ...] = ()
     sandbox_modes: tuple[CodexSandboxMode, ...] = (CodexSandboxMode.WORKSPACE_WRITE,)

@@ -115,6 +115,13 @@ class CodexAgentStartupUpdater:
         self._runtime = runtime
         self._manifest_client = manifest_client
         self._version_policy = version_policy
+        self._last_target_version: str | None = None
+
+    @property
+    def last_target_version(self) -> str | None:
+        """Last manifest version inspected by this updater instance."""
+
+        return self._last_target_version
 
     async def execute(
         self,
@@ -134,6 +141,7 @@ class CodexAgentStartupUpdater:
         try:
             manifest = await self._manifest_client.read(manifest_target_path)
             detail = manifest.detail
+            self._last_target_version = detail.version
             effective_minimum = self._version_policy.newest(
                 minimum_security_version,
                 detail.minimum_security_version,

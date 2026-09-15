@@ -110,8 +110,8 @@ class AgentDoctor:
             if version != self._settings.protocol.expected_codex_version:
                 return AgentDoctorCheck(
                     name="codex_binary",
-                    state=AgentDoctorCheckState.BLOCKED,
-                    reason_code="codex_version_mismatch",
+                    state=AgentDoctorCheckState.WARN,
+                    reason_code="codex_version_unreviewed",
                 )
             return AgentDoctorCheck(
                 name="codex_binary",

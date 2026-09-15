@@ -47,7 +47,55 @@ DEFAULT_INITIALIZE_PARAMS: Final[dict[str, JsonValue]] = {
 
 AppServerNotificationHandler = Callable[[str, JsonValue], Awaitable[None]]
 AppServerRequestHandler = Callable[[JsonRpcId, str, JsonValue], Awaitable[None]]
-AppServerWarningHandler = Callable[[str], Awaitable[None]]
+APP_SERVER_PROTOCOL_WARNING_FIELD_MAX_LENGTH: Final = 128
+APP_SERVER_PROTOCOL_WARNING_MESSAGE_MAX_LENGTH: Final = 256
+
+
+def _sanitize_warning_field(value: str | None, *, max_length: int) -> str | None:
+    """Bound protocol metadata and remove control characters before forwarding it."""
+
+    if value is None:
+        return None
+    sanitized = "".join(character for character in value if character.isprintable()).strip()
+    if not sanitized:
+        return None
+    return sanitized[:max_length]
+
+
+class AppServerProtocolWarning(str):
+    """String-compatible structured warning with bounded protocol metadata."""
+
+    reason_code: str
+    method: str | None
+
+    def __new__(
+        cls,
+        message: str,
+        *,
+        reason_code: str,
+        method: str | None = None,
+    ) -> AppServerProtocolWarning:
+        safe_message = _sanitize_warning_field(
+            message,
+            max_length=APP_SERVER_PROTOCOL_WARNING_MESSAGE_MAX_LENGTH,
+        ) or "App Server协议告警。"
+        safe_reason_code = (
+            _sanitize_warning_field(
+                reason_code,
+                max_length=APP_SERVER_PROTOCOL_WARNING_FIELD_MAX_LENGTH,
+            )
+            or "app_server_protocol_warning"
+        )
+        instance = str.__new__(cls, safe_message)
+        instance.reason_code = safe_reason_code
+        instance.method = _sanitize_warning_field(
+            method,
+            max_length=APP_SERVER_PROTOCOL_WARNING_FIELD_MAX_LENGTH,
+        )
+        return instance
+
+
+AppServerWarningHandler = Callable[[AppServerProtocolWarning], Awaitable[None]]
 
 
 class BoundedAppServerLineReader:
@@ -315,7 +363,16 @@ class AppServerJsonRpcClient:
                         AppServerMessageTooLargeError(self._max_line_bytes)
                     )
                     continue
-                message = self._parse_message(line)
+                try:
+                    message = self._parse_message(line)
+                except AppServerProtocolError as exc:
+                    await self._warning_handler(
+                        AppServerProtocolWarning(
+                            str(exc),
+                            reason_code="malformed_jsonrpc",
+                        )
+                    )
+                    raise
                 await self._route_message(message)
         except asyncio.CancelledError:
             raise
@@ -327,7 +384,12 @@ class AppServerJsonRpcClient:
         """使无法关联的在途请求失败，并保持后续 JSON-RPC 可读取。"""
 
         self._fail_pending(error)
-        await self._warning_handler("App Server单条输出超过4 MiB，已省略该消息，连接继续可用。")
+        await self._warning_handler(
+            AppServerProtocolWarning(
+                "App Server单条输出超过4 MiB，已省略该消息，连接继续可用。",
+                reason_code="payload_too_large",
+            )
+        )
 
     async def _route_message(self, message: AppServerProtocolMessage) -> None:
         """区分 response、notification 与 server request。"""
@@ -342,7 +404,11 @@ class AppServerJsonRpcClient:
         if message.method is not None:
             if message.method not in SUPPORTED_NOTIFICATION_NAMES:
                 await self._warning_handler(
-                    "App Server收到未审核notification，已拒绝进入产品事件流。"
+                    AppServerProtocolWarning(
+                        "App Server收到未审核notification，已拒绝进入产品事件流。",
+                        reason_code="unknown_notification",
+                        method=message.method,
+                    )
                 )
                 return
             await self._notification_handler(message.method, message.params)
@@ -356,7 +422,12 @@ class AppServerJsonRpcClient:
             raise AppServerProtocolError("JSON-RPC响应缺少id。")
         future = self._pending.get(message.id)
         if future is None:
-            await self._warning_handler("App Server返回未知或已超时的RPC id。")
+            await self._warning_handler(
+                AppServerProtocolWarning(
+                    "App Server返回未知或已超时的RPC id。",
+                    reason_code="unknown_response_id",
+                )
+            )
             return
         if message.error is not None:
             future.set_exception(AppServerRpcError(message.error))

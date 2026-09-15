@@ -38,8 +38,8 @@ class TaskWorkerCli:
             settings_overrides=TASK_WORKER_SETTINGS_OVERRIDES,
         )
         resource_mount = app.state.container.resource_mount
-        resource_mount.startup()
         try:
+            resource_mount.startup()
             self._stop_event.wait()
         finally:
             resource_mount.shutdown()

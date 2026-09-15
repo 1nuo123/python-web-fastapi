@@ -33,7 +33,9 @@ from src.core.codex_contract.app_server_schema_manifest_contract import (
 from src.core.codex_contract.approval_contract import (
     CodexApprovalDisplaySummary as AgentApprovalDisplaySummary,
 )
+from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.host_contract import CodexApprovalPolicy, CodexSandboxMode
+from src.core.codex_contract.model_catalog_contract import CodexModelCatalog, CodexEffectiveExecutionSettings
 from src.core.codex_contract.thread_contract import CodexThreadTitleSource
 from src.core.worktree_contract.worktree_contract import GitWorktreePolicy
 
@@ -92,6 +94,9 @@ class AgentHelloV2Detail(AgentProtocolV2DetailBase):
     app_server_schema_digest: str = Field(pattern=SHA256_HEX_PATTERN)
     capabilities: tuple[AppServerCapabilityDetail, ...]
     model_ids: tuple[str, ...] = ()
+    app_server_instance_id: str | None = Field(default=None, max_length=128)
+    model_catalog: CodexModelCatalog = Field(default_factory=CodexModelCatalog)
+    runtime_status: AgentRuntimeStatus | None = None
     reasoning_efforts: tuple[str, ...] = ()
     sandbox_modes: tuple[CodexSandboxMode, ...] = (CodexSandboxMode.WORKSPACE_WRITE,)
     approval_policies: tuple[CodexApprovalPolicy, ...] = (CodexApprovalPolicy.UNTRUSTED,)
@@ -493,10 +498,12 @@ class AgentThreadMetadataChangedEventDetail(AgentProtocolV2DetailBase):
         AppServerNotificationName.THREAD_NAME_UPDATED,
         AppServerNotificationName.THREAD_ARCHIVED,
         AppServerNotificationName.THREAD_UNARCHIVED,
+        AppServerNotificationName.THREAD_SETTINGS_UPDATED,
     ]
     thread_id: str = Field(min_length=1, max_length=256)
     display_name: str | None = Field(default=None, max_length=256)
     archived: bool | None = None
+    execution_settings: CodexEffectiveExecutionSettings | None = None
 
 
 class AgentTurnChangedEventDetail(AgentProtocolV2DetailBase):
@@ -540,6 +547,7 @@ class AgentItemChangedEventDetail(AgentProtocolV2DetailBase):
     method: Literal[
         AppServerNotificationName.ITEM_STARTED,
         AppServerNotificationName.ITEM_COMPLETED,
+        AppServerNotificationName.FILE_PATCH_UPDATED,
     ]
     thread_id: str = Field(min_length=1, max_length=256)
     turn_id: str | None = Field(default=None, max_length=256)
@@ -588,6 +596,17 @@ class AgentProtocolWarningEventDetail(AgentProtocolV2DetailBase):
     kind: Literal["protocol.warning"] = "protocol.warning"
     reason_code: str = Field(min_length=1, max_length=128)
     method: str | None = Field(default=None, max_length=128)
+    count: int = Field(default=1, ge=1)
+
+
+class AgentApprovalResolvedEventDetail(AgentProtocolV2DetailBase):
+    """The native request was cleared; this never asserts tool success."""
+
+    kind: Literal["approval.resolved"] = "approval.resolved"
+    approval_id: UUID
+    thread_id: str = Field(min_length=1, max_length=256)
+    turn_id: str = Field(min_length=1, max_length=256)
+    reason: Literal["resolved", "expired", "turn_ended", "instance_replaced"]
 
 
 class AgentGapEventDetail(AgentProtocolV2DetailBase):
@@ -609,6 +628,7 @@ AgentEventDetail = Annotated[
     | AgentPlanChangedEventDetail
     | AgentDiffChangedEventDetail
     | AgentApprovalOpenedEventDetail
+    | AgentApprovalResolvedEventDetail
     | AgentProtocolWarningEventDetail
     | AgentGapEventDetail,
     Field(discriminator="kind"),
