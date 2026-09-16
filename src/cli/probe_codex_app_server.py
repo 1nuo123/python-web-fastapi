@@ -136,12 +136,13 @@ class CodexAppServerCompatibilityProbe:
                 timeout_seconds=15,
             )
             self._require_mapping(read_result, "thread/read")
-            resumed = await client.request(
-                "thread/resume", {"threadId": thread_id}, timeout_seconds=15
-            )
-            resumed_id, _ = read_upstream_identifiers(resumed)
-            if resumed_id != thread_id:
-                raise RuntimeError("thread/resume returned a different thread.")
+            if self._run_core:
+                resumed = await client.request(
+                    "thread/resume", {"threadId": thread_id}, timeout_seconds=15
+                )
+                resumed_id, _ = read_upstream_identifiers(resumed)
+                if resumed_id != thread_id:
+                    raise RuntimeError("thread/resume returned a different thread.")
             if self._run_turn:
                 turn_result = await client.request(
                     "turn/start",
