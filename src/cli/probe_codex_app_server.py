@@ -54,6 +54,10 @@ class CodexAppServerProbeResult(BaseModel):
     turn_completed: bool
     notification_count: int = Field(ge=0)
     thread_cleaned: bool
+    thread_resume_passed: bool = False
+    approval_response_passed: bool = False
+    interrupt_passed: bool = False
+    core_passed: bool = False
 
 
 class CodexAppServerCompatibilityProbe:
@@ -66,6 +70,7 @@ class CodexAppServerCompatibilityProbe:
         workspace: Path,
         manifest_path: Path,
         run_turn: bool,
+        run_core: bool = False,
     ) -> None:
         self._codex_binary = codex_binary
         self._workspace = workspace.resolve(strict=True)
@@ -73,6 +78,10 @@ class CodexAppServerCompatibilityProbe:
             manifest_path.read_text(encoding="utf-8")
         )
         self._run_turn = run_turn
+        self._run_core = run_core
+        self._active_turn_id: str | None = None
+        self._approval_requests: set[JsonRpcId] = set()
+        self._approval_resolved: set[JsonRpcId] = set()
         self._notifications: asyncio.Queue[tuple[str, JsonValue]] = asyncio.Queue()
         self._supervisor = AppServerProcessSupervisor(
             codex_binary=codex_binary,
@@ -91,8 +100,14 @@ class CodexAppServerCompatibilityProbe:
         thread_id: str | None = None
         thread_cleaned = False
         notification_count = 0
-        turn_completed = not self._run_turn
+        turn_completed = False
+        approval_passed = False
+        interrupt_passed = False
         try:
+            if handle.codex_version != self._read_manifest_version():
+                raise ValueError(
+                    "Generate and supply the candidate CLI manifest before probing it."
+                )
             client = handle.client
             model_result = await client.request("model/list", {}, timeout_seconds=15)
             self._require_mapping(model_result, "model/list")
@@ -121,6 +136,12 @@ class CodexAppServerCompatibilityProbe:
                 timeout_seconds=15,
             )
             self._require_mapping(read_result, "thread/read")
+            resumed = await client.request(
+                "thread/resume", {"threadId": thread_id}, timeout_seconds=15
+            )
+            resumed_id, _ = read_upstream_identifiers(resumed)
+            if resumed_id != thread_id:
+                raise RuntimeError("thread/resume returned a different thread.")
             if self._run_turn:
                 turn_result = await client.request(
                     "turn/start",
@@ -133,9 +154,69 @@ class CodexAppServerCompatibilityProbe:
                 _, turn_id = read_upstream_identifiers(turn_result)
                 if turn_id is None:
                     raise RuntimeError("turn/start响应缺少turn.id。")
+                self._active_turn_id = turn_id
                 turn_completed, notification_count = await self._wait_for_turn(turn_id)
+                self._active_turn_id = None
                 if not turn_completed:
                     raise TimeoutError("真实Codex turn未在探针时限内完成。")
+            if self._run_core:
+                await client.request(
+                    "thread/resume",
+                    {"threadId": thread_id, "sandbox": "read-only", "approvalPolicy": "untrusted"},
+                    timeout_seconds=15,
+                )
+                approval_turn = await client.request(
+                    "turn/start",
+                    {
+                        "threadId": thread_id,
+                        "input": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "Use a shell command to create codex-capability-probe.txt in the current "
+                                    "directory containing PROBE_ONLY. Request approval when required. "
+                                    "If approval is denied, stop and reply DENIED; do not retry or use another tool."
+                                ),
+                                "text_elements": [],
+                            }
+                        ],
+                    },
+                    timeout_seconds=30,
+                )
+                _, approval_turn_id = read_upstream_identifiers(approval_turn)
+                if approval_turn_id is None:
+                    raise RuntimeError("Approval probe turn has no identity.")
+                self._active_turn_id = approval_turn_id
+                await self._wait_for_turn(approval_turn_id)
+                self._active_turn_id = None
+                approval_passed = bool(
+                    self._approval_requests
+                ) and self._approval_requests.issubset(self._approval_resolved)
+                if not approval_passed:
+                    raise RuntimeError(
+                        "Approval request/reply/resolved roundtrip was not observed."
+                    )
+                interrupt_turn = await client.request(
+                    "turn/start",
+                    {
+                        "threadId": thread_id,
+                        "input": [{"type": "text", "text": PROBE_PROMPT, "text_elements": []}],
+                    },
+                    timeout_seconds=30,
+                )
+                _, interrupt_turn_id = read_upstream_identifiers(interrupt_turn)
+                if interrupt_turn_id is None:
+                    raise RuntimeError("Interrupt probe turn has no identity.")
+                self._active_turn_id = interrupt_turn_id
+                await client.request(
+                    "turn/interrupt",
+                    {"threadId": thread_id, "turnId": interrupt_turn_id},
+                    timeout_seconds=15,
+                )
+                interrupt_passed, _ = await self._wait_for_turn(
+                    interrupt_turn_id, expected_status="interrupted"
+                )
+                self._active_turn_id = None
             await client.request(
                 "thread/delete",
                 {"threadId": thread_id},
@@ -153,10 +234,20 @@ class CodexAppServerCompatibilityProbe:
                 turn_completed=turn_completed,
                 notification_count=notification_count,
                 thread_cleaned=thread_cleaned,
+                thread_resume_passed=True,
+                approval_response_passed=approval_passed,
+                interrupt_passed=interrupt_passed,
+                core_passed=turn_completed and approval_passed and interrupt_passed,
             )
         finally:
             if thread_id is not None and not thread_cleaned:
                 try:
+                    if self._active_turn_id is not None:
+                        await self._supervisor.handle.client.request(
+                            "turn/interrupt",
+                            {"threadId": thread_id, "turnId": self._active_turn_id},
+                            timeout_seconds=10,
+                        )
                     await self._supervisor.handle.client.request(
                         "thread/delete",
                         {"threadId": thread_id},
@@ -166,7 +257,9 @@ class CodexAppServerCompatibilityProbe:
                     pass
             await self._supervisor.stop()
 
-    async def _wait_for_turn(self, turn_id: str) -> tuple[bool, int]:
+    async def _wait_for_turn(
+        self, turn_id: str, *, expected_status: str = "completed"
+    ) -> tuple[bool, int]:
         """消费基础事件直到目标 turn/completed。"""
 
         count = 0
@@ -181,9 +274,15 @@ class CodexAppServerCompatibilityProbe:
                     isinstance(turn, Mapping)
                     and cast(Mapping[str, object], turn).get("id") == turn_id
                 ):
+                    if cast(Mapping[str, object], turn).get("status") != expected_status:
+                        raise RuntimeError("Probe turn did not reach the required terminal status.")
                     return True, count
 
     async def _record_notification(self, method: str, params: JsonValue) -> None:
+        if method == "serverRequest/resolved" and isinstance(params, dict):
+            request_id = params.get("requestId")
+            if isinstance(request_id, (str, int)) and not isinstance(request_id, bool):
+                self._approval_resolved.add(request_id)
         await self._notifications.put((method, params))
 
     async def _reject_server_request(
@@ -192,6 +291,13 @@ class CodexAppServerCompatibilityProbe:
         method: str,
         _params: JsonValue,
     ) -> None:
+        if self._run_core and method in {
+            "item/commandExecution/requestApproval",
+            "item/fileChange/requestApproval",
+        }:
+            self._approval_requests.add(_request_id)
+            await self._supervisor.handle.client.reply(_request_id, {"decision": "decline"})
+            return
         raise RuntimeError(f"兼容性探针收到非预期App Server请求：{method}")
 
     async def _record_warning(self, warning: AppServerProtocolWarning) -> None:
@@ -217,6 +323,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST_PATH)
     parser.add_argument("--skip-turn", action="store_true")
+    parser.add_argument(
+        "--core",
+        action="store_true",
+        help="Verify approval and interrupt in an isolated workspace.",
+    )
     return parser
 
 
@@ -227,7 +338,8 @@ async def run_probe(arguments: argparse.Namespace) -> CodexAppServerProbeResult:
         codex_binary=str(arguments.codex_bin),
         workspace=arguments.workspace,
         manifest_path=arguments.manifest,
-        run_turn=not arguments.skip_turn,
+        run_turn=not arguments.skip_turn or arguments.core,
+        run_core=arguments.core,
     ).run()
     gc.collect()
     await asyncio.sleep(0)
