@@ -131,7 +131,6 @@ class CodexAgentGatewayHandler:
         connection_registry: CodexConnectionRegistry,
         actor_registry: CodexHostActorRegistry,
         compatibility_policy: CodexCompatibilityPolicy,
-        allowed_codex_versions: list[str],
         heartbeat_seconds: int,
         event_cursor_store: CodexAgentEventCursorStore,
         revocation_generation: int = 0,
@@ -154,7 +153,6 @@ class CodexAgentGatewayHandler:
         self._connection_registry = connection_registry
         self._actor_registry = actor_registry
         self._compatibility_policy = compatibility_policy
-        self._allowed_codex_versions = tuple(allowed_codex_versions)
         self._heartbeat_seconds = heartbeat_seconds
         self._event_cursor_store = event_cursor_store
         self._revocation_generation = revocation_generation

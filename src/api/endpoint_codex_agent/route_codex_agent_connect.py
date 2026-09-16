@@ -219,7 +219,6 @@ class CodexAgentConnectRouteCatalog:
             connection_registry=runtime.connection_registry,
             actor_registry=runtime.actor_registry,
             compatibility_policy=runtime.compatibility_policy,
-            allowed_codex_versions=runtime.settings.allowed_codex_versions,
             heartbeat_seconds=runtime.settings.agent_heartbeat_seconds,
             revocation_generation=revocation_generation,
             event_cursor_store=runtime.event_cursor_store,

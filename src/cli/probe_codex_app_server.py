@@ -28,6 +28,16 @@ DEFAULT_MANIFEST_PATH: Final = Path("protocol/codex_app_server/0.145.0/manifest.
 PROBE_PROMPT: Final = (
     "Reply exactly PHASE2_OK. Do not use tools, execute commands, or modify files."
 )
+APPROVAL_PROBE_PROMPT: Final = (
+    "Use a shell command to create codex-capability-probe.txt in the current directory "
+    "containing PROBE_ONLY. Request approval when required. If approval is denied, stop "
+    "and reply DENIED; do not retry or use another tool."
+)
+INTERRUPT_PROBE_PROMPT: Final = (
+    "Begin a detailed response about the current workspace. Do not use tools or modify files. "
+    "Continue until this turn is interrupted."
+)
+CORE_PROBE_OUTPUT_FILENAME: Final = "codex-capability-probe.txt"
 
 
 class CodexProtocolManifest(BaseModel):
@@ -81,6 +91,8 @@ class CodexAppServerCompatibilityProbe:
         self._run_core = run_core
         self._active_turn_id: str | None = None
         self._approval_requests: set[JsonRpcId] = set()
+        self._approval_replies: set[JsonRpcId] = set()
+        self._declined_approval_requests: set[JsonRpcId] = set()
         self._approval_resolved: set[JsonRpcId] = set()
         self._notifications: asyncio.Queue[tuple[str, JsonValue]] = asyncio.Queue()
         self._supervisor = AppServerProcessSupervisor(
@@ -96,11 +108,13 @@ class CodexAppServerCompatibilityProbe:
     async def run(self) -> CodexAppServerProbeResult:
         """执行 initialize、model/list、thread/list/start/read、turn/start 与清理。"""
 
+        self._require_isolated_workspace_for_core_probe()
         handle = await self._supervisor.start()
         thread_id: str | None = None
         thread_cleaned = False
         notification_count = 0
         turn_completed = False
+        thread_resume_passed = False
         approval_passed = False
         interrupt_passed = False
         try:
@@ -136,13 +150,6 @@ class CodexAppServerCompatibilityProbe:
                 timeout_seconds=15,
             )
             self._require_mapping(read_result, "thread/read")
-            if self._run_core:
-                resumed = await client.request(
-                    "thread/resume", {"threadId": thread_id}, timeout_seconds=15
-                )
-                resumed_id, _ = read_upstream_identifiers(resumed)
-                if resumed_id != thread_id:
-                    raise RuntimeError("thread/resume returned a different thread.")
             if self._run_turn:
                 turn_result = await client.request(
                     "turn/start",
@@ -156,16 +163,24 @@ class CodexAppServerCompatibilityProbe:
                 if turn_id is None:
                     raise RuntimeError("turn/start响应缺少turn.id。")
                 self._active_turn_id = turn_id
-                turn_completed, notification_count = await self._wait_for_turn(turn_id)
+                turn_completed, turn_notification_count = await self._wait_for_turn(turn_id)
+                notification_count += turn_notification_count
                 self._active_turn_id = None
                 if not turn_completed:
                     raise TimeoutError("真实Codex turn未在探针时限内完成。")
-            if self._run_core:
-                await client.request(
-                    "thread/resume",
-                    {"threadId": thread_id, "sandbox": "read-only", "approvalPolicy": "untrusted"},
-                    timeout_seconds=15,
+                resume_params: dict[str, JsonValue] = {"threadId": thread_id}
+                if self._run_core:
+                    resume_params.update(
+                        {"sandbox": "read-only", "approvalPolicy": "untrusted"}
+                    )
+                resumed = await client.request(
+                    "thread/resume", resume_params, timeout_seconds=15
                 )
+                resumed_id, _ = read_upstream_identifiers(resumed)
+                if resumed_id != thread_id:
+                    raise RuntimeError("thread/resume returned a different thread.")
+                thread_resume_passed = True
+            if self._run_core:
                 approval_turn = await client.request(
                     "turn/start",
                     {
@@ -173,11 +188,7 @@ class CodexAppServerCompatibilityProbe:
                         "input": [
                             {
                                 "type": "text",
-                                "text": (
-                                    "Use a shell command to create codex-capability-probe.txt in the current "
-                                    "directory containing PROBE_ONLY. Request approval when required. "
-                                    "If approval is denied, stop and reply DENIED; do not retry or use another tool."
-                                ),
+                                "text": APPROVAL_PROBE_PROMPT,
                                 "text_elements": [],
                             }
                         ],
@@ -188,11 +199,16 @@ class CodexAppServerCompatibilityProbe:
                 if approval_turn_id is None:
                     raise RuntimeError("Approval probe turn has no identity.")
                 self._active_turn_id = approval_turn_id
-                await self._wait_for_turn(approval_turn_id)
+                _, approval_notification_count = await self._wait_for_turn(approval_turn_id)
+                notification_count += approval_notification_count
                 self._active_turn_id = None
-                approval_passed = bool(
-                    self._approval_requests
-                ) and self._approval_requests.issubset(self._approval_resolved)
+                notification_count += await self._wait_for_approval_resolutions()
+                approval_passed = (
+                    bool(self._declined_approval_requests)
+                    and self._approval_requests == self._approval_replies
+                    and self._approval_requests == self._approval_resolved
+                    and not (self._workspace / CORE_PROBE_OUTPUT_FILENAME).exists()
+                )
                 if not approval_passed:
                     raise RuntimeError(
                         "Approval request/reply/resolved roundtrip was not observed."
@@ -201,7 +217,13 @@ class CodexAppServerCompatibilityProbe:
                     "turn/start",
                     {
                         "threadId": thread_id,
-                        "input": [{"type": "text", "text": PROBE_PROMPT, "text_elements": []}],
+                        "input": [
+                            {
+                                "type": "text",
+                                "text": INTERRUPT_PROBE_PROMPT,
+                                "text_elements": [],
+                            }
+                        ],
                     },
                     timeout_seconds=30,
                 )
@@ -214,9 +236,10 @@ class CodexAppServerCompatibilityProbe:
                     {"threadId": thread_id, "turnId": interrupt_turn_id},
                     timeout_seconds=15,
                 )
-                interrupt_passed, _ = await self._wait_for_turn(
+                interrupt_passed, interrupt_notification_count = await self._wait_for_turn(
                     interrupt_turn_id, expected_status="interrupted"
                 )
+                notification_count += interrupt_notification_count
                 self._active_turn_id = None
             await client.request(
                 "thread/delete",
@@ -235,28 +258,17 @@ class CodexAppServerCompatibilityProbe:
                 turn_completed=turn_completed,
                 notification_count=notification_count,
                 thread_cleaned=thread_cleaned,
-                thread_resume_passed=True,
+                thread_resume_passed=thread_resume_passed,
                 approval_response_passed=approval_passed,
                 interrupt_passed=interrupt_passed,
                 core_passed=turn_completed and approval_passed and interrupt_passed,
             )
         finally:
-            if thread_id is not None and not thread_cleaned:
-                try:
-                    if self._active_turn_id is not None:
-                        await self._supervisor.handle.client.request(
-                            "turn/interrupt",
-                            {"threadId": thread_id, "turnId": self._active_turn_id},
-                            timeout_seconds=10,
-                        )
-                    await self._supervisor.handle.client.request(
-                        "thread/delete",
-                        {"threadId": thread_id},
-                        timeout_seconds=10,
-                    )
-                except (ConnectionError, RuntimeError, TimeoutError):
-                    pass
-            await self._supervisor.stop()
+            try:
+                if thread_id is not None and not thread_cleaned:
+                    await self._clean_up_thread(thread_id)
+            finally:
+                await self._supervisor.stop()
 
     async def _wait_for_turn(
         self, turn_id: str, *, expected_status: str = "completed"
@@ -279,6 +291,16 @@ class CodexAppServerCompatibilityProbe:
                         raise RuntimeError("Probe turn did not reach the required terminal status.")
                     return True, count
 
+    async def _wait_for_approval_resolutions(self) -> int:
+        """等待已回复的审批请求被 App Server 明确收束。"""
+
+        count = 0
+        async with asyncio.timeout(15):
+            while self._approval_requests != self._approval_resolved:
+                await self._notifications.get()
+                count += 1
+        return count
+
     async def _record_notification(self, method: str, params: JsonValue) -> None:
         if method == "serverRequest/resolved" and isinstance(params, dict):
             request_id = params.get("requestId")
@@ -295,9 +317,16 @@ class CodexAppServerCompatibilityProbe:
         if self._run_core and method in {
             "item/commandExecution/requestApproval",
             "item/fileChange/requestApproval",
+            "item/permissions/requestApproval",
         }:
             self._approval_requests.add(_request_id)
-            await self._supervisor.handle.client.reply(_request_id, {"decision": "decline"})
+            response: JsonValue = {"decision": "decline"}
+            if method == "item/permissions/requestApproval":
+                response = {"permissions": {}, "scope": "turn"}
+            await self._supervisor.handle.client.reply(_request_id, response)
+            self._approval_replies.add(_request_id)
+            if method != "item/permissions/requestApproval":
+                self._declined_approval_requests.add(_request_id)
             return
         raise RuntimeError(f"兼容性探针收到非预期App Server请求：{method}")
 
@@ -309,6 +338,34 @@ class CodexAppServerCompatibilityProbe:
         if not tokens:
             raise ValueError("协议manifest缺少Codex版本。")
         return tokens[-1]
+
+    def _require_isolated_workspace_for_core_probe(self) -> None:
+        """拒绝在非空工作区中执行可能触发写审批的核心探针。"""
+
+        if self._run_core and any(self._workspace.iterdir()):
+            raise ValueError("--core 只能在新的空隔离工作区中执行。")
+
+    async def _clean_up_thread(self, thread_id: str) -> None:
+        """无论 active turn 的中断结果如何，均尝试删除探针线程。"""
+
+        client = self._supervisor.handle.client
+        if self._active_turn_id is not None:
+            try:
+                await client.request(
+                    "turn/interrupt",
+                    {"threadId": thread_id, "turnId": self._active_turn_id},
+                    timeout_seconds=10,
+                )
+            except Exception:  # noqa: BLE001 - cleanup must still delete the isolated thread.
+                logging.getLogger("codex_app_server_probe").warning(
+                    "Unable to interrupt probe turn during cleanup.",
+                )
+        try:
+            await client.request("thread/delete", {"threadId": thread_id}, timeout_seconds=10)
+        except Exception:  # noqa: BLE001 - process shutdown remains mandatory after cleanup failure.
+            logging.getLogger("codex_app_server_probe").warning(
+                "Unable to delete probe thread during cleanup.",
+            )
 
     def _require_mapping(self, value: JsonValue, method: str) -> Mapping[str, object]:
         if not isinstance(value, Mapping):

@@ -327,7 +327,10 @@ class CodexControlRuntime:
             control_port=control_port,
             pairing_service=CodexPairingService(control_port=control_port, settings=settings),
             step_up_grant_service=step_up_grant_service,
-            compatibility_policy=AppServerManifestRegistry(protocol_root).build_policy(),
+            compatibility_policy=AppServerManifestRegistry(protocol_root).build_policy(
+                minimum_codex_version=settings.minimum_codex_version,
+                blocked_codex_versions=settings.blocked_codex_versions,
+            ),
             stream_ticket_service=stream_ticket_service,
             device_authorization_store=device_authorization_store,
             device_challenge_store=device_challenge_store,

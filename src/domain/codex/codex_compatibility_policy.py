@@ -6,6 +6,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.core.codex_contract.agent_release_manifest_contract import parse_agent_release_version
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     SHA256_HEX_PATTERN,
     AppServerCapabilityCode,
@@ -30,6 +31,8 @@ class CodexCompatibilityReason(StrEnum):
 
     SUPPORTED = "supported"
     VERSION_NOT_SUPPORTED = "version_not_supported"
+    VERSION_BELOW_MINIMUM = "version_below_minimum"
+    VERSION_BLOCKED = "version_blocked"
     MANIFEST_NOT_APPROVED = "manifest_not_approved"
     AGENT_PROTOCOL_NOT_SUPPORTED = "agent_protocol_not_supported"
     UNKNOWN_SCHEMA_READ_ONLY = "unknown_schema_read_only"
@@ -76,21 +79,36 @@ class CodexCompatibilityResult(BaseModel):
 class CodexCompatibilityPolicy:
     """只依据已审核 manifest 进行 fail-closed 决策。"""
 
-    def __init__(self, manifests: tuple[AppServerSchemaManifestEnvelope, ...]) -> None:
+    def __init__(
+        self,
+        manifests: tuple[AppServerSchemaManifestEnvelope, ...],
+        *,
+        minimum_codex_version: str,
+        blocked_codex_versions: tuple[str, ...],
+    ) -> None:
         self._manifests = {
             manifest.header.codex_version: manifest
             for manifest in manifests
-            if manifest.header.review_status != AppServerSchemaReviewStatus.BLOCKED
         }
+        self._minimum_codex_version = parse_agent_release_version(minimum_codex_version)
+        self._blocked_codex_versions = frozenset(blocked_codex_versions)
 
     def evaluate(self, compatibility: CodexCompatibilityTuple) -> CodexCompatibilityResult:
         """计算目标方法是否允许执行。"""
 
+        version_boundary = self._evaluate_version_boundary(compatibility.codex_version)
+        if version_boundary is not None:
+            return version_boundary
         manifest = self._manifests.get(compatibility.codex_version)
         if manifest is None:
             return CodexCompatibilityResult(
                 decision=CodexCompatibilityDecision.UPGRADE_REQUIRED,
                 reason=CodexCompatibilityReason.VERSION_NOT_SUPPORTED,
+            )
+        if manifest.header.review_status == AppServerSchemaReviewStatus.BLOCKED:
+            return CodexCompatibilityResult(
+                decision=CodexCompatibilityDecision.BLOCKED,
+                reason=CodexCompatibilityReason.MANIFEST_NOT_APPROVED,
             )
         if manifest.header.review_status != AppServerSchemaReviewStatus.APPROVED:
             return CodexCompatibilityResult(
@@ -154,6 +172,9 @@ class CodexCompatibilityPolicy:
     ) -> CodexCompatibilityResult:
         """校验 hello 的精确版本、digest、协议和 capability 子集。"""
 
+        version_boundary = self._evaluate_version_boundary(compatibility.codex_version)
+        if version_boundary is not None:
+            return version_boundary
         manifest = self._manifests.get(compatibility.codex_version)
         if manifest is None:
             return CodexCompatibilityResult(
@@ -162,6 +183,11 @@ class CodexCompatibilityPolicy:
                 # all mutations remain fenced by the connection decision.
                 decision=CodexCompatibilityDecision.READ_ONLY,
                 reason=CodexCompatibilityReason.UNKNOWN_VERSION_READ_ONLY,
+            )
+        if manifest.header.review_status == AppServerSchemaReviewStatus.BLOCKED:
+            return CodexCompatibilityResult(
+                decision=CodexCompatibilityDecision.BLOCKED,
+                reason=CodexCompatibilityReason.MANIFEST_NOT_APPROVED,
             )
         if manifest.header.review_status != AppServerSchemaReviewStatus.APPROVED:
             return CodexCompatibilityResult(
@@ -191,3 +217,22 @@ class CodexCompatibilityPolicy:
             decision=CodexCompatibilityDecision.COMPATIBLE,
             reason=CodexCompatibilityReason.SUPPORTED,
         )
+
+    def _evaluate_version_boundary(self, codex_version: str) -> CodexCompatibilityResult | None:
+        """仅处理显式封禁与最低安全版本，未知版本留给能力边界降级。"""
+
+        if codex_version in self._blocked_codex_versions:
+            return CodexCompatibilityResult(
+                decision=CodexCompatibilityDecision.BLOCKED,
+                reason=CodexCompatibilityReason.VERSION_BLOCKED,
+            )
+        try:
+            parsed_version = parse_agent_release_version(codex_version)
+        except ValueError:
+            return None
+        if parsed_version < self._minimum_codex_version:
+            return CodexCompatibilityResult(
+                decision=CodexCompatibilityDecision.UPGRADE_REQUIRED,
+                reason=CodexCompatibilityReason.VERSION_BELOW_MINIMUM,
+            )
+        return None

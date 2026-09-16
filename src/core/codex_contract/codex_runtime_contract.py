@@ -107,7 +107,8 @@ class CodexRuntimeSettings(BaseModel):
     codex_authority_recovery_v2: bool = False
     allow_legacy_agent_bearer: bool = False
     allow_experimental_app_server_api: bool = False
-    allowed_codex_versions: list[str] = Field(min_length=1)
+    minimum_codex_version: str = Field(min_length=1, max_length=64)
+    blocked_codex_versions: list[str] = Field(default_factory=list)
     agent_release_version: str = Field(min_length=1, max_length=64)
     agent_release_distribution_mode: CodexAgentReleaseDistributionMode
     agent_release_artifact_sha256: str = Field(min_length=64, max_length=64)
@@ -126,8 +127,15 @@ class CodexRuntimeSettings(BaseModel):
             raise ValueError("agent_offline_after_seconds 必须大于 agent_heartbeat_seconds。")
         if self.agent_reconnect_max_seconds < self.agent_reconnect_min_seconds:
             raise ValueError("agent_reconnect_max_seconds 不得小于 agent_reconnect_min_seconds。")
-        if any(version.strip() == "" for version in self.allowed_codex_versions):
-            raise ValueError("allowed_codex_versions 不允许空字符串。")
+        minimum_codex_version = parse_agent_release_version(self.minimum_codex_version)
+        blocked_codex_versions = tuple(self.blocked_codex_versions)
+        if len(blocked_codex_versions) != len(set(blocked_codex_versions)):
+            raise ValueError("blocked_codex_versions 不允许重复版本。")
+        if self.minimum_codex_version in blocked_codex_versions:
+            raise ValueError("最低 Codex 版本不能同时被封禁。")
+        for version in blocked_codex_versions:
+            if parse_agent_release_version(version) < minimum_codex_version:
+                raise ValueError("低于最低 Codex 版本的版本无需重复封禁。")
         parse_agent_release_version(self.agent_release_version)
         parse_agent_release_version(self.agent_release_minimum_security_version)
         if parse_agent_release_version(

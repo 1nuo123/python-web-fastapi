@@ -1224,7 +1224,8 @@ class RawCodexControlRuntimeMapping(TypedDict, total=False):
     codex_realtime_batch_v2: bool
     codex_authority_recovery_v2: bool
     allow_experimental_app_server_api: bool
-    allowed_codex_versions: list[str]
+    minimum_codex_version: str
+    blocked_codex_versions: list[str]
     agent_release_version: str
     agent_release_distribution_mode: str
     agent_release_artifact_sha256: str
