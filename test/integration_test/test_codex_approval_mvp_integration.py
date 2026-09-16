@@ -16,8 +16,13 @@ from src.core.auth_contract.step_up_grant_contract import StepUpGrantPurpose
 from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentApprovalOpenedEventDetail,
     AgentApprovalReplyCommandDetail,
+    AgentEventAckV2Detail,
+    AgentEventBatchV2Detail,
+    AgentEventRecord,
     AgentPendingApprovalSnapshot,
+    AgentThreadMetadataChangedEventDetail,
 )
+from src.core.codex_contract.app_server_schema_manifest_contract import AppServerNotificationName
 from src.core.codex_contract.approval_contract import (
     CodexApprovalDecision,
     CodexApprovalDisplaySummary,
@@ -373,3 +378,175 @@ def test_high_risk_approval_should_require_one_time_step_up_and_publish_terminal
     assert resolved_event.header.detail_kind == CodexRealtimeEventType.APPROVAL_RESOLVED
     assert isinstance(resolved_event.detail, CodexApprovalEventDetail)
     assert resolved_event.detail.approval.state == CodexApprovalState.APPLIED
+
+
+@pytest.mark.integration
+@pytest.mark.postgres
+@pytest.mark.docker
+@pytest.mark.usefixtures("integration_database")
+def test_v2_metadata_before_approval_should_preserve_final_thread_snapshot() -> None:
+    """同批 metadata 必须在 approval 读取线程快照前持久化并送达浏览器。"""
+
+    app = TestAppFactory().create()
+    host_id = uuid4()
+    workspace_id = uuid4()
+    approval_id = uuid4()
+    thread_id = "019-metadata-before-approval"
+    turn_id = "019-metadata-before-approval-turn"
+    renamed_title = "Approval after metadata"
+    with TestClient(app) as client:
+        access_token = CodexDeviceAuthorizationTestSupport.issue_browser_access_token(client)
+        resource_mount = app.state.container.resource_mount
+        unit_of_work = resource_mount.create_unit_of_work()
+        try:
+            session = unit_of_work.get_session()
+            session.add(
+                CodexHostOrmModel(
+                    host_id=host_id,
+                    owner_subject_id="user-admin",
+                    display_name="Ordered Agent host",
+                    platform="windows",
+                    status="online",
+                    capabilities={},
+                    version=1,
+                )
+            )
+            unit_of_work.flush()
+            session.add(
+                CodexWorkspaceOrmModel(
+                    workspace_id=workspace_id,
+                    host_id=host_id,
+                    owner_subject_id="user-admin",
+                    agent_workspace_key="ordered-workspace",
+                    display_name="Ordered workspace",
+                    enabled=True,
+                    version=1,
+                )
+            )
+            unit_of_work.flush()
+            now = datetime.now(UTC)
+            session.add(
+                CodexThreadIndexOrmModel(
+                    thread_index_id=uuid4(),
+                    host_id=host_id,
+                    workspace_id=workspace_id,
+                    owner_subject_id="user-admin",
+                    upstream_thread_id=thread_id,
+                    display_name="Before metadata",
+                    title_source=CodexThreadTitleSource.APP_SERVER.value,
+                    status=CodexThreadStatus.ACTIVE.value,
+                    active_turn_id=turn_id,
+                    archived=False,
+                    created_at=now,
+                    recency_at=now,
+                    updated_at=now,
+                    last_synced_at=now,
+                )
+            )
+            unit_of_work.commit()
+        finally:
+            unit_of_work.dispose()
+        device = CodexDeviceAuthorizationTestSupport.provision_active_key(
+            app=app,
+            host_id=host_id,
+            owner_subject_id="user-admin",
+        )
+        agent_ticket = CodexDeviceAuthorizationTestSupport.issue_connection_ticket(client, device)
+        browser_ticket = client.post(
+            "/codex/realtime-tickets",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Origin": ORIGIN,
+            },
+        ).json()["data"]["ticket"]
+        with client.websocket_connect(
+            f"/internal/codex-agents/connect?ticket={agent_ticket.ticket}",
+        ) as agent_websocket:
+            connection = CodexDeviceAuthorizationTestSupport.connect_v2(agent_websocket, device)
+            app_server_instance_id = uuid4()
+            with client.websocket_connect(
+                f"/codex/events?ticket={browser_ticket}",
+                headers={"Origin": ORIGIN},
+            ) as browser_websocket:
+                for _ in range(3):
+                    browser_websocket.receive_text()
+                records = (
+                    AgentEventRecord(
+                        agent_event_epoch=connection.agent_event_epoch,
+                        seq=1,
+                        event_id=uuid4(),
+                        app_server_instance_id=app_server_instance_id,
+                        occurred_at=datetime.now(UTC),
+                        detail=AgentThreadMetadataChangedEventDetail(
+                            method=AppServerNotificationName.THREAD_NAME_UPDATED,
+                            thread_id=thread_id,
+                            display_name=renamed_title,
+                        ),
+                    ),
+                    AgentEventRecord(
+                        agent_event_epoch=connection.agent_event_epoch,
+                        seq=2,
+                        event_id=uuid4(),
+                        app_server_instance_id=app_server_instance_id,
+                        occurred_at=datetime.now(UTC),
+                        detail=AgentApprovalOpenedEventDetail(
+                            approval=AgentPendingApprovalSnapshot(
+                                approval_id=approval_id,
+                                app_server_instance_id=app_server_instance_id,
+                                approval_kind="command",
+                                thread_id=thread_id,
+                                turn_id=turn_id,
+                                item_id="019-metadata-before-approval-item",
+                                payload_digest="c" * 64,
+                                version=1,
+                                expires_at=datetime.now(UTC) + timedelta(minutes=5),
+                                display=CodexApprovalDisplaySummary(
+                                    title="Ordered approval",
+                                    reason="Metadata is already current",
+                                    risk_level=CodexApprovalRiskLevel.NORMAL,
+                                    allowed_actions=(CodexApprovalDecision.ACCEPT,),
+                                ),
+                            )
+                        ),
+                    ),
+                )
+                agent_websocket.send_text(
+                    CodexDeviceAuthorizationTestSupport.frame_v2(
+                        device=device,
+                        detail=AgentEventBatchV2Detail(
+                            agent_event_epoch=connection.agent_event_epoch,
+                            first_seq=1,
+                            last_seq=2,
+                            events=records,
+                        ),
+                    )
+                )
+                acknowledgement = CodexDeviceAuthorizationTestSupport.receive_v2_envelope(
+                    agent_websocket
+                )
+                assert isinstance(acknowledgement.detail, AgentEventAckV2Detail)
+                assert acknowledgement.detail.after_seq == 2
+                browser_events = [
+                    CodexRealtimeEvent.model_validate_json(browser_websocket.receive_text())
+                    for _ in range(4)
+                ]
+                final_thread_event = browser_events[-1]
+                thread_response = client.get(
+                    f"/codex/hosts/{host_id}/threads?workspace_id={workspace_id}",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                browser_websocket.close()
+            CodexDeviceAuthorizationTestSupport.close_websocket(agent_websocket)
+
+    assert final_thread_event.header.detail_kind is CodexRealtimeEventType.THREAD_UPDATED
+    assert isinstance(final_thread_event.detail, CodexThreadUpdatedDetail)
+    final_thread = final_thread_event.detail.thread
+    assert final_thread.display_name == renamed_title
+    assert final_thread.active_turn_id == turn_id
+    assert final_thread.turn_runtime is not None
+    assert final_thread.turn_runtime.phase.value == "awaiting_approval"
+    assert thread_response.status_code == HTTPStatus.OK
+    persisted_thread = thread_response.json()["data"]["items"][0]
+    assert persisted_thread["display_name"] == renamed_title
+    assert persisted_thread["active_turn_id"] == turn_id
+    assert persisted_thread["turn_runtime"]["phase"] == "awaiting_approval"

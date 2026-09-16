@@ -252,7 +252,9 @@ class CodexHostAgentCli:
                         [workspace.to_definition() for workspace in runtime_settings.workspaces]
                     ),
                     journal=journal,
-                    runtime_status=self._read_runtime_status(runtime_settings.agent.state_database),
+                    runtime_status_reader=lambda: self._read_runtime_status(
+                        runtime_settings.agent.state_database
+                    ),
                     logger=agent_logger,
                 )
                 try:
@@ -272,9 +274,17 @@ class CodexHostAgentCli:
                 root=settings.agent.state_database.parent / "keys"
             ),
         ).run()
-        self._write_runtime_status(
+        doctor_status = AgentRuntimeStatus.from_doctor_report(
+            report,
+            checked_at=datetime.now(UTC),
+        )
+        self._merge_runtime_status(
             settings.agent.state_database,
-            AgentRuntimeStatus.from_doctor_report(report, checked_at=datetime.now(UTC)),
+            {
+                "doctor_state": doctor_status.doctor_state,
+                "doctor_checked_at": doctor_status.doctor_checked_at,
+                "doctor_issue_codes": doctor_status.doctor_issue_codes,
+            },
         )
         logger.info("Agent doctor结果：{}", report.model_dump_json())
         return int(report.exit_code)
@@ -292,12 +302,20 @@ class CodexHostAgentCli:
             return None
 
     @classmethod
-    def _write_runtime_status(cls, state_database: Path, status: AgentRuntimeStatus) -> None:
+    def _merge_runtime_status(cls, state_database: Path, updates: dict[str, object]) -> None:
+        """串行合并诊断与更新字段，不占用 Agent 生命周期锁。"""
+
         path = cls._runtime_status_path(state_database)
         path.parent.mkdir(parents=True, exist_ok=True)
-        temporary_path = path.with_name(f".{path.name}.tmp")
-        temporary_path.write_text(status.model_dump_json(indent=2) + "\n", encoding="utf-8")
-        temporary_path.replace(path)
+        with portalocker.Lock(path.with_suffix(".lock"), timeout=10):
+            previous = cls._read_runtime_status(state_database) or AgentRuntimeStatus()
+            status = previous.model_copy(update=updates)
+            temporary_path = path.with_name(f".{path.name}.tmp")
+            try:
+                temporary_path.write_text(status.model_dump_json(indent=2) + "\n", encoding="utf-8")
+                temporary_path.replace(path)
+            finally:
+                temporary_path.unlink(missing_ok=True)
 
     @classmethod
     def _record_update_status(
@@ -308,17 +326,14 @@ class CodexHostAgentCli:
         target_version: str | None,
         reason_code: str | None,
     ) -> None:
-        previous = cls._read_runtime_status(state_database) or AgentRuntimeStatus()
-        cls._write_runtime_status(
+        cls._merge_runtime_status(
             state_database,
-            previous.model_copy(
-                update={
-                    "update_state": state,
-                    "update_checked_at": datetime.now(UTC),
-                    "update_target_version": target_version,
-                    "update_reason_code": reason_code,
-                }
-            ),
+            {
+                "update_state": state,
+                "update_checked_at": datetime.now(UTC),
+                "update_target_version": target_version,
+                "update_reason_code": reason_code,
+            },
         )
 
     async def run_setup(
@@ -638,7 +653,13 @@ class CodexHostAgentCli:
             )
         except KeyboardInterrupt:
             return 130
-        except (httpx.HTTPError, OSError, PermissionError, ValueError) as exc:
+        except (
+            httpx.HTTPError,
+            OSError,
+            PermissionError,
+            ValueError,
+            portalocker.exceptions.LockException,
+        ) as exc:
             logging.getLogger("codex_host_agent").exception("Agent 命令执行失败。")
             interactive_command = command in {
                 AGENT_COMMAND_URI,

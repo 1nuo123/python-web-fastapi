@@ -51,17 +51,16 @@ class _EventBuffer:
 
 @dataclass(slots=True)
 class _StateSynchronizer:
-    """记录应用层接收的完整 Agent 批次。"""
+    """记录应用层按 Agent 顺序接收的事件。"""
 
-    accepted: list[tuple[CodexAgentRealtimeEvent, ...]] = field(default_factory=list)
+    accepted: list[CodexAgentRealtimeEvent] = field(default_factory=list)
 
-    def accept_realtime_events(
+    def accept_realtime_event(
         self,
-        events: tuple[CodexAgentRealtimeEvent, ...],
+        event: CodexAgentRealtimeEvent,
         _principal: AgentDevicePrincipal,
-    ) -> tuple[None, ...]:
-        self.accepted.append(events)
-        return tuple(None for _ in events)
+    ) -> None:
+        self.accepted.append(event)
 
 
 @dataclass(slots=True)
@@ -92,8 +91,8 @@ def _event(reason_code: str) -> CodexAgentRealtimeEvent:
 
 
 @pytest.mark.asyncio
-async def test_runtime_should_sync_agent_batch_then_publish_to_hub_once() -> None:
-    """应用同步完成前不 fan-out，且一个 Agent batch 只调用一次 hub 批接口。"""
+async def test_runtime_should_sync_agent_events_in_order_then_publish_to_hub_once() -> None:
+    """审批可观察前，前序普通事件已写入；浏览器仍只接收一次批量 fan-out。"""
 
     runtime = object.__new__(CodexControlRuntime)
     state_synchronizer = _StateSynchronizer()
@@ -112,13 +111,10 @@ async def test_runtime_should_sync_agent_batch_then_publish_to_hub_once() -> Non
     await runtime.publish_agent_events((_event("first"), _event("second")), principal)
 
     assert [
-        [
-            detail.reason_code
-            for event in batch
-            if isinstance((detail := event.detail), AgentProtocolWarningEventDetail)
-        ]
-        for batch in state_synchronizer.accepted
-    ] == [["first", "second"]]
+        detail.reason_code
+        for event in state_synchronizer.accepted
+        if isinstance((detail := event.detail), AgentProtocolWarningEventDetail)
+    ] == ["first", "second"]
     assert len(browser_hub.published) == 1
     owner_subject_id, product_events = browser_hub.published[0]
     assert owner_subject_id == "owner-1"

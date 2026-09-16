@@ -29,13 +29,15 @@ PROBE_PROMPT: Final = (
     "Reply exactly PHASE2_OK. Do not use tools, execute commands, or modify files."
 )
 APPROVAL_PROBE_PROMPT: Final = (
-    "Use a shell command to create codex-capability-probe.txt in the current directory "
-    "containing PROBE_ONLY. Request approval when required. If approval is denied, stop "
-    "and reply DENIED; do not retry or use another tool."
+    "Immediately invoke the shell tool for exactly this PowerShell command: "
+    "Set-Content -NoNewline -LiteralPath codex-capability-probe.txt -Value PROBE_ONLY. "
+    "You must make that tool invocation before any response. If approval is denied, stop "
+    "and reply exactly DENIED; do not retry or use another tool."
 )
 INTERRUPT_PROBE_PROMPT: Final = (
-    "Begin a detailed response about the current workspace. Do not use tools or modify files. "
-    "Continue until this turn is interrupted."
+    "Immediately invoke the shell tool for exactly this PowerShell command: "
+    "Set-Content -NoNewline -LiteralPath codex-capability-probe.txt -Value INTERRUPT_ONLY. "
+    "Do not respond after requesting approval; wait for the turn to be interrupted."
 )
 CORE_PROBE_OUTPUT_FILENAME: Final = "codex-capability-probe.txt"
 
@@ -94,6 +96,8 @@ class CodexAppServerCompatibilityProbe:
         self._approval_replies: set[JsonRpcId] = set()
         self._declined_approval_requests: set[JsonRpcId] = set()
         self._approval_resolved: set[JsonRpcId] = set()
+        self._holding_interrupt_approval = False
+        self._interrupt_approval_requested = asyncio.Event()
         self._notifications: asyncio.Queue[tuple[str, JsonValue]] = asyncio.Queue()
         self._supervisor = AppServerProcessSupervisor(
             codex_binary=codex_binary,
@@ -135,7 +139,7 @@ class CodexAppServerCompatibilityProbe:
                 "thread/start",
                 {
                     "cwd": str(self._workspace),
-                    "sandbox": "read-only",
+                    "sandbox": "workspace-write" if self._run_core else "read-only",
                     "approvalPolicy": "never",
                     "ephemeral": False,
                 },
@@ -168,13 +172,8 @@ class CodexAppServerCompatibilityProbe:
                 self._active_turn_id = None
                 if not turn_completed:
                     raise TimeoutError("真实Codex turn未在探针时限内完成。")
-                resume_params: dict[str, JsonValue] = {"threadId": thread_id}
-                if self._run_core:
-                    resume_params.update(
-                        {"sandbox": "read-only", "approvalPolicy": "untrusted"}
-                    )
                 resumed = await client.request(
-                    "thread/resume", resume_params, timeout_seconds=15
+                    "thread/resume", {"threadId": thread_id}, timeout_seconds=15
                 )
                 resumed_id, _ = read_upstream_identifiers(resumed)
                 if resumed_id != thread_id:
@@ -185,6 +184,9 @@ class CodexAppServerCompatibilityProbe:
                     "turn/start",
                     {
                         "threadId": thread_id,
+                        # The frozen TurnStartParams schema makes this override
+                        # effective for the approval turn and later turns.
+                        "approvalPolicy": "untrusted",
                         "input": [
                             {
                                 "type": "text",
@@ -211,36 +213,48 @@ class CodexAppServerCompatibilityProbe:
                 )
                 if not approval_passed:
                     raise RuntimeError(
-                        "Approval request/reply/resolved roundtrip was not observed."
+                        "Approval request/reply/resolved roundtrip was not observed "
+                        f"(requests={len(self._approval_requests)}, "
+                        f"replies={len(self._approval_replies)}, "
+                        f"resolved={len(self._approval_resolved)}, "
+                        f"declined={len(self._declined_approval_requests)})."
                     )
-                interrupt_turn = await client.request(
-                    "turn/start",
-                    {
-                        "threadId": thread_id,
-                        "input": [
-                            {
-                                "type": "text",
-                                "text": INTERRUPT_PROBE_PROMPT,
-                                "text_elements": [],
-                            }
-                        ],
-                    },
-                    timeout_seconds=30,
-                )
-                _, interrupt_turn_id = read_upstream_identifiers(interrupt_turn)
-                if interrupt_turn_id is None:
-                    raise RuntimeError("Interrupt probe turn has no identity.")
-                self._active_turn_id = interrupt_turn_id
-                await client.request(
-                    "turn/interrupt",
-                    {"threadId": thread_id, "turnId": interrupt_turn_id},
-                    timeout_seconds=15,
-                )
-                interrupt_passed, interrupt_notification_count = await self._wait_for_turn(
-                    interrupt_turn_id, expected_status="interrupted"
-                )
-                notification_count += interrupt_notification_count
-                self._active_turn_id = None
+                self._holding_interrupt_approval = True
+                self._interrupt_approval_requested.clear()
+                try:
+                    interrupt_turn = await client.request(
+                        "turn/start",
+                        {
+                            "threadId": thread_id,
+                            "approvalPolicy": "untrusted",
+                            "input": [
+                                {
+                                    "type": "text",
+                                    "text": INTERRUPT_PROBE_PROMPT,
+                                    "text_elements": [],
+                                }
+                            ],
+                        },
+                        timeout_seconds=30,
+                    )
+                    _, interrupt_turn_id = read_upstream_identifiers(interrupt_turn)
+                    if interrupt_turn_id is None:
+                        raise RuntimeError("Interrupt probe turn has no identity.")
+                    self._active_turn_id = interrupt_turn_id
+                    async with asyncio.timeout(30):
+                        await self._interrupt_approval_requested.wait()
+                    await client.request(
+                        "turn/interrupt",
+                        {"threadId": thread_id, "turnId": interrupt_turn_id},
+                        timeout_seconds=15,
+                    )
+                    interrupt_passed, interrupt_notification_count = await self._wait_for_turn(
+                        interrupt_turn_id, expected_status="interrupted"
+                    )
+                    notification_count += interrupt_notification_count
+                    self._active_turn_id = None
+                finally:
+                    self._holding_interrupt_approval = False
             await client.request(
                 "thread/delete",
                 {"threadId": thread_id},
@@ -304,7 +318,11 @@ class CodexAppServerCompatibilityProbe:
     async def _record_notification(self, method: str, params: JsonValue) -> None:
         if method == "serverRequest/resolved" and isinstance(params, dict):
             request_id = params.get("requestId")
-            if isinstance(request_id, (str, int)) and not isinstance(request_id, bool):
+            if (
+                isinstance(request_id, (str, int))
+                and not isinstance(request_id, bool)
+                and request_id in self._approval_requests
+            ):
                 self._approval_resolved.add(request_id)
         await self._notifications.put((method, params))
 
@@ -319,6 +337,9 @@ class CodexAppServerCompatibilityProbe:
             "item/fileChange/requestApproval",
             "item/permissions/requestApproval",
         }:
+            if self._holding_interrupt_approval:
+                self._interrupt_approval_requested.set()
+                return
             self._approval_requests.add(_request_id)
             response: JsonValue = {"decision": "decline"}
             if method == "item/permissions/requestApproval":

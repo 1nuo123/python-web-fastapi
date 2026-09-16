@@ -7,8 +7,9 @@ import hashlib
 import json
 import logging
 import secrets
-from collections.abc import Mapping
-from dataclasses import dataclass, replace as dataclass_replace
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from dataclasses import replace as dataclass_replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PureWindowsPath
 from typing import Final, Literal, cast
@@ -29,7 +30,6 @@ from src.core.codex_contract.agent_diagnostic_contract import (
     AgentDiagnosticHeader,
     AgentProtocolWarningDiagnosticDetail,
 )
-from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.agent_protocol_contract import (
     CODEX_AGENT_PROTOCOL_VERSION,
     CodexAgentApprovalOpened,
@@ -42,9 +42,9 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentRealtimeEvent,
 )
 from src.core.codex_contract.agent_protocol_v2_contract import (
-    AgentApprovalResolvedEventDetail,
     AgentApprovalDisplaySummary,
     AgentApprovalOpenedEventDetail,
+    AgentApprovalResolvedEventDetail,
     AgentCommandAckV2Detail,
     AgentCommandResultPayload,
     AgentCommandResultReference,
@@ -70,6 +70,7 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentThreadReadCommandResult,
     AgentTurnChangedEventDetail,
 )
+from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.app_server_jsonrpc_contract import JsonRpcId
 from src.core.codex_contract.app_server_product_contract import (
     AppServerDiffChangedDetail,
@@ -298,7 +299,7 @@ class AgentControlChannel:
         workspace_registry: AgentWorkspaceRegistry,
         journal: AgentCommandJournal,
         logger: logging.Logger,
-        runtime_status: AgentRuntimeStatus | None = None,
+        runtime_status_reader: Callable[[], AgentRuntimeStatus | None] | None = None,
     ) -> None:
         self._settings = settings
         self._tls_context = build_agent_tls_context(
@@ -314,7 +315,7 @@ class AgentControlChannel:
         )
         self._journal = journal
         self._logger = logger
-        self._runtime_status = runtime_status
+        self._runtime_status_reader = runtime_status_reader
         self._protocol_version = settings.protocol.agent_schema_version
         self._protocol_codec = AgentProtocolCodecRegistry()
         self._command_mapper = AgentCommandV2Mapper()
@@ -751,7 +752,7 @@ class AgentControlChannel:
                         )
                     ),
                     model_catalog=self._model_catalog,
-                    runtime_status=self._runtime_status,
+                    runtime_status=self._read_runtime_status(),
                     app_server_instance_id=handle.instance_id,
                     agent_event_epoch=self._event_epoch,
                 ),
@@ -772,6 +773,13 @@ class AgentControlChannel:
             AgentV1MessageType.HELLO,
             hello,
         )
+
+    def _read_runtime_status(self) -> AgentRuntimeStatus | None:
+        """读取本连接代次 hello 的最新本地运行态快照。"""
+
+        if self._runtime_status_reader is None:
+            return None
+        return self._runtime_status_reader()
 
     async def _accept_app_server_notification(self, method: str, params: JsonValue) -> None:
         if method == AppServerNotificationName.SERVER_REQUEST_RESOLVED.value:
