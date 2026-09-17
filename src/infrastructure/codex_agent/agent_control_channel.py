@@ -345,6 +345,7 @@ class AgentControlChannel:
             codex_binary=settings.agent.codex_binary,
             allowed_versions=[settings.protocol.expected_codex_version],
             max_line_bytes=settings.agent.max_app_server_line_bytes,
+            allow_experimental_api=settings.protocol.allow_experimental_api,
             notification_handler=self._accept_app_server_notification,
             request_handler=self._accept_app_server_request,
             warning_handler=self._accept_protocol_warning,
@@ -635,6 +636,7 @@ class AgentControlChannel:
             worktree_port=self._worktree_port,
             execution_root_store=self._execution_root_store,
             workspace_registry=self._workspace_registry,
+            allow_experimental_api=self._settings.protocol.allow_experimental_api,
         )
         await executor.execute(command)
         if command.command_type in {"thread.start", "thread.resume"}:

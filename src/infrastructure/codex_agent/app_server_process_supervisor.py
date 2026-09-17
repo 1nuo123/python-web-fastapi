@@ -118,6 +118,7 @@ class AppServerProcessSupervisor:
         codex_binary: str,
         allowed_versions: list[str],
         max_line_bytes: int,
+        allow_experimental_api: bool = False,
         notification_handler: AppServerNotificationHandler,
         request_handler: AppServerRequestHandler,
         warning_handler: AppServerWarningHandler,
@@ -129,6 +130,7 @@ class AppServerProcessSupervisor:
         self._codex_command = CodexProcessSupport.resolve_command(codex_binary)
         self._allowed_versions = list(allowed_versions)
         self._max_line_bytes = max_line_bytes
+        self._allow_experimental_api = allow_experimental_api
         self._notification_handler = notification_handler
         self._request_handler = request_handler
         self._warning_handler = warning_handler
@@ -203,7 +205,9 @@ class AppServerProcessSupervisor:
         self._handle = provisional_handle
         try:
             await client.start()
-            initialize_result = await client.initialize()
+            initialize_result = await client.initialize(
+                allow_experimental_api=self._allow_experimental_api
+            )
         except BaseException:
             self._handle = None
             await client.close()

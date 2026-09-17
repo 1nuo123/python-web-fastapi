@@ -37,6 +37,7 @@ class AppServerMethodName(StrEnum):
     MODEL_LIST = "model/list"
     THREAD_LIST = "thread/list"
     THREAD_READ = "thread/read"
+    THREAD_TURNS_LIST = "thread/turns/list"
     THREAD_START = "thread/start"
     THREAD_RESUME = "thread/resume"
     THREAD_NAME_SET = "thread/name/set"
@@ -232,6 +233,7 @@ class AppServerDefaultCatalog:
             (AppServerMethodName.MODEL_LIST, AppServerCapabilityCode.MODEL_LIST),
             (AppServerMethodName.THREAD_LIST, AppServerCapabilityCode.THREAD_LIST),
             (AppServerMethodName.THREAD_READ, AppServerCapabilityCode.THREAD_READ),
+            (AppServerMethodName.THREAD_TURNS_LIST, None),
         )
         mutation_methods = (
             (AppServerMethodName.THREAD_START, AppServerCapabilityCode.THREAD_START, False),

@@ -208,7 +208,7 @@ class AgentProtocolSettings(BaseModel):
     agent_version: str = Field(default="0.1.0", min_length=1, max_length=64)
     expected_codex_version: str = Field(min_length=1, max_length=64)
     app_server_schema_digest: str = Field(min_length=64, max_length=128)
-    allow_experimental_api: bool = False
+    allow_experimental_api: bool = True
 
 
 class AgentReleaseBootstrapSettings(BaseModel):

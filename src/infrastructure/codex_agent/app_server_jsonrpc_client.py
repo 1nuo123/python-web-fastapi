@@ -75,10 +75,13 @@ class AppServerProtocolWarning(str):
         reason_code: str,
         method: str | None = None,
     ) -> AppServerProtocolWarning:
-        safe_message = _sanitize_warning_field(
-            message,
-            max_length=APP_SERVER_PROTOCOL_WARNING_MESSAGE_MAX_LENGTH,
-        ) or "App Server协议告警。"
+        safe_message = (
+            _sanitize_warning_field(
+                message,
+                max_length=APP_SERVER_PROTOCOL_WARNING_MESSAGE_MAX_LENGTH,
+            )
+            or "App Server协议告警。"
+        )
         safe_reason_code = (
             _sanitize_warning_field(
                 reason_code,
@@ -182,12 +185,24 @@ class AppServerJsonRpcClient:
             raise RuntimeError("App Server JSON-RPC客户端已经运行。")
         self._reader_task = asyncio.create_task(self._read_loop())
 
-    async def initialize(self, *, timeout_seconds: float = 10.0) -> JsonValue:
+    async def initialize(
+        self,
+        *,
+        timeout_seconds: float = 10.0,
+        allow_experimental_api: bool = False,
+    ) -> JsonValue:
         """完成 initialize 请求和 initialized notification。"""
 
+        params: dict[str, JsonValue] = {
+            **DEFAULT_INITIALIZE_PARAMS,
+            "capabilities": {
+                "experimentalApi": allow_experimental_api,
+                "requestAttestation": False,
+            },
+        }
         result = await self.request(
             "initialize",
-            DEFAULT_INITIALIZE_PARAMS,
+            params,
             timeout_seconds=timeout_seconds,
         )
         await self.notify("initialized", None)

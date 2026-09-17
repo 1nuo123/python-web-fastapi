@@ -29,6 +29,7 @@ from src.core.codex_contract.app_server_jsonrpc_contract import (
     AppServerRpcClientPort,
     AppServerRpcError,
 )
+from src.core.codex_contract.app_server_schema_manifest_contract import AppServerMethodName
 from src.core.codex_contract.execution_root_binding_contract import (
     ExecutionRootBinding,
     RootKind,
@@ -60,6 +61,7 @@ from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspa
 AgentCommandAckSender = Callable[[CodexAgentCommandAck], Awaitable[None]]
 AgentCommandResultSender = Callable[[CodexAgentCommandResult], Awaitable[None]]
 AgentApprovalReplyHandler = Callable[[CodexAgentCommand], Awaitable[JsonValue]]
+THREAD_TURNS_LIST_PAGE_SIZE: Final = 100
 HISTORY_INVALIDATING_COMMAND_TYPES: Final = frozenset(
     {
         "thread.start",
@@ -103,6 +105,7 @@ class AgentCommandExecutor:
         worktree_port: GitWorktreePort | None = None,
         execution_root_store: AgentExecutionRootStore | None = None,
         workspace_registry: AgentWorkspaceRegistry | None = None,
+        allow_experimental_api: bool = False,
     ) -> None:
         self._journal = journal
         self._client = client
@@ -115,6 +118,7 @@ class AgentCommandExecutor:
         self._worktree_port = worktree_port
         self._execution_root_store = execution_root_store
         self._workspace_registry = workspace_registry
+        self._allow_experimental_api = allow_experimental_api
 
     async def execute(self, command: CodexAgentCommand) -> None:
         """编排 digest 校验、账本登记、ack、RPC 与最终结果。"""
@@ -138,6 +142,7 @@ class AgentCommandExecutor:
             return
         self._journal.mark_executing(str(command.command_id))
         timeout_seconds = max((command.deadline - datetime.now(UTC)).total_seconds(), 0.001)
+        command_deadline = asyncio.get_running_loop().time() + timeout_seconds
         worktree_context: AgentWorktreeExecutionContext | None = None
         try:
             if command.command_type == "approval.decision":
@@ -181,12 +186,40 @@ class AgentCommandExecutor:
                     else None
                 )
                 if cached_history is None:
-                    result = await self._client.request(
-                        request.method,
-                        request.params,
-                        timeout_seconds=timeout_seconds,
-                        operation_id=str(command.operation_id),
-                    )
+                    if (
+                        command.command_type == "thread.read"
+                        and request.params.get("includeTurns") is True
+                        and isinstance(thread_id, str)
+                        and self._allow_experimental_api
+                    ):
+                        # Codex 0.145 rejects thread/read(includeTurns=true)
+                        # for paginated threads. Read metadata first, then use
+                        # the audited turns/list pagination method and return
+                        # the existing thread/read result shape to consumers.
+                        remaining = command_deadline - asyncio.get_running_loop().time()
+                        if remaining <= 0:
+                            raise TimeoutError("thread/read分页读取超时。")
+                        metadata_request = dict(request.params)
+                        metadata_request["includeTurns"] = False
+                        metadata = await self._client.request(
+                            request.method,
+                            metadata_request,
+                            timeout_seconds=remaining,
+                            operation_id=str(command.operation_id),
+                        )
+                        result = await self._read_thread_turn_pages(
+                            metadata,
+                            thread_id=thread_id,
+                            deadline=command_deadline,
+                            operation_id=str(command.operation_id),
+                        )
+                    else:
+                        result = await self._client.request(
+                            request.method,
+                            request.params,
+                            timeout_seconds=timeout_seconds,
+                            operation_id=str(command.operation_id),
+                        )
                     if (
                         history_cache_key is not None
                         and not history_omitted
@@ -319,6 +352,65 @@ class AgentCommandExecutor:
                 result=result,
             )
         )
+
+    async def _read_thread_turn_pages(
+        self,
+        metadata: JsonValue,
+        *,
+        thread_id: str,
+        deadline: float,
+        operation_id: str,
+    ) -> JsonValue:
+        """将 0.145 的 turns/list 分页合成为既有 thread/read 结果。"""
+
+        if not isinstance(metadata, Mapping):
+            raise ValueError("thread/read元数据响应必须是对象。")
+        thread = metadata.get("thread")
+        if not isinstance(thread, Mapping):
+            raise ValueError("thread/read元数据响应缺少thread。")
+
+        cursor: str | None = None
+        seen_cursors: set[str] = set()
+        turns: list[JsonValue] = []
+        while True:
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                raise TimeoutError("thread/turns/list分页读取超时。")
+            params: dict[str, JsonValue] = {
+                "threadId": thread_id,
+                "itemsView": "full",
+                "sortDirection": "asc",
+                "limit": THREAD_TURNS_LIST_PAGE_SIZE,
+            }
+            if cursor is not None:
+                params["cursor"] = cursor
+            page = await self._client.request(
+                AppServerMethodName.THREAD_TURNS_LIST.value,
+                params,
+                timeout_seconds=remaining,
+                operation_id=operation_id,
+            )
+            if not isinstance(page, Mapping):
+                raise ValueError("thread/turns/list响应必须是对象。")
+            page_turns = page.get("data")
+            if not isinstance(page_turns, list):
+                raise ValueError("thread/turns/list响应缺少data数组。")
+            turns.extend(page_turns)
+            next_cursor = page.get("nextCursor")
+            if next_cursor is None:
+                break
+            if not isinstance(next_cursor, str) or not next_cursor:
+                raise ValueError("thread/turns/list响应包含无效nextCursor。")
+            if next_cursor in seen_cursors:
+                raise ValueError("thread/turns/list响应cursor循环。")
+            seen_cursors.add(next_cursor)
+            cursor = next_cursor
+
+        merged_thread = dict(thread)
+        merged_thread["turns"] = turns
+        merged = dict(metadata)
+        merged["thread"] = merged_thread
+        return merged
 
     @staticmethod
     def _build_history_cache_key(
