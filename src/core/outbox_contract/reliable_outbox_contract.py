@@ -15,6 +15,7 @@ class OutboxDeliveryOutcome(StrEnum):
     DELIVERED = "delivered"
     DEFERRED = "deferred"
     UNKNOWN = "unknown"
+    FAILED_PERMANENT = "failed_permanent"
 
 
 class ReliableOutboxAdapterPort(Protocol, Generic[OutboxRecord]):
@@ -56,3 +57,4 @@ class ReliableOutboxRunResult:
     deferred_count: int
     unknown_count: int
     failed_count: int
+    permanently_failed_count: int = 0

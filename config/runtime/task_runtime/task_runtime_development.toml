@@ -1,0 +1,8 @@
+[runtime]
+backend = "local"
+worker_enabled = true
+
+[runtime.backend_detail]
+kind = "local"
+schema_version = "1.0"
+inline_execute_enabled = true

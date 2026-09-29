@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import logging
-from typing import NoReturn
 
 from src.core.task_contract.message_bus_contract import (
     MessageBus,
@@ -126,13 +125,13 @@ class MarkPublishedFailOnceStore:
 
         self._wrapped_store = wrapped_store
         self._mark_published_failed = False
-        self.mark_outbox_failed_count = 0
 
     def list_reserved_outbox(
         self,
         *,
         limit: int,
         created_before_epoch: int | None = None,
+        claim_owner: str | None = None,
     ) -> list[TaskExecutionOutboxOrmModel]:
         """
         列出待发布 Outbox 记录。
@@ -141,6 +140,7 @@ class MarkPublishedFailOnceStore:
         return self._wrapped_store.list_reserved_outbox(
             limit=limit,
             created_before_epoch=created_before_epoch,
+            claim_owner=claim_owner,
         )
 
     def mark_published(
@@ -152,6 +152,7 @@ class MarkPublishedFailOnceStore:
         backend: TaskBackend,
         queue_name: str,
         message_id: str | None = None,
+        outbox_attempt_count: int | None = None,
     ):
         """
         首次调用时模拟标记发布失败。
@@ -167,22 +168,62 @@ class MarkPublishedFailOnceStore:
             backend=backend,
             queue_name=queue_name,
             message_id=message_id,
+            outbox_attempt_count=outbox_attempt_count,
         )
 
-    def mark_outbox_failed(
+    def mark_outbox_unknown(
         self,
         *,
         message_id: str,
-        failure_reason: str,
-    ) -> NoReturn:
+        attempt_count: int,
+        error_type: str,
+        error_message: str,
+    ) -> TaskExecutionOutboxOrmModel:
         """
-        记录错误的失败标记调用并中断测试。
+        发布成功但数据库回写失败时记录 UNKNOWN。
         """
 
-        _ = message_id
-        _ = failure_reason
-        self.mark_outbox_failed_count += 1
-        raise AssertionError("发布成功后不得把 Outbox 标记为失败。")
+        return self._wrapped_store.mark_outbox_unknown(
+            message_id=message_id,
+            attempt_count=attempt_count,
+            error_type=error_type,
+            error_message=error_message,
+        )
+
+    def mark_outbox_retrying(
+        self,
+        *,
+        message_id: str,
+        attempt_count: int,
+        next_retry_at_epoch: int,
+        last_error_type: str,
+        last_error_message: str,
+    ) -> TaskExecutionOutboxOrmModel:
+        return self._wrapped_store.mark_outbox_retrying(
+            message_id=message_id,
+            attempt_count=attempt_count,
+            next_retry_at_epoch=next_retry_at_epoch,
+            last_error_type=last_error_type,
+            last_error_message=last_error_message,
+        )
+
+    def mark_outbox_failed_permanent(
+        self,
+        *,
+        message_id: str,
+        attempt_count: int,
+        error_type: str,
+        error_message: str,
+    ) -> TaskExecutionOutboxOrmModel:
+        return self._wrapped_store.mark_outbox_failed_permanent(
+            message_id=message_id,
+            attempt_count=attempt_count,
+            error_type=error_type,
+            error_message=error_message,
+        )
+
+    def retry_unknown_outbox(self, *, message_id: str) -> TaskExecutionOutboxOrmModel:
+        return self._wrapped_store.retry_unknown_outbox(message_id=message_id)
 
 
 class TestTaskExecutionOutboxPublisherUnit:
@@ -333,7 +374,7 @@ class TestTaskExecutionOutboxPublisherUnit:
             message_bus.close()
             test_context.close()
 
-    def test_publish_reserved_when_publish_failed_should_mark_outbox_failed(
+    def test_publish_reserved_when_publish_failed_should_schedule_retry(
         self,
     ) -> None:
         """
@@ -367,8 +408,9 @@ class TestTaskExecutionOutboxPublisherUnit:
 
             assert result.scanned_count == 1
             assert result.published_count == 0
-            assert result.failed_count == 1
-            assert outbox_record.status == TaskExecutionOutboxStatus.FAILED.value
+            assert result.failed_count == 0
+            assert result.retrying_count == 1
+            assert outbox_record.status == TaskExecutionOutboxStatus.RETRYING.value
             assert outbox_record.failure_reason is not None
             assert (
                 len(outbox_record.failure_reason) == TASK_EXECUTION_OUTBOX_FAILURE_REASON_MAX_LENGTH
@@ -420,7 +462,7 @@ class TestTaskExecutionOutboxPublisherUnit:
             message_bus.close()
             test_context.close()
 
-    def test_publish_reserved_when_mark_published_failed_should_retry_idempotently(
+    def test_publish_reserved_when_mark_published_failed_should_require_unknown_recovery(
         self,
     ) -> None:
         """
@@ -448,6 +490,7 @@ class TestTaskExecutionOutboxPublisherUnit:
             )
 
             first_result = publisher.publish_reserved(limit=OUTBOX_TEST_LIMIT)
+            test_context.store.retry_unknown_outbox(message_id=OUTBOX_MARK_FAILURE_MESSAGE_ID)
             second_result = publisher.publish_reserved(limit=OUTBOX_TEST_LIMIT)
             outbox_record = self._read_outbox_record(
                 test_context=test_context,
@@ -457,9 +500,9 @@ class TestTaskExecutionOutboxPublisherUnit:
 
             assert first_result.scanned_count == 1
             assert first_result.published_count == 0
-            assert first_result.failed_count == 1
+            assert first_result.failed_count == 0
+            assert first_result.unknown_count == 1
             assert second_result.published_count == 1
-            assert store.mark_outbox_failed_count == 0
             assert [
                 published_message.header.message_id
                 for published_message in message_bus.list_messages()

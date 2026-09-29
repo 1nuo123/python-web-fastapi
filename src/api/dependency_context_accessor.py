@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from http import HTTPStatus
+from typing import TYPE_CHECKING, cast
 
 from fastapi import Request
 
@@ -136,7 +137,96 @@ from src.infrastructure.request_execution_bridge import RequestExecutionBridge
 from src.infrastructure.settings.settings_reload_coordinator import SettingsReloadCoordinator
 from src.infrastructure.shared_resource_mount import SharedResourceMount
 
+if TYPE_CHECKING:
+    from src.api.fastapi_app_assembler import ApplicationContainer
+
 MISSING_ACCESS_TOKEN_MESSAGE = "缺少访问令牌。"
+
+
+@dataclass(slots=True, frozen=True)
+class AuthRouteContext:
+    """Authentication capability dependencies owned by the application root."""
+
+    request_scope: RequestScope
+    response_factory: ResponseEnvelopeFactory
+    issue_access_token_usecase: IssueAccessTokenUsecase
+    refresh_access_token_usecase: RefreshAccessTokenUsecase
+    revoke_access_token_usecase: RevokeTokenSessionUsecase
+    authorization_guard: AuthorizationGuard
+    resource_mount: SharedResourceMount
+    reload_coordinator: SettingsReloadCoordinator
+    ready_probe_enabled: bool
+
+
+@dataclass(slots=True, frozen=True)
+class SystemRouteContext:
+    """System and readiness capability dependencies."""
+
+    health_probe_usecase: HealthProbeUsecase
+    system_overview_usecase: SystemOverviewUsecase
+
+
+@dataclass(slots=True, frozen=True)
+class AdminRouteContext:
+    """Administrative capability dependencies."""
+
+    list_admin_task_execution_records_usecase: ListAdminTaskExecutionRecordsUsecase
+    get_admin_task_execution_record_usecase: GetAdminTaskExecutionRecordUsecase
+    read_admin_task_runtime_usecase: ReadAdminTaskRuntimeUsecase
+    list_admin_task_registrations_usecase: ListAdminTaskRegistrationsUsecase
+    dispatch_admin_task_usecase: DispatchAdminTaskUsecase
+    build_admin_settings_reload_candidate_usecase: BuildAdminSettingsReloadCandidateUsecase
+    apply_admin_settings_reload_usecase: ApplyAdminSettingsReloadUsecase
+    list_admin_log_records_usecase: ListAdminLogRecordsUsecase
+    list_admin_security_events_usecase: ListAdminSecurityEventsUsecase
+    list_admin_security_ip_blocks_usecase: ListAdminSecurityIpBlocksUsecase
+    create_admin_security_ip_block_usecase: CreateAdminSecurityIpBlockUsecase
+    get_admin_security_ip_block_usecase: GetAdminSecurityIpBlockUsecase
+    release_admin_security_ip_block_usecase: ReleaseAdminSecurityIpBlockUsecase
+    list_admin_audit_events_usecase: ListAdminAuditEventsUsecase
+    list_admin_scopes_usecase: ListAdminScopesUsecase
+    get_admin_scope_usecase: GetAdminScopeUsecase
+    create_admin_scope_usecase: CreateAdminScopeUsecase
+    update_admin_scope_usecase: UpdateAdminScopeUsecase
+    delete_admin_scope_usecase: DeleteAdminScopeUsecase
+    list_admin_roles_usecase: ListAdminRolesUsecase
+    get_admin_role_usecase: GetAdminRoleUsecase
+    create_admin_role_usecase: CreateAdminRoleUsecase
+    update_admin_role_usecase: UpdateAdminRoleUsecase
+    replace_admin_role_scopes_usecase: ReplaceAdminRoleScopesUsecase
+    delete_admin_role_usecase: DeleteAdminRoleUsecase
+    list_admin_users_usecase: ListAdminUsersUsecase
+    get_admin_user_usecase: GetAdminUserUsecase
+    create_admin_user_usecase: CreateAdminUserUsecase
+    update_admin_user_usecase: UpdateAdminUserUsecase
+    reset_admin_user_password_usecase: ResetAdminUserPasswordUsecase
+    replace_admin_user_roles_usecase: ReplaceAdminUserRolesUsecase
+    replace_admin_user_scopes_usecase: ReplaceAdminUserScopesUsecase
+    delete_admin_user_usecase: DeleteAdminUserUsecase
+
+
+@dataclass(slots=True, frozen=True)
+class CodexRouteContext:
+    """Codex host, workspace and thread capability dependencies."""
+
+    revoke_codex_subject_agent_access_usecase: RevokeCodexSubjectAgentAccessUsecase
+    list_codex_hosts_usecase: ListCodexHostsUsecase
+    list_codex_workspaces_usecase: ListCodexWorkspacesUsecase
+    update_codex_workspace_usecase: UpdateCodexWorkspaceUsecase
+    update_codex_thread_preference_usecase: UpdateCodexThreadPreferenceUsecase
+    query_codex_threads_usecase: QueryCodexThreadsUsecase
+    execute_codex_thread_command_usecase: ExecuteCodexThreadCommandUsecase
+    read_codex_thread_snapshot_usecase: ReadCodexThreadSnapshotUsecase
+    manage_codex_approval_usecase: ManageCodexApprovalUsecase
+
+
+@dataclass(slots=True, frozen=True)
+class StreamingRouteContext:
+    """Streaming capability dependencies."""
+
+    request_execution_bridge: RequestExecutionBridge
+    resource_mount: SharedResourceMount
+    authorization_guard: AuthorizationGuard
 
 
 @dataclass(slots=True)
@@ -205,6 +295,95 @@ class DependencyContextAccessor:
     """
     依赖上下文访问器，集中封装路由层直接需要的读取路径。
     """
+
+    @staticmethod
+    def _container(request: Request) -> ApplicationContainer:
+        """Return the application-root container without copying dependencies."""
+
+        return cast("ApplicationContainer", request.app.state.container)
+
+    def read_auth_context(self, request: Request) -> AuthRouteContext:
+        container = self._container(request)
+        resource_mount = container.resource_mount
+        runtime_settings = resource_mount.read_runtime_bundle().settings
+        return AuthRouteContext(
+            request_scope=request.state.request_scope,
+            response_factory=container.response_factory,
+            issue_access_token_usecase=container.issue_access_token_usecase,
+            refresh_access_token_usecase=container.refresh_access_token_usecase,
+            revoke_access_token_usecase=container.revoke_access_token_usecase,
+            authorization_guard=resource_mount.get_authorization_guard(),
+            resource_mount=resource_mount,
+            reload_coordinator=container.reload_coordinator,
+            ready_probe_enabled=runtime_settings.modules.system.ready_probe_enabled,
+        )
+
+    def read_system_context(self, request: Request) -> SystemRouteContext:
+        container = self._container(request)
+        return SystemRouteContext(
+            health_probe_usecase=container.health_probe_usecase,
+            system_overview_usecase=container.system_overview_usecase,
+        )
+
+    def read_admin_context(self, request: Request) -> AdminRouteContext:
+        container = self._container(request)
+        return AdminRouteContext(
+            list_admin_task_execution_records_usecase=container.list_admin_task_execution_records_usecase,
+            get_admin_task_execution_record_usecase=container.get_admin_task_execution_record_usecase,
+            read_admin_task_runtime_usecase=container.read_admin_task_runtime_usecase,
+            list_admin_task_registrations_usecase=container.list_admin_task_registrations_usecase,
+            dispatch_admin_task_usecase=container.dispatch_admin_task_usecase,
+            build_admin_settings_reload_candidate_usecase=container.build_admin_settings_reload_candidate_usecase,
+            apply_admin_settings_reload_usecase=container.apply_admin_settings_reload_usecase,
+            list_admin_log_records_usecase=container.list_admin_log_records_usecase,
+            list_admin_security_events_usecase=container.list_admin_security_events_usecase,
+            list_admin_security_ip_blocks_usecase=container.list_admin_security_ip_blocks_usecase,
+            create_admin_security_ip_block_usecase=container.create_admin_security_ip_block_usecase,
+            get_admin_security_ip_block_usecase=container.get_admin_security_ip_block_usecase,
+            release_admin_security_ip_block_usecase=container.release_admin_security_ip_block_usecase,
+            list_admin_audit_events_usecase=container.list_admin_audit_events_usecase,
+            list_admin_scopes_usecase=container.list_admin_scopes_usecase,
+            get_admin_scope_usecase=container.get_admin_scope_usecase,
+            create_admin_scope_usecase=container.create_admin_scope_usecase,
+            update_admin_scope_usecase=container.update_admin_scope_usecase,
+            delete_admin_scope_usecase=container.delete_admin_scope_usecase,
+            list_admin_roles_usecase=container.list_admin_roles_usecase,
+            get_admin_role_usecase=container.get_admin_role_usecase,
+            create_admin_role_usecase=container.create_admin_role_usecase,
+            update_admin_role_usecase=container.update_admin_role_usecase,
+            replace_admin_role_scopes_usecase=container.replace_admin_role_scopes_usecase,
+            delete_admin_role_usecase=container.delete_admin_role_usecase,
+            list_admin_users_usecase=container.list_admin_users_usecase,
+            get_admin_user_usecase=container.get_admin_user_usecase,
+            create_admin_user_usecase=container.create_admin_user_usecase,
+            update_admin_user_usecase=container.update_admin_user_usecase,
+            reset_admin_user_password_usecase=container.reset_admin_user_password_usecase,
+            replace_admin_user_roles_usecase=container.replace_admin_user_roles_usecase,
+            replace_admin_user_scopes_usecase=container.replace_admin_user_scopes_usecase,
+            delete_admin_user_usecase=container.delete_admin_user_usecase,
+        )
+
+    def read_codex_context(self, request: Request) -> CodexRouteContext:
+        container = self._container(request)
+        return CodexRouteContext(
+            revoke_codex_subject_agent_access_usecase=container.revoke_codex_subject_agent_access_usecase,
+            list_codex_hosts_usecase=container.list_codex_hosts_usecase,
+            list_codex_workspaces_usecase=container.list_codex_workspaces_usecase,
+            update_codex_workspace_usecase=container.update_codex_workspace_usecase,
+            update_codex_thread_preference_usecase=container.update_codex_thread_preference_usecase,
+            query_codex_threads_usecase=container.query_codex_threads_usecase,
+            execute_codex_thread_command_usecase=container.execute_codex_thread_command_usecase,
+            read_codex_thread_snapshot_usecase=container.read_codex_thread_snapshot_usecase,
+            manage_codex_approval_usecase=container.manage_codex_approval_usecase,
+        )
+
+    def read_streaming_context(self, request: Request) -> StreamingRouteContext:
+        auth = self.read_auth_context(request)
+        return StreamingRouteContext(
+            request_execution_bridge=auth.resource_mount.get_request_execution_bridge(),
+            resource_mount=auth.resource_mount,
+            authorization_guard=auth.authorization_guard,
+        )
 
     def read_route_context(self, request: Request) -> RouteDependencyContext:
         """
@@ -290,21 +469,21 @@ class DependencyContextAccessor:
         读取请求作用域。
         """
 
-        return self.read_route_context(request).request_scope
+        return self.read_auth_context(request).request_scope
 
     def read_response_factory(self, request: Request) -> ResponseEnvelopeFactory:
         """
         读取响应工厂。
         """
 
-        return self.read_route_context(request).response_factory
+        return self.read_auth_context(request).response_factory
 
     def read_health_probe_usecase(self, request: Request) -> HealthProbeUsecase:
         """
         读取健康探针用例。
         """
 
-        return self.read_route_context(request).health_probe_usecase
+        return self.read_system_context(request).health_probe_usecase
 
     def read_system_overview_usecase(
         self,
@@ -314,7 +493,7 @@ class DependencyContextAccessor:
         读取系统概览用例。
         """
 
-        return self.read_route_context(request).system_overview_usecase
+        return self.read_system_context(request).system_overview_usecase
 
     def read_issue_access_token_usecase(
         self,
@@ -324,7 +503,7 @@ class DependencyContextAccessor:
         读取签发访问令牌用例。
         """
 
-        return self.read_route_context(request).issue_access_token_usecase
+        return self.read_auth_context(request).issue_access_token_usecase
 
     def read_refresh_access_token_usecase(
         self,
@@ -334,7 +513,7 @@ class DependencyContextAccessor:
         读取刷新访问令牌用例。
         """
 
-        return self.read_route_context(request).refresh_access_token_usecase
+        return self.read_auth_context(request).refresh_access_token_usecase
 
     def read_revoke_access_token_usecase(
         self,
@@ -344,7 +523,7 @@ class DependencyContextAccessor:
         读取撤销访问令牌用例。
         """
 
-        return self.read_route_context(request).revoke_access_token_usecase
+        return self.read_auth_context(request).revoke_access_token_usecase
 
     def read_request_execution_bridge(
         self,
@@ -354,14 +533,14 @@ class DependencyContextAccessor:
         读取请求执行桥接器。
         """
 
-        return self.read_route_context(request).request_execution_bridge
+        return self.read_streaming_context(request).request_execution_bridge
 
     def read_ready_probe_enabled(self, request: Request) -> bool:
         """
         读取严格就绪探针开关。
         """
 
-        return self.read_route_context(request).ready_probe_enabled
+        return self.read_auth_context(request).ready_probe_enabled
 
     def read_resource_mount(self, request: Request) -> SharedResourceMount:
         """
@@ -373,7 +552,7 @@ class DependencyContextAccessor:
         :rtype: SharedResourceMount
         """
 
-        return self.read_route_context(request).resource_mount
+        return self.read_auth_context(request).resource_mount
 
     def read_reload_coordinator(self, request: Request) -> SettingsReloadCoordinator:
         """
@@ -385,7 +564,7 @@ class DependencyContextAccessor:
         :rtype: SettingsReloadCoordinator
         """
 
-        return self.read_route_context(request).reload_coordinator
+        return self.read_auth_context(request).reload_coordinator
 
     def read_list_admin_task_execution_records_usecase(
         self,
@@ -400,7 +579,7 @@ class DependencyContextAccessor:
         :rtype: ListAdminTaskExecutionRecordsUsecase
         """
 
-        return self.read_route_context(request).list_admin_task_execution_records_usecase
+        return self.read_admin_context(request).list_admin_task_execution_records_usecase
 
     def read_get_admin_task_execution_record_usecase(
         self,
@@ -415,7 +594,7 @@ class DependencyContextAccessor:
         :rtype: GetAdminTaskExecutionRecordUsecase
         """
 
-        return self.read_route_context(request).get_admin_task_execution_record_usecase
+        return self.read_admin_context(request).get_admin_task_execution_record_usecase
 
     def read_admin_task_runtime_usecase(
         self,
@@ -430,7 +609,7 @@ class DependencyContextAccessor:
         :rtype: ReadAdminTaskRuntimeUsecase
         """
 
-        return self.read_route_context(request).read_admin_task_runtime_usecase
+        return self.read_admin_context(request).read_admin_task_runtime_usecase
 
     def read_list_admin_task_registrations_usecase(
         self,
@@ -445,7 +624,7 @@ class DependencyContextAccessor:
         :rtype: ListAdminTaskRegistrationsUsecase
         """
 
-        return self.read_route_context(request).list_admin_task_registrations_usecase
+        return self.read_admin_context(request).list_admin_task_registrations_usecase
 
     def read_dispatch_admin_task_usecase(
         self,
@@ -460,7 +639,7 @@ class DependencyContextAccessor:
         :rtype: DispatchAdminTaskUsecase
         """
 
-        return self.read_route_context(request).dispatch_admin_task_usecase
+        return self.read_admin_context(request).dispatch_admin_task_usecase
 
     def read_build_admin_settings_reload_candidate_usecase(
         self,
@@ -475,7 +654,7 @@ class DependencyContextAccessor:
         :rtype: BuildAdminSettingsReloadCandidateUsecase
         """
 
-        return self.read_route_context(request).build_admin_settings_reload_candidate_usecase
+        return self.read_admin_context(request).build_admin_settings_reload_candidate_usecase
 
     def read_apply_admin_settings_reload_usecase(
         self,
@@ -490,7 +669,7 @@ class DependencyContextAccessor:
         :rtype: ApplyAdminSettingsReloadUsecase
         """
 
-        return self.read_route_context(request).apply_admin_settings_reload_usecase
+        return self.read_admin_context(request).apply_admin_settings_reload_usecase
 
     def read_list_admin_log_records_usecase(
         self,
@@ -505,7 +684,7 @@ class DependencyContextAccessor:
         :rtype: ListAdminLogRecordsUsecase
         """
 
-        return self.read_route_context(request).list_admin_log_records_usecase
+        return self.read_admin_context(request).list_admin_log_records_usecase
 
     def read_list_admin_security_events_usecase(
         self,
@@ -520,7 +699,7 @@ class DependencyContextAccessor:
         :rtype: ListAdminSecurityEventsUsecase
         """
 
-        return self.read_route_context(request).list_admin_security_events_usecase
+        return self.read_admin_context(request).list_admin_security_events_usecase
 
     def read_list_admin_security_ip_blocks_usecase(
         self,
@@ -530,7 +709,7 @@ class DependencyContextAccessor:
         读取管理员安全 IP 封禁列表用例。
         """
 
-        return self.read_route_context(request).list_admin_security_ip_blocks_usecase
+        return self.read_admin_context(request).list_admin_security_ip_blocks_usecase
 
     def read_create_admin_security_ip_block_usecase(
         self,
@@ -540,7 +719,7 @@ class DependencyContextAccessor:
         读取管理员安全 IP 封禁创建用例。
         """
 
-        return self.read_route_context(request).create_admin_security_ip_block_usecase
+        return self.read_admin_context(request).create_admin_security_ip_block_usecase
 
     def read_get_admin_security_ip_block_usecase(
         self,
@@ -550,7 +729,7 @@ class DependencyContextAccessor:
         读取管理员安全 IP 封禁详情用例。
         """
 
-        return self.read_route_context(request).get_admin_security_ip_block_usecase
+        return self.read_admin_context(request).get_admin_security_ip_block_usecase
 
     def read_release_admin_security_ip_block_usecase(
         self,
@@ -560,7 +739,7 @@ class DependencyContextAccessor:
         读取管理员安全 IP 封禁释放用例。
         """
 
-        return self.read_route_context(request).release_admin_security_ip_block_usecase
+        return self.read_admin_context(request).release_admin_security_ip_block_usecase
 
     def read_list_admin_audit_events_usecase(
         self,
@@ -575,7 +754,7 @@ class DependencyContextAccessor:
         :rtype: ListAdminAuditEventsUsecase
         """
 
-        return self.read_route_context(request).list_admin_audit_events_usecase
+        return self.read_admin_context(request).list_admin_audit_events_usecase
 
     def read_list_admin_scopes_usecase(
         self,
@@ -585,14 +764,14 @@ class DependencyContextAccessor:
         读取管理员 scope 列表用例。
         """
 
-        return self.read_route_context(request).list_admin_scopes_usecase
+        return self.read_admin_context(request).list_admin_scopes_usecase
 
     def read_get_admin_scope_usecase(self, request: Request) -> GetAdminScopeUsecase:
         """
         读取管理员 scope 详情用例。
         """
 
-        return self.read_route_context(request).get_admin_scope_usecase
+        return self.read_admin_context(request).get_admin_scope_usecase
 
     def read_create_admin_scope_usecase(
         self,
@@ -602,7 +781,7 @@ class DependencyContextAccessor:
         读取管理员 scope 创建用例。
         """
 
-        return self.read_route_context(request).create_admin_scope_usecase
+        return self.read_admin_context(request).create_admin_scope_usecase
 
     def read_update_admin_scope_usecase(
         self,
@@ -612,7 +791,7 @@ class DependencyContextAccessor:
         读取管理员 scope 更新用例。
         """
 
-        return self.read_route_context(request).update_admin_scope_usecase
+        return self.read_admin_context(request).update_admin_scope_usecase
 
     def read_delete_admin_scope_usecase(
         self,
@@ -622,7 +801,7 @@ class DependencyContextAccessor:
         读取管理员 scope 删除用例。
         """
 
-        return self.read_route_context(request).delete_admin_scope_usecase
+        return self.read_admin_context(request).delete_admin_scope_usecase
 
     def read_list_admin_roles_usecase(
         self,
@@ -632,14 +811,14 @@ class DependencyContextAccessor:
         读取管理员角色列表用例。
         """
 
-        return self.read_route_context(request).list_admin_roles_usecase
+        return self.read_admin_context(request).list_admin_roles_usecase
 
     def read_get_admin_role_usecase(self, request: Request) -> GetAdminRoleUsecase:
         """
         读取管理员角色详情用例。
         """
 
-        return self.read_route_context(request).get_admin_role_usecase
+        return self.read_admin_context(request).get_admin_role_usecase
 
     def read_create_admin_role_usecase(
         self,
@@ -649,7 +828,7 @@ class DependencyContextAccessor:
         读取管理员角色创建用例。
         """
 
-        return self.read_route_context(request).create_admin_role_usecase
+        return self.read_admin_context(request).create_admin_role_usecase
 
     def read_update_admin_role_usecase(
         self,
@@ -659,7 +838,7 @@ class DependencyContextAccessor:
         读取管理员角色更新用例。
         """
 
-        return self.read_route_context(request).update_admin_role_usecase
+        return self.read_admin_context(request).update_admin_role_usecase
 
     def read_replace_admin_role_scopes_usecase(
         self,
@@ -669,7 +848,7 @@ class DependencyContextAccessor:
         读取管理员角色 scope 替换用例。
         """
 
-        return self.read_route_context(request).replace_admin_role_scopes_usecase
+        return self.read_admin_context(request).replace_admin_role_scopes_usecase
 
     def read_delete_admin_role_usecase(
         self,
@@ -679,7 +858,7 @@ class DependencyContextAccessor:
         读取管理员角色删除用例。
         """
 
-        return self.read_route_context(request).delete_admin_role_usecase
+        return self.read_admin_context(request).delete_admin_role_usecase
 
     def read_list_admin_users_usecase(
         self,
@@ -689,14 +868,14 @@ class DependencyContextAccessor:
         读取管理员用户列表用例。
         """
 
-        return self.read_route_context(request).list_admin_users_usecase
+        return self.read_admin_context(request).list_admin_users_usecase
 
     def read_get_admin_user_usecase(self, request: Request) -> GetAdminUserUsecase:
         """
         读取管理员用户详情用例。
         """
 
-        return self.read_route_context(request).get_admin_user_usecase
+        return self.read_admin_context(request).get_admin_user_usecase
 
     def read_create_admin_user_usecase(
         self,
@@ -706,7 +885,7 @@ class DependencyContextAccessor:
         读取管理员用户创建用例。
         """
 
-        return self.read_route_context(request).create_admin_user_usecase
+        return self.read_admin_context(request).create_admin_user_usecase
 
     def read_update_admin_user_usecase(
         self,
@@ -716,7 +895,7 @@ class DependencyContextAccessor:
         读取管理员用户更新用例。
         """
 
-        return self.read_route_context(request).update_admin_user_usecase
+        return self.read_admin_context(request).update_admin_user_usecase
 
     def read_reset_admin_user_password_usecase(
         self,
@@ -726,7 +905,7 @@ class DependencyContextAccessor:
         读取管理员用户密码重置用例。
         """
 
-        return self.read_route_context(request).reset_admin_user_password_usecase
+        return self.read_admin_context(request).reset_admin_user_password_usecase
 
     def read_replace_admin_user_roles_usecase(
         self,
@@ -736,7 +915,7 @@ class DependencyContextAccessor:
         读取管理员用户角色替换用例。
         """
 
-        return self.read_route_context(request).replace_admin_user_roles_usecase
+        return self.read_admin_context(request).replace_admin_user_roles_usecase
 
     def read_replace_admin_user_scopes_usecase(
         self,
@@ -744,7 +923,7 @@ class DependencyContextAccessor:
     ) -> ReplaceAdminUserScopesUsecase:
         """读取管理员用户直接 scope 替换用例。"""
 
-        return self.read_route_context(request).replace_admin_user_scopes_usecase
+        return self.read_admin_context(request).replace_admin_user_scopes_usecase
 
     def read_delete_admin_user_usecase(
         self,
@@ -754,7 +933,7 @@ class DependencyContextAccessor:
         读取管理员用户删除用例。
         """
 
-        return self.read_route_context(request).delete_admin_user_usecase
+        return self.read_admin_context(request).delete_admin_user_usecase
 
     def read_revoke_codex_subject_agent_access_usecase(
         self,
@@ -762,12 +941,12 @@ class DependencyContextAccessor:
     ) -> RevokeCodexSubjectAgentAccessUsecase:
         """读取按主体撤销 Codex Agent 在线访问用例。"""
 
-        return self.read_route_context(request).revoke_codex_subject_agent_access_usecase
+        return self.read_codex_context(request).revoke_codex_subject_agent_access_usecase
 
     def read_list_codex_hosts_usecase(self, request: Request) -> ListCodexHostsUsecase:
         """读取 Codex 主机列表用例。"""
 
-        return self.read_route_context(request).list_codex_hosts_usecase
+        return self.read_codex_context(request).list_codex_hosts_usecase
 
     def read_list_codex_workspaces_usecase(
         self,
@@ -775,7 +954,7 @@ class DependencyContextAccessor:
     ) -> ListCodexWorkspacesUsecase:
         """读取 Codex 工作区列表用例。"""
 
-        return self.read_route_context(request).list_codex_workspaces_usecase
+        return self.read_codex_context(request).list_codex_workspaces_usecase
 
     def read_update_codex_workspace_usecase(
         self,
@@ -783,12 +962,12 @@ class DependencyContextAccessor:
     ) -> UpdateCodexWorkspaceUsecase:
         """读取 Codex 工作区更新用例。"""
 
-        return self.read_route_context(request).update_codex_workspace_usecase
+        return self.read_codex_context(request).update_codex_workspace_usecase
 
     def read_query_codex_threads_usecase(self, request: Request) -> QueryCodexThreadsUsecase:
         """读取 Codex 线程索引查询用例。"""
 
-        return self.read_route_context(request).query_codex_threads_usecase
+        return self.read_codex_context(request).query_codex_threads_usecase
 
     def read_update_codex_thread_preference_usecase(
         self,
@@ -796,7 +975,7 @@ class DependencyContextAccessor:
     ) -> UpdateCodexThreadPreferenceUsecase:
         """读取 Codex 会话置顶偏好更新用例。"""
 
-        return self.read_route_context(request).update_codex_thread_preference_usecase
+        return self.read_codex_context(request).update_codex_thread_preference_usecase
 
     def read_execute_codex_thread_command_usecase(
         self,
@@ -804,7 +983,7 @@ class DependencyContextAccessor:
     ) -> ExecuteCodexThreadCommandUsecase:
         """读取 Codex thread/turn 命令受理用例。"""
 
-        return self.read_route_context(request).execute_codex_thread_command_usecase
+        return self.read_codex_context(request).execute_codex_thread_command_usecase
 
     def read_codex_thread_snapshot_usecase(
         self,
@@ -812,7 +991,7 @@ class DependencyContextAccessor:
     ) -> ReadCodexThreadSnapshotUsecase:
         """读取 Codex thread 权威 snapshot 用例。"""
 
-        return self.read_route_context(request).read_codex_thread_snapshot_usecase
+        return self.read_codex_context(request).read_codex_thread_snapshot_usecase
 
     def read_manage_codex_approval_usecase(
         self,
@@ -820,7 +999,7 @@ class DependencyContextAccessor:
     ) -> ManageCodexApprovalUsecase:
         """读取 Codex 审批状态机用例。"""
 
-        return self.read_route_context(request).manage_codex_approval_usecase
+        return self.read_codex_context(request).manage_codex_approval_usecase
 
     def read_authenticated_principal(self, request: Request) -> AuthenticatedPrincipal:
         """
@@ -863,7 +1042,7 @@ class DependencyContextAccessor:
 
         principal = self.read_authenticated_principal(request)
         try:
-            self.read_route_context(request).authorization_guard.assert_requirement(
+            self.read_auth_context(request).authorization_guard.assert_requirement(
                 principal=principal,
                 requirement=requirement,
             )

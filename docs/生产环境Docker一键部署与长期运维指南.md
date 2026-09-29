@@ -1,231 +1,78 @@
-# 生产环境 Docker 一键部署与长期运维指南
+# 生产环境 Docker 部署与长期运维指南
 
-## 1. 文档定位
+## 文档边界
 
-本文是当前生产栈的部署与运维单一入口，适用于以下固定环境：
+本文是通用生产 runbook。真实主机地址、域名、仓库地址、部署目录、SSH 用户、密钥和 Secret 必须由受控部署系统注入，不能写入仓库文档。示例中的 `<...>` 均为部署参数，占位符不能直接用于生产。
 
-| 项目 | 当前值 |
-| --- | --- |
-| 云服务器 | 阿里云 ECS，实例 ID `i-2zegta8rnz1jge9pjt5n` |
-| 公网 IP | `39.96.201.189` |
-| 主私网 IP | `172.28.156.183` |
-| 操作系统 | Ubuntu 24.04 64 位 |
-| 实例规格 | `ecs.e-c1m1.large` |
-| CPU / 内存 | 2 vCPU / 2 GiB |
-| 系统盘 | 40 GiB ESSD Entry 云盘 |
-| 公网带宽 | 3 Mbps，按固定带宽计费 |
-| 付费类型 | 包年包月 |
-| 到期时间 | 2027-08-22 23:59:59 |
-| 自动续费 | 手动续费 |
-| 创建时间 | 2026-08-22 12:14:00 |
-| SSH 用户 | `root`，后续建议迁移到专用部署用户 |
-| 后端仓库 | `git@github-backend:1nuo123/python-web-fastapi.git` |
-| 前端仓库 | `git@github-frontend:1nuo123/typescript-web-nuxt.git` |
-| 部署根目录 | `/opt/web` |
-| 当前入口 | `https://nuotop.xyz` |
-| 正式域名 | `nuotop.xyz` |
-| 注册策略 | 允许公开注册 |
-| 任务拓扑 | Web 生产者 + 独立 `task-worker` 消费者 |
+生产拓扑保持清晰的单一入口：Caddy 只暴露 80/443，FastAPI、Nuxt、PostgreSQL、Redis、RabbitMQ 和 task-worker 仅在内部 Compose 网络通信。数据库是业务事实源，Outbox/执行记录负责任务投递与恢复，Redis 和 RabbitMQ 的卷只提供重启连续性，不替代数据库备份。
 
-本文从服务器拉取代码开始，覆盖首次初始化、发布、更新、备份、恢复、回滚、日志、监控、安全和域名 HTTPS 验收。Windows Agent 工作区属于用户电脑，不部署到云服务器。
+## 部署参数
 
-## 2. 生产架构与边界
-
-```text
-Internet
-   |
-   | TCP 80/443, UDP 443 optional
-   v
-Caddy gateway
-   |-- /auth, /health, /codex/events... -> FastAPI app:8000
-   `-- page and /api proxy                  -> Nuxt frontend:3000
-
-FastAPI app ---- PostgreSQL
-      |          Redis
-      |          RabbitMQ ---- task-worker
-      `---- production edge network ---- Caddy/Nuxt
-```
-
-生产容器分为三个固定 Compose 项目：
-
-| Compose 项目 | 服务 |
-| --- | --- |
-| `fastapi-web-production` | `postgres`、`redis`、`rabbitmq`、`migration`、`app`、`task-worker` |
-| `typescript-web-production` | `frontend` |
-| `fastapi-web-production-caddy` | `caddy` |
-
-只有 Caddy 发布公网端口。PostgreSQL、Redis、RabbitMQ、FastAPI 和 Nuxt 不发布宿主机端口。
-
-持久化边界：
-
-| 命名卷 | 内容 | 备份定位 |
-| --- | --- | --- |
-| `fastapi-web-production_postgres_data` | 权威业务数据 | 必须使用 `pg_dump` 定期备份并异地保存 |
-| `fastapi-web-production_redis_data` | Redis AOF、流式短期状态 | 重启连续性，不替代 PostgreSQL 备份 |
-| `fastapi-web-production_rabbitmq_data` | RabbitMQ 队列状态 | 重启连续性，任务最终恢复仍以数据库 Outbox/执行记录为准 |
-| `fastapi-web-production-caddy_caddy_data` | TLS 证书和 Caddy 状态 | 必须纳入主机或卷备份 |
-| `fastapi-web-production-caddy_caddy_config` | Caddy 运行配置 | 可重建，但建议与证书卷一起保护 |
-
-生产容器使用 JSON 日志轮转：单文件最大 `20m`，每个容器最多保留 5 个文件。它只能控制容器日志，不能控制 Docker 镜像和构建缓存占用。
-
-## 3. 服务器接入与部署前准备
-
-### 3.1 配置并验证 SSH 登录
-
-本机登录密钥固定为 `C:\Users\ThinkPad\.ssh\aliyun_fastapi`，服务器公网 IP 固定为 `39.96.201.189`。在 Windows PowerShell 执行：
-
-```powershell
-ssh -i "C:\Users\ThinkPad\.ssh\aliyun_fastapi" root@39.96.201.189
-```
-
-也可以在本机 `C:\Users\ThinkPad\.ssh\config` 中添加别名，后续统一使用 `ssh aliyun-fastapi`：
-
-```sshconfig
-Host aliyun-fastapi
-    HostName 39.96.201.189
-    User root
-    IdentityFile C:/Users/ThinkPad/.ssh/aliyun_fastapi
-    IdentitiesOnly yes
-```
-
-```powershell
-ssh aliyun-fastapi
-```
-
-后续所有操作统一使用 SSH 别名 `aliyun-fastapi`、公网 IP `39.96.201.189` 和部署根目录 `/opt/web`。
-
-### 3.2 确认 SSH 用户与 sudo
-
-登录后在 Ubuntu 终端执行：
+在受控终端设置以下变量，或通过 Secret Manager/CI 注入：
 
 ```bash
-whoami
-id
-command -v sudo
-sudo -n true && echo "sudo available"
+export DEPLOY_HOST='<production-host>'
+export DEPLOY_USER='<deploy-user>'
+export DEPLOY_ROOT='<deployment-root>'
+export SITE_ADDRESS='<production-domain>'
+export BACKEND_REPO='<backend-repository>'
+export FRONTEND_REPO='<frontend-repository>'
+export SSH_KEY='<path-to-deployment-key>'
 ```
 
-当前部署流程的预期用户是 `root`，`whoami` 应输出 `root`。使用 `root` 时部署命令不需要额外添加 `sudo`；若实际登录的是普通用户，应先确认该用户拥有 sudo 权限，再执行 `sudo -i` 进入 root 登录 Shell。后续密钥路径和部署命令均以 `/root` 为主目录，不要在普通用户与 root 之间混用密钥。
+部署账号使用最小权限，Docker 管理权限、备份目录和发布目录按职责授予。禁止使用 `root` 作为日常发布账号，禁止把私钥、密码或初始管理员凭据写入命令历史、日志或文档。
 
-### 3.3 开放阿里云安全组
+## 首次部署
 
-进入阿里云 ECS 实例的“安全组 → 配置规则 → 入方向”，添加或确认以下规则：
-
-| 协议 | 端口 | 来源 | 说明 |
-| --- | --- | --- | --- |
-| TCP | 22 | 当前管理公网 IP `/32` | 不建议长期保留 `0.0.0.0/0` |
-| TCP | 80 | `0.0.0.0/0` | HTTP 和证书签发跳转 |
-| TCP | 443 | `0.0.0.0/0` | HTTPS |
-| UDP | 443 | `0.0.0.0/0` | 可选，用于 HTTP/3 |
-
-不要开放 `5432`、`6379`、`5672`、`15672`、`8000` 或 `3000`。修改 22 端口来源前先确认当前公网 IP，避免把自己锁在服务器外。
-
-### 3.4 配置两套 GitHub Deploy Key
-
-前后端仓库必须使用相互独立的只读 Deploy Key。以下命令全部在服务器的 Ubuntu root 终端执行。
-
-先检查目标密钥是否已经存在：
+1. 在受控终端验证 SSH 主机指纹，并使用专用部署账号连接：
 
 ```bash
-ls -l /root/.ssh/github_backend_deploy* /root/.ssh/github_frontend_deploy* 2>/dev/null || true
+ssh -i "$SSH_KEY" "$DEPLOY_USER@$DEPLOY_HOST"
 ```
 
-若已经存在且 GitHub Deploy Key 仍然有效，不要重新生成或覆盖；以下生成命令仅用于首次配置或经过计划的密钥轮换。确认目标文件不存在后，创建 SSH 目录并生成两套密钥：
+2. 在服务器创建部署根目录并拉取固定提交：
 
 ```bash
-install -d -m 700 /root/.ssh
-
-ssh-keygen -t ed25519 \
-  -C "aliyun-fastapi-backend" \
-  -f /root/.ssh/github_backend_deploy \
-  -N ""
-
-ssh-keygen -t ed25519 \
-  -C "aliyun-nuxt-frontend" \
-  -f /root/.ssh/github_frontend_deploy \
-  -N ""
+install -d -m 750 "$DEPLOY_ROOT"
+git clone "$BACKEND_REPO" "$DEPLOY_ROOT/backend"
+git clone "$FRONTEND_REPO" "$DEPLOY_ROOT/frontend"
+git -C "$DEPLOY_ROOT/backend" checkout --detach <backend-commit>
+git -C "$DEPLOY_ROOT/frontend" checkout --detach <frontend-commit>
 ```
 
-查看两份公钥：
+3. 通过受控 Secret 注入生成后端和前端生产环境文件，权限设为 `600`。生产环境不得从开发 `.env` 文件回退到弱默认值。一次性 bootstrap 凭据成功使用后立即吊销并删除。
+
+4. 先构建镜像，再按 `postgres`、`redis`、`rabbitmq`、`migration`、`app`、`task-worker`、`frontend`、`caddy` 顺序启动。Compose 命令必须显式指定项目名、环境文件和生产 overlay：
 
 ```bash
-cat /root/.ssh/github_backend_deploy.pub
-cat /root/.ssh/github_frontend_deploy.pub
+docker compose --project-name <backend-project> \
+  --project-directory "$DEPLOY_ROOT/backend" \
+  --env-file "$DEPLOY_ROOT/backend/.env.production.local" \
+  -f "$DEPLOY_ROOT/backend/compose.yml" \
+  -f "$DEPLOY_ROOT/backend/compose.production.yml" \
+  up -d --build postgres redis rabbitmq migration app task-worker
+
+docker compose --project-name <frontend-project> \
+  --project-directory "$DEPLOY_ROOT/frontend" \
+  --env-file "$DEPLOY_ROOT/frontend/.env.production.local" \
+  -f "$DEPLOY_ROOT/frontend/compose.yml" \
+  -f "$DEPLOY_ROOT/frontend/compose.production.yml" \
+  up -d --build frontend
 ```
 
-只复制 `.pub` 文件的一整行内容，绝对不要复制或泄露没有 `.pub` 后缀的私钥。
-
-分别进入 GitHub 的对应仓库，依次选择 `Settings → Deploy keys → Add deploy key`：
-
-| 仓库 | Title | Key | Allow write access |
-| --- | --- | --- | --- |
-| `1nuo123/python-web-fastapi` | `aliyun-fastapi-backend` | `github_backend_deploy.pub` 的完整内容 | 不勾选 |
-| `1nuo123/typescript-web-nuxt` | `aliyun-nuxt-frontend` | `github_frontend_deploy.pub` 的完整内容 | 不勾选 |
-
-在服务器创建 `/root/.ssh/config`：
+5. 启动 Caddy 及其共享 edge 网络，然后执行分层验收。Caddy 使用后端仓库 `deploy/caddy/compose.yml`，其 `EDGE_NETWORK_NAME` 必须与后端 `compose.caddy.yml` 和生产前端接线一致。不要使用 `down -v` 作为普通更新操作。
 
 ```bash
-cat > /root/.ssh/config <<'EOF'
-Host github-backend
-    HostName github.com
-    User git
-    Port 22
-    IdentityFile /root/.ssh/github_backend_deploy
-    IdentitiesOnly yes
-
-Host github-frontend
-    HostName github.com
-    User git
-    Port 22
-    IdentityFile /root/.ssh/github_frontend_deploy
-    IdentitiesOnly yes
-EOF
+docker compose --project-name <edge-project> \
+  --project-directory "$DEPLOY_ROOT/backend/deploy/caddy" \
+  --env-file "$DEPLOY_ROOT/backend/.env.production.local" \
+  -f "$DEPLOY_ROOT/backend/deploy/caddy/compose.yml" \
+  up -d caddy
 ```
 
-设置最小必要权限：
+生产 Compose 应拆分为后端项目、前端项目和 edge/Caddy 项目；只有 Caddy 发布宿主机 80/443 端口。PostgreSQL、Redis、RabbitMQ、FastAPI 和 Nuxt 不发布宿主机端口。命名卷的恢复优先级如下：PostgreSQL 业务数据必须做 `pg_dump`，Redis/RabbitMQ 只提供重启连续性，Caddy 数据保存证书和网关状态。容器日志启用 JSON 轮转，并单独监控 Docker 镜像、构建缓存和备份目录空间。
 
-```bash
-chmod 700 /root/.ssh
-chmod 600 /root/.ssh/config
-chmod 600 /root/.ssh/github_backend_deploy
-chmod 600 /root/.ssh/github_frontend_deploy
-chmod 644 /root/.ssh/github_backend_deploy.pub
-chmod 644 /root/.ssh/github_frontend_deploy.pub
-```
-
-先打印 GitHub 当前提供的 SSH 主机密钥指纹，并与 GitHub 官方公布的 SSH host key fingerprints 核对：
-
-```bash
-ssh-keyscan -t ed25519,ecdsa,rsa github.com 2>/dev/null | ssh-keygen -lf -
-```
-
-确认一致后写入 `known_hosts`：
-
-```bash
-ssh-keyscan -H github.com >> /root/.ssh/known_hosts
-chmod 644 /root/.ssh/known_hosts
-cat /root/.ssh/config
-```
-
-分别测试认证和仓库只读访问：
-
-```bash
-ssh -T github-backend
-ssh -T github-frontend
-
-git ls-remote git@github-backend:1nuo123/python-web-fastapi.git refs/heads/main
-git ls-remote git@github-frontend:1nuo123/typescript-web-nuxt.git refs/heads/main
-```
-
-认证成功时会显示类似内容：
-
-```text
-Hi 1nuo123/python-web-fastapi! You've successfully authenticated, but GitHub does not provide shell access.
-```
-
-GitHub 不提供 Shell，因此 `ssh -T` 最终返回非零状态也可能是正常的，重点是出现 `successfully authenticated`。两条 `git ls-remote` 都能返回 `main` 引用后，才继续部署。Deploy Key 只需要读权限，服务器不应直接提交或推送生产代码。
-
-### 3.5 主机工具
+首次部署前检查主机工具和资源：
 
 ```bash
 git --version
@@ -234,557 +81,126 @@ docker compose version
 openssl version
 sha256sum --version | head -n 1
 curl --version | head -n 1
-```
-
-当前脚本要求 `git`、`docker`、`docker compose`、`openssl`、`sha256sum` 和 `curl`。
-
-### 3.6 2 GiB 小规格资源档位
-
-此 ECS 是 `2 vCPU / 2 GiB`，必须使用 `small` 档位，不能按默认 `standard` 档位首次部署。服务器实测可分配总内存约 `1.6 GiB`，因此 `small` 的稳态容器内存上限控制在 `1,120 MiB`，为 Ubuntu、Docker daemon、内核页缓存和短期波动保留约 `500 MiB`；`migration` 的 `256 MiB` 只在迁移阶段占用，完成后退出。
-
-| 服务 | 内存上限 | CPU 上限 |
-| --- | ---: | ---: |
-| PostgreSQL | 160 MiB | 0.30 |
-| Redis | 64 MiB | 0.10 |
-| RabbitMQ | 160 MiB | 0.30 |
-| FastAPI app | 320 MiB | 0.55 |
-| task-worker | 192 MiB | 0.25 |
-| Nuxt frontend | 160 MiB | 0.20 |
-| Caddy | 64 MiB | 0.10 |
-| **稳态合计** | **1,120 MiB** | **1.80** |
-
-部署脚本会先按单并发顺序构建后端和前端镜像，再启动运行时服务；小档位将 Nuxt 构建进程的 Node old-space 限制为 `1024 MiB`。这降低构建时与运行时服务争用内存的风险，但不能把 2 GiB 机器变成高并发规格。
-
-首次部署前应启用 `2 GiB` 持久 swap 作为 OOM 缓冲。已存在 swap 时先评估其容量，不要重复创建：
-
-```bash
 free -h
 swapon --show
-
-# 仅当上一步没有任何 swap 时执行。
-fallocate -l 2G /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
-printf '/swapfile none swap sw 0 0\n' >> /etc/fstab
-
-cat > /etc/sysctl.d/99-fastapi-web-memory.conf <<'EOF'
-vm.swappiness=10
-EOF
-sysctl --system
-
-swapon --show
-free -h
+df -h /
 ```
 
-swap 只用于吸收构建尖峰和避免宿主机被 OOM killer 直接终止，不能作为常态内存容量。若 `docker stats --no-stream` 长期接近上限、出现 OOMKilled、请求延迟明显上升或 RabbitMQ 持续积压，应先升级到至少 `2 vCPU / 4 GiB`，再考虑提高并发。
+服务器容量必须按实际规格选择 Compose resource profile。小规格主机应串行构建镜像，必要时配置受控 swap；swap 只能吸收构建尖峰，不能替代扩容。
 
-## 4. 首次一键部署
+## 迁移与发布
 
-### 4.1 创建部署根目录
-
-确认当前仍在服务器的 Ubuntu root 终端，然后创建固定部署根目录：
+当前源码 Alembic head 以 `src/infrastructure/persistence/alembic/versions` 的 revision graph 为准；文档当前记录的 head 是 `202609291900`。每次发布前在隔离环境执行：
 
 ```bash
-install -d -m 755 /opt/web
-cd /opt/web
-pwd
+docker compose --project-name <backend-project> \
+  --project-directory "$DEPLOY_ROOT/backend" \
+  --env-file "$DEPLOY_ROOT/backend/.env.production.local" \
+  -f "$DEPLOY_ROOT/backend/compose.yml" \
+  -f "$DEPLOY_ROOT/backend/compose.production.yml" \
+  run --rm migration
 ```
 
-`pwd` 必须输出 `/opt/web`。前后端仓库、生产环境文件和部署脚本全部以该目录为统一根目录。
+迁移必须先完成并验证，再切换依赖新结构的应用镜像。迁移脚本应保持向后兼容；不可逆迁移必须在发布说明中给出数据库恢复方案。源码 head、部署脚本声明和本文件不一致时，发布立即停止，先更新事实记录。
 
-### 4.2 拉取两个仓库
+更新时固定提交、备份数据库、构建新镜像、运行迁移、滚动重建 app/worker/frontend，并检查旧容器已退出。不要只执行 `docker compose restart`，它不会构建代码，也不会执行新迁移。
+
+推荐发布命令：
 
 ```bash
-cd /opt/web
-
-git clone git@github-backend:1nuo123/python-web-fastapi.git
-git clone git@github-frontend:1nuo123/typescript-web-nuxt.git
+cd "$DEPLOY_ROOT/backend"
+<deploy-script> doctor
+<deploy-script> backup
+<deploy-script> update
+<deploy-script> status
 ```
 
-必须保持两个仓库为兄弟目录：
+发布前应确认前后端工作树干净、提交已记录、数据库备份和校验文件已生成、迁移在隔离环境通过。`update` 只能快进到已审阅提交，不能在服务器执行强制重置或直接推送代码。
 
-```text
-/opt/web/
-  python-web-fastapi/
-  typescript-web-nuxt/
-```
+## 配置与 Secret 生命周期
 
-### 4.3 执行首次初始化
+生产环境文件由 Secret Manager、Docker secrets 或受控 CI 变量生成，权限设为 `600`，不得从开发 `.env` 回退到弱默认值。数据库、Redis、RabbitMQ、JWT、bootstrap 和 TLS 相关凭据分开管理；一次性 bootstrap 凭据成功使用后立即吊销并删除。Secret 轮换应先备份并在维护窗口内同步更新依赖服务，不能只改环境文件而不修改服务端凭据。
+
+常规部署检查：
 
 ```bash
-cd /opt/web/python-web-fastapi
-PRODUCTION_RESOURCE_PROFILE=small \
-  PRODUCTION_SITE_ADDRESS=nuotop.xyz \
-  bash deploy/production.sh bootstrap
+stat -c '%a %U:%G %n' "$DEPLOY_ROOT/backend/.env.production.local" \
+  "$DEPLOY_ROOT/frontend/.env.production.local"
 ```
 
-该命令一次完成：
+真实环境文件、数据库 dump、私钥、token 和日志不得提交 Git、写入聊天记录、工单附件、普通备份或构建产物。发现曾经暴露的凭据时按已泄露处理并轮换，不要只依赖 `.gitignore`。
 
-1. 生成强随机 PostgreSQL、Redis、RabbitMQ、JWT 和管理员密钥。
-2. 创建权限为 `600` 的后端、前端和一次性管理员环境文件。
-3. 创建内部网络 `fastapi-web-production-edge`，固定子网 `172.30.0.0/24`。
-4. 校验三个 Compose 项目。
-5. 单并发构建后端和 Nuxt 镜像，随后启动 PostgreSQL、Redis、RabbitMQ、数据库迁移、FastAPI、Worker、Nuxt 和 Caddy。
-6. 创建用户名为 `admin` 的初始管理员。
-7. 通过本机 `127.0.0.1:443` 检查 `https://nuotop.xyz/health/ready` 的证书和路由。
-
-`bootstrap` 只用于全新环境。只要任一生产环境文件已存在，它就会拒绝覆盖，防止意外重置密钥。
-
-如果域名尚未完成备案、DNS 尚未生效或证书暂时无法签发，`bootstrap` 可能在最后的 HTTPS readiness 检查处返回失败，但此前完成的环境文件生成、镜像构建、数据库迁移、管理员创建和容器启动不会因此自动回滚。此时应按 4.4 节分层验收，不能删除环境文件后重跑 `bootstrap`。
-
-该命令会把 `PRODUCTION_RESOURCE_PROFILE=small` 写入两个生产环境文件；后续 `deploy`、`update`、`doctor` 和 `config` 自动复用该档位，不需要重复设置环境变量。只在迁移到容量更高的服务器并完成容量验证后，才将它改为 `standard`。
-
-执行过程中会直接打印随机生成的管理员密码。不要使用 `tee` 把完整输出写入普通日志。将密码保存到密码管理器，完成登录验证后删除一次性文件：
+## 验收
 
 ```bash
-rm -f /opt/web/python-web-fastapi/.env.initial-admin.local
+curl -fsS "https://$SITE_ADDRESS/health/live"
+curl -fsS "https://$SITE_ADDRESS/health/ready"
+docker compose --project-name <backend-project> ps
+docker compose --project-name <backend-project> logs --tail=200 app task-worker migration
 ```
 
-删除后，日常 `deploy` 和 `update` 仍可正常运行，不会再次创建管理员。
+验收至少覆盖登录、权限拒绝、数据库读写、任务提交与消费、实时连接、前端静态资源和 Caddy HTTPS。进程存活不能替代 worker 的 Broker、consumer 和 handler readiness 检查。
 
-### 4.4 首次验收
+发布后保存以下证据：代码提交、migration head、配置 profile、容器状态、`/health/live` 与 `/health/ready` 响应、任务提交和消费结果、实时连接结果、备份文件校验值以及异常日志摘要。任何一项失败都不能标记发布完成。
 
-先验收不依赖域名备案和公网证书的容器层状态：
+## 备份与恢复
+
+使用受控备份任务执行 `pg_dump` 并异地保存，定期验证可恢复性。Redis、RabbitMQ、Caddy 状态卷按恢复目标备份，但不能替代 PostgreSQL 备份。恢复演练必须在隔离环境完成登录、迁移、任务和实时连接验证后再考虑生产切换。
+
+建议每次数据库备份同时写出校验和、代码提交、数据库 head、备份时间和环境标识元数据。备份保留策略应至少覆盖日备、周备和月备，并为备份失败、空间不足和备份过期设置告警。恢复前先保留当前数据库备份，停止公网写入，在隔离环境验证目标 dump 与目标代码兼容，再执行恢复。
+
+通用恢复步骤：
 
 ```bash
-cd /opt/web/python-web-fastapi
-docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+<compose> stop gateway frontend app task-worker
+<compose> exec -T postgres sh -c \
+  'dropdb --if-exists --maintenance-db=postgres -U "$POSTGRES_USER" "$POSTGRES_DB" && \
+   createdb --maintenance-db=postgres -U "$POSTGRES_USER" "$POSTGRES_DB"'
+<compose> exec -T postgres sh -c \
+  'pg_restore --exit-on-error --no-owner --no-privileges -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < <dump-path>
+<deploy-script> deploy
+<deploy-script> status
 ```
 
-PostgreSQL、Redis、RabbitMQ、FastAPI App、task-worker、Nuxt frontend 和 Caddy 应处于 `Up`，带健康检查的长期运行服务应显示 `healthy`；`migration` 成功执行后显示 `Exited (0)` 属于正常状态。
+恢复失败时保留日志并转移到隔离数据库定位问题，禁止反复覆盖同一生产库。
 
-域名完成备案、DNS 已指向 `39.96.201.189` 且 TCP 80/443 可达后，再执行公网 HTTPS 验收：
+## 回滚
+
+回滚前记录代码提交、数据库 head、Outbox 状态计数和队列深度。兼容迁移可回滚镜像并继续运行；不兼容迁移必须同时恢复与旧代码匹配的数据库备份。Secret 轮换只能通过受控注入回滚，禁止恢复工作区明文文件。
+
+回滚只允许切换到已知提交或已验证备份。迁移不可逆时，旧镜像不能单独回滚；必须同时恢复匹配的数据库快照，并重新执行迁移和健康检查。回滚完成后复核登录、任务消费、Outbox 重扫、实时连接、前端静态资源和 TLS。
+
+## 日志、监控与容量
 
 ```bash
-bash deploy/production.sh status
-curl -I http://nuotop.xyz
-curl -fsS https://nuotop.xyz/health/ready
-```
-
-浏览器访问：
-
-```text
-https://nuotop.xyz
-```
-
-需要确认：
-
-- 页面加载正常。
-- `admin` 可以登录。
-- 新用户可以公开注册。
-- `app` 和 `task-worker` 均为运行/健康状态。
-- PostgreSQL、Redis、RabbitMQ 没有发布公网端口。
-- 重启 Docker 后容器能按 `restart: unless-stopped` 自动恢复。
-
-若备案或 DNS 尚未生效，`curl` 可能出现 TLS 握手或证书签发错误。此时容器全部健康表示应用栈已经部署完成，但不代表公网生产入口已经验收通过。可使用以下命令检查 Caddy，待备案和 DNS 生效后直接重新执行 HTTPS 验收；Caddy 会自动重试证书申请，通常不需要重新运行 `bootstrap`：
-
-```bash
-bash deploy/production.sh logs caddy
-curl -Iv https://nuotop.xyz
-```
-
-刷新令牌 Cookie 保持 `Secure`，Windows Agent 使用 WSS，因此完整生产验收必须确保域名已解析到服务器且 TCP 80/443 可达。Caddy 自动签发证书成功后，再完成浏览器和 Agent 验收。
-
-### 4.5 Codex Remote 内部体验入口
-
-该节保留 "Codex Remote 发布门禁" 的检索别名，当前门禁已调整为内部体验发布资产、账户权限和设备授权的前置检查。
-
-正式发布通道仍要求 Authenticode 签名、TUF 发布元数据、下载与更新验收，以及域名 HTTPS/WSS 全链路验收。
-
-首次 `bootstrap` 默认将 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED` 设为 `true`，以启用已选择的内部体验下载和完整 Codex Remote 入口。该入口只适用于 `internal` 发布模式：GitHub Release 必须已公开 `v0.1.16` 的 MSI、`internal-release.json` 和 `SHA256SUMS.json`，并且后端生产配置中的版本、SHA-256 和 Release URL 必须与附件一致。
-
-如需在首次初始化时明确指定，使用：
-
-```bash
-cd /opt/web/python-web-fastapi
-PRODUCTION_CODEX_FEATURE_ENABLED=true bash deploy/production.sh bootstrap
-```
-
-已初始化的服务器不应重复执行 `bootstrap`。若其前端环境文件仍为 `false`，使用安全编辑器将 `/opt/web/typescript-web-nuxt/.env.production.local` 中的 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED` 改为 `true`，然后执行 `bash deploy/production.sh deploy` 重新构建前端。关闭时将其改回 `false` 并重新执行 `deploy`；该开关只控制前端入口，不能替代后端授权、设备授权或 Agent 发布校验。
-
-## 5. 统一运维命令
-
-所有命令从后端目录执行：
-
-```bash
-cd /opt/web/python-web-fastapi
-```
-
-| 命令 | 用途 | 构建镜像 | 拉取代码 | 数据库备份 |
-| --- | --- | --- | --- | --- |
-| `bash deploy/production.sh bootstrap` | 仅首次初始化 | 是 | 否 | 否，新库 |
-| `bash deploy/production.sh doctor` | 检查工具、仓库、环境和 Compose | 否 | 否 | 否 |
-| `bash deploy/production.sh config` | 只校验 Compose | 否 | 否 | 否 |
-| `bash deploy/production.sh deploy` | 发布当前检出的两个版本 | 是 | 否 | 否 |
-| `bash deploy/production.sh update` | 两仓库快进更新并发布 | 是 | 是 | PostgreSQL 运行时自动备份 |
-| `bash deploy/production.sh status` | 状态、版本、磁盘和就绪检查 | 否 | 否 | 否 |
-| `bash deploy/production.sh logs backend` | 后端最近 200 行日志 | 否 | 否 | 否 |
-| `bash deploy/production.sh logs frontend` | 前端最近 200 行日志 | 否 | 否 | 否 |
-| `bash deploy/production.sh logs caddy` | Caddy 最近 200 行日志 | 否 | 否 | 否 |
-| `bash deploy/production.sh follow backend` | 持续跟随后端日志 | 否 | 否 | 否 |
-| `bash deploy/production.sh backup` | PostgreSQL 自定义格式备份 | 否 | 否 | 是 |
-| `bash deploy/production.sh stop` | 停止全栈但保留卷 | 否 | 否 | 否 |
-| `bash deploy/production.sh start` | 使用已有镜像启动 | 否 | 否 | 否 |
-
-查看帮助：
-
-```bash
-bash deploy/production.sh help
-```
-
-## 6. 日常发布与更新
-
-### 6.1 推荐的一键更新
-
-```bash
-cd /opt/web/python-web-fastapi
-bash deploy/production.sh doctor
-bash deploy/production.sh update
-```
-
-`update` 会执行以下保护：
-
-1. 要求前后端仓库都在 `main` 且没有未提交、未跟踪文件。
-2. 分别 `fetch origin main`。
-3. 确认远端可以从当前提交快进，不执行 rebase、force 或 hard reset。
-4. PostgreSQL 已运行时先创建备份、校验文件和版本元数据。
-5. 两个仓库分别执行 `git merge --ff-only origin/main`。
-6. 构建新镜像、执行迁移并更新所有服务。
-7. 完成就绪检查并打印容器状态。
-
-环境文件被 Git 忽略，不会因 `update` 被覆盖。
-
-### 6.2 人工审阅后发布
-
-高风险版本建议先查看差异：
-
-```bash
-cd /opt/web/python-web-fastapi
-bash deploy/production.sh backup
-
-git fetch origin main
-git log --oneline --decorate HEAD..origin/main
-
-git -C /opt/web/typescript-web-nuxt fetch origin main
-git -C /opt/web/typescript-web-nuxt log --oneline --decorate HEAD..origin/main
-```
-
-确认后执行：
-
-```bash
-git pull --ff-only origin main
-git -C /opt/web/typescript-web-nuxt pull --ff-only origin main
-bash deploy/production.sh deploy
-```
-
-### 6.3 只重启与重新发布的区别
-
-- `start`：使用已有镜像，不反映新代码和 Dockerfile 变化。
-- `deploy`：重新构建当前代码，适用于代码、依赖、Dockerfile、Compose 或环境变量变化。
-- `update`：先拉取两个仓库，再执行完整 `deploy`。
-
-生产更新不要只执行裸 `docker compose restart`，因为它不会构建新代码，也不会执行新迁移。
-
-## 7. 环境文件与密钥
-
-首次初始化生成：
-
-| 文件 | 内容 | 权限 | 生命周期 |
-| --- | --- | --- | --- |
-| `/opt/web/python-web-fastapi/.env.production.local` | 后端、数据库、缓存、消息队列和 Caddy 配置 | `600` | 长期保留 |
-| `/opt/web/typescript-web-nuxt/.env.production.local` | Nuxt 生产配置 | `600` | 长期保留 |
-| `/opt/web/python-web-fastapi/.env.initial-admin.local` | 一次性管理员创建密钥 | `600` | 登录验证后删除 |
-
-检查权限：
-
-```bash
-stat -c '%a %U:%G %n' \
-  /opt/web/python-web-fastapi/.env.production.local \
-  /opt/web/typescript-web-nuxt/.env.production.local
-```
-
-应显示 `600 root:root`。不要把环境文件加入 Git、聊天记录、工单附件或普通日志。
-
-环境文件需要单独做加密异地备份。PostgreSQL dump 不包含这些密钥；只有数据库备份而没有环境密钥，不能完整恢复原生产身份和会话边界。
-
-密钥轮换注意事项：
-
-- 修改 `JWT_SECRET` 会使现有登录令牌失效。
-- 不能只修改 `POSTGRES_PASSWORD` 环境值；已有数据库用户密码不会自动变化。
-- 不能只修改 `RABBITMQ_DEFAULT_PASS`；已有 RabbitMQ 用户不会自动重建。
-- Redis 密码变化必须与所有依赖容器同步并安排维护窗口。
-
-涉及 PostgreSQL、RabbitMQ 或 Redis 凭据轮换时，应先备份并执行服务内的密码修改，再更新环境文件和重建容器。
-
-## 8. PostgreSQL 备份
-
-### 8.1 手动备份
-
-```bash
-cd /opt/web/python-web-fastapi
-bash deploy/production.sh backup
-```
-
-默认输出到 `/var/backups/fastapi-web`，每次生成：
-
-```text
-postgres-YYYYMMDDTHHMMSSZ.dump
-postgres-YYYYMMDDTHHMMSSZ.dump.sha256
-postgres-YYYYMMDDTHHMMSSZ.dump.metadata
-```
-
-`.metadata` 记录备份时的前后端 Git 提交，回滚时必须保留。验证：
-
-```bash
-cd /var/backups/fastapi-web
-sha256sum -c postgres-YYYYMMDDTHHMMSSZ.dump.sha256
-```
-
-### 8.2 异地保存
-
-服务器本地备份不能防止云盘损坏、误删除或账号事件。备份完成后应复制到另一个受控存储，例如对象存储、另一台主机或加密的本地备份盘。
-
-从 Windows 拉回备份示例：
-
-```powershell
-scp -i "C:\Users\ThinkPad\.ssh\aliyun_fastapi" `
-  root@39.96.201.189:/var/backups/fastapi-web/postgres-YYYYMMDDTHHMMSSZ.dump* `
-  E:\server-backups\fastapi-web\
-```
-
-推荐最小保留策略：最近 7 个日备、4 个周备、6 个月备。删除旧备份前，先确认异地副本和 SHA-256 校验可用。
-
-### 8.3 定时备份
-
-可以使用 root 的 cron：
-
-```cron
-15 3 * * * cd /opt/web/python-web-fastapi && /usr/bin/bash deploy/production.sh backup >> /var/log/fastapi-web-backup.log 2>&1
-```
-
-定时任务上线后必须观察至少一次真实成功结果，并为备份失败、云盘空间不足和备份文件长期未更新配置告警。长期更推荐 systemd timer 配合日志轮转和失败通知。
-
-## 9. 数据库恢复
-
-恢复是破坏性操作，不提供自动一键入口。必须在维护窗口中人工执行，并先保留当前数据库备份。
-
-### 9.1 恢复前条件
-
-1. 明确目标 dump、SHA-256 和 `.metadata` 中的前后端提交。
-2. 在隔离环境演练恢复并完成登录、注册、任务和迁移验证。
-3. 宣布维护窗口，停止公网写入。
-4. 再备份一次当前数据库。
-5. 确认要恢复的代码版本能读取目标数据库结构。
-
-### 9.2 定义 Compose 命令
-
-```bash
-cd /opt/web/python-web-fastapi
-
-BACKEND_COMPOSE=(docker compose --project-name fastapi-web-production --project-directory /opt/web/python-web-fastapi --env-file /opt/web/python-web-fastapi/.env.production.local -f /opt/web/python-web-fastapi/compose.yml -f /opt/web/python-web-fastapi/compose.production.yml -f /opt/web/python-web-fastapi/compose.caddy.yml)
-FRONTEND_COMPOSE=(docker compose --project-name typescript-web-production --project-directory /opt/web/typescript-web-nuxt --env-file /opt/web/typescript-web-nuxt/.env.production.local -f /opt/web/typescript-web-nuxt/compose.yml -f /opt/web/typescript-web-nuxt/compose.production.yml -f /opt/web/typescript-web-nuxt/compose.caddy.yml)
-CADDY_COMPOSE=(docker compose --project-name fastapi-web-production-caddy --project-directory /opt/web/python-web-fastapi/deploy/caddy --env-file /opt/web/python-web-fastapi/.env.production.local -f /opt/web/python-web-fastapi/deploy/caddy/compose.yml)
-```
-
-### 9.3 停止写入并恢复
-
-将 `<dump-path>` 替换为已校验的文件：
-
-```bash
-DUMP_PATH=/var/backups/fastapi-web/postgres-YYYYMMDDTHHMMSSZ.dump
-
-bash deploy/production.sh backup
-"${CADDY_COMPOSE[@]}" stop
-"${FRONTEND_COMPOSE[@]}" stop frontend
-"${BACKEND_COMPOSE[@]}" stop app task-worker
-
-"${BACKEND_COMPOSE[@]}" exec -T postgres \
-  sh -c 'dropdb --if-exists --maintenance-db=postgres -U "$POSTGRES_USER" "$POSTGRES_DB" && createdb --maintenance-db=postgres -U "$POSTGRES_USER" "$POSTGRES_DB"'
-
-"${BACKEND_COMPOSE[@]}" exec -T postgres \
-  sh -c 'exec pg_restore --exit-on-error --no-owner --no-privileges -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-  < "$DUMP_PATH"
-```
-
-切换到 `.metadata` 记录的兼容代码版本后再发布。恢复完成后执行：
-
-```bash
-bash deploy/production.sh deploy
-bash deploy/production.sh status
-```
-
-如果恢复失败，不要继续反复覆盖同一数据库；保留错误日志，重新创建隔离数据库定位 dump、版本或权限问题。
-
-## 10. 应用回滚
-
-### 10.1 数据库迁移向后兼容时
-
-从最近备份 `.metadata` 读取提交：
-
-```bash
-cat /var/backups/fastapi-web/postgres-YYYYMMDDTHHMMSSZ.dump.metadata
-```
-
-然后切换到已知版本：
-
-```bash
-git -C /opt/web/python-web-fastapi fetch origin
-git -C /opt/web/typescript-web-nuxt fetch origin
-
-git -C /opt/web/python-web-fastapi checkout --detach <backend-commit>
-git -C /opt/web/typescript-web-nuxt checkout --detach <frontend-commit>
-
-cd /opt/web/python-web-fastapi
-bash deploy/production.sh deploy
-```
-
-确认稳定后再决定是否在开发机创建正式回滚提交。不要从服务器直接 force push。
-
-### 10.2 数据库迁移不向后兼容时
-
-仅回滚镜像可能导致旧代码无法读取新结构。必须同时按上一节恢复与该提交对应的 PostgreSQL dump。生产迁移是否可逆，应在发布前审查，而不是故障后临时判断。
-
-## 11. 日志与排障
-
-常用命令：
-
-```bash
-bash deploy/production.sh logs backend
-bash deploy/production.sh logs frontend
-bash deploy/production.sh logs caddy
-
-bash deploy/production.sh follow backend
-bash deploy/production.sh follow frontend
-bash deploy/production.sh follow caddy
-```
-
-后端组包含数据库、Redis、RabbitMQ、迁移、App 和 Worker。需要只看单一服务时使用完整 Compose 命令：
-
-```bash
-docker compose \
-  --project-name fastapi-web-production \
-  --project-directory /opt/web/python-web-fastapi \
-  --env-file /opt/web/python-web-fastapi/.env.production.local \
-  -f /opt/web/python-web-fastapi/compose.yml \
-  -f /opt/web/python-web-fastapi/compose.production.yml \
-  -f /opt/web/python-web-fastapi/compose.caddy.yml \
-  logs --tail 200 --follow app
-```
-
-日志中禁止主动打印环境文件、JWT、Cookie、Deploy Key 或管理员密码。
-
-## 12. 监控与容量
-
-每次发布后：
-
-```bash
-bash deploy/production.sh status
+<deploy-script> status
+<deploy-script> logs backend
+<deploy-script> logs frontend
+<deploy-script> logs gateway
 docker stats --no-stream
+docker system df
 free -h
 df -h /
-docker system df
 ```
 
-当前 `40 GiB ESSD Entry` 系统盘建议阈值：
+至少监控 `/health/live`、`/health/ready`、5xx、认证失败、数据库连接、Redis 内存、RabbitMQ 队列积压/未确认消息/消费者数量、task-worker 消费状态、Outbox retry/unknown/dead-letter、CPU/内存/磁盘、备份新鲜度和 TLS 证书剩余时间。进程存活但没有消费者或 handler binding 时，worker readiness 必须失败。
 
-该实例只有 `2 GiB` 内存。生产部署时不要并行执行多个 Docker 构建或全量测试；如果构建阶段出现 OOM，应先在服务器上增加受控的交换空间或临时提升实例规格，再重新发布，不要通过降低容器安全限制解决内存不足。
+磁盘达到 70% 时检查镜像、构建缓存、日志和备份增长；达到 80% 时迁移异地备份并清理已确认无用的悬空镜像；达到 90% 时停止非必要构建并优先扩容。不要使用 `docker volume prune` 清理业务卷。
 
-| 使用率 | 动作 |
-| --- | --- |
-| 70% | 检查镜像、构建缓存、备份增长和异常日志 |
-| 80% | 清理已确认无用的悬空镜像/旧构建缓存，迁移异地备份 |
-| 90% | 停止非必要构建，优先扩容云盘并处理告警 |
-
-发布成功且确认无需旧的悬空镜像后，可以执行：
-
-```bash
-docker image prune -f
-docker builder prune --filter 'until=168h'
-```
-
-执行前先看 `docker system df`。不要使用 `docker volume prune`，也不要把 `docker system prune --volumes` 作为日常清理命令。
-
-最低监控项：
-
-- `GET /health/live` 和 `GET /health/ready`。
-- 5xx、登录失败、注册失败和 Caddy 反向代理错误率。
-- PostgreSQL 连接、磁盘、慢查询和备份新鲜度。
-- Redis 内存、AOF 状态和连接失败。
-- RabbitMQ 队列积压、未确认消息和消费者数量。
-- `task-worker` 存活与任务失败率。
-- CPU、内存、根磁盘和 Docker 数据目录空间。
-- TLS 证书剩余时间，启用域名后必须告警。
-
-## 13. 正式域名与 HTTPS 启用
-
-域名可用后按以下步骤闭环：
-
-1. 在阿里云 DNS 添加主机记录 `@`、类型 `A`、记录值 `39.96.201.189`、TTL `600`。
-2. 确认安全组开放 TCP 80/443，UDP 443 可选。
-3. 确认后端 `/opt/web/python-web-fastapi/.env.production.local` 包含：
-
-```dotenv
-CADDY_SITE_ADDRESS=nuotop.xyz
-```
-
-4. 生产流配置已固定为真实 HTTPS Origin：
-
-```toml
-allowed_origins = [
-  "https://nuotop.xyz",
-]
-```
-
-该配置属于代码，应由服务器通过仓库更新获取，不要在服务器直接修改源码。
-
-5. 发布：
-
-```bash
-cd /opt/web/python-web-fastapi
-bash deploy/production.sh update
-```
-
-6. 验收：
-
-```bash
-curl -I http://nuotop.xyz
-curl -I https://nuotop.xyz
-curl -fsS https://nuotop.xyz/health/ready
-```
-
-浏览器必须验证登录刷新、退出、公开注册、WebSocket 重连、移动网络切换和页面快照恢复。Windows Agent 必须验证下载、设备授权、WSS 重连和远程任务执行。生产入口只使用域名 HTTPS，不把裸 IP HTTP 作为业务入口。
-
-## 14. 主机安全最佳实践
-
-当前使用 `root` 可以完成首次部署，但长期建议：
-
-1. 创建专用部署用户，只授予必要的 sudo 权限。
-2. 验证新用户密钥登录后，再禁用 SSH 密码登录。
-3. 根据实际管理方式限制或禁用 root 远程登录。
-4. 将安全组 22 端口来源改为固定管理 IP `/32`，IP 变化前先添加新规则，避免锁死。
-5. 启用系统安全更新，并在维护窗口重启内核。
-6. 保护 `/var/lib/docker`、`/opt/web`、`/var/backups/fastapi-web` 和 SSH 私钥。
-7. 认识到 Docker daemon 和 `docker` 用户组等价于 root 权限。
-8. Deploy Key 使用只读权限，前后端仓库使用不同密钥。
-9. 每季度检查不再使用的 SSH Key、GitHub Deploy Key、安全组规则和管理员账号。
-
-## 15. 常见故障
+## 常见故障
 
 | 现象 | 检查 | 处理 |
 | --- | --- | --- |
-| `Permission denied (publickey)` | `ssh -T github-backend/frontend` | 检查 Host 别名、私钥权限和 Deploy Key 是否绑定正确仓库 |
-| `bootstrap` 拒绝覆盖环境文件 | 检查 `.env.production.local` | 已初始化时使用 `deploy`；不要删除长期环境文件重跑 bootstrap |
-| edge 网络子网错误 | `docker network inspect fastapi-web-production-edge` | 确认无容器依赖后重建为内部 `172.30.0.0/24`；不要盲删正在使用的网络 |
-| 80/443 端口占用 | `ss -lntup | grep -E ':80|:443'` | 停止冲突的 Nginx/Apache/旧 Caddy，或明确迁移入口 |
-| readiness 失败 | `logs backend`、`logs caddy` | 优先看 migration、app、Redis、RabbitMQ 健康状态 |
-| migration 失败 | 后端 migration 日志 | 不要跳过迁移强行启动旧/新代码；按备份和版本兼容性处理 |
-| Caddy 返回 502 | `logs caddy`、前端/后端 `ps` | 检查共享 edge 网络、服务别名和容器健康 |
-| 磁盘接近满 | `df -h /`、`docker system df` | 转移旧备份，清理悬空镜像和过期构建缓存，必要时扩容云盘 |
-| HTTP 下登录很快失效 | 浏览器 Cookie 和网络面板 | 临时 HTTP 不支持 Secure refresh Cookie，切换正式 HTTPS |
-| Worker 不消费 | RabbitMQ 队列、`task-worker` 日志 | 确认独立 Worker 正常运行、消费者存在、消息未持续积压 |
+| SSH 公钥认证失败 | 主机指纹、部署账号、密钥权限 | 通过受控密钥轮换修复，不把私钥写入文档 |
+| migration 失败 | migration 日志、数据库 head、环境文件 | 停止应用启动，按备份和兼容窗口处理，不跳过迁移 |
+| readiness 失败 | app、数据库、Redis、RabbitMQ、worker 日志 | 先确认依赖 ready，再重建应用容器 |
+| Caddy 返回 502 | edge 网络、服务名、容器健康状态 | 恢复共享网络和上游服务，不开放后端公网端口 |
+| Worker 不消费 | Broker 队列、consumer 数量、handler binding、health probe | 修复 worker readiness；不要只重启生产者 |
+| 磁盘接近满 | `df -h`、`docker system df`、备份目录 | 迁移备份、清理悬空镜像/缓存，必要时扩容 |
+| HTTPS/WSS 失败 | DNS、80/443、证书、Origin、Upgrade 头 | 按网关验收修复，避免降级到裸 IP 或明文凭据 |
 
-## 16. 明确禁止的操作
+## 禁止操作与检查表
 
 生产日常运维禁止：
 
@@ -796,77 +212,19 @@ git reset --hard origin/main
 git push --force
 ```
 
-同样禁止：
+每次发布必须确认：
 
-- 未备份就执行数据库迁移或恢复。
-- 在服务仍接受写入时覆盖数据库。
-- 将真实 `.env`、dump、私钥提交到 Git。
-- 直接暴露 PostgreSQL、Redis、RabbitMQ 管理端口。
-- 为解决启动失败而降低生产密钥、安全校验、Origin 或可信代理限制。
-- 在没有记录前后端提交的情况下执行发布。
+- [ ] 前后端门禁通过，提交和配置版本已记录。
+- [ ] 数据库备份、校验和、migration head 已保存。
+- [ ] migration 成功，app、worker、frontend、gateway healthy。
+- [ ] 登录、权限拒绝、任务提交/消费、实时连接和关键页面通过。
+- [ ] 队列、Outbox、磁盘、内存、备份新鲜度无异常。
 
-## 17. 运维检查表
+每日检查 readiness、备份异地同步和持续 5xx/任务积压；每周抽查备份校验和容量趋势；每季度在隔离环境完成恢复演练并复核部署账号、密钥、网络规则和 TLS/WSS。
 
-### 每次发布
+## 安全与文档维护
 
-- [ ] 前后端门禁已通过。
-- [ ] 仓库工作树干净，版本已记录。
-- [ ] PostgreSQL 备份和 SHA-256 已生成。
-- [ ] 使用 `update` 或审阅后 `deploy`，没有强制覆盖 Git 历史。
-- [ ] migration 成功。
-- [ ] App、Worker、前端、Caddy 健康。
-- [ ] 页面、登录、注册和关键任务通过。
-- [ ] 磁盘、内存和队列没有异常增长。
-
-### 每日
-
-- [ ] readiness 正常。
-- [ ] 备份文件更新且异地同步成功。
-- [ ] 无持续 5xx、认证异常或任务积压。
-- [ ] 根磁盘低于告警阈值。
-
-### 每周
-
-- [ ] 抽查备份 SHA-256。
-- [ ] 检查 Docker 镜像和构建缓存占用。
-- [ ] 检查系统更新和异常 SSH 登录。
-- [ ] 检查 PostgreSQL、Redis、RabbitMQ 容量趋势。
-
-### 每季度
-
-- [ ] 在隔离环境完成一次真实恢复演练。
-- [ ] 复核 Deploy Key、安全组和管理员账号。
-- [ ] 评估密钥轮换和操作系统重启窗口。
-- [ ] 验证正式 HTTPS 证书、登录刷新和 WSS 链路。
-
-## 18. 快速命令卡
-
-```bash
-cd /opt/web/python-web-fastapi
-
-# 首次部署，仅一次
-bash deploy/production.sh bootstrap
-
-# 日常检查
-bash deploy/production.sh doctor
-bash deploy/production.sh status
-
-# 一键拉取、备份、构建、迁移和发布
-bash deploy/production.sh update
-
-# 当前代码重新发布
-bash deploy/production.sh deploy
-
-# 备份
-bash deploy/production.sh backup
-
-# 日志
-bash deploy/production.sh logs backend
-bash deploy/production.sh follow caddy
-
-# 停启，保留全部命名卷
-bash deploy/production.sh stop
-bash deploy/production.sh start
-```
-
-本文中的脚本和 Compose 文件是执行入口；历史 Docker 文档只用于理解开发环境，不应覆盖本指南的生产命令。
+- 通用仓库文档不得包含真实 IP、实例 ID、域名、部署路径、私钥路径、root 登录命令或 Secret 值。
+- 真实 runbook、主机清单和凭据引用放入受控文档系统。
+- 发布前扫描源码、忽略文件、文档和构建产物中的 Secret 与基础设施标识。
+- 每次迁移新增或修改后，同步更新当前 head、兼容窗口、回滚边界和验证命令；历史文档必须标明适用提交和日期。

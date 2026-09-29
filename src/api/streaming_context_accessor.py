@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from http import HTTPStatus
 
 from fastapi import Request, WebSocket
 
 from src.core.auth_contract.authenticated_principal_contract import AuthenticatedPrincipal
+from src.core.exception_contract.error_code_catalog_contract import CoreErrorCode
+from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.http_contract.request_scope_contract import RequestScope
 
 ANONYMOUS_STREAM_SUBJECT_ID = "anonymous"
@@ -36,7 +39,7 @@ class StreamingContextAccessor:
         :type require_authenticated: bool
         :returns: 流请求身份快照。
         :rtype: StreamRequestIdentity
-        :raises PermissionError: 要求认证但请求未绑定主体时抛出。
+        :raises HttpFaultException: 要求认证但请求未绑定主体时抛出统一 HTTP 鉴权故障。
         """
 
         request_scope = getattr(request.state, "request_scope", None)
@@ -92,5 +95,9 @@ class StreamingContextAccessor:
         if isinstance(principal, AuthenticatedPrincipal):
             return principal.subject_id
         if require_authenticated:
-            raise PermissionError("当前流操作要求已认证主体。")
+            raise HttpFaultException(
+                status_code=HTTPStatus.UNAUTHORIZED,
+                error_code=CoreErrorCode.STREAM_TICKET_INVALID,
+                message="当前流操作要求有效访问令牌。",
+            )
         return ANONYMOUS_STREAM_SUBJECT_ID

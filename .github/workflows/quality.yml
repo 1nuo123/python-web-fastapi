@@ -60,6 +60,8 @@ jobs:
           done
           exit 1
       - run: uv sync --frozen --group dev
+      - name: 检查生产 Secret 边界
+        run: uv run python scripts/security/check_production_secret_boundary.py
       - run: uv run nox -s static offline regression
       - uses: actions/upload-artifact@v4
         if: always()

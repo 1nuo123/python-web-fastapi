@@ -18,7 +18,9 @@ from src.core.task_contract.task_registration_contract import FunboostTaskRegist
 from src.core.task_contract.task_runtime_contract import (
     FUNBOOST_RABBITMQ_COMPLEX_ROUTING_BROKER_KIND,
     FUNBOOST_TASK_BACKEND_KIND,
+    LOCAL_TASK_BACKEND_KIND,
     FunboostTaskBackendDetail,
+    LocalTaskBackendDetail,
     RabbitMqMessageBackendDetail,
 )
 from src.infrastructure.settings.application_settings import (
@@ -334,6 +336,14 @@ class SettingsSecurityValidator:
             ):
                 raise ValueError(
                     "启用 funboost 任务后端时，runtime.task.backend_detail.broker_kind 必须为 RABBITMQ_COMPLEX_ROUTING。"
+                )
+        if settings.runtime.task.backend.value == LOCAL_TASK_BACKEND_KIND:
+            task_detail = settings.runtime.task.backend_detail
+            if not isinstance(task_detail, LocalTaskBackendDetail):
+                raise ValueError("启用 local 任务后端时，任务扩展配置类型不正确。")
+            if not task_detail.inline_execute_enabled:
+                raise ValueError(
+                    "local 任务后端仅支持 inline 执行；inline_execute_enabled 必须为 true。"
                 )
         for registration in settings.modules.task.registrations:
             if not registration.header.enabled:

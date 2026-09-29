@@ -4,14 +4,11 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 from collections.abc import Callable
-from enum import Enum
 from typing import cast
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.core.exception_contract.error_code_catalog_contract import CoreErrorCode
 from src.infrastructure.logging.app_logger_factory import AppLoggerFactory
@@ -24,6 +21,11 @@ from src.infrastructure.settings.application_settings import (
 )
 from src.infrastructure.settings.raw_application_settings import SettingsOverrideMapping
 from src.infrastructure.settings.settings_apply_contract import SettingsApplyResultPayload
+from src.infrastructure.settings.settings_identity import (
+    SettingsSerializableValue,
+    identify_settings,
+    normalize_settings,
+)
 from src.infrastructure.settings.settings_mapping_merger import (
     SettingsMappingInput,
     SettingsMappingMerger,
@@ -38,15 +40,6 @@ RELOAD_SCHEMA_VERSION = "1.0"
 RELOAD_CANDIDATE_KIND = "reload_candidate"
 RELOAD_RESULT_KIND = "reload_result"
 CANDIDATE_VERSION_LENGTH = 12
-SettingsSerializableValue = (
-    str
-    | int
-    | float
-    | bool
-    | list["SettingsSerializableValue"]
-    | dict[str, "SettingsSerializableValue"]
-    | None
-)
 SettingsFlatValue = SettingsSerializableValue
 
 
@@ -118,10 +111,10 @@ class SettingsReloadCoordinator:
             environment=environment,
             overrides=None,
         )
-        candidate_digest = self._build_digest(candidate_settings)
+        identity = identify_settings(candidate_settings)
         return ReloadCandidatePayload(
-            candidate_version=candidate_digest[:CANDIDATE_VERSION_LENGTH],
-            digest=candidate_digest,
+            candidate_version=identity.candidate_version,
+            digest=identity.full_digest,
         )
 
     def reload(self, environment: AppEnvironment) -> ReloadResultPayload:
@@ -197,11 +190,11 @@ class SettingsReloadCoordinator:
         """
 
         current_settings = self._settings_holder.current_settings
-        current_digest = self._build_digest(current_settings)
+        identity = identify_settings(current_settings)
         self._snapshot_store.save(
             SettingsSnapshot(
-                version_id=current_digest[:CANDIDATE_VERSION_LENGTH],
-                digest=current_digest,
+                version_id=identity.candidate_version,
+                digest=identity.full_digest,
                 settings=current_settings.model_copy(deep=True),
             )
         )
@@ -215,8 +208,9 @@ class SettingsReloadCoordinator:
         """
 
         current_settings = self._settings_holder.current_settings
-        candidate_digest = self._build_digest(candidate_settings)
-        candidate_version = candidate_digest[:CANDIDATE_VERSION_LENGTH]
+        identity = identify_settings(candidate_settings)
+        candidate_digest = identity.full_digest
+        candidate_version = identity.candidate_version
         # 热更新先做“绝对禁止”校验，再做“允许但需重启”校验，避免配置进入半生效状态。
         unsafe_changes = self._collect_unsafe_changes(
             current_settings=current_settings,
@@ -351,51 +345,10 @@ class SettingsReloadCoordinator:
             flattened.update(self._flatten_model(child_path, child_value))
         return flattened
 
-    def _build_digest(self, settings: ApplicationSettings) -> str:
-        """
-        构建摘要。
-        """
-
-        payload = json.dumps(
-            self._serialize_settings(settings),
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
     def _serialize_settings(
         self,
         settings: ApplicationSettings,
     ) -> dict[str, SettingsSerializableValue]:
-        """
-        序列化配置。
-        """
+        """Compatibility helper for change detection; identity owns normalization."""
 
-        normalized = self._normalize_secret_values(settings.model_dump(mode="python"))
-        if not isinstance(normalized, dict):
-            raise TypeError("应用配置序列化结果必须为映射。")
-        return normalized
-
-    def _normalize_secret_values(
-        self,
-        value: object,
-    ) -> SettingsSerializableValue:
-        """
-        规范化密钥值集合。
-        """
-
-        if isinstance(value, SecretStr):
-            return value.get_secret_value()
-        if isinstance(value, Enum):
-            return self._normalize_secret_values(value.value)
-        if isinstance(value, dict):
-            return {
-                child_key: self._normalize_secret_values(child_value)
-                for child_key, child_value in value.items()
-            }
-        if isinstance(value, list):
-            return [self._normalize_secret_values(item) for item in value]
-        if isinstance(value, str | int | float | bool) or value is None:
-            return value
-        raise TypeError(f"配置序列化不支持类型：{type(value).__name__}。")
+        return normalize_settings(settings)

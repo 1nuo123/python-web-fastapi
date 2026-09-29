@@ -278,8 +278,8 @@ commit、clean Windows/Defender/SmartScreen 验证和外部下载后的签名复
 ### 7.1 固定边界
 
 - 每位使用者注册自己的普通账号并授予所需 Codex scope；不得共用 `nuo` 或管理员账号。
-- 包内只能包含 `https://nuotop.xyz`、`wss://nuotop.xyz/internal/codex-agents/connect` 和
-  `https://nuotop.xyz/codex/verify-device`。不得包含开发 CA、`codex-dev.lan`、TUF root、更新源、服务器密码、JWT、Deploy Key 或设备私钥。
+- 包内只能包含 `https://<production-domain>`、`wss://<production-domain>/internal/codex-agents/connect` 和
+  `https://<production-domain>/codex/verify-device`。不得包含开发 CA、`codex-dev.lan`、TUF root、更新源、服务器密码、JWT、Deploy Key 或设备私钥。
 - 发布版本使用新的三段版本号，且同一版本的 MSI、清单和校验文件一旦生成不得覆盖。
 - 外部下载使用 GitHub Release 的精确 tag 资产地址，禁止 `master`、`main`、`latest` 或其他可变地址。
 - 下载页必须展示内部体验警告、SHA-256 和确认框；确认后仅下载，不绕过后续设备授权。
@@ -290,7 +290,7 @@ commit、clean Windows/Defender/SmartScreen 验证和外部下载后的签名复
 
 ```powershell
 & .\scripts\codex\build_internal_production_agent_installer.ps1 `
-  -PublicOrigin 'https://nuotop.xyz' `
+  -PublicOrigin 'https://<production-domain>' `
   -ReleaseRepositoryRoot 'E:\python_web_fastapi\codex-remote-agent-releases' `
   -Version '0.1.16' `
   -DownloadUrl 'https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.16/CodexRemoteAgent.msi'

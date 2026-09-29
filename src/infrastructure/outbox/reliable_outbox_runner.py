@@ -54,7 +54,7 @@ class ReliableOutboxRunner(Generic[OutboxRecord]):
                 limit=limit,
                 stale_before_epoch=stale_before_epoch,
             )
-            delivered = deferred = unknown = failed = 0
+            delivered = deferred = unknown = failed = permanently_failed = 0
             for record in records:
                 try:
                     outcome = self._adapter.deliver(record)
@@ -62,6 +62,8 @@ class ReliableOutboxRunner(Generic[OutboxRecord]):
                         delivered += 1
                     elif outcome == OutboxDeliveryOutcome.DEFERRED:
                         deferred += 1
+                    elif outcome == OutboxDeliveryOutcome.FAILED_PERMANENT:
+                        permanently_failed += 1
                     else:
                         unknown += 1
                 except Exception as exc:
@@ -76,6 +78,7 @@ class ReliableOutboxRunner(Generic[OutboxRecord]):
                 deferred_count=deferred,
                 unknown_count=unknown,
                 failed_count=failed,
+                permanently_failed_count=permanently_failed,
             )
 
     def start(self) -> None:
@@ -148,7 +151,7 @@ class AsyncReliableOutboxRunner(Generic[OutboxRecord]):
                 limit=limit,
                 stale_before_epoch=stale_before_epoch,
             )
-            delivered = deferred = unknown = failed = 0
+            delivered = deferred = unknown = failed = permanently_failed = 0
             for record in records:
                 try:
                     outcome = await self._adapter.deliver(record)
@@ -156,6 +159,8 @@ class AsyncReliableOutboxRunner(Generic[OutboxRecord]):
                         delivered += 1
                     elif outcome == OutboxDeliveryOutcome.DEFERRED:
                         deferred += 1
+                    elif outcome == OutboxDeliveryOutcome.FAILED_PERMANENT:
+                        permanently_failed += 1
                     else:
                         unknown += 1
                 except Exception as exc:
@@ -170,6 +175,7 @@ class AsyncReliableOutboxRunner(Generic[OutboxRecord]):
                 deferred_count=deferred,
                 unknown_count=unknown,
                 failed_count=failed,
+                permanently_failed_count=permanently_failed,
             )
 
     def start(self) -> None:

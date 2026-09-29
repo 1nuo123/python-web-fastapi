@@ -336,6 +336,95 @@ class FunboostTaskBootstrapper:
         for consumer in self._consumer_by_job_kind.values():
             consumer.start_consuming_message()
 
+    def health_check(self) -> tuple[bool, dict[str, object]]:
+        """Return readiness from the live Funboost consumer owner.
+
+        The consumer registry and Funboost started-consumer registry are the
+        existing lifecycle facts; no parallel health state is maintained.
+        """
+
+        expected = len(self._consumer_job_kinds())
+        started_raw = getattr(
+            funboost_lazy_impoter.BoostersManager,
+            "pid_queue_name__has_start_consume_set",
+            None,
+        )
+        started: set[tuple[int, str]] = set()
+        if isinstance(started_raw, set):
+            started.update(
+                item
+                for item in started_raw
+                if isinstance(item, tuple)
+                and len(item) == 2
+                and isinstance(item[0], int)
+                and isinstance(item[1], str)
+            )
+        registry_started = BoosterRegistry(
+            self._booster_registry_name
+        ).pid_queue_name__has_start_consume_set
+        if isinstance(registry_started, set):
+            started.update(
+                item
+                for item in registry_started
+                if isinstance(item, tuple)
+                and len(item) == 2
+                and isinstance(item[0], int)
+                and isinstance(item[1], str)
+            )
+        started_queues = {queue_name for pid, queue_name in started if pid == os.getpid()}
+        queues = {
+            getattr(consumer, "queue_name", "") for consumer in self._consumer_by_job_kind.values()
+        }
+        stopped = any(
+            getattr(consumer, FUNBOOST_STOP_FLAG_ATTRIBUTE, 0) == FUNBOOST_STOP_FLAG_VALUE
+            for consumer in self._consumer_by_job_kind.values()
+        )
+        broker_ready = all(
+            getattr(
+                getattr(getattr(consumer, "_rp", None), "channel", None),
+                "is_open",
+                True,
+            )
+            is not False
+            for consumer in self._consumer_by_job_kind.values()
+        )
+        binding_ready = expected > 0 and len(queues) == expected
+        consumer_ready = (
+            binding_ready
+            and len(queues & started_queues) == expected
+            and not stopped
+            and broker_ready
+        )
+        ready = consumer_ready
+        return ready, {
+            "consumer_count": expected,
+            "started_consumer_count": len(queues & started_queues),
+            "binding_ready": binding_ready,
+            "consumer_ready": consumer_ready,
+            "broker_ready": broker_ready,
+        }
+
+    def recover_consumers(self) -> None:
+        """Rebuild and restart consumers after a broker interruption."""
+
+        job_kinds = self._consumer_job_kinds()
+        self.shutdown()
+        self.configure_broker_connection()
+        for job_kind in job_kinds:
+            self.register_consumer(job_kind)
+        self.start_consumers()
+
+    def _consumer_job_kinds(self) -> tuple[str, ...]:
+        """Return enabled Funboost registrations owned by the worker."""
+
+        return tuple(
+            registration.header.job_kind
+            for registration in self._registration_registry.list_registrations_by_backend(
+                TaskBackend.FUNBOOST
+            )
+            if registration.header.enabled
+        )
+
     def shutdown(self) -> None:
         """
         停止全部 Funboost 消费者并释放发布者连接。

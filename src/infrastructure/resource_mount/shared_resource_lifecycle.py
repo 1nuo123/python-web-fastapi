@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     pass
 
-import hashlib
 import logging
 import threading
 from dataclasses import replace
@@ -213,6 +212,7 @@ from src.infrastructure.settings.settings_apply_contract import (
 from src.infrastructure.settings.settings_apply_transaction import (
     SettingsApplyTransaction,
 )
+from src.infrastructure.settings.settings_identity import identify_settings
 from src.infrastructure.settings.settings_snapshot_store import SettingsStateHolder
 from src.infrastructure.streaming.streaming_runtime_factory import (
     StreamingOperationComponentSet,
@@ -515,7 +515,10 @@ class SharedResourceLifecycle:
 
         with self._lifecycle_lock:
             if self._lifecycle_state == "STOPPED":
-                return self._last_resource_release_result or self._runtime_resource_releaser.build_contract([])
+                return (
+                    self._last_resource_release_result
+                    or self._runtime_resource_releaser.build_contract([])
+                )
             self._lifecycle_state = "STOPPING"
             self._logger.info(RESOURCE_RELEASE_BEGIN_MESSAGE)
             self._ready = False
@@ -1862,12 +1865,12 @@ class SharedResourceLifecycle:
                 binding.job_kind for binding in self._worker_supervisor.list_bindings()
             ],
         )
-        operation_digest = hashlib.sha256(settings.model_dump_json().encode("utf-8")).hexdigest()
+        identity = identify_settings(settings)
         return SettingsApplyOperationEnvelope(
             header=SettingsApplyOperationHeader(
                 operation_name=SETTINGS_APPLY_OPERATION_NAME,
                 target_resource=SETTINGS_APPLY_TARGET_RESOURCE,
-                candidate_version=operation_digest[:12],
+                candidate_version=identity.candidate_version,
             ),
             detail=(
                 HttpResourceSwitchDetail(

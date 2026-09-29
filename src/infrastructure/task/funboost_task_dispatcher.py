@@ -173,6 +173,16 @@ class FunboostTaskDispatcher(TaskDispatcher):
 
         self._bootstrapper.shutdown()
 
+    def health_check(self) -> tuple[bool, dict[str, object]]:
+        """Read readiness from the owned Funboost runtime."""
+
+        return self._bootstrapper.health_check()
+
+    def recover_consumers(self) -> None:
+        """Rebuild consumers through the existing Funboost owner."""
+
+        self._bootstrapper.recover_consumers()
+
     def _build_execution_record(
         self,
         *,

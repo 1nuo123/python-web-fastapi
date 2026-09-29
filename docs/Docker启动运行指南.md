@@ -331,7 +331,7 @@ worker 和前端容器重建。
 
 ### 16.2 当前门禁
 
-- migration head：`202608161230`，`codex_control_operation.projection` 已存在；
+- migration head：`202609291900`，当前 Alembic 版本包含 Outbox 投递重试、未知结果与永久失败状态；
 - 后端 Codex 集成与接口：`37 passed`；后端全量：`1327 passed, 241 warnings`；
 - Ruff、mypy：通过，mypy 覆盖 `641` 个源码文件；
 - 前端 `pnpm verify`：Vitest `32` 个文件 `178 passed`、覆盖率、production build、Playwright

@@ -24,7 +24,11 @@ TASK_EXECUTION_OUTBOX_JOB_KIND_INDEX_NAME = "ix_task_execution_outbox_job_kind"
 TASK_EXECUTION_OUTBOX_DEDUPLICATION_KEY_INDEX_NAME = "ix_task_execution_outbox_deduplication_key"
 TASK_EXECUTION_OUTBOX_STATUS_RESERVED = "RESERVED"
 TASK_EXECUTION_OUTBOX_STATUS_PUBLISHED = "PUBLISHED"
+# ``FAILED`` is retained for records written by the pre-retry implementation.
 TASK_EXECUTION_OUTBOX_STATUS_FAILED = "FAILED"
+TASK_EXECUTION_OUTBOX_STATUS_RETRYING = "RETRYING"
+TASK_EXECUTION_OUTBOX_STATUS_UNKNOWN = "UNKNOWN"
+TASK_EXECUTION_OUTBOX_STATUS_FAILED_PERMANENT = "FAILED_PERMANENT"
 MAX_NAME_LENGTH = 128
 
 
@@ -36,6 +40,9 @@ class TaskExecutionOutboxStatus(StrEnum):
     RESERVED = TASK_EXECUTION_OUTBOX_STATUS_RESERVED
     PUBLISHED = TASK_EXECUTION_OUTBOX_STATUS_PUBLISHED
     FAILED = TASK_EXECUTION_OUTBOX_STATUS_FAILED
+    RETRYING = TASK_EXECUTION_OUTBOX_STATUS_RETRYING
+    UNKNOWN = TASK_EXECUTION_OUTBOX_STATUS_UNKNOWN
+    FAILED_PERMANENT = TASK_EXECUTION_OUTBOX_STATUS_FAILED_PERMANENT
 
 
 class TaskExecutionOutboxOrmModel(AuditTimestampMixin, OrmModelBase):
@@ -74,6 +81,18 @@ class TaskExecutionOutboxOrmModel(AuditTimestampMixin, OrmModelBase):
     published_at_epoch: Mapped[int | None] = mapped_column(Integer, nullable=True)
     failed_at_epoch: Mapped[int | None] = mapped_column(Integer, nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+    next_retry_at_epoch: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_error_type: Mapped[str | None] = mapped_column(String(MAX_NAME_LENGTH), nullable=True)
+    last_error_message: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    unknown_at_epoch: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    claim_owner: Mapped[str | None] = mapped_column(String(MAX_NAME_LENGTH), nullable=True)
+    claimed_at_epoch: Mapped[int | None] = mapped_column(Integer, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

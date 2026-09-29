@@ -22,7 +22,7 @@
 
 ## 4. 核心结论
 - 当前持久化表共 25 张：基础身份、日志、任务、安全与密钥环 11 张，Codex 控制面 14 张。
-- Alembic 版本链从 `202605151600` 到 `202608161230`。
+- Alembic 版本链从 `202605151600` 到 `202609291900`；当前 head 为 `202609291900`。
 - 事务边界通过 `SqlAlchemyUnitOfWork` 控制。
 
 ## 5. 结构说明
@@ -117,6 +117,9 @@ flowchart TD
 | `202608151820` | `202608101300` | 为会话索引补齐非空标题来源、模型提供方、`recency_at`、会话/项目置顶字段和稳定排序索引，并幂等回填历史数据。 |
 | `202608151940` | `202608151820` | 将 `codex_thread_index.status` 中不属于公开契约的历史值规范为 `unknown`；该状态转换不可逆。 |
 | `202608161230` | `202608151940` | 为 `codex_control_operation` 增加可空 JSONB `projection`，只持久化派生短标题与活动时间，不保存原始消息。 |
+| `202608190130` | `202608161230` | 为 Codex turn runtime 增加运行时租约和执行状态字段。 |
+| `202608190230` | `202608190130` | 为 workspace 增加执行偏好及其强类型约束。 |
+| `202609291900` | `202608190230` | 为任务执行 Outbox 增加重试、未知结果、永久失败和 claim 元数据。 |
 
 ### 迁移执行与测试核对
 
@@ -125,7 +128,7 @@ flowchart TD
 - `test/integration_test/test_migration_job_integration.py` 已覆盖升级到测试库、迁移失败返回、compose migration gate、最新漂移迁移后的外键/唯一约束/JSONB 类型，以及脏数据升级时的 scope 回填和重复 `record_id` 规范化。
 - `test/integration_test/test_codex_phase1_persistence_integration.py`、`test_codex_conversation_index_integration.py` 和
   `test_codex_approval_runtime_migration_integration.py` 与 Codex enrollment、权限、approval、turn-control
-  集成测试覆盖 `202608161230` head、标题回填、状态规范化、operation 强类型投影、owner 隔离、
+  集成测试覆盖 `202609291900` head、标题回填、状态规范化、operation 强类型投影、owner 隔离、
   权限策略持久化、审批历史修复、事务 operation/outbox 和强类型状态恢复。
 
 ## 12. 相关文档

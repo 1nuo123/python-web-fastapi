@@ -332,6 +332,7 @@ class TaskExecutionStore:
         backend: TaskBackend,
         queue_name: str,
         message_id: str | None = None,
+        outbox_attempt_count: int | None = None,
     ) -> TaskExecutionRecordOrmModel:
         """
         标记消息已发布。
@@ -353,6 +354,7 @@ class TaskExecutionStore:
             outbox_patch=TaskExecutionOutboxUpdatePayload(
                 status=TaskExecutionOutboxStatus.PUBLISHED,
                 published_at_epoch=published_at_epoch,
+                attempt_count=outbox_attempt_count,
             )
             if message_id is not None
             else None,
@@ -514,6 +516,102 @@ class TaskExecutionStore:
             ),
         )
 
+    def mark_outbox_retrying(
+        self,
+        *,
+        message_id: str,
+        attempt_count: int,
+        next_retry_at_epoch: int,
+        last_error_type: str,
+        last_error_message: str,
+    ) -> TaskExecutionOutboxOrmModel:
+        """记录可恢复的基础设施投递失败。"""
+
+        return self._update_outbox_record(
+            message_id=message_id,
+            patch=TaskExecutionOutboxUpdatePayload(
+                status=TaskExecutionOutboxStatus.RETRYING,
+                attempt_count=attempt_count,
+                next_retry_at_epoch=next_retry_at_epoch,
+                last_error_type=last_error_type,
+                last_error_message=last_error_message,
+                failure_reason=last_error_message,
+            ),
+        )
+
+    def mark_outbox_unknown(
+        self,
+        *,
+        message_id: str,
+        attempt_count: int,
+        error_type: str,
+        error_message: str,
+    ) -> TaskExecutionOutboxOrmModel:
+        """记录发布成功但本地确认未知的 Outbox 结果。"""
+
+        now_epoch = int(time())
+        return self._update_outbox_record(
+            message_id=message_id,
+            patch=TaskExecutionOutboxUpdatePayload(
+                status=TaskExecutionOutboxStatus.UNKNOWN,
+                attempt_count=attempt_count,
+                unknown_at_epoch=now_epoch,
+                last_error_type=error_type,
+                last_error_message=error_message,
+                failure_reason=error_message,
+            ),
+        )
+
+    def mark_outbox_failed_permanent(
+        self,
+        *,
+        message_id: str,
+        attempt_count: int,
+        error_type: str,
+        error_message: str,
+    ) -> TaskExecutionOutboxOrmModel:
+        """记录达到投递尝试上限的永久失败。"""
+
+        return self._update_outbox_record(
+            message_id=message_id,
+            patch=TaskExecutionOutboxUpdatePayload(
+                status=TaskExecutionOutboxStatus.FAILED_PERMANENT,
+                attempt_count=attempt_count,
+                failed_at_epoch=int(time()),
+                last_error_type=error_type,
+                last_error_message=error_message,
+                failure_reason=error_message,
+            ),
+        )
+
+    def retry_unknown_outbox(self, *, message_id: str) -> TaskExecutionOutboxOrmModel:
+        """受控地将未知结果重新纳入唯一 Outbox runner。"""
+
+        return self._update_outbox_record(
+            message_id=message_id,
+            patch=TaskExecutionOutboxUpdatePayload(
+                status=TaskExecutionOutboxStatus.RETRYING,
+                next_retry_at_epoch=int(time()),
+            ),
+        )
+
+    def list_unknown_outbox(
+        self,
+        *,
+        limit: int,
+    ) -> list[TaskExecutionOutboxOrmModel]:
+        """列出等待诊断或人工恢复的未知结果。"""
+
+        unit_of_work = self._session_manager.create_unit_of_work()
+        try:
+            repository = TaskExecutionOutboxRepositoryImpl(unit_of_work.get_session())
+            return repository.list_by_status(
+                status=TaskExecutionOutboxStatus.UNKNOWN,
+                limit=limit,
+            )
+        finally:
+            unit_of_work.dispose()
+
     def mark_outbox_failed(
         self,
         *,
@@ -538,6 +636,7 @@ class TaskExecutionStore:
         *,
         limit: int,
         created_before_epoch: int | None = None,
+        claim_owner: str | None = None,
     ) -> list[TaskExecutionOutboxOrmModel]:
         """
         列出待发布 Outbox 记录。
@@ -546,10 +645,14 @@ class TaskExecutionStore:
         unit_of_work = self._session_manager.create_unit_of_work()
         try:
             repository = TaskExecutionOutboxRepositoryImpl(unit_of_work.get_session())
-            return repository.list_reserved(
+            records = repository.list_reserved(
                 limit=limit,
                 created_before_epoch=created_before_epoch,
+                claim_owner=claim_owner,
             )
+            if claim_owner is not None and records:
+                unit_of_work.commit()
+            return records
         finally:
             unit_of_work.dispose()
 
