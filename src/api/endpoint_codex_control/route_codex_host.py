@@ -32,6 +32,10 @@ from src.core.codex_contract.agent_enrollment_contract import (
 )
 from src.core.codex_contract.codex_runtime_contract import CodexSecurityRateLimitOperation
 from src.core.codex_contract.feature_flags_contract import CodexExperienceFeatureFlags
+from src.core.codex_contract.active_host_contract import (
+    CodexActiveHostState,
+    CodexActiveHostSwitchRequest,
+)
 from src.core.codex_contract.host_contract import (
     CodexHostCollection,
     CodexHostRenameRequest,
@@ -59,6 +63,20 @@ class CodexHostRouteCatalog:
         self._accessor = DependencyContextAccessor()
         self._rate_limit = CodexSecurityRateLimitEnforcer()
         self.router = APIRouter(tags=[CODEX_ROUTE_TAG])
+        self.router.add_api_route(
+            "/codex/active-host",
+            self.get_active_host,
+            methods=["GET"],
+            response_model=ResponseEnvelope[CodexActiveHostState],
+            dependencies=[Depends(self.require_codex_read)],
+        )
+        self.router.add_api_route(
+            "/codex/active-host",
+            self.switch_active_host,
+            methods=["PUT"],
+            response_model=ResponseEnvelope[CodexActiveHostState],
+            dependencies=[Depends(self.require_codex_host_manage)],
+        )
         self.router.add_api_route(
             "/codex/hosts",
             self.get_hosts,
@@ -149,6 +167,39 @@ class CodexHostRouteCatalog:
             ),
         )
 
+    async def get_active_host(self, request: Request) -> ResponseEnvelope[CodexActiveHostState]:
+        principal = self._accessor.read_authenticated_principal(request)
+        runtime = request.app.state.container.resource_mount.get_codex_control_runtime()
+        state = await runtime.active_host.read(principal.subject_id)
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="当前连接状态",
+            request_scope=self._accessor.read_request_scope(request),
+            data=state,
+        )
+
+    async def switch_active_host(
+        self, request: Request, body: CodexActiveHostSwitchRequest
+    ) -> ResponseEnvelope[CodexActiveHostState]:
+        principal = self._accessor.read_authenticated_principal(request)
+        runtime = request.app.state.container.resource_mount.get_codex_control_runtime()
+        state = await runtime.active_host.switch(
+            principal.subject_id, body.host_id, body.expected_version
+        )
+        if state.draining_host_id is not None:
+            await runtime.publish_host_status_changed(
+                owner_subject_id=principal.subject_id,
+                host_id=state.draining_host_id,
+                status="offline",
+                last_seen_at=None,
+            )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="连接切换已受理；旧电脑停止后才启用目标电脑。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=state,
+        )
+
     async def get_hosts(self, request: Request) -> ResponseEnvelope[CodexHostCollection]:
         """读取当前主体拥有的主机。"""
 
@@ -159,12 +210,13 @@ class CodexHostRouteCatalog:
             callable_object=self._accessor.read_list_codex_hosts_usecase(request).execute,
             owner_subject_id=principal.subject_id,
         )
+        active = await runtime.active_host.read(principal.subject_id)
         present_host_ids = await runtime.presence_adapter.list_present(
             [host.host_id for host in payload.items]
         )
         payload = self._accessor.read_list_codex_hosts_usecase(request).overlay_runtime_status(
             payload,
-            present_host_ids=present_host_ids,
+            present_host_ids=present_host_ids.intersection({active.active_host_id}),
             offline_after_seconds=runtime.settings.agent_offline_after_seconds,
         )
         return self._accessor.read_response_factory(request).build(
@@ -240,6 +292,7 @@ class CodexHostRouteCatalog:
             expected_version=self._parse_if_match(if_match),
             step_up_token=body.step_up_token,
         )
+        await runtime.active_host.revoke(principal.subject_id, host_id)
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),
             message="Codex主机已撤销。",

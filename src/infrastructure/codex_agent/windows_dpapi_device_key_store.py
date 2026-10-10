@@ -90,6 +90,16 @@ class WindowsCurrentUserAclEnforcer:
         self._subprocess_launcher = subprocess_launcher or WindowsSubprocessLauncher()
 
     def enforce(self, path: Path) -> None:
+        """当前用户拥有密钥的读写与删除权，以支持撤销和轮换收尾。"""
+
+        self._enforce(path, rights="R,W,D")
+
+    def enforce_config(self, path: Path) -> None:
+        """配置允许当前用户原子替换及删除；密钥权限保持独立。"""
+
+        self._enforce(path, rights="M")
+
+    def _enforce(self, path: Path, *, rights: str) -> None:
         if sys.platform != "win32":
             raise OSError("设备密钥 ACL 只能在Windows中设置。")
         identity_result = self._subprocess_launcher.run(
@@ -111,7 +121,7 @@ class WindowsCurrentUserAclEnforcer:
                     str(path),
                     "/inheritance:r",
                     "/grant:r",
-                    f"*{identity[1]}:(R,W)",
+                    f"*{identity[1]}:({rights})",
                 ),
                 timeout_seconds=10,
                 log_category=WindowsSubprocessLogCategory.WINDOWS,
@@ -162,7 +172,12 @@ class WindowsDpapiDeviceKeyStore(AgentDeviceKeyStorePort):
         return Ed25519PrivateKey.from_private_bytes(self._read_private(key_id)).sign(message)
 
     def delete(self, key_id: UUID) -> None:
-        self._path(key_id).unlink(missing_ok=True)
+        path = self._path(key_id)
+        if not path.exists():
+            return
+        # 旧版本只授予 R,W；统一在密钥存储边界修复其删除权限。
+        self._acl_enforcer.enforce(path)
+        path.unlink(missing_ok=True)
 
     def _read_private(self, key_id: UUID) -> bytes:
         private_bytes = self._dpapi.unprotect(self._path(key_id).read_bytes())

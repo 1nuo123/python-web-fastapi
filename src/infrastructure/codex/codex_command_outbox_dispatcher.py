@@ -30,6 +30,7 @@ from src.core.outbox_contract.reliable_outbox_contract import (
 from src.infrastructure.codex.codex_connection_registry import CodexConnectionRegistry
 from src.infrastructure.codex.codex_host_actor import CodexHostActorRegistry
 from src.infrastructure.codex.codex_host_presence_adapter import CodexHostPresenceAdapter
+from src.infrastructure.codex.codex_active_host_service import CodexActiveHostService
 from src.infrastructure.codex.codex_instance_control_signal_adapter import (
     CodexInstanceControlSignalAdapter,
 )
@@ -42,6 +43,7 @@ class CodexCommandOutboxDispatcher(AsyncReliableOutboxAdapterPort[CodexCommandOu
         self,
         *,
         control_port: CodexControlPort,
+        active_host: CodexActiveHostService,
         payload_cipher: CodexCommandPayloadCipherPort,
         presence: CodexHostPresenceAdapter,
         connection_registry: CodexConnectionRegistry,
@@ -52,6 +54,7 @@ class CodexCommandOutboxDispatcher(AsyncReliableOutboxAdapterPort[CodexCommandOu
         retry_seconds: int,
         completed_retention_seconds: int,
     ) -> None:
+        self._active_host = active_host
         self._control_port = control_port
         self._payload_cipher = payload_cipher
         self._presence = presence
@@ -133,8 +136,29 @@ class CodexCommandOutboxDispatcher(AsyncReliableOutboxAdapterPort[CodexCommandOu
         *,
         expected_fencing_token: int | None,
     ) -> CodexAgentCommandAck:
+        active = await self._active_host.read(record.owner_subject_id)
+        if (
+            active.active_host_id != record.host_id
+            or active.activated_at is None
+            or record.created_at < active.activated_at
+        ):
+            await asyncio.to_thread(
+                self._mark,
+                record.command_id,
+                CodexCommandOutboxState.FAILED,
+                "codex.connection.inactive_generation",
+                record.route_epoch,
+            )
+            return CodexAgentCommandAck(
+                command_id=record.command_id,
+                operation_id=record.operation_id,
+                state="failed",
+                replayed=False,
+            )
         try:
-            command = await asyncio.to_thread(self._decrypt_command, record)
+            command = (await asyncio.to_thread(self._decrypt_command, record)).model_copy(
+                update={"execution_generation": active.version}
+            )
         except (RuntimeError, ValueError):
             await asyncio.to_thread(
                 self._mark,
@@ -398,6 +422,24 @@ class CodexCommandOutboxDispatcher(AsyncReliableOutboxAdapterPort[CodexCommandOu
                     }
                 )
             )
+            if state is CodexCommandOutboxState.FAILED:
+                operations = self._control_port.create_codex_operation_repository(
+                    unit_of_work.get_session()
+                )
+                operation = operations.get_by_id_and_owner(
+                    current.operation_id, current.owner_subject_id
+                )
+                if operation is not None and operation.status not in {"completed", "cancelled"}:
+                    operations.save(
+                        operation.model_copy(
+                            update={
+                                "status": "failed",
+                                "error_code": error_code,
+                                "completed_at": now,
+                                "updated_at": now,
+                            }
+                        )
+                    )
             unit_of_work.commit()
         except BaseException:
             unit_of_work.rollback()

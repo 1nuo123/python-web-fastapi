@@ -60,7 +60,8 @@ MAX_PRODUCT_DIFF_FILES = 200
 MAX_PRODUCT_DIFF_LINES_PER_FILE = 5_000
 MAX_PRODUCT_DIFF_LINE_CHARS = 4_096
 DIFF_HUNK_HEADER_PATTERN = re.compile(
-    r"^@@\s+-(?P<old_start>\d+)(?:,\d+)?\s+\+(?P<new_start>\d+)(?:,\d+)?\s+@@"
+    r"^@@\s+-(?P<old_start>\d+)(?:,(?P<old_count>\d+))?"
+    r"\s+\+(?P<new_start>\d+)(?:,(?P<new_count>\d+))?\s+@@"
 )
 HIDDEN_DIFF_PATH = "[路径已隐藏]"
 APP_SERVER_THREAD_READ_PRODUCT_FIELD = "productThreadRead"
@@ -78,6 +79,8 @@ class CodexProductEvent:
     event_type: CodexRealtimeEventType
     payload: dict[str, JsonValue]
     occurred_at: datetime | None = None
+    source_epoch: UUID | None = None
+    source_seq: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +90,8 @@ class CodexMappedThreadSnapshot:
     thread: dict[str, JsonValue]
     turns: list[dict[str, JsonValue]]
     items: list[CodexTimelineItemEnvelope]
+    source_epoch: UUID | None = None
+    source_seq: int = 0
 
 
 class CodexProtocolMapper:
@@ -98,6 +103,17 @@ class CodexProtocolMapper:
         *,
         workspace_id: UUID | None,
     ) -> CodexProductEvent | None:
+        if workspace_id is None and event.method in {
+            "thread/started",
+            "thread/status/changed",
+            "thread/name/updated",
+            "thread/archived",
+            "thread/unarchived",
+            "thread/closed",
+        }:
+            # thread/started 可以早于创建结果。项目身份尚未物化时不发布空 UUID，
+            # 后续结果和索引快照会通过同一身份入口发布完整线程。
+            return None
         if event.detail is not None:
             return self._map_typed_event(event, workspace_id=workspace_id)
         params = self._mapping(event.params)
@@ -301,7 +317,7 @@ class CodexProtocolMapper:
                         "model": thread.model_id,
                         "model_provider": thread.model_provider,
                         "status": self._thread_status(thread.status),
-                        "archived": thread.archived,
+                        **({"archived": thread.archived} if thread.archived is not None else {}),
                         "created_at": self._iso_epoch(thread.created_at),
                         "recency_at": self._iso_epoch(
                             thread.recency_at
@@ -328,7 +344,11 @@ class CodexProtocolMapper:
                         "display_name": detail.display_name,
                         "title_source": "app_server" if detail.display_name else None,
                         "archived": detail.archived,
-                        **(detail.execution_settings.model_dump(mode="json") if detail.execution_settings is not None else {}),
+                        **(
+                            detail.execution_settings.model_dump(mode="json")
+                            if detail.execution_settings is not None
+                            else {}
+                        ),
                     }
                 },
             )
@@ -487,7 +507,9 @@ class CodexProtocolMapper:
             payload = {
                 "kind": "diff",
                 "schema_version": CODEX_TIMELINE_ITEM_SCHEMA_VERSION,
-                "diff": self._structured_diff(item.changes, item.unified_diff).model_dump(mode="json"),
+                "diff": self._structured_diff(item.changes, item.unified_diff).model_dump(
+                    mode="json"
+                ),
             }
         header["detail_kind"] = cast(str, payload["kind"])
         return CodexTimelineItemEnvelope.model_validate({"header": header, "detail": payload})
@@ -535,7 +557,9 @@ class CodexProtocolMapper:
                     ),
                     change_kind=change_kind,
                     binary=(
-                        parsed_file.binary if has_parsed_hunks and parsed_file is not None else False
+                        parsed_file.binary
+                        if has_parsed_hunks and parsed_file is not None
+                        else False
                     ),
                     large=(
                         parsed_file.large if has_parsed_hunks and parsed_file is not None else False
@@ -556,8 +580,7 @@ class CodexProtocolMapper:
             files=tuple(files),
             total_characters=sum(len(change.diff) for change in changes),
             truncated=(
-                len(changes) > MAX_PRODUCT_DIFF_FILES
-                or any(file.truncated for file in files)
+                len(changes) > MAX_PRODUCT_DIFF_FILES or any(file.truncated for file in files)
             ),
         )
 
@@ -738,13 +761,19 @@ class CodexProtocolMapper:
                     if isinstance(path, str) and path and change_kind is not None:
                         file_changes.append(
                             AppServerFileChange(
-                                path=path[:1_024],
+                                path=(
+                                    move_path[:1_024]
+                                    if change_kind == "renamed" and isinstance(move_path, str)
+                                    else path[:1_024]
+                                ),
                                 change_kind=cast(
                                     Literal["added", "modified", "deleted", "renamed"],
                                     change_kind,
                                 ),
                                 diff=diff if isinstance(diff, str) else "",
-                                old_path=(move_path[:1_024] if isinstance(move_path, str) else None),
+                                old_path=(
+                                    path[:1_024] if change_kind == "renamed" else None
+                                ),
                             )
                         )
             detail = {
@@ -858,6 +887,7 @@ class CodexProtocolMapper:
                 {
                     "turn_id": turn.turn_id,
                     "thread_id": snapshot.thread.thread_id,
+                    "items_complete": turn.items_complete,
                     "status": turn.status,
                     "started_at": self._iso_epoch(turn.started_at),
                     "completed_at": self._iso_epoch(turn.completed_at),
@@ -869,11 +899,17 @@ class CodexProtocolMapper:
                     item,
                     thread_id=snapshot.thread.thread_id,
                     turn_id=turn.turn_id,
-                    completed=True,
+                    completed=turn.status in {"completed", "failed", "interrupted", "cancelled"},
                 )
                 for item in turn.items
             )
-        return CodexMappedThreadSnapshot(thread=thread, turns=turns, items=items)
+        return CodexMappedThreadSnapshot(
+            thread=thread,
+            turns=turns,
+            items=items,
+            source_epoch=snapshot.source_epoch,
+            source_seq=snapshot.source_seq,
+        )
 
     def _event(
         self,
@@ -894,6 +930,8 @@ class CodexProtocolMapper:
             event_type=event_type,
             payload=payload,
             occurred_at=source.occurred_at,
+            source_epoch=source.source_epoch,
+            source_seq=source.source_seq,
         )
 
     def _warning(self, source: CodexAgentRealtimeEvent, warning: str) -> CodexProductEvent:
@@ -1075,13 +1113,17 @@ class CodexProtocolMapper:
             header = lines[index][:512]
             old_line = int(match.group("old_start"))
             new_line = int(match.group("new_start"))
+            old_end = old_line + int(match.group("old_count") or "1")
+            new_end = new_line + int(match.group("new_count") or "1")
             index += 1
             parsed_lines: list[CodexDiffLineSnapshot] = []
             while index < len(lines) and not lines[index].startswith("@@ "):
+                if old_line >= old_end and new_line >= new_end:
+                    break
                 raw_line = lines[index]
                 if raw_line.startswith("diff --git "):
                     break
-                if raw_line.startswith("+") and not raw_line.startswith("+++"):
+                if raw_line.startswith("+"):
                     parsed_lines.append(
                         CodexDiffLineSnapshot(
                             kind=CodexDiffLineKind.ADDITION,
@@ -1090,7 +1132,7 @@ class CodexProtocolMapper:
                         )
                     )
                     new_line += 1
-                elif raw_line.startswith("-") and not raw_line.startswith("---"):
+                elif raw_line.startswith("-"):
                     parsed_lines.append(
                         CodexDiffLineSnapshot(
                             kind=CodexDiffLineKind.DELETION,
@@ -1099,8 +1141,8 @@ class CodexProtocolMapper:
                         )
                     )
                     old_line += 1
-                elif not raw_line.startswith("\\ No newline"):
-                    content = raw_line[1:] if raw_line.startswith(" ") else raw_line
+                elif raw_line.startswith(" "):
+                    content = raw_line[1:]
                     parsed_lines.append(
                         CodexDiffLineSnapshot(
                             kind=CodexDiffLineKind.CONTEXT,

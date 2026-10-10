@@ -27,6 +27,7 @@ class CodexProductCommandCode(StrEnum):
     TURN_STEER = "turn.steer"
     TURN_INTERRUPT = "turn.interrupt"
     APPROVAL_DECISION = "approval.decision"
+    WORKSPACE_SETTINGS = "workspace.settings"
 
 
 class CodexProductOwnershipScope(StrEnum):
@@ -58,6 +59,13 @@ class CodexProductCommandCatalog:
         """返回产品命令到已审核 App Server 方法的完整映射。"""
 
         return (
+            CodexProductCommandPolicy(
+                command=CodexProductCommandCode.WORKSPACE_SETTINGS,
+                app_server_method=None,
+                required_capability=AppServerCapabilityCode.THREAD_START,
+                ownership_scope=CodexProductOwnershipScope.WORKSPACE,
+                mutation=True,
+            ),
             CodexProductCommandPolicy(
                 command=CodexProductCommandCode.THREAD_LIST,
                 app_server_method=AppServerMethodName.THREAD_LIST,

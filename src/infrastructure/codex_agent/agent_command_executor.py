@@ -106,6 +106,9 @@ class AgentCommandExecutor:
         execution_root_store: AgentExecutionRootStore | None = None,
         workspace_registry: AgentWorkspaceRegistry | None = None,
         allow_experimental_api: bool = False,
+        workspace_settings_handler: AgentApprovalReplyHandler | None = None,
+        execution_settings_resolver: Callable[[str, str, str], Awaitable[dict[str, JsonValue]]]
+        | None = None,
     ) -> None:
         self._journal = journal
         self._client = client
@@ -119,6 +122,8 @@ class AgentCommandExecutor:
         self._execution_root_store = execution_root_store
         self._workspace_registry = workspace_registry
         self._allow_experimental_api = allow_experimental_api
+        self._workspace_settings_handler = workspace_settings_handler
+        self._execution_settings_resolver = execution_settings_resolver
 
     async def execute(self, command: CodexAgentCommand) -> None:
         """编排 digest 校验、账本登记、ack、RPC 与最终结果。"""
@@ -145,7 +150,11 @@ class AgentCommandExecutor:
         command_deadline = asyncio.get_running_loop().time() + timeout_seconds
         worktree_context: AgentWorktreeExecutionContext | None = None
         try:
-            if command.command_type == "approval.decision":
+            if command.command_type == "workspace.settings":
+                if self._workspace_settings_handler is None:
+                    raise RuntimeError("项目设置通道未装配。")
+                result = await self._workspace_settings_handler(command)
+            elif command.command_type == "approval.decision":
                 if self._approval_reply_handler is None:
                     raise RuntimeError("Agent审批回复处理器未装配。")
                 result = await self._approval_reply_handler(command)
@@ -157,6 +166,31 @@ class AgentCommandExecutor:
                     cwd_override=(worktree_context.root if worktree_context is not None else None),
                 )
                 history_omitted = False
+                if command.command_type in {"thread.start", "thread.resume", "turn.start"}:
+                    if self._execution_settings_resolver is None:
+                        raise RuntimeError("项目执行设置未装配，不能使用旧线程默认值。")
+                    key = command.params.get("workspace_key")
+                    cwd = request.params.get("cwd")
+                    if not isinstance(key, str) or not isinstance(cwd, str):
+                        raise ValueError("项目执行身份不完整。")
+                    resolved = await self._execution_settings_resolver(key, request.method, cwd)
+                    if command.command_type in {"thread.start", "thread.resume", "turn.start"}:
+                        sandbox = resolved.get("sandbox")
+                        policy = resolved.get("sandboxPolicy")
+                        if isinstance(policy, dict):
+                            sandbox = {
+                                "readOnly": "read-only",
+                                "workspaceWrite": "workspace-write",
+                                "dangerFullAccess": "danger-full-access",
+                            }.get(policy.get("type"))
+                        if (
+                            command.sandbox_mode is None
+                            or sandbox != command.sandbox_mode.value
+                            or command.approval_policy is None
+                            or resolved.get("approvalPolicy") != command.approval_policy.value
+                        ):
+                            raise PermissionError("项目权限已变化，请刷新设置并重新确认后执行。")
+                    request.params.update(resolved)
                 thread_id = command.params.get("threadId")
                 if (
                     command.command_type == "thread.read"
@@ -334,7 +368,49 @@ class AgentCommandExecutor:
             )
             return
         thread_id, turn_id = read_upstream_identifiers(result)
-        await self._bind_created_worktree(worktree_context, thread_id)
+        try:
+            if (
+                command.command_type in {"thread.archive", "thread.unarchive", "thread.resume"}
+                and self._worktree_port is not None
+                and worktree_context is not None
+                and worktree_context.root_kind is RootKind.ISOLATED_WORKTREE
+            ):
+                await asyncio.to_thread(
+                    self._worktree_port.set_archived,
+                    worktree_context.workspace_key,
+                    str(command.params["threadId"]),
+                    command.command_type == "thread.archive",
+                )
+            await self._bind_created_worktree(worktree_context, thread_id)
+        except (OSError, RuntimeError, ValueError):
+            # 上游已经成功，不得宣称写操作失败并邀请重放；保留真实身份供核对。
+            self._journal.mark_unknown(
+                str(command.command_id),
+                result_summary=AgentCommandResultSummary(
+                    outcome_code="local_lifecycle_unconfirmed",
+                    upstream_thread_id=thread_id,
+                    upstream_turn_id=turn_id,
+                ),
+            )
+            await self._ack_sender(
+                self._build_ack(
+                    command,
+                    AgentCommandJournalState.UNKNOWN.value,
+                    replayed=False,
+                    recovery_required=True,
+                )
+            )
+            await self._result_sender(
+                CodexAgentCommandResult(
+                    command_id=command.command_id,
+                    operation_id=command.operation_id,
+                    outcome="unknown",
+                    result=result,
+                    error_code="local_lifecycle_unconfirmed",
+                    error_message="Codex 已接受操作，本机工作树收尾未确认，请核对原会话，不要重复创建。",
+                )
+            )
+            return
         self._invalidate_history_after_success(command, thread_id)
         summary = AgentCommandResultSummary(
             outcome_code="completed",
@@ -552,16 +628,15 @@ class AgentCommandExecutor:
                 root_kind=registry.resolve_root_kind(workspace_key),
             )
         if binding.workspace_key != workspace_key:
-            store.delete(thread_id)
             raise RuntimeError("线程执行根与当前工作区不匹配。")
         workspace_root = registry.resolve_root(workspace_key)
         try:
             selected_root = binding.execution_root.resolve(strict=True)
         except OSError as exc:
-            store.delete(thread_id)
-            raise RuntimeError("线程执行根已失效。") from exc
+            raise RuntimeError(
+                "线程执行根已失效；请在本机恢复原目录或创建新会话，不能回退到原仓库。"
+            ) from exc
         if selected_root != workspace_root and not selected_root.is_relative_to(workspace_root):
-            store.delete(thread_id)
             raise RuntimeError("线程执行根逃出工作区白名单。")
         extension_worktree_id = getattr(binding.extension, "worktree_id", None)
         worktree_id = extension_worktree_id if isinstance(extension_worktree_id, str) else thread_id

@@ -41,6 +41,30 @@ class AgentConnectionTicketProvider(AgentConnectionTicketProviderPort):
         self._control_plane_api_url = control_plane_api_url.rstrip("/") + "/"
         self._key_store = key_store
 
+    async def binding_is_active(self, *, host_id: UUID, key_id: UUID) -> bool:
+        """只有服务端明确拒绝旧身份才视为释放；网络或其它错误保持未知。"""
+        response = await self._client.post(
+            urljoin(self._control_plane_api_url, DEVICE_CHALLENGE_PATH.lstrip("/")),
+            json=DeviceChallengeIssueRequestEnvelope(
+                header=DeviceChallengeRequestHeader(request_id=uuid4()),
+                detail=DeviceChallengeIssueRequest(host_id=host_id, key_id=key_id),
+            ).model_dump(mode="json"),
+        )
+        if response.status_code == 404:
+            payload = response.json()
+            # 不把代理 404 或配置错误误判为已释放绑定。
+            from src.domain.codex.codex_error_code import CodexErrorCode
+
+            header = payload.get("header") if isinstance(payload, dict) else None
+            if (
+                isinstance(header, dict)
+                and header.get("code") == CodexErrorCode.DEVICE_CHALLENGE_INVALID.value
+            ):
+                return False
+        response.raise_for_status()
+        DeviceChallengeIssue.model_validate(response.json())
+        return True
+
     async def issue(self, *, host_id: UUID, key_id: UUID) -> AgentConnectionTicketResponse:
         challenge_response = await self._client.post(
             urljoin(self._control_plane_api_url, DEVICE_CHALLENGE_PATH.lstrip("/")),

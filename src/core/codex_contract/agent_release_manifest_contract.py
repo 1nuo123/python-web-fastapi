@@ -203,8 +203,8 @@ class CodexAgentReleaseDownloadDetail(BaseModel):
     version: str = Field(min_length=1, max_length=64)
     distribution_mode: CodexAgentReleaseDistributionMode
     artifact_sha256: str = Field(min_length=SHA256_HEX_LENGTH, max_length=SHA256_HEX_LENGTH)
-    download_url: str = Field(min_length=1, max_length=2_048)
-    manifest_url: str = Field(min_length=1, max_length=2_048)
+    download_url: str | None = Field(default=None, max_length=2_048)
+    manifest_url: str | None = Field(default=None, max_length=2_048)
     minimum_security_version: str = Field(min_length=1, max_length=64)
     automatic_updates_enabled: bool
     source_repository: str | None = Field(default=None, max_length=256)
@@ -213,10 +213,10 @@ class CodexAgentReleaseDownloadDetail(BaseModel):
 
     @field_validator("download_url", "manifest_url")
     @classmethod
-    def validate_https_url(cls, value: str) -> str:
+    def validate_https_url(cls, value: str | None) -> str | None:
         """下载与发布清单入口必须使用 HTTPS。"""
 
-        if not value.startswith("https://"):
+        if value is not None and not value.startswith("https://"):
             raise ValueError("Agent下载入口必须使用HTTPS。")
         return value
 
@@ -242,8 +242,10 @@ class CodexAgentReleaseDownloadDetail(BaseModel):
         if self.distribution_mode is CodexAgentReleaseDistributionMode.INTERNAL:
             if self.automatic_updates_enabled:
                 raise ValueError("内部体验包不得启用自动更新。")
-            validate_internal_agent_release_url(self.download_url, version=self.version)
-            validate_internal_agent_release_url(self.manifest_url, version=self.version)
+            if self.download_url is not None:
+                validate_internal_agent_release_url(self.download_url, version=self.version)
+            if self.manifest_url is not None:
+                validate_internal_agent_release_url(self.manifest_url, version=self.version)
         return self
 
 

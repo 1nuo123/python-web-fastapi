@@ -118,6 +118,7 @@ class CodexRuntimeSettings(BaseModel):
     agent_release_source_repository: str | None = Field(default=None, max_length=256)
     agent_release_source_revision: str | None = Field(default=None, max_length=128)
     agent_release_source_dirty: bool | None = None
+    agent_release_available: bool = False
 
     @model_validator(mode="after")
     def validate_runtime_boundaries(self) -> CodexRuntimeSettings:

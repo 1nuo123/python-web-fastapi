@@ -223,6 +223,7 @@ class CodexAgentConnectRouteCatalog:
             revocation_generation=revocation_generation,
             event_cursor_store=runtime.event_cursor_store,
             presence_adapter=runtime.presence_adapter,
+            active_host=runtime.active_host,
             instance_id=runtime.instance_id,
             revocation_signal=runtime.revocation_signal,
             shutdown_event=shutdown_event,

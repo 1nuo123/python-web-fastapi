@@ -114,7 +114,8 @@ class GitWorktreeAdapter:
                 dirty=False,
                 created_at=now,
                 updated_at=now,
-                cleanup_after=now + timedelta(seconds=request.policy.retention_seconds),
+                retention_seconds=request.policy.retention_seconds,
+                cleanup_after=None,
             )
             try:
                 self._write_marker(target, snapshot)
@@ -146,6 +147,10 @@ class GitWorktreeAdapter:
                 return GitWorktreeOperationResult(
                     success=False,
                     message="受管工作树不存在或标记不匹配。",
+                )
+            if request.require_archived and snapshot.state is WorktreeLifecycleState.ACTIVE:
+                return GitWorktreeOperationResult(
+                    success=False, snapshot=snapshot, message="会话仍未归档，不能清理执行目录。"
                 )
             dirty_snapshot = snapshot.model_copy(
                 update={"dirty": self._is_dirty(snapshot.path), "updated_at": datetime.now(UTC)}
@@ -189,6 +194,31 @@ class GitWorktreeAdapter:
                 ),
             )
 
+    def set_archived(self, workspace_key: str, thread_id: str, archived: bool) -> None:
+        repository_root = self._resolve_repository_root(workspace_key, require_write=True)
+        managed_root = self._resolve_managed_root(repository_root, None)
+        with self._repository_lock(repository_root):
+            for snapshot in self._list_snapshots(managed_root):
+                if snapshot.thread_id != thread_id:
+                    continue
+                now = datetime.now(UTC)
+                self._write_marker(
+                    snapshot.path,
+                    snapshot.model_copy(
+                        update={
+                            "state": WorktreeLifecycleState.ARCHIVED
+                            if archived
+                            else WorktreeLifecycleState.ACTIVE,
+                            "cleanup_after": now + timedelta(seconds=snapshot.retention_seconds)
+                            if archived
+                            else None,
+                            "cleanup_reason": None,
+                            "updated_at": now,
+                        }
+                    ),
+                )
+                return
+
     def prune(self, workspace_key: str) -> GitWorktreeListResult:
         """清理过期且干净的 worktree，失败时保留 marker。"""
 
@@ -198,7 +228,11 @@ class GitWorktreeAdapter:
         with self._repository_lock(repository_root):
             now = datetime.now(UTC)
             for snapshot in self._list_snapshots(managed_root):
-                if snapshot.cleanup_after is None or snapshot.cleanup_after > now:
+                if (
+                    snapshot.state is WorktreeLifecycleState.ACTIVE
+                    or snapshot.cleanup_after is None
+                    or snapshot.cleanup_after > now
+                ):
                     continue
                 refreshed = snapshot.model_copy(
                     update={"dirty": self._is_dirty(snapshot.path), "updated_at": now}

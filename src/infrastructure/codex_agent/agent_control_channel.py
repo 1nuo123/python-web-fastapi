@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import secrets
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -57,6 +58,8 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentEventRecord,
     AgentGapEventDetail,
     AgentHeartbeatV2Detail,
+    AgentExecutionLeaseV2Detail,
+    AgentExecutionStoppedV2Detail,
     AgentHelloAckV2Detail,
     AgentHelloV2Detail,
     AgentItemChangedEventDetail,
@@ -71,6 +74,13 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentTurnChangedEventDetail,
 )
 from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
+from src.core.codex_contract.host_contract import CodexSandboxMode
+from src.core.codex_contract.workspace_contract import (
+    ProjectExecutionSettingsApply,
+    CodexWorkspaceExecutionPreferences,
+)
+from src.infrastructure.codex_agent.project_execution_settings import ProjectExecutionSettings
+from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
 from src.core.codex_contract.app_server_jsonrpc_contract import JsonRpcId
 from src.core.codex_contract.app_server_product_contract import (
     AppServerDiffChangedDetail,
@@ -78,6 +88,7 @@ from src.core.codex_contract.app_server_product_contract import (
     AppServerFileChange,
     AppServerItemChangedDetail,
     AppServerItemDeltaDetail,
+    AppServerNoticeItem,
     AppServerPlanChangedDetail,
     AppServerProductNotificationDetail,
     AppServerThreadChangedDetail,
@@ -122,6 +133,7 @@ from src.infrastructure.codex.codex_connection_session import (
 )
 from src.infrastructure.codex_agent.agent_command_executor import AgentCommandExecutor
 from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJournal
+from src.infrastructure.codex_agent.agent_timeline_store import AgentTimelineStore
 from src.infrastructure.codex_agent.agent_configuration import (
     CodexHostAgentSettings,
     build_agent_tls_context,
@@ -142,6 +154,7 @@ from src.infrastructure.codex_agent.agent_thread_history_window_cache import (
 )
 from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspaceRegistry
 from src.infrastructure.codex_agent.app_server_jsonrpc_client import AppServerProtocolWarning
+from src.core.codex_contract.app_server_jsonrpc_contract import AppServerRpcError
 from src.infrastructure.codex_agent.app_server_model_catalog import read_model_catalog
 from src.infrastructure.codex_agent.app_server_process_supervisor import (
     AppServerProcessHandle,
@@ -300,8 +313,23 @@ class AgentControlChannel:
         journal: AgentCommandJournal,
         logger: logging.Logger,
         runtime_status_reader: Callable[[], AgentRuntimeStatus | None] | None = None,
+        config_path: Path | None = None,
     ) -> None:
         self._settings = settings
+        self._execution_lease_ready = asyncio.Event()
+        self._execution_enabled = False
+        self._execution_paused = False
+        self._execution_lease_deadline = 0.0
+        self._execution_lease_generation = 0
+        self._last_event_seq = 0
+        self._lease_requests: dict[UUID, float] = {}
+        self._execution_resolved: CodexWorkspaceExecutionPreferences | None = None
+        self._timeline_store = AgentTimelineStore(
+            settings.agent.state_database.with_name("timeline.sqlite3")
+        )
+        self._project_execution = ProjectExecutionSettings(
+            config_path or settings.agent.state_database.with_name("agent.toml")
+        )
         self._tls_context = build_agent_tls_context(
             deployment_profile=settings.agent.deployment_profile,
             development_ca_certificate_path=settings.agent.development_ca_certificate_path,
@@ -310,6 +338,7 @@ class AgentControlChannel:
         self._connection_ticket_provider = connection_ticket_provider
         self._workspace_registry = workspace_registry
         self._worktree_port = GitWorktreeAdapter(workspace_registry)
+        self._last_worktree_cleanup = 0.0
         self._execution_root_store = AgentExecutionRootStore.from_state_directory(
             settings.agent.state_database.parent
         )
@@ -354,21 +383,29 @@ class AgentControlChannel:
         )
 
     async def run(self) -> None:
-        """启动 App Server 一次，并在控制面 WSS 失败时指数退避重连。"""
+        """监督 Remote 专属执行进程，并在控制面失败时停止执行后退避重连。"""
 
-        handle = await self._supervisor.start()
+        await self._record_connection_state("starting")
+        try:
+            handle = await self._supervisor.start()
+        except (OSError, ValueError, RuntimeError):
+            await self._record_connection_state("blocked", "app_server_start_failed")
+            raise
         legacy_token = self._read_legacy_token()
         delay = self._settings.agent.reconnect_min_seconds
         try:
             while not self._shutdown_event.is_set():
                 try:
+                    await self._record_connection_state("connecting")
                     if handle.process.returncode is not None or not handle.client.running:
                         for pending in tuple(self._pending_approvals.values()):
                             await self._close_pending_approval(pending, "instance_replaced")
                         # 新 App Server 代次不继承旧进程的实时事件序列，必须丢弃正文窗口。
                         self._history_window_cache.clear()
                         self._file_change_items.clear()
-                        handle = await self._supervisor.restart()
+                        await self._supervisor.stop()
+                        handle = await self._supervisor.start()
+                        self._execution_paused = False
                     await self._run_connection(handle, legacy_token)
                     delay = self._settings.agent.reconnect_min_seconds
                 except asyncio.CancelledError:
@@ -385,12 +422,16 @@ class AgentControlChannel:
                     if self._shutdown_event.is_set():
                         break
                     if not AgentControlConnectionPolicy.should_retry(exc):
+                        await self._record_connection_state(
+                            "blocked", "control_authentication_failed"
+                        )
                         self._logger.error(
                             "Agent控制通道握手被拒绝，请重新注册主机或检查设备凭据：%s",
                             AgentControlConnectionPolicy.describe(exc),
                         )
                         raise
                     phase = "established" if self._hello_ack_event.is_set() else "handshake"
+                    await self._record_connection_state("offline", f"{phase}_failed")
                     self._logger.warning(
                         "Agent控制通道连接失败，将重试：phase=%s error_type=%s detail=%s",
                         phase,
@@ -429,6 +470,33 @@ class AgentControlChannel:
             self._history_window_cache.clear()
             self._file_change_items.clear()
             await self._supervisor.stop()
+            self._timeline_store.close()
+
+    async def _watch_execution_lease(self) -> None:
+        while True:
+            await asyncio.sleep(1)
+            if (
+                self._execution_enabled
+                and asyncio.get_running_loop().time() >= self._execution_lease_deadline
+            ):
+                self._execution_enabled = False
+                self._execution_paused = True
+                await self._supervisor.stop()
+                await self._record_connection_state("blocked", "execution_lease_expired")
+
+    async def _record_connection_state(self, state: str, reason: str | None = None) -> None:
+        try:
+            await asyncio.to_thread(
+                AgentRuntimeStatusStore(self._settings.agent.state_database).update,
+                {
+                    "connection_state": state,
+                    "connection_updated_at": datetime.now(UTC),
+                    "connection_reason": reason,
+                    "process_id": os.getpid(),
+                },
+            )
+        except OSError:
+            self._logger.warning("本机连接状态发布失败。", exc_info=True)
 
     def request_shutdown(self) -> None:
         """请求停止新连接与新命令。"""
@@ -447,7 +515,7 @@ class AgentControlChannel:
         handle: AppServerProcessHandle,
         legacy_token: str | None,
     ) -> None:
-        """运行一个控制面连接代次，断线不停止本地 App Server。"""
+        """运行一个控制面连接代次，失去执行资格时停止 Remote 专属进程。"""
 
         if (
             self._model_catalog_instance != handle.instance_id
@@ -485,11 +553,17 @@ class AgentControlChannel:
                 ),
             )
             self._hello_ack_event.clear()
+            self._execution_lease_ready.clear()
+            self._lease_requests.clear()
+            self._execution_lease_generation = 0
+            self._execution_enabled = False
             self._connection_epoch = None
             session_task = asyncio.create_task(session.run(shutdown_event=self._shutdown_event))
             await asyncio.sleep(0)
             self._active_sender = session
             heartbeat_task: asyncio.Task[None] | None = None
+            settings_sync_task: asyncio.Task[None] | None = None
+            watchdog_task = asyncio.create_task(self._watch_execution_lease())
             process_wait_task = asyncio.create_task(handle.process.wait())
             client_wait_task = asyncio.create_task(handle.client.wait_stopped())
             try:
@@ -497,14 +571,27 @@ class AgentControlChannel:
                 await session.send(self._build_hello_frame(handle))
                 await self._wait_for_hello_ack(session_task)
                 await self._require_active_session(session_task)
-                await self._send_snapshot(handle, session)
+                heartbeat_task = asyncio.create_task(self._heartbeat_loop(handle, session))
+                await asyncio.wait_for(self._execution_lease_ready.wait(), timeout=10)
+                if self._execution_enabled:
+                    await self._send_snapshot(handle, session)
+                settings_sync_task = asyncio.create_task(self._settings_sync_loop(handle, session))
+                await self._record_connection_state(
+                    "online" if self._execution_enabled else "blocked",
+                    None if self._execution_enabled else "inactive_host",
+                )
                 await self._require_active_session(session_task)
                 await self._flush_buffer(session)
-                heartbeat_task = asyncio.create_task(self._heartbeat_loop(handle, session))
+
                 done, _ = await asyncio.wait(
                     (session_task, process_wait_task, client_wait_task),
                     return_when=asyncio.FIRST_COMPLETED,
                 )
+                if self._execution_paused and (
+                    process_wait_task in done or client_wait_task in done
+                ):
+                    await session_task
+                    self._raise_if_connection_closed_unexpectedly()
                 if process_wait_task in done:
                     raise ConnectionError("Codex App Server进程异常退出。")
                 if client_wait_task in done:
@@ -513,16 +600,27 @@ class AgentControlChannel:
                 await session_task
                 self._raise_if_connection_closed_unexpectedly()
             finally:
+                await self._record_connection_state(
+                    "stopped" if self._shutdown_event.is_set() else "offline"
+                )
                 if heartbeat_task is not None:
                     if not heartbeat_task.done():
                         heartbeat_task.cancel()
                     await asyncio.gather(heartbeat_task, return_exceptions=True)
+                if settings_sync_task is not None:
+                    settings_sync_task.cancel()
+                    await asyncio.gather(settings_sync_task, return_exceptions=True)
+                self._execution_enabled = False
+                watchdog_task.cancel()
+                await asyncio.gather(watchdog_task, return_exceptions=True)
                 self._active_sender = None
                 connection_tasks = (session_task, process_wait_task, client_wait_task)
                 for task in connection_tasks:
                     if not task.done():
                         task.cancel()
                 await asyncio.gather(*connection_tasks, return_exceptions=True)
+                self._execution_paused = True
+                await self._supervisor.stop()
 
     async def _wait_for_hello_ack(self, session_task: asyncio.Task[None]) -> None:
         """等待握手确认，同时立即感知已经结束的连接会话。"""
@@ -595,6 +693,41 @@ class AgentControlChannel:
             return
         if not self._hello_ack_event.is_set():
             raise ValueError("控制面在hello_ack之前发送了业务消息。")
+        if decoded.v2 is not None and isinstance(decoded.v2.detail, AgentExecutionLeaseV2Detail):
+            self._verify_v2_control_host(decoded.v2.header.host_id)
+            lease = decoded.v2.detail
+            if lease.generation < self._execution_lease_generation:
+                return
+            requested_at = self._lease_requests.pop(lease.request_id, None)
+            if lease.enabled and requested_at is None:
+                raise PermissionError("执行租约缺少对应的本机请求，不能确认有效期限。")
+            # 从本机发出请求时计时，网络延迟和服务端排队不能延长旧租约。
+            # 不依赖 Windows 与服务端时钟同步。
+            self._execution_lease_deadline = (requested_at or 0) + lease.valid_for_seconds
+            self._execution_lease_generation = lease.generation
+            self._execution_lease_ready.set()
+            self._execution_enabled = (
+                lease.enabled and asyncio.get_running_loop().time() < self._execution_lease_deadline
+            )
+            if not self._execution_enabled:
+                self._execution_paused = True
+                for pending in tuple(self._pending_approvals.values()):
+                    await self._close_pending_approval(pending, "instance_replaced")
+                await self._supervisor.stop()
+                await self._record_connection_state("blocked", "inactive_host")
+                await sender.send(
+                    self._protocol_codec.encode_v2(
+                        host_id=self._settings.agent.host_id,
+                        key_id=self._settings.agent.key_id,
+                        message_id=uuid4(),
+                        detail=AgentExecutionStoppedV2Detail(generation=lease.generation),
+                    )
+                )
+            elif self._execution_paused:
+                raise ConnectionError("活动电脑已切回，重新建立本机执行进程。")
+            else:
+                await self._record_connection_state("online")
+            return
         if decoded.v2 is not None and isinstance(decoded.v2.detail, AgentEventAckV2Detail):
             self._accept_event_ack(decoded.v2.detail)
             return
@@ -617,6 +750,12 @@ class AgentControlChannel:
             raise ValueError("控制面发送了不受支持的Agent消息。")
         if command.host_id != self._settings.agent.host_id:
             raise PermissionError("控制面命令host_id与本机Agent不匹配。")
+        if (
+            not self._execution_enabled
+            or asyncio.get_running_loop().time() >= self._execution_lease_deadline
+            or command.execution_generation != self._execution_lease_generation
+        ):
+            raise PermissionError("当前电脑没有有效的账号执行租约。")
         executor = AgentCommandExecutor(
             journal=self._journal,
             client=self._supervisor.handle.client,
@@ -629,6 +768,7 @@ class AgentControlChannel:
                 sender,
                 result,
                 command.command_type,
+                command,
             ),
             approval_reply_handler=self._reply_approval,
             history_capacity_registry=self._history_capacity_registry,
@@ -637,10 +777,38 @@ class AgentControlChannel:
             execution_root_store=self._execution_root_store,
             workspace_registry=self._workspace_registry,
             allow_experimental_api=self._settings.protocol.allow_experimental_api,
+            workspace_settings_handler=self._apply_project_settings,
+            execution_settings_resolver=self._resolve_project_parameters,
         )
+        self._execution_resolved = None
         await executor.execute(command)
-        if command.command_type in {"thread.start", "thread.resume"}:
+        if command.command_type in {"thread.start", "thread.resume"} or (
+            command.command_type == "turn.start"
+            and self._execution_resolved is not None
+            and self._execution_resolved.applied_state != "applied"
+        ):
             await self._send_snapshot(self._supervisor.handle, sender)
+
+    async def _apply_project_settings(self, command: CodexAgentCommand) -> JsonValue:
+        key = command.params.get("workspace_key")
+        if not isinstance(key, str):
+            raise ValueError("项目身份无效。")
+        self._workspace_registry.resolve_root(key)
+        request = ProjectExecutionSettingsApply.model_validate(command.params.get("settings"))
+        effective = await self._project_execution.apply(
+            key, request, self._supervisor.handle.client
+        )
+        # 成功回读后先发布投影，命令终态不能早于本机持久状态。
+        if self._active_sender is not None:
+            await self._send_snapshot(self._supervisor.handle, self._active_sender)
+        return effective.model_dump(mode="json")
+
+    async def _resolve_project_parameters(
+        self, key: str, method: str, cwd: str
+    ) -> dict[str, JsonValue]:
+        effective = await self._project_execution.resolve(key, self._supervisor.handle.client)
+        self._execution_resolved = effective
+        return self._project_execution.build_parameters(method, effective, cwd)
 
     def _resolve_command_security_policy(
         self,
@@ -649,16 +817,13 @@ class AgentControlChannel:
         """从具体命令参数构建本次 App Server 安全策略。"""
 
         local_policy = self._settings.app_server_security.to_policy()
-        if command.command_type not in {"thread.start", "turn.start"}:
+        if command.command_type not in {"thread.start", "thread.resume", "turn.start"}:
             return local_policy
         if command.sandbox_mode is None or command.approval_policy is None:
             raise PermissionError("Agent命令缺少用户确认的执行限制。")
-        if command.approval_policy == CodexApprovalPolicy.NEVER:
-            raise PermissionError("Agent不支持禁用审批的远程命令。")
         return AgentAppServerSecurityPolicy(
             approval_policy=cast(
-                Literal["untrusted", "on-request"],
-                command.approval_policy.value,
+                Literal["untrusted", "on-request", "never"], command.approval_policy.value
             ),
             approvals_reviewer=local_policy.approvals_reviewer,
             sandbox_mode=command.sandbox_mode.value,
@@ -669,6 +834,7 @@ class AgentControlChannel:
         handle: AppServerProcessHandle,
         sender: CodexOutboundFrameSenderPort,
     ) -> None:
+        execution_generation = self._execution_lease_generation
         builder = AgentSnapshotBuilder(
             host_id=self._settings.agent.host_id,
             workspace_registry=self._workspace_registry,
@@ -678,22 +844,80 @@ class AgentControlChannel:
             history_capacity_registry=self._history_capacity_registry,
         )
         if self._protocol_version == CodexConnectionProtocolVersion.V2:
-            v2_snapshot = await builder.build_v2(
-                page_index=0,
-                page_size=self._settings.agent.snapshot_page_size,
-                pending_approvals=self._build_pending_approval_snapshots(),
-            )
-            await sender.send(
-                self._protocol_codec.encode_v2(
-                    host_id=self._settings.agent.host_id,
-                    key_id=self._settings.agent.key_id,
-                    message_id=uuid4(),
-                    detail=v2_snapshot,
+            snapshot = await builder.build()
+            workspaces = []
+            for workspace in snapshot.workspaces:
+                try:
+                    effective = await self._project_execution.resolve(workspace.key, handle.client)
+                except (OSError, ValueError, RuntimeError) as exc:
+                    local = await asyncio.to_thread(
+                        self._project_execution.read_workspace, workspace.key
+                    )
+                    effective = CodexWorkspaceExecutionPreferences(
+                        requested=local.execution_overrides,
+                        local_revision=local.execution_revision,
+                        applied_state="blocked",
+                        error=str(exc)[:512],
+                    )
+                workspaces.append(workspace.model_copy(update={"execution_preferences": effective}))
+            snapshot = snapshot.model_copy(update={"workspaces": workspaces})
+            page_index = 0
+            while True:
+                v2_snapshot = await builder.build_v2(
+                    page_index=page_index,
+                    page_size=self._settings.agent.snapshot_page_size,
+                    pending_approvals=self._build_pending_approval_snapshots(),
+                    snapshot=snapshot,
                 )
-            )
+                if (
+                    not self._execution_enabled
+                    or execution_generation != self._execution_lease_generation
+                ):
+                    return
+                v2_snapshot = v2_snapshot.model_copy(
+                    update={"execution_generation": execution_generation}
+                )
+                await sender.send(
+                    self._protocol_codec.encode_v2(
+                        host_id=self._settings.agent.host_id,
+                        key_id=self._settings.agent.key_id,
+                        message_id=uuid4(),
+                        detail=v2_snapshot,
+                    )
+                )
+                if v2_snapshot.continuation_token is None:
+                    break
+                page_index += 1
             return
         v1_snapshot = await builder.build()
         await self._send_model(sender, AgentV1MessageType.STATE_SNAPSHOT.value, v1_snapshot)
+
+    async def _settings_sync_loop(
+        self,
+        handle: AppServerProcessHandle,
+        sender: CodexOutboundFrameSenderPort,
+    ) -> None:
+        """本机原生修改或 CLI 基线变化后发布同一投影，不阻塞执行租约心跳。"""
+        previous: tuple[str, ...] | None = None
+        while True:
+            await asyncio.sleep(15)
+            if not self._execution_enabled or self._execution_paused:
+                continue
+            try:
+                values = []
+                for workspace in self._workspace_registry.list_workspaces():
+                    effective = await self._project_execution.resolve(workspace.key, handle.client)
+                    values.append(effective.model_dump_json())
+                signature = tuple(values)
+                if signature != previous:
+                    await self._send_snapshot(handle, sender)
+                    previous = signature
+            except (OSError, RuntimeError, ValueError, AppServerRpcError):
+                # 失效设置也必须发布 blocked；单次探测失败不终止租约心跳。
+                try:
+                    await self._send_snapshot(handle, sender)
+                except (OSError, RuntimeError, ValueError, AppServerRpcError):
+                    self._logger.warning("本机项目设置暂时无法同步，将在下次检查重试。")
 
     async def _heartbeat_loop(
         self,
@@ -704,6 +928,19 @@ class AgentControlChannel:
 
         while True:
             await asyncio.sleep(self._settings.agent.heartbeat_seconds)
+            if (
+                self._execution_enabled
+                and asyncio.get_running_loop().time() - self._last_worktree_cleanup >= 60
+            ):
+                self._last_worktree_cleanup = asyncio.get_running_loop().time()
+                for workspace in self._workspace_registry.list_workspaces():
+                    if (workspace.root / ".git").exists():
+                        try:
+                            await asyncio.to_thread(self._worktree_port.prune, workspace.key)
+                        except (OSError, RuntimeError, ValueError):
+                            self._logger.warning(
+                                "隔离工作树清理未完成：workspace=%s", workspace.key
+                            )
             for pending in tuple(self._pending_approvals.values()):
                 if pending.expires_at <= datetime.now(UTC):
                     await self._close_pending_approval(pending, "expired")
@@ -723,6 +960,7 @@ class AgentControlChannel:
                         key_id=self._settings.agent.key_id,
                         message_id=uuid4(),
                         detail=AgentHeartbeatV2Detail(
+                            lease_request_id=self._begin_lease_request(),
                             connection_epoch=epoch,
                             app_server_instance_id=UUID(handle.instance_id),
                             revocation_generation=self._revocation_generation,
@@ -732,6 +970,15 @@ class AgentControlChannel:
             else:
                 await self._send_model(sender, AgentV1MessageType.HEARTBEAT.value, heartbeat)
 
+    def _begin_lease_request(self) -> UUID:
+        now = asyncio.get_running_loop().time()
+        self._lease_requests = {
+            key: value for key, value in self._lease_requests.items() if now - value < 60
+        }
+        request_id = uuid4()
+        self._lease_requests[request_id] = now
+        return request_id
+
     def _build_hello_frame(self, handle: AppServerProcessHandle) -> CodexConnectionFrame:
         if self._protocol_version == CodexConnectionProtocolVersion.V2:
             return self._protocol_codec.encode_v2(
@@ -739,6 +986,8 @@ class AgentControlChannel:
                 key_id=self._settings.agent.key_id,
                 message_id=uuid4(),
                 detail=AgentHelloV2Detail(
+                    execution_lease_supported=True,
+                    lease_request_id=self._begin_lease_request(),
                     agent_version=self._settings.protocol.agent_version,
                     codex_version=handle.codex_version,
                     app_server_schema_digest=self._settings.protocol.app_server_schema_digest,
@@ -754,6 +1003,8 @@ class AgentControlChannel:
                         )
                     ),
                     model_catalog=self._model_catalog,
+                    sandbox_modes=tuple(CodexSandboxMode),
+                    approval_policies=tuple(CodexApprovalPolicy),
                     runtime_status=self._read_runtime_status(),
                     app_server_instance_id=handle.instance_id,
                     agent_event_epoch=self._event_epoch,
@@ -868,6 +1119,7 @@ class AgentControlChannel:
                 notification.detail,
                 method,
             )
+            self._timeline_store.capture(product_detail)
             await self._queue_v2_event(detail)
             if (
                 isinstance(detail, AgentTurnChangedEventDetail)
@@ -1795,11 +2047,72 @@ class AgentControlChannel:
         sender: CodexOutboundFrameSenderPort,
         result: CodexAgentCommandResult,
         command_type: str | None = None,
+        command: CodexAgentCommand | None = None,
     ) -> None:
+        if (
+            result.outcome == "completed"
+            and self._execution_resolved is not None
+            and command is not None
+        ):
+            key = command.params.get("workspace_key")
+            if isinstance(key, str) and command.command_type in {
+                "thread.start",
+                "thread.resume",
+                "turn.start",
+            }:
+                self._project_execution.confirm(key, self._execution_resolved)
         if self._protocol_version == CodexConnectionProtocolVersion.V1:
             await self._send_model(sender, AgentV1MessageType.COMMAND_RESULT.value, result)
             return
         thread_id, turn_id = read_upstream_identifiers(result.result)
+        if thread_id is None and command is not None:
+            requested_thread_id = command.params.get("threadId")
+            if isinstance(requested_thread_id, str):
+                thread_id = requested_thread_id
+        if (
+            command_type == "turn.start"
+            and result.outcome == "completed"
+            and thread_id
+            and turn_id
+            and self._execution_resolved is not None
+        ):
+            effective = self._execution_resolved
+            access = {
+                "danger-full-access": "完全访问",
+                "workspace-write": "工作区写入",
+                "read-only": "只读",
+            }[effective.sandbox_mode.value]
+            approval = {
+                "never": "不请求普通命令审批",
+                "untrusted": "不受信任的命令需要审批",
+                "on-request": "按需审批",
+            }.get(effective.approval_policy.value, effective.approval_policy.value)
+            item = AppServerNoticeItem(
+                item_id=f"execution-settings-{turn_id}",
+                label="本轮执行设置",
+                text=f"{effective.model or '本机默认模型'} · {effective.reasoning_effort or '默认推理强度'} · {access} · {approval}",
+            )
+            # 记录已经由上游接受的本轮参数；项目草稿再变化也不会改写此轮事实。
+            # RPC 结果可能先于 turn/started 到达，先登记已确认的 turn，避免被孤项回收。
+            self._timeline_store.capture(
+                AppServerTurnChangedDetail(
+                    thread_id=thread_id, turn_id=turn_id, status="inProgress"
+                )
+            )
+            self._timeline_store.capture(
+                AppServerItemChangedDetail(
+                    thread_id=thread_id, turn_id=turn_id, item=item, status="completed"
+                )
+            )
+            await self._queue_v2_event(
+                AgentItemChangedEventDetail(
+                    method=AppServerNotificationName.ITEM_COMPLETED,
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    item=item,
+                    status="completed",
+                )
+            )
         typed_result: AgentCommandResultPayload | None = None
         if (
             command_type == "thread.read"
@@ -1809,6 +2122,19 @@ class AgentControlChannel:
             product_result = self._sanitize_thread_read_product_result(
                 self._app_server_protocol_adapter.adapt_thread_read_result(result.result)
             )
+            product_result = self._timeline_store.supplement(product_result).model_copy(
+                update={
+                    "source_epoch": self._event_epoch,
+                    "source_seq": self._last_event_seq,
+                }
+            )
+            if (
+                len(product_result.model_dump_json().encode("utf-8"))
+                > self._settings.agent.max_app_server_line_bytes - 8192
+            ):
+                product_result = product_result.model_copy(
+                    update={"turns": (), "history_status": "omitted_too_large"}
+                )
             typed_result = AgentThreadReadCommandResult(snapshot=product_result)
         await sender.send(
             self._protocol_codec.encode_v2(
@@ -1857,6 +2183,7 @@ class AgentControlChannel:
         self._event_batcher = self._build_event_batcher()
         self._event_buffer.clear()
         self._event_epoch = self._journal.start_event_epoch()
+        self._last_event_seq = 0
         self._event_ack = 0
 
     def _build_event_batcher(self) -> AgentEventBatcher:
@@ -1881,9 +2208,10 @@ class AgentControlChannel:
         )
 
     def _build_event_record(self, detail: AgentEventDetail) -> AgentEventRecord:
+        self._last_event_seq = self._journal.next_event_seq()
         return AgentEventRecord(
             agent_event_epoch=self._event_epoch,
-            seq=self._journal.next_event_seq(),
+            seq=self._last_event_seq,
             event_id=uuid4(),
             app_server_instance_id=UUID(self._supervisor.handle.instance_id),
             occurred_at=datetime.now(UTC),

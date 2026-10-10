@@ -75,6 +75,21 @@ class CodexOperationProjection(BaseModel):
         return self
 
 
+class CodexOperationView(BaseModel):
+    """浏览器可核对的操作事实，不暴露幂等摘要或内部请求。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    operation_id: UUID
+    command_id: UUID
+    host_id: UUID
+    workspace_id: UUID | None
+    thread_id: str | None
+    status: str
+    error_code: str | None
+    updated_at: datetime
+
+
 class CodexControlOperationSnapshot(BaseModel):
     """可重投且可审计的控制操作元数据。"""
 

@@ -85,8 +85,16 @@ class CodexAdminRouteCatalog:
                 version=settings.agent_release_version,
                 distribution_mode=settings.agent_release_distribution_mode,
                 artifact_sha256=settings.agent_release_artifact_sha256,
-                download_url=settings.agent_release_download_url,
-                manifest_url=settings.agent_release_manifest_url,
+                download_url=(
+                    settings.agent_release_download_url
+                    if settings.agent_release_available
+                    else None
+                ),
+                manifest_url=(
+                    settings.agent_release_manifest_url
+                    if settings.agent_release_available
+                    else None
+                ),
                 minimum_security_version=settings.agent_release_minimum_security_version,
                 automatic_updates_enabled=(
                     settings.agent_release_distribution_mode

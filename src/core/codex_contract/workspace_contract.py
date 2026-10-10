@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -73,6 +74,33 @@ class CodexWorkspaceUpdateRequest(BaseModel):
     worktree_policy: CodexWorkspaceWorktreePolicyUpdate | None = None
 
 
+class ProjectExecutionOverrides(BaseModel):
+    """null 字段持续继承本机基线，项目覆盖不写用户级 Codex 配置。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    model: str | None = Field(default=None, min_length=1, max_length=128)
+    reasoning_effort: str | None = Field(default=None, min_length=1, max_length=64)
+    permission_mode: Literal["inherit", "restricted", "full_access"] = "inherit"
+
+
+class ProjectExecutionSettingsApply(BaseModel):
+    """双端共享的完整项目草稿及 CAS 版本。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    expected_revision: int = Field(ge=0)
+    requested: ProjectExecutionOverrides
+
+
+class ProjectSandboxWriteOptions(BaseModel):
+    """仅在 Agent 内部传递的本机沙箱细节，绝对路径不进入网页投影。"""
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+    writable_roots: tuple[str, ...] = ()
+    network_access: bool = False
+    exclude_tmpdir_env_var: bool = False
+    exclude_slash_tmp: bool = False
+
+
 class CodexWorkspaceExecutionPreferences(BaseModel):
     """工作区保存的执行偏好，不包含浏览器或 Agent 的临时授权状态。"""
 
@@ -83,18 +111,14 @@ class CodexWorkspaceExecutionPreferences(BaseModel):
     sandbox_mode: CodexSandboxMode = CodexSandboxMode.WORKSPACE_WRITE
     approval_policy: CodexApprovalPolicy = CodexApprovalPolicy.UNTRUSTED
     # 仅用于检测主机 capability 变化；不信任浏览器提交的版本值。
+    sandbox_options: ProjectSandboxWriteOptions = Field(
+        default_factory=ProjectSandboxWriteOptions, exclude=True
+    )
     capabilities_revision: str = Field(default="unverified", min_length=1, max_length=64)
-
-
-class CodexWorkspaceExecutionPreferencesUpdate(BaseModel):
-    """浏览器提交的完整工作区执行偏好，服务端负责重新计算 capability 版本。"""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    model: str | None = Field(default=None, min_length=1, max_length=128)
-    reasoning_effort: str | None = Field(default=None, min_length=1, max_length=64)
-    sandbox_mode: CodexSandboxMode = CodexSandboxMode.WORKSPACE_WRITE
-    approval_policy: CodexApprovalPolicy = CodexApprovalPolicy.UNTRUSTED
+    requested: ProjectExecutionOverrides = Field(default_factory=ProjectExecutionOverrides)
+    local_revision: int = Field(default=0, ge=0)
+    applied_state: Literal["unverified", "saved", "next_turn", "applied", "blocked"] = "unverified"
+    error: str | None = Field(default=None, max_length=512)
 
 
 class CodexWorkspacePreferenceAdjustedField(StrEnum):
@@ -135,6 +159,7 @@ class CodexWorkspaceSnapshot(BaseModel):
     )
     is_pinned: bool
     enabled: bool
+    retired_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     version: int = Field(ge=1)

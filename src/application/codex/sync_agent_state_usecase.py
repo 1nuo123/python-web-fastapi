@@ -67,6 +67,7 @@ from src.core.codex_contract.host_contract import (
     CodexSandboxMode,
 )
 from src.core.codex_contract.model_catalog_contract import CodexModelCatalog
+from src.core.codex_contract.operation_contract import CodexControlOperationSnapshot
 from src.core.codex_contract.product_command_contract import CodexProductCommandCode
 from src.core.codex_contract.thread_contract import (
     CodexActiveTurnUpdateMode,
@@ -80,6 +81,7 @@ from src.core.codex_contract.workspace_contract import (
     CodexWorkspaceExecutionPreferences,
     CodexWorkspaceSnapshot,
 )
+from src.core.worktree_contract.worktree_contract import GitWorktreePolicy
 from src.core.persistence_contract.unit_of_work_contract import PersistenceSession
 from src.domain.codex.codex_compatibility_policy import CodexCompatibilityDecision
 from src.domain.codex.thread_execution_state import thread_status_for_phase
@@ -147,6 +149,30 @@ class SyncCodexAgentStateUsecase:
                     ),
                 ),
             )
+            previous = repository.get_by_id_and_owner(hello.host_id, principal.owner_subject_id)
+            new_instance = hello.capabilities.get("app_server_instance_id")
+            if (
+                previous is not None
+                and previous.capabilities.app_server_instance_id
+                and new_instance != previous.capabilities.app_server_instance_id
+            ):
+                approvals = self._control_port.create_codex_approval_repository(
+                    unit_of_work.get_session()
+                )
+                for approval in approvals.list_by_owner(principal.owner_subject_id):
+                    if approval.host_id == hello.host_id and approval.state in {
+                        CodexApprovalState.PENDING,
+                        CodexApprovalState.CLAIMED,
+                        CodexApprovalState.DELIVERY_FAILED,
+                    }:
+                        approvals.save(
+                            approval.model_copy(
+                                update={
+                                    "state": CodexApprovalState.EXPIRED,
+                                    "updated_at": datetime.now(UTC),
+                                }
+                            )
+                        )
             if repository.apply_observation(observation) is None:
                 raise PermissionError("Agent凭据绑定的主机不存在。")
             unit_of_work.commit()
@@ -332,9 +358,10 @@ class SyncCodexAgentStateUsecase:
                 raise PermissionError("Agent快照主机不存在。")
             workspace_repository = self._control_port.create_codex_workspace_repository(session)
             thread_repository = self._control_port.create_codex_thread_repository(session)
-            enabled_workspaces = workspace_repository.list_by_host_and_owner(
+            registered_workspaces = workspace_repository.list_by_host_and_owner(
                 snapshot.host_id,
                 principal.owner_subject_id,
+                include_disabled=True,
             )
             reported_workspace_keys = {workspace.key for workspace in snapshot.workspaces}
             workspace_ids: dict[str, UUID] = {}
@@ -344,6 +371,9 @@ class SyncCodexAgentStateUsecase:
                     workspace.key,
                     principal.owner_subject_id,
                 )
+                # 删除是身份的终态；恢复旧配置不能让旧会话执行到重新登记的目录。
+                if existing is not None and existing.retired_at is not None:
+                    continue
                 workspace_state = self._build_workspace_snapshot(
                     host_id=snapshot.host_id,
                     owner_subject_id=principal.owner_subject_id,
@@ -364,15 +394,19 @@ class SyncCodexAgentStateUsecase:
                     workspace_repository.add(workspace_state)
                 else:
                     workspace_repository.save(workspace_state)
-            for enabled_workspace in enabled_workspaces:
-                if enabled_workspace.agent_workspace_key in reported_workspace_keys:
+            for registered_workspace in registered_workspaces:
+                if (
+                    registered_workspace.retired_at is not None
+                    or registered_workspace.agent_workspace_key in reported_workspace_keys
+                ):
                     continue
                 workspace_repository.save(
-                    enabled_workspace.model_copy(
+                    registered_workspace.model_copy(
                         update={
                             "enabled": False,
+                            "retired_at": snapshot.captured_at,
                             "updated_at": snapshot.captured_at,
-                            "version": enabled_workspace.version + 1,
+                            "version": registered_workspace.version + 1,
                         }
                     )
                 )
@@ -381,6 +415,8 @@ class SyncCodexAgentStateUsecase:
             unit_of_work.flush()
             for raw_thread in snapshot.threads:
                 workspace_key = raw_thread.workspace_key
+                if workspace_key not in workspace_ids:
+                    continue
                 thread_id = raw_thread.thread_id
                 existing_thread = thread_repository.get_by_upstream_id_and_owner(
                     snapshot.host_id,
@@ -446,6 +482,7 @@ class SyncCodexAgentStateUsecase:
                 owner_subject_id=principal.owner_subject_id,
                 status="unknown",
                 result_digest=None,
+                error_code=result.error_code or "codex.command.result_unconfirmed",
             )
         result_digest = hashlib.sha256(
             json.dumps(
@@ -462,6 +499,7 @@ class SyncCodexAgentStateUsecase:
             owner_subject_id=principal.owner_subject_id,
             status="completed" if result.outcome == "completed" else "failed",
             result_digest=result_digest,
+            error_code=result.error_code,
         )
 
     def _materialize_started_thread(
@@ -498,46 +536,58 @@ class SyncCodexAgentStateUsecase:
             if thread_id is None:
                 unit_of_work.rollback()
                 return
-            thread_repository = self._control_port.create_codex_thread_repository(session)
-            if (
-                thread_repository.get_by_upstream_id_and_owner(
-                    operation.host_id,
-                    thread_id,
-                    principal.owner_subject_id,
-                )
-                is None
-            ):
-                now = datetime.now(UTC)
-                title = CodexThreadTitlePolicy().resolve(created_at=now)
-                thread_repository.add(
-                    CodexThreadIndexSnapshot(
-                        thread_index_id=uuid4(),
-                        host_id=operation.host_id,
-                        workspace_id=operation.workspace_id,
-                        owner_subject_id=principal.owner_subject_id,
-                        upstream_thread_id=thread_id,
-                        display_name=title.display_name,
-                        title_source=title.source,
-                        model=None,
-                        model_provider=None,
-                        reasoning_effort=None,
-                        status=CodexThreadStatus.IDLE,
-                        active_turn_id=None,
-                        archived=False,
-                        is_pinned=False,
-                        source_kind="remote",
-                        created_at=now,
-                        recency_at=now,
-                        updated_at=now,
-                        last_synced_at=now,
-                    )
-                )
+            operation_repository.save(
+                self._ensure_started_thread_index(session, operation, thread_id, datetime.now(UTC))
+            )
             unit_of_work.commit()
         except BaseException:
             unit_of_work.rollback()
             raise
         finally:
             unit_of_work.dispose()
+
+    def _ensure_started_thread_index(
+        self,
+        session: PersistenceSession,
+        operation: CodexControlOperationSnapshot,
+        thread_id: str,
+        now: datetime,
+    ) -> CodexControlOperationSnapshot:
+        """结果帧和恢复摘要共用同一事务内身份物化；completed 必须意味着可读取。"""
+        repository = self._control_port.create_codex_thread_repository(session)
+        if operation.workspace_id is None:
+            raise ValueError("新会话缺少项目归属。")
+        if (
+            repository.get_by_upstream_id_and_owner(
+                operation.host_id, thread_id, operation.owner_subject_id
+            )
+            is None
+        ):
+            title = CodexThreadTitlePolicy().resolve(created_at=now)
+            repository.add(
+                CodexThreadIndexSnapshot(
+                    thread_index_id=uuid4(),
+                    host_id=operation.host_id,
+                    workspace_id=operation.workspace_id,
+                    owner_subject_id=operation.owner_subject_id,
+                    upstream_thread_id=thread_id,
+                    display_name=title.display_name,
+                    title_source=title.source,
+                    model=None,
+                    model_provider=None,
+                    reasoning_effort=None,
+                    status=CodexThreadStatus.IDLE,
+                    active_turn_id=None,
+                    archived=False,
+                    is_pinned=False,
+                    source_kind="remote",
+                    created_at=now,
+                    recency_at=now,
+                    updated_at=now,
+                    last_synced_at=now,
+                )
+            )
+        return operation.model_copy(update={"thread_id": thread_id})
 
     def _read_result_thread_id(self, result: JsonValue | None) -> str | None:
         if not isinstance(result, Mapping):
@@ -935,6 +985,7 @@ class SyncCodexAgentStateUsecase:
         owner_subject_id: str,
         status: str,
         result_digest: str | None,
+        error_code: str | None = None,
     ) -> CodexAppliedOperationProjection | None:
         unit_of_work = self._control_port.create_unit_of_work()
         try:
@@ -952,6 +1003,9 @@ class SyncCodexAgentStateUsecase:
             updated_operation = operation.model_copy(
                 update={
                     "status": status,
+                    "error_code": None
+                    if status == "completed"
+                    else error_code or operation.error_code,
                     "result_digest": result_digest or operation.result_digest,
                     "accepted_at": (now if status == "acknowledged" else operation.accepted_at),
                     "completed_at": (
@@ -1021,13 +1075,11 @@ class SyncCodexAgentStateUsecase:
 
         repository = self._control_port.create_codex_operation_repository(session)
         outbox_repository = self._control_port.create_codex_command_outbox_repository(session)
-        seen_command_ids: set[str] = set()
         now = snapshot.captured_at
         for raw in snapshot.pending_commands:
             command_id = raw.get("command_id")
             if not isinstance(command_id, str):
                 continue
-            seen_command_ids.add(command_id)
             try:
                 operation = repository.get_by_host_and_command_id(
                     snapshot.host_id,
@@ -1037,10 +1089,21 @@ class SyncCodexAgentStateUsecase:
                 continue
             if operation is None or operation.owner_subject_id != owner_subject_id:
                 continue
+            if (
+                operation.status in {"completed", "failed", "cancelled"}
+                or operation.updated_at > now
+            ):
+                continue
             state = raw.get("state")
+            if state in {"received", "executing", "accepted"}:
+                continue
+            summary = raw.get("result_summary")
+            recovered_thread_id = (
+                summary.get("upstream_thread_id") if isinstance(summary, dict) else None
+            )
             if state == "completed":
                 target_status = "completed"
-                error_code = operation.error_code
+                error_code = None
             elif state == "failed":
                 target_status = "failed"
                 error_code = operation.error_code or "agent_command_failed"
@@ -1050,11 +1113,20 @@ class SyncCodexAgentStateUsecase:
             updated_operation = operation.model_copy(
                 update={
                     "status": target_status,
+                    "thread_id": recovered_thread_id
+                    if isinstance(recovered_thread_id, str)
+                    else operation.thread_id,
                     "error_code": error_code,
                     "updated_at": now,
                     "completed_at": now if target_status in {"completed", "failed"} else None,
                 }
             )
+            if target_status == "completed" and operation.operation_type == "thread.start":
+                if not isinstance(recovered_thread_id, str):
+                    continue
+                updated_operation = self._ensure_started_thread_index(
+                    session, updated_operation, recovered_thread_id, now
+                )
             repository.save(updated_operation)
             if target_status == "completed":
                 self._projection_service.apply_accepted(
@@ -1086,32 +1158,8 @@ class SyncCodexAgentStateUsecase:
                         }
                     )
                 )
-        for operation in repository.list_pending_by_host(
-            snapshot.host_id,
-            ["pending", "dispatched", "acknowledged", "timed_out"],
-        ):
-            if str(operation.command_id) in seen_command_ids:
-                continue
-            repository.save(
-                operation.model_copy(
-                    update={
-                        "status": "unknown",
-                        "error_code": "agent_reconciliation_required",
-                        "updated_at": now,
-                    }
-                )
-            )
-            outbox = outbox_repository.get_by_command_id(operation.command_id)
-            if outbox is not None:
-                outbox_repository.save(
-                    outbox.model_copy(
-                        update={
-                            "state": CodexCommandOutboxState.UNKNOWN,
-                            "updated_at": now,
-                            "version": outbox.version + 1,
-                        }
-                    )
-                )
+        # 快照只证明显式携带的账本状态。缺项可能仍在传输中、已分页或已经完成，
+        # 不能将其推断为 unknown；过期查询使用原命令 deadline 显示未确认。
 
     def _build_workspace_snapshot(
         self,
@@ -1122,6 +1170,8 @@ class SyncCodexAgentStateUsecase:
         workspace: CodexAgentWorkspaceSnapshot,
         existing: CodexWorkspaceSnapshot | None,
     ) -> CodexWorkspaceSnapshot:
+        if existing is not None and existing.repo_fingerprint != workspace.repo_fingerprint:
+            raise ValueError("项目身份绑定的目录发生变化，请使用新的项目身份。")
         return CodexWorkspaceSnapshot(
             workspace_id=existing.workspace_id if existing is not None else uuid4(),
             host_id=host_id,
@@ -1130,13 +1180,19 @@ class SyncCodexAgentStateUsecase:
             display_name=workspace.display_name,
             repo_fingerprint=workspace.repo_fingerprint,
             default_branch=workspace.default_branch,
+            worktree_policy=(
+                existing.worktree_policy if existing is not None else GitWorktreePolicy()
+            ),
             execution_preferences=(
-                existing.execution_preferences
+                workspace.execution_preferences
+                if workspace.execution_preferences is not None
+                else existing.execution_preferences
                 if existing is not None
                 else CodexWorkspaceExecutionPreferences()
             ),
             is_pinned=existing.is_pinned if existing is not None else False,
-            enabled=True,
+            enabled=existing.enabled if existing is not None else True,
+            retired_at=existing.retired_at if existing is not None else None,
             created_at=existing.created_at if existing is not None else captured_at,
             updated_at=captured_at,
             version=existing.version + 1 if existing is not None else 1,

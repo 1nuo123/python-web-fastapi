@@ -13,7 +13,6 @@ from urllib.parse import quote
 from uuid import UUID, uuid4
 
 import httpx
-import rtoml
 
 from src.application.ports.agent_device_key_store_port import AgentDeviceKeyStorePort
 from src.core.codex_contract.connection_session_contract import CodexConnectionProtocolVersion
@@ -40,9 +39,9 @@ from src.infrastructure.codex_agent.agent_configuration import (
     AgentWorkspaceSettings,
     CodexHostAgentSettings,
 )
+from src.infrastructure.codex_agent.agent_config_store import AgentConfigStore
 from src.infrastructure.codex_agent.agent_deployment_profile import (
     AgentDeploymentProfile,
-    resolve_agent_deployment_paths,
 )
 from src.infrastructure.codex_agent.windows_dpapi_device_key_store import (
     WindowsCurrentUserAclEnforcer,
@@ -153,6 +152,21 @@ class CodexAgentSetupUsecase:
         default_workspace_key: str = "default",
         default_workspace_name: str = "默认工作区",
     ) -> CodexHostAgentSettings:
+        resolved_workspace = workspace
+        if resolved_workspace is None:
+            selected_root = self._ui.select_workspace()
+            resolved_workspace = AgentWorkspaceSettings(
+                key=default_workspace_key,
+                display_name=selected_root.name or default_workspace_name,
+                root=selected_root,
+                allow_write=True,
+            )
+        # 先证明配置目录可原子写入，再创建服务端身份。
+        probe_path = config_path.with_name(f".enrollment-{uuid4().hex}.toml")
+        try:
+            AgentConfigStore(probe_path, self._acl_enforcer).write(b"# enrollment write probe\n")
+        finally:
+            probe_path.unlink(missing_ok=True)
         key_id = uuid4()
         public_key = self._key_store.generate(key_id)
         try:
@@ -185,24 +199,15 @@ class CodexAgentSetupUsecase:
                     f"{verification_url}{query_separator}"
                     f"user_code={quote(issued_detail.user_code, safe='')}"
                 )
-            self._ui.show(
-                verification_uri=resolved_verification_uri,
-                user_code=issued_detail.user_code,
-                fingerprint=fingerprint,
-            )
+            # 同机 intent 由原浏览器继续批准，避免打开另一登录会话。
+            # 跨设备连接只打开授权页，信息框不能阻塞授权轮询。
+            if enrollment_intent_token is None:
+                webbrowser.open(resolved_verification_uri)
             status = await self._poll_until_terminal(api_url=api_url, issued=issued)
             if status.state != DeviceAuthorizationState.APPROVED or status.host_id is None:
                 raise PermissionError("设备授权未获批准。")
             if status.key_id != key_id:
                 raise PermissionError("服务端批准的设备key与本机密钥不一致。")
-            resolved_workspace = workspace
-            if resolved_workspace is None:
-                resolved_workspace = AgentWorkspaceSettings(
-                    key=default_workspace_key,
-                    display_name=default_workspace_name,
-                    root=self._ui.select_workspace(),
-                    allow_write=True,
-                )
             settings = CodexHostAgentSettings(
                 agent=AgentProcessSettings(
                     host_id=status.host_id,
@@ -213,9 +218,7 @@ class CodexAgentSetupUsecase:
                     control_plane_api_url=api_url,
                     development_ca_certificate_path=development_ca_certificate_path,
                     codex_binary=codex_binary,
-                    state_database=resolve_agent_deployment_paths(
-                        deployment_profile
-                    ).state_database,
+                    state_database=config_path.parent / "state.sqlite",
                 ),
                 protocol=AgentProtocolSettings(
                     agent_schema_version=CodexConnectionProtocolVersion.V2,
@@ -225,9 +228,8 @@ class CodexAgentSetupUsecase:
                 ),
                 workspaces=[resolved_workspace],
             )
-            config_path.parent.mkdir(parents=True, exist_ok=True)
-            rtoml.dump(settings.model_dump(mode="json", exclude_none=True), config_path)
-            self._acl_enforcer.enforce(config_path)
+            store = AgentConfigStore(config_path, self._acl_enforcer)
+            store.write(store.serialize(settings))
             return settings
         except BaseException:
             self._key_store.delete(key_id)

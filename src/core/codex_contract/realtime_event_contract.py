@@ -65,6 +65,8 @@ class CodexRealtimeEventHeader(BaseModel):
     stream_epoch: str = Field(default=CODEX_REALTIME_STREAM_EPOCH, min_length=1, max_length=128)
     cursor: str | None = Field(default=None, max_length=512)
     event_id: str = Field(min_length=1, max_length=128)
+    source_epoch: UUID | None = None
+    source_seq: int | None = Field(default=None, ge=0)
     occurred_at: datetime
     host_id: UUID
     workspace_id: UUID | None = None
@@ -124,6 +126,8 @@ class CodexThreadSnapshotDetail(CodexRealtimeDetailBase):
     """会话索引与可选历史正文快照。"""
 
     kind: Literal["thread.snapshot"] = "thread.snapshot"
+    source_epoch: UUID | None = None
+    source_seq: int = Field(default=0, ge=0)
     thread: CodexThreadIndexSnapshot
     turns: tuple[CodexTurnSnapshot, ...]
     items: tuple[CodexTimelineItemEnvelope, ...]

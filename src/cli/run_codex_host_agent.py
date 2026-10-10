@@ -59,6 +59,7 @@ from src.infrastructure.codex_agent.agent_executable_selector import (
 )
 from src.infrastructure.codex_agent.agent_release_runtime import CodexAgentReleaseRuntime
 from src.infrastructure.codex_agent.agent_runtime_version import AgentRuntimeVersionResolver
+from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
 from src.infrastructure.codex_agent.agent_secret_store import WindowsAgentSecretStore
 from src.infrastructure.codex_agent.agent_settings_ui import WindowsAgentSettingsWindow
 from src.infrastructure.codex_agent.agent_setup import (
@@ -113,6 +114,15 @@ AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS = 4
 AGENT_LOG_MAX_BYTES = 5 * 1024 * 1024
 AGENT_LOG_BACKUP_COUNT = 3
 AGENT_USER_ERROR_EXIT_CODE = 2
+
+
+class CodexPrerequisiteError(OSError):
+    """已有 CLI 环境检查失败，保留可供 UI 展示的稳定阶段。"""
+
+    def __init__(self, stage: str, detail: str) -> None:
+        super().__init__(detail)
+        self.stage = stage
+        self.detail = detail
 
 
 class CodexHostAgentCli:
@@ -237,6 +247,7 @@ class CodexHostAgentCli:
                 )
                 channel = AgentControlChannel(
                     settings=runtime_settings,
+                    config_path=config_path,
                     secret_store=WindowsAgentSecretStore(),
                     connection_ticket_provider=(
                         AgentConnectionTicketProvider(
@@ -295,27 +306,13 @@ class CodexHostAgentCli:
 
     @classmethod
     def _read_runtime_status(cls, state_database: Path) -> AgentRuntimeStatus | None:
-        path = cls._runtime_status_path(state_database)
-        try:
-            return AgentRuntimeStatus.model_validate_json(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return None
+        return AgentRuntimeStatusStore(state_database).read()
 
     @classmethod
     def _merge_runtime_status(cls, state_database: Path, updates: dict[str, object]) -> None:
         """串行合并诊断与更新字段，不占用 Agent 生命周期锁。"""
 
-        path = cls._runtime_status_path(state_database)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with portalocker.Lock(path.with_suffix(".lock"), timeout=10):
-            previous = cls._read_runtime_status(state_database) or AgentRuntimeStatus()
-            status = previous.model_copy(update=updates)
-            temporary_path = path.with_name(f".{path.name}.tmp")
-            try:
-                temporary_path.write_text(status.model_dump_json(indent=2) + "\n", encoding="utf-8")
-                temporary_path.replace(path)
-            finally:
-                temporary_path.unlink(missing_ok=True)
+        AgentRuntimeStatusStore(state_database).update(updates)
 
     @classmethod
     def _record_update_status(
@@ -375,7 +372,7 @@ class CodexHostAgentCli:
         try:
             await CodexAgentSetupUsecase(
                 client=http_resource.get_client(),
-                key_store=WindowsDpapiDeviceKeyStore(root=deployment_paths.device_key_directory),
+                key_store=WindowsDpapiDeviceKeyStore(root=config_path.parent / "keys"),
                 ui=WindowsEnrollmentUi(),
                 acl_enforcer=WindowsCurrentUserAclEnforcer(),
             ).execute(
@@ -437,18 +434,26 @@ class CodexHostAgentCli:
                 flags=(portalocker.LockFlags.EXCLUSIVE | portalocker.LockFlags.NON_BLOCKING),
             ):
                 if config_path.is_file():
-                    self.load_settings(config_path)
-                    if deployment_profile is AgentDeploymentProfile.DEVELOPMENT:
+                    current = self.load_settings(config_path)
+                    if asyncio.run(self._binding_is_active(current)):
                         self._start_scheduled_agent(
-                            config_path,
-                            deployment_profile=deployment_profile,
+                            config_path, deployment_profile=deployment_profile
                         )
-                    else:
-                        self._start_scheduled_agent(config_path)
-                    WindowsEnrollmentUi().show_info(
-                        "这台电脑已经连接。Agent 已启动，不会重复注册设备。"
-                    )
-                    return 0
+                        WindowsEnrollmentUi().show_info(
+                            "这台电脑仍有有效绑定，Agent 已启动；如需重新授权，请先在网站撤销连接。"
+                        )
+                        return 0
+                    WindowsAgentTaskController(
+                        config_path=config_path, deployment_profile=deployment_profile
+                    ).pause()
+                    # 服务端已确认旧身份不可执行，保留配置作为审计，不删除项目或 CLI 凭据。
+                    backup = config_path.with_name(f"agent.revoked-{current.agent.host_id}.toml")
+                    if current.agent.key_id is not None:
+                        WindowsDpapiDeviceKeyStore(
+                            root=current.agent.state_database.parent / "keys"
+                        ).delete(current.agent.key_id)
+                    # 删除失败时保留原配置定位信息，使下次 URI 能重试同一旧身份的收尾。
+                    config_path.replace(backup)
                 connection = bootstrap.require_connection_for_profile(deployment_profile)
                 result = asyncio.run(
                     self.run_setup(
@@ -714,14 +719,28 @@ class CodexHostAgentCli:
                 )
             )
             if completed.return_code != 0:
-                raise OSError("Codex CLI版本读取失败。")
-        except (OSError, subprocess.SubprocessError, ValueError) as exc:
-            raise OSError(
-                "未找到可用的 Codex CLI。请先安装 Codex CLI，重新登录 Windows 后再连接电脑。"
-            ) from exc
-        # The CLI version is an observation.  The control plane performs the
-        # schema/capability decision after App Server initialize; an unreviewed
-        # version is allowed to connect read-only and can never grant writes.
+                raise CodexPrerequisiteError(
+                    "cli_exit", f"Codex CLI版本命令退出码为{completed.return_code}。"
+                )
+            version_output = completed.stdout.strip()
+            if not version_output:
+                raise CodexPrerequisiteError("cli_protocol", "Codex CLI未返回版本。")
+            if version_output.split()[-1] != expected_version:
+                raise CodexPrerequisiteError(
+                    "cli_version",
+                    f"当前 CLI 版本不符合本版本 Agent 的兼容契约（{expected_version}）。",
+                )
+        except FileNotFoundError as exc:
+            raise CodexPrerequisiteError("cli_missing", "未找到已配置的 Codex CLI。") from exc
+        except PermissionError as exc:
+            raise CodexPrerequisiteError("cli_permission", "当前用户无权启动 Codex CLI。") from exc
+        except subprocess.TimeoutExpired as exc:
+            raise CodexPrerequisiteError("cli_timeout", "Codex CLI版本检查超时。") from exc
+        except subprocess.SubprocessError as exc:
+            raise CodexPrerequisiteError("cli_start", "Codex CLI进程无法启动。") from exc
+        except ValueError as exc:
+            raise CodexPrerequisiteError("cli_protocol", "Codex CLI入口配置无效。") from exc
+        # 授权配置生成前阻断不兼容版本；协议能力仍由 initialize 后进一步核验。
 
     def _format_interactive_error(self, error: Exception) -> str:
         if isinstance(error, httpx.TimeoutException):
@@ -735,6 +754,8 @@ class CodexHostAgentCli:
             return f"服务器暂时无法完成连接请求（HTTP {status_code}）。"
         if isinstance(error, httpx.RequestError):
             return "无法连接正式服务器，请检查网络和系统时间后重试。"
+        if isinstance(error, CodexPrerequisiteError):
+            return f"本机 Codex 检查失败（{error.stage}）：{error.detail}。Agent 未修改登录、凭证或系统环境。"
         return str(error)
 
     def _show_interactive_error(self, message: str) -> None:
@@ -759,6 +780,25 @@ class CodexHostAgentCli:
         if not certificate_path.is_file():
             raise FileNotFoundError("开发Agent安装包缺少 Caddy CA 证书。")
         return certificate_path
+
+    async def _binding_is_active(self, settings: CodexHostAgentSettings) -> bool:
+        if settings.agent.key_id is None:
+            raise ValueError("旧版设备身份无法自动核对，请先完成设备迁移。")
+        tls = build_agent_tls_context(
+            deployment_profile=settings.agent.deployment_profile,
+            development_ca_certificate_path=settings.agent.development_ca_certificate_path,
+        )
+        async with httpx.AsyncClient(verify=tls or True, timeout=15) as client:
+            provider = AgentConnectionTicketProvider(
+                client=client,
+                control_plane_api_url=settings.agent.control_plane_api_url,
+                key_store=WindowsDpapiDeviceKeyStore(
+                    root=settings.agent.state_database.parent / "keys"
+                ),
+            )
+            return await provider.binding_is_active(
+                host_id=settings.agent.host_id, key_id=settings.agent.key_id
+            )
 
     def _read_enrollment_token(
         self,

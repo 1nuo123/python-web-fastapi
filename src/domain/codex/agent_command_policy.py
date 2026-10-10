@@ -68,7 +68,7 @@ class AgentCommandValidationError(ValueError):
 class AgentAppServerSecurityPolicy:
     """只允许 Windows Agent 向 App Server 注入的安全执行策略。"""
 
-    approval_policy: Literal["untrusted", "on-request"] = "untrusted"
+    approval_policy: Literal["untrusted", "on-request", "never"] = "untrusted"
     approvals_reviewer: Literal["user"] = "user"
     sandbox_mode: Literal["read-only", "workspace-write", "danger-full-access"] = "workspace-write"
 
@@ -139,7 +139,7 @@ class AgentCommandPolicy:
                 raise AgentCommandValidationError("命令缺少有效workspace_key。")
             root = self._workspace_registry.resolve_root(
                 workspace_key_value,
-                require_write=command_type in WRITE_COMMAND_TYPES,
+                require_write=False,
             )
             if "cwd" in app_server_params:
                 raise AgentCommandValidationError("控制面不得直接指定cwd。")
@@ -175,6 +175,19 @@ class AgentCommandPolicy:
         if command_type in TURN_SECURITY_COMMAND_TYPES:
             params["approvalPolicy"] = self._security_policy.approval_policy
             params["approvalsReviewer"] = self._security_policy.approvals_reviewer
+            mode = self._security_policy.sandbox_mode
+            if mode == "danger-full-access":
+                params["sandboxPolicy"] = {"type": "dangerFullAccess"}
+            elif mode == "read-only":
+                params["sandboxPolicy"] = {"type": "readOnly", "networkAccess": False}
+            else:
+                params["sandboxPolicy"] = {
+                    "type": "workspaceWrite",
+                    "writableRoots": [params["cwd"]],
+                    "networkAccess": False,
+                    "excludeTmpdirEnvVar": False,
+                    "excludeSlashTmp": False,
+                }
 
 
 def read_upstream_identifiers(result: JsonValue) -> tuple[str | None, str | None]:

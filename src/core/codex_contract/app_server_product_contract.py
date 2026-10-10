@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerNotificationName,
 )
-from src.core.codex_contract.thread_contract import CodexPlanStepStatus
+from src.core.codex_contract.thread_contract import CODEX_THREAD_TITLE_MAX_LENGTH, CodexPlanStepStatus
 
 APP_SERVER_PRODUCT_NOTIFICATION_KIND: Final = "app_server_product_notification"
 APP_SERVER_PRODUCT_NOTIFICATION_SCHEMA_VERSION: Final = "1.0"
@@ -152,11 +152,11 @@ class AppServerThreadProductSnapshot(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     thread_id: str = Field(min_length=1, max_length=256)
-    display_name: str | None = Field(default=None, max_length=256)
+    display_name: str | None = Field(default=None, max_length=CODEX_THREAD_TITLE_MAX_LENGTH)
     model_id: str | None = Field(default=None, max_length=128)
     model_provider: str | None = Field(default=None, max_length=128)
     status: str = Field(min_length=1, max_length=64)
-    archived: bool = False
+    archived: bool | None = None
     created_at: float | None = Field(default=None, ge=0)
     updated_at: float | None = Field(default=None, ge=0)
     recency_at: float | None = Field(default=None, ge=0)
@@ -166,6 +166,7 @@ class AppServerTurnProductSnapshot(BaseModel):
     """线程读取结果中的 turn 与时间线正文。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+    items_complete: bool = False
 
     turn_id: str = Field(min_length=1, max_length=256)
     status: str = Field(min_length=1, max_length=64)
@@ -181,6 +182,8 @@ class AppServerThreadReadProductResult(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     kind: Literal["thread.read"] = "thread.read"
+    source_epoch: UUID | None = None
+    source_seq: int = Field(default=0, ge=0)
     thread: AppServerThreadProductSnapshot
     turns: tuple[AppServerTurnProductSnapshot, ...]
     history_status: Literal["complete", "omitted_too_large"] = "complete"
@@ -213,7 +216,7 @@ class AppServerThreadMetadataChangedDetail(BaseModel):
 
     kind: Literal["thread_metadata_changed"] = "thread_metadata_changed"
     thread_id: str = Field(min_length=1, max_length=256)
-    display_name: str | None = Field(default=None, max_length=256)
+    display_name: str | None = Field(default=None, max_length=CODEX_THREAD_TITLE_MAX_LENGTH)
     archived: bool | None = None
     execution_settings: CodexEffectiveExecutionSettings | None = None
 

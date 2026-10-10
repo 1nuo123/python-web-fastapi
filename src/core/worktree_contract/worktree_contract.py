@@ -94,6 +94,7 @@ class GitWorktreeSnapshot(BaseModel):
     dirty: bool
     created_at: datetime
     updated_at: datetime
+    retention_seconds: int = Field(default=WORKTREE_DEFAULT_RETENTION_SECONDS, gt=0)
     cleanup_after: datetime | None = None
     cleanup_reason: WorktreeCleanupReason | None = None
 
@@ -132,6 +133,7 @@ class GitWorktreeRemoveRequest(BaseModel):
     workspace_key: str = Field(min_length=1, max_length=WORKTREE_KEY_MAXIMUM_LENGTH)
     worktree_id: str = Field(min_length=1, max_length=WORKTREE_KEY_MAXIMUM_LENGTH)
     force: bool = False
+    require_archived: bool = False
 
 
 class GitWorktreeBindRequest(BaseModel):

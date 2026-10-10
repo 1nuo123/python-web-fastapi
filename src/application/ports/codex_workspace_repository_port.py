@@ -15,6 +15,8 @@ class CodexWorkspaceRepositoryPort(Protocol):
         self,
         host_id: UUID,
         owner_subject_id: str,
+        *,
+        include_disabled: bool = False,
     ) -> list[CodexWorkspaceSnapshot]: ...
 
     def count_enabled_by_host_and_owner(
@@ -27,6 +29,8 @@ class CodexWorkspaceRepositoryPort(Protocol):
         self,
         workspace_id: UUID,
         owner_subject_id: str,
+        *,
+        include_disabled: bool = False,
     ) -> CodexWorkspaceSnapshot | None: ...
 
     def get_by_agent_key_and_owner(

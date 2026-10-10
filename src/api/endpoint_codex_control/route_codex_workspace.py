@@ -4,17 +4,19 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, Security
+from fastapi import APIRouter, Depends, Header, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.api.dependency_context_accessor import DependencyContextAccessor
 from src.core.codex_contract.workspace_contract import (
     CodexWorkspaceCollection,
     CodexWorkspaceExecutionPreferencesResult,
-    CodexWorkspaceExecutionPreferencesUpdate,
     CodexWorkspaceSnapshot,
     CodexWorkspaceUpdateRequest,
+    ProjectExecutionSettingsApply,
 )
+from src.core.codex_contract.turn_contract import CodexOperationAccepted
+from src.domain.codex.codex_authorization_policy import CODEX_FULL_ACCESS_AUTHORIZATION_REQUIREMENT
 from src.core.exception_contract.error_code_catalog_contract import SuccessCode
 from src.core.http_contract.response_envelope_contract import ResponseEnvelope
 from src.domain.codex.codex_authorization_policy import (
@@ -57,7 +59,8 @@ class CodexWorkspaceRouteCatalog:
             "/codex/hosts/{host_id}/workspaces/{workspace_id}/preferences",
             self.update_execution_preferences,
             methods=["PUT"],
-            response_model=ResponseEnvelope[CodexWorkspaceExecutionPreferencesResult],
+            status_code=202,
+            response_model=ResponseEnvelope[CodexOperationAccepted],
             dependencies=[Depends(self.require_codex_operate)],
         )
 
@@ -170,27 +173,28 @@ class CodexWorkspaceRouteCatalog:
         request: Request,
         host_id: UUID,
         workspace_id: UUID,
-        body: CodexWorkspaceExecutionPreferencesUpdate,
-    ) -> ResponseEnvelope[CodexWorkspaceExecutionPreferencesResult]:
-        """更新当前主体工作区的有效执行偏好。"""
+        body: ProjectExecutionSettingsApply,
+        idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=256),
+    ) -> ResponseEnvelope[CodexOperationAccepted]:
+        """通过唯一命令账本提交本机项目设置；202 仅表示受理。"""
 
         principal = self._accessor.read_authenticated_principal(request)
-        payload = await self._accessor.read_request_execution_bridge(request).run_sync(
-            execution_name="default_sync_usecase",
-            callable_object=(
-                self._accessor.read_update_codex_workspace_usecase(
-                    request
-                ).update_execution_preferences
-            ),
+        if body.requested.permission_mode == "full_access":
+            self._accessor.read_authorized_principal(
+                request, CODEX_FULL_ACCESS_AUTHORIZATION_REQUIREMENT
+            )
+        payload = await self._accessor.read_execute_codex_thread_command_usecase(
+            request
+        ).apply_workspace_settings(
             host_id=host_id,
             workspace_id=workspace_id,
-            owner_subject_id=principal.subject_id,
-            subject_scopes=frozenset(principal.scopes),
-            request=body,
+            actor_subject_id=principal.subject_id,
+            idempotency_key=idempotency_key,
+            settings=body,
         )
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),
-            message="Codex 工作区执行偏好更新成功。",
+            message="项目设置已受理，等待本机持久化确认。",
             request_scope=self._accessor.read_request_scope(request),
             data=payload,
         )

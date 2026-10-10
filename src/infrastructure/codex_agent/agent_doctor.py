@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import logging
+import httpx
 import socket
 import sqlite3
 import subprocess
@@ -17,12 +20,23 @@ from src.core.codex_contract.agent_runtime_health_contract import (
     AgentDoctorReport,
 )
 from src.core.codex_contract.connection_session_contract import CodexConnectionProtocolVersion
-from src.infrastructure.codex_agent.agent_configuration import CodexHostAgentSettings
+from src.infrastructure.codex_agent.agent_configuration import (
+    CodexHostAgentSettings,
+    build_agent_tls_context,
+)
+from src.infrastructure.codex_agent.agent_connection_ticket_provider import (
+    AgentConnectionTicketProvider,
+)
+from src.infrastructure.codex_agent.app_server_model_catalog import read_model_catalog
 from src.infrastructure.codex_agent.agent_secret_store import (
     AgentSecretNotFoundError,
     AgentSecretStorePort,
 )
-from src.infrastructure.codex_agent.app_server_process_supervisor import CodexProcessSupport
+from src.infrastructure.codex_agent.app_server_process_supervisor import (
+    CodexProcessSupport,
+    AppServerProcessSupervisor,
+)
+from src.core.codex_contract.app_server_jsonrpc_contract import AppServerRpcError
 from src.infrastructure.process.windows_subprocess_launcher import (
     WindowsSubprocessLauncher,
     WindowsSubprocessLogCategory,
@@ -55,6 +69,8 @@ class AgentDoctor:
             self._check_codex_binary(),
             self._check_secret_store(),
             await self._check_control_plane_dns(),
+            await self._check_local_protocol(),
+            await self._check_device_authentication(),
         ]
         exit_code = self._choose_exit_code(tuple(checks))
         codex_version = self._read_codex_version_safely()
@@ -67,13 +83,125 @@ class AgentDoctor:
             exit_code=exit_code,
         )
 
+    async def _check_local_protocol(self) -> AgentDoctorCheck:
+        async def ignore(*_args: object) -> None:
+            return None
+
+        try:
+            supervisor = AppServerProcessSupervisor(
+                codex_binary=self._settings.agent.codex_binary,
+                allowed_versions=[self._settings.protocol.expected_codex_version],
+                max_line_bytes=self._settings.agent.max_app_server_line_bytes,
+                allow_experimental_api=self._settings.protocol.allow_experimental_api,
+                notification_handler=ignore,
+                request_handler=ignore,
+                warning_handler=ignore,
+                logger=logging.getLogger(__name__),
+            )
+            try:
+                handle = await supervisor.start()
+                catalog = await read_model_catalog(handle.client)
+                config = await handle.client.request(
+                    "config/read",
+                    {"cwd": str(self._settings.workspaces[0].root), "includeLayers": False},
+                    timeout_seconds=10,
+                )
+                account = await handle.client.request(
+                    "account/read", {"refreshToken": False}, timeout_seconds=10
+                )
+                if (
+                    catalog.state != "ready"
+                    or not isinstance(config, dict)
+                    or not isinstance(config.get("config"), dict)
+                ):
+                    raise ValueError("本机有效配置或模型目录不可读。")
+                if not isinstance(account, dict):
+                    raise ValueError("本机账号状态不可读。")
+                if account.get("requiresOpenaiAuth") is True and account.get("account") is None:
+                    return AgentDoctorCheck(
+                        name="app_server",
+                        state=AgentDoctorCheckState.BLOCKED,
+                        reason_code="codex_account_required",
+                        detail="请先在本机 Codex 完成登录；Agent 不修改登录状态。",
+                    )
+                return AgentDoctorCheck(
+                    name="app_server",
+                    state=AgentDoctorCheckState.PASS,
+                    reason_code="app_server_ready",
+                    detail="初始化、配置、模型和账号状态可读；未执行模型任务。",
+                )
+            finally:
+                await supervisor.stop()
+        except (OSError, RuntimeError, ValueError, AppServerRpcError) as exc:
+            return AgentDoctorCheck(
+                name="app_server",
+                state=AgentDoctorCheckState.BLOCKED,
+                reason_code="app_server_unavailable",
+                detail=f"本机协议检查失败：{type(exc).__name__}，请检查已有 CLI 配置。",
+            )
+
+    async def _check_device_authentication(self) -> AgentDoctorCheck:
+        if self._device_key_store is None or self._settings.agent.key_id is None:
+            return AgentDoctorCheck(
+                name="device_authentication",
+                state=AgentDoctorCheckState.WARN,
+                reason_code="device_identity_not_probed",
+            )
+        try:
+            tls = build_agent_tls_context(
+                deployment_profile=self._settings.agent.deployment_profile,
+                development_ca_certificate_path=self._settings.agent.development_ca_certificate_path,
+            )
+            async with httpx.AsyncClient(verify=tls or True, timeout=15) as client:
+                provider = AgentConnectionTicketProvider(
+                    client=client,
+                    control_plane_api_url=self._settings.agent.control_plane_api_url,
+                    key_store=self._device_key_store,
+                )
+                await provider.issue(
+                    host_id=self._settings.agent.host_id, key_id=self._settings.agent.key_id
+                )
+            return AgentDoctorCheck(
+                name="device_authentication",
+                state=AgentDoctorCheckState.PASS,
+                reason_code="device_identity_verified",
+                detail="控制面已验证设备签名；未替换现有执行连接。",
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in (408, 429) or exc.response.status_code >= 500:
+                return AgentDoctorCheck(
+                    name="device_authentication",
+                    state=AgentDoctorCheckState.FAILED,
+                    reason_code="device_identity_temporarily_unavailable",
+                    detail=f"控制面暂时无法校验身份（HTTP {exc.response.status_code}），请稍后重试。",
+                )
+            return AgentDoctorCheck(
+                name="device_authentication",
+                state=AgentDoctorCheckState.BLOCKED,
+                reason_code="device_identity_rejected",
+                detail=f"控制面身份校验返回 HTTP {exc.response.status_code}。",
+            )
+        except (httpx.TransportError, OSError, ValueError):
+            return AgentDoctorCheck(
+                name="device_authentication",
+                state=AgentDoctorCheckState.FAILED,
+                reason_code="device_identity_unreachable",
+                detail="无法确认控制面设备身份，请检查网络和设备配置。",
+            )
+
     def _check_state_database(self) -> AgentDoctorCheck:
         path = self._settings.agent.state_database
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             connection = sqlite3.connect(path)
             try:
-                connection.execute("PRAGMA quick_check")
+                result = connection.execute("PRAGMA quick_check").fetchall()
+                if not result or any(str(row[0]).casefold() != "ok" for row in result):
+                    return AgentDoctorCheck(
+                        name="sqlite",
+                        state=AgentDoctorCheckState.BLOCKED,
+                        reason_code="sqlite_integrity_failed",
+                    )
             finally:
                 connection.close()
             return AgentDoctorCheck(
@@ -81,7 +209,7 @@ class AgentDoctor:
                 state=AgentDoctorCheckState.PASS,
                 reason_code="sqlite_ok",
             )
-        except sqlite3.Error:
+        except (sqlite3.Error, OSError):
             return AgentDoctorCheck(
                 name="sqlite",
                 state=AgentDoctorCheckState.FAILED,
@@ -91,7 +219,13 @@ class AgentDoctor:
     def _check_workspaces(self) -> AgentDoctorCheck:
         try:
             for workspace in self._settings.workspaces:
-                workspace.root.resolve(strict=True)
+                root = workspace.root.resolve(strict=True)
+                if not root.is_dir():
+                    raise NotADirectoryError(str(root))
+                with os.scandir(root) as entries:
+                    next(entries, None)
+                if workspace.allow_write and not os.access(root, os.W_OK):
+                    raise PermissionError("项目目录没有所需写入权限。")
             return AgentDoctorCheck(
                 name="workspace_policy",
                 state=AgentDoctorCheckState.PASS,
@@ -178,6 +312,13 @@ class AgentDoctor:
         started = time.monotonic()
         try:
             await asyncio.to_thread(socket.getaddrinfo, hostname, parsed.port or 443)
+            if parsed.scheme == "wss":
+                _, writer = await asyncio.wait_for(
+                    asyncio.open_connection(hostname, parsed.port or 443, ssl=True),
+                    timeout=10,
+                )
+                writer.close()
+                await writer.wait_closed()
         except OSError:
             return AgentDoctorCheck(
                 name="control_plane_dns",
@@ -216,10 +357,17 @@ class AgentDoctor:
         return tokens[-1]
 
     def _choose_exit_code(self, checks: tuple[AgentDoctorCheck, ...]) -> AgentDoctorExitCode:
-        if any(item.state == AgentDoctorCheckState.FAILED for item in checks):
+        if any(
+            item.state == AgentDoctorCheckState.FAILED
+            and item.name in {"control_plane_dns", "device_authentication"}
+            for item in checks
+        ):
             return AgentDoctorExitCode.NETWORK_FAILURE
         if any(item.state == AgentDoctorCheckState.BLOCKED for item in checks):
             return AgentDoctorExitCode.COMPATIBILITY_BLOCKED
-        if any(item.state == AgentDoctorCheckState.WARN for item in checks):
+        if any(
+            item.state in {AgentDoctorCheckState.WARN, AgentDoctorCheckState.FAILED}
+            for item in checks
+        ):
             return AgentDoctorExitCode.USER_ACTION_REQUIRED
         return AgentDoctorExitCode.HEALTHY

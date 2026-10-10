@@ -22,6 +22,7 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentStateSnapshot,
 )
 from src.core.codex_contract.agent_protocol_v2_contract import (
+    AgentWorkspaceSettingsCommandDetail,
     AgentApprovalReplyCommandDetail,
     AgentCommandHeader,
     AgentCommandV2Detail,
@@ -96,6 +97,7 @@ SANDBOX_MODE_DETAIL_FIELD: Final = "sandbox_mode"
 APPROVAL_POLICY_DETAIL_FIELD: Final = "approval_policy"
 
 AGENT_COMMAND_PARAM_NAMES: Final = {
+    "workspace.settings": frozenset({"workspace_key", "settings"}),
     APPROVAL_DECISION_COMMAND_TYPE: frozenset(
         {APPROVAL_ID_PARAM, DECISION_PARAM, APPROVAL_VERSION_PARAM}
     ),
@@ -306,6 +308,7 @@ class AgentCommandV2Mapper:
                 operation_id=command.operation_id,
                 request_digest=command.request_digest,
                 deadline=command.deadline,
+                execution_generation=command.execution_generation,
             ),
             detail=detail,
         )
@@ -323,7 +326,11 @@ class AgentCommandV2Mapper:
         approval_policy = None
         if isinstance(
             command.detail,
-            (AgentThreadStartCommandDetail, AgentTurnStartCommandDetail),
+            (
+                AgentThreadStartCommandDetail,
+                AgentThreadResumeCommandDetail,
+                AgentTurnStartCommandDetail,
+            ),
         ):
             sandbox_mode = command.detail.sandbox_mode
             approval_policy = command.detail.approval_policy
@@ -335,6 +342,7 @@ class AgentCommandV2Mapper:
             command_type=command_type,
             params=params,
             deadline=command.header.deadline,
+            execution_generation=command.header.execution_generation,
             sandbox_mode=sandbox_mode,
             approval_policy=approval_policy,
         )
@@ -356,6 +364,11 @@ class AgentCommandV2Mapper:
             | AgentApprovalReplyCommandDetail
         ),
     ) -> tuple[str, dict[str, JsonValue]]:
+        if isinstance(detail, AgentWorkspaceSettingsCommandDetail):
+            return detail.kind, {
+                "workspace_key": detail.workspace_key,
+                "settings": detail.settings.model_dump(mode="json"),
+            }
         if isinstance(detail, AgentApprovalReplyCommandDetail):
             return APPROVAL_DECISION_COMMAND_TYPE, {
                 APPROVAL_ID_PARAM: str(detail.approval_id),
@@ -478,6 +491,8 @@ class AgentCommandV2Mapper:
                 approval_version=self._read_required_int(params, APPROVAL_VERSION_PARAM),
             )
         workspace_key = self._read_required_string(params, WORKSPACE_KEY_PARAM)
+        if command.command_type == "workspace.settings":
+            return AgentWorkspaceSettingsCommandDetail.model_validate(params)
         if command.command_type == THREAD_LIST_COMMAND_TYPE:
             list_detail_values: dict[str, JsonValue] = {
                 WORKSPACE_KEY_PARAM: workspace_key,
@@ -522,6 +537,8 @@ class AgentCommandV2Mapper:
             return AgentThreadStartCommandDetail.model_validate(start_detail_values)
         if command.command_type == THREAD_RESUME_COMMAND_TYPE:
             return AgentThreadResumeCommandDetail(
+                sandbox_mode=self._read_command_sandbox_mode(command),
+                approval_policy=self._read_command_approval_policy(command),
                 workspace_key=workspace_key,
                 thread_id=self._read_required_string(params, THREAD_ID_PARAM),
             )

@@ -400,6 +400,7 @@ class CodexTurnSnapshot(BaseModel):
     """浏览器权威会话快照中的 turn。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+    items_complete: bool = False
 
     turn_id: str = Field(min_length=1, max_length=256)
     thread_id: str = Field(min_length=1, max_length=256)
@@ -540,6 +541,8 @@ class CodexThreadAuthoritySnapshot(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    source_epoch: UUID | None = None
+    source_seq: int = Field(default=0, ge=0)
     thread: CodexThreadIndexSnapshot
     turns: list[CodexTurnSnapshot]
     items: list[CodexTimelineItemEnvelope]

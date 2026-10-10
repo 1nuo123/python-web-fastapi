@@ -258,6 +258,8 @@ class CodexBrowserEventHub:
             header=CodexRealtimeEventHeader(
                 event_id=str(uuid4()),
                 occurred_at=product_event.occurred_at or datetime.now(UTC),
+                source_epoch=product_event.source_epoch,
+                source_seq=product_event.source_seq,
                 detail_kind=product_event.event_type,
                 host_id=product_event.host_id,
                 workspace_id=product_event.workspace_id,

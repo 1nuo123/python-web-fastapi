@@ -70,6 +70,7 @@ class CodexAgentCommand(BaseModel):
     command_type: str = Field(min_length=1, max_length=64)
     params: dict[str, JsonValue] = Field(default_factory=dict)
     deadline: datetime
+    execution_generation: int | None = Field(default=None, ge=0)
     sandbox_mode: CodexSandboxMode | None = None
     approval_policy: CodexApprovalPolicy | None = None
     expected_protocol_version: Literal["1.0"] = CODEX_AGENT_PROTOCOL_VERSION
@@ -112,6 +113,8 @@ class CodexAgentRealtimeEvent(BaseModel):
     params: JsonValue
     detail: AgentEventDetail | None = None
     product_notification: AppServerProductNotification | None = None
+    source_epoch: UUID | None = None
+    source_seq: int | None = Field(default=None, ge=0)
 
 
 class CodexAgentApprovalOpened(BaseModel):
@@ -133,6 +136,9 @@ class CodexAgentApprovalOpened(BaseModel):
     expires_at: datetime
 
 
+from src.core.codex_contract.workspace_contract import CodexWorkspaceExecutionPreferences
+
+
 class CodexAgentWorkspaceSnapshot(BaseModel):
     """本地白名单工作区的脱敏声明。"""
 
@@ -143,6 +149,7 @@ class CodexAgentWorkspaceSnapshot(BaseModel):
     repo_fingerprint: str | None = Field(default=None, max_length=128)
     default_branch: str | None = Field(default=None, max_length=256)
     allow_write: bool
+    execution_preferences: CodexWorkspaceExecutionPreferences | None = None
 
 
 class AgentConversationSnapshotDetail(BaseModel):

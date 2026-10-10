@@ -201,14 +201,15 @@ class AgentCommandJournal:
         return None if row is None else self._build_record(row)
 
     def list_recovery_records(self) -> list[AgentCommandJournalRecord]:
-        """返回重连时必须交给控制面的未终态摘要，不含命令参数。"""
+        """返回最多 512 个恢复摘要；不含命令参数，优先未确认写操作。"""
 
         cursor = self._connection.execute(
             """
             SELECT command_id
             FROM codex_agent_command_journal
-            WHERE state IN ('received', 'executing', 'accepted', 'unknown')
-            ORDER BY updated_at_epoch ASC
+            WHERE command_type != 'thread.read'
+            ORDER BY state IN ('received', 'executing', 'accepted', 'unknown') DESC, updated_at_epoch DESC
+            LIMIT 512
             """
         )
         records: list[AgentCommandJournalRecord] = []

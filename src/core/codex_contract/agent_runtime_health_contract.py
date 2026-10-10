@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import IntEnum, StrEnum
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -64,6 +64,13 @@ class AgentRuntimeStatus(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    connection_state: (
+        Literal["starting", "connecting", "online", "offline", "blocked", "stopped"] | None
+    ) = None
+    connection_updated_at: datetime | None = None
+    connection_reason: str | None = Field(default=None, max_length=128)
+    process_id: int | None = None
+
     doctor_state: AgentDoctorCheckState | None = None
     doctor_checked_at: datetime | None = None
     doctor_issue_codes: tuple[str, ...] = Field(default=(), max_length=32)
@@ -73,7 +80,9 @@ class AgentRuntimeStatus(BaseModel):
     update_reason_code: str | None = Field(default=None, max_length=128)
 
     @classmethod
-    def from_doctor_report(cls, report: AgentDoctorReport, *, checked_at: datetime) -> AgentRuntimeStatus:
+    def from_doctor_report(
+        cls, report: AgentDoctorReport, *, checked_at: datetime
+    ) -> AgentRuntimeStatus:
         """Convert a local doctor report without exporting paths or details."""
 
         state = AgentDoctorCheckState.PASS

@@ -36,6 +36,7 @@ class WindowsAppServerProcessExtension(BaseModel):
 
     kind: Literal["windows_app_server_process"] = "windows_app_server_process"
     schema_version: Literal["1.0"] = WINDOWS_SUBPROCESS_SCHEMA_VERSION
+    start_suspended: bool = False
 
 
 WindowsProcessExtension = Annotated[
@@ -169,6 +170,13 @@ class WindowsSubprocessLauncher:
     ) -> asyncio.subprocess.Process:
         """创建异步子进程，沿用同一无窗口参数。"""
 
+        creation_flags = self._policy.creation_flags
+        if (
+            os.name == "nt"
+            and isinstance(request.extension, WindowsAppServerProcessExtension)
+            and request.extension.start_suspended
+        ):
+            creation_flags |= 0x00000004  # CREATE_SUSPENDED: 先绑定 Job，再运行任何子进程代码。
         return await asyncio.create_subprocess_exec(
             *request.argv,
             cwd=str(request.cwd) if request.cwd is not None else None,
@@ -177,7 +185,7 @@ class WindowsSubprocessLauncher:
             stdout=stdout,
             stderr=stderr,
             startupinfo=self._policy.startup_info(),
-            creationflags=self._policy.creation_flags,
+            creationflags=creation_flags,
             limit=request.stream_limit_bytes,
         )
 

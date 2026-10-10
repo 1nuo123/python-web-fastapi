@@ -10,17 +10,12 @@ from src.application.ports.codex_control_port import CodexControlPort
 from src.core.codex_contract.host_contract import CodexHostCapabilities
 from src.core.codex_contract.workspace_contract import (
     CodexWorkspaceExecutionPreferencesResult,
-    CodexWorkspaceExecutionPreferencesUpdate,
     CodexWorkspaceSnapshot,
     CodexWorkspaceUpdateRequest,
 )
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.persistence_contract.unit_of_work_contract import UnitOfWork
 from src.domain.codex.codex_error_code import CodexErrorCode
-from src.domain.codex.model_selection_policy import model_selection_error
-from src.domain.codex.workspace_execution_preference_policy import (
-    revalidate_codex_workspace_execution_preferences,
-)
 
 
 class UpdateCodexWorkspaceUsecase:
@@ -43,7 +38,9 @@ class UpdateCodexWorkspaceUsecase:
         try:
             session = unit_of_work.get_session()
             repository = self._control_port.create_codex_workspace_repository(session)
-            current = repository.get_by_id_and_owner(workspace_id, owner_subject_id)
+            current = repository.get_by_id_and_owner(
+                workspace_id, owner_subject_id, include_disabled=True
+            )
             if current is None or current.host_id != host_id:
                 raise HttpFaultException(
                     status_code=HTTPStatus.NOT_FOUND,
@@ -91,7 +88,7 @@ class UpdateCodexWorkspaceUsecase:
         owner_subject_id: str,
         subject_scopes: frozenset[str],
     ) -> CodexWorkspaceExecutionPreferencesResult:
-        """读取并重校验执行偏好，不在读取路径写回持久化状态。
+        """读取 Agent 确认的执行设置投影，不改写本机权威设置。
 
         主机 capability 或用户授权可能在保存后发生变化，因此读接口必须给出当前
         有效值和调整字段。此处保持查询无副作用，避免仅打开设置页就增加版本号。
@@ -105,80 +102,10 @@ class UpdateCodexWorkspaceUsecase:
                 workspace_id=workspace_id,
                 owner_subject_id=owner_subject_id,
             )
-            effective_preferences, adjusted_fields = (
-                revalidate_codex_workspace_execution_preferences(
-                    current.execution_preferences,
-                    capabilities=capabilities,
-                    subject_scopes=subject_scopes,
-                )
-            )
             return CodexWorkspaceExecutionPreferencesResult(
                 workspace_id=current.workspace_id,
-                effective_preferences=effective_preferences,
-                adjusted_fields=adjusted_fields,
+                effective_preferences=current.execution_preferences,
             )
-        finally:
-            unit_of_work.dispose()
-
-    def update_execution_preferences(
-        self,
-        *,
-        host_id: UUID,
-        workspace_id: UUID,
-        owner_subject_id: str,
-        subject_scopes: frozenset[str],
-        request: CodexWorkspaceExecutionPreferencesUpdate,
-    ) -> CodexWorkspaceExecutionPreferencesResult:
-        """按当前主机 capability 和用户 scope 收敛后持久化执行偏好。
-
-        浏览器不能指定 capability 版本，也不能绕过当前 scope 保存更宽松的沙箱或
-        审批策略。工作区更新与版本递增由同一个 UoW 原子提交。
-        """
-
-        unit_of_work = self._control_port.create_unit_of_work()
-        try:
-            current, capabilities = self._read_owned_workspace_and_capabilities(
-                unit_of_work=unit_of_work,
-                host_id=host_id,
-                workspace_id=workspace_id,
-                owner_subject_id=owner_subject_id,
-            )
-            selection_error = model_selection_error(
-                capabilities, request.model, request.reasoning_effort
-            )
-            if selection_error:
-                raise HttpFaultException(
-                    status_code=HTTPStatus.CONFLICT,
-                    error_code=CodexErrorCode.STATE_CONFLICT,
-                    message=selection_error,
-                )
-            effective_preferences, adjusted_fields = (
-                revalidate_codex_workspace_execution_preferences(
-                    request,
-                    capabilities=capabilities,
-                    subject_scopes=subject_scopes,
-                )
-            )
-            updated = current.model_copy(
-                update={
-                    "execution_preferences": effective_preferences,
-                    "updated_at": datetime.now(UTC),
-                    "version": current.version + 1,
-                }
-            )
-            repository = self._control_port.create_codex_workspace_repository(
-                unit_of_work.get_session()
-            )
-            repository.save(updated)
-            unit_of_work.commit()
-            return CodexWorkspaceExecutionPreferencesResult(
-                workspace_id=updated.workspace_id,
-                effective_preferences=effective_preferences,
-                adjusted_fields=adjusted_fields,
-            )
-        except BaseException:
-            unit_of_work.rollback()
-            raise
         finally:
             unit_of_work.dispose()
 

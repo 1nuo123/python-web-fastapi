@@ -17,6 +17,7 @@ from pydantic import (
     model_validator,
 )
 
+from src.core.codex_contract.agent_command_contract import AgentCommandResultSummary
 from src.core.codex_contract.app_server_product_contract import (
     APP_SERVER_PRODUCT_MAX_DELTA_CHARS,
     APP_SERVER_PRODUCT_MAX_TEXT_CHARS,
@@ -35,9 +36,16 @@ from src.core.codex_contract.approval_contract import (
 )
 from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.host_contract import CodexApprovalPolicy, CodexSandboxMode
-from src.core.codex_contract.model_catalog_contract import CodexModelCatalog, CodexEffectiveExecutionSettings
+from src.core.codex_contract.model_catalog_contract import (
+    CodexModelCatalog,
+    CodexEffectiveExecutionSettings,
+)
 from src.core.codex_contract.thread_contract import CodexThreadTitleSource
 from src.core.worktree_contract.worktree_contract import GitWorktreePolicy
+from src.core.codex_contract.workspace_contract import (
+    ProjectExecutionSettingsApply,
+    CodexWorkspaceExecutionPreferences,
+)
 
 AGENT_PROTOCOL_V2_KIND: Final = "codex_agent_protocol"
 AGENT_PROTOCOL_V2_SCHEMA_VERSION: Final = "2.0"
@@ -51,6 +59,8 @@ class AgentProtocolMessageType(StrEnum):
     HELLO = "hello"
     HELLO_ACK = "hello_ack"
     HEARTBEAT = "heartbeat"
+    EXECUTION_LEASE = "execution_lease"
+    EXECUTION_STOPPED = "execution_stopped"
     COMMAND = "command"
     COMMAND_ACK = "command_ack"
     COMMAND_RESULT = "command_result"
@@ -89,6 +99,8 @@ class AgentHelloV2Detail(AgentProtocolV2DetailBase):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     kind: Literal["hello"] = "hello"
+    execution_lease_supported: bool = False
+    lease_request_id: UUID | None = None
     agent_version: str = Field(min_length=1, max_length=64)
     codex_version: str = Field(min_length=1, max_length=64)
     app_server_schema_digest: str = Field(pattern=SHA256_HEX_PATTERN)
@@ -122,9 +134,25 @@ class AgentHeartbeatV2Detail(AgentProtocolV2DetailBase):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     kind: Literal["heartbeat"] = "heartbeat"
+    lease_request_id: UUID | None = None
     connection_epoch: int = Field(ge=1)
     app_server_instance_id: UUID
     revocation_generation: int = Field(ge=0)
+
+
+class AgentExecutionLeaseV2Detail(AgentProtocolV2DetailBase):
+    """控制面确认账号执行资格；无确认时本机必须停止 Remote 执行。"""
+
+    kind: Literal["execution_lease"] = "execution_lease"
+    request_id: UUID | None = None
+    generation: int = Field(ge=0)
+    enabled: bool
+    valid_for_seconds: int = Field(default=35, ge=1, le=60)
+
+
+class AgentExecutionStoppedV2Detail(AgentProtocolV2DetailBase):
+    kind: Literal["execution_stopped"] = "execution_stopped"
+    generation: int = Field(ge=0)
 
 
 class AgentCommandHeader(BaseModel):
@@ -136,6 +164,7 @@ class AgentCommandHeader(BaseModel):
     operation_id: UUID
     request_digest: str = Field(pattern=SHA256_HEX_PATTERN)
     deadline: datetime
+    execution_generation: int | None = Field(default=None, ge=0)
 
 
 class AgentCommandDetailBase(AgentProtocolV2DetailBase):
@@ -197,6 +226,8 @@ class AgentThreadResumeCommandDetail(AgentCommandDetailBase):
     kind: Literal["thread.resume"] = "thread.resume"
     workspace_key: str = Field(min_length=1, max_length=128)
     thread_id: str = Field(min_length=1, max_length=256)
+    sandbox_mode: CodexSandboxMode
+    approval_policy: CodexApprovalPolicy
 
 
 class AgentThreadNameSetCommandDetail(AgentCommandDetailBase):
@@ -283,6 +314,14 @@ class AgentApprovalReplyCommandDetail(AgentCommandDetailBase):
     approval_version: int = Field(ge=1)
 
 
+class AgentWorkspaceSettingsCommandDetail(AgentCommandDetailBase):
+    """只接受项目身份及类型化草稿，不接受本机路径或任意配置键。"""
+
+    kind: Literal["workspace.settings"] = "workspace.settings"
+    workspace_key: str = Field(min_length=1, max_length=128)
+    settings: ProjectExecutionSettingsApply
+
+
 AgentCommandDetail = Annotated[
     AgentThreadListCommandDetail
     | AgentThreadReadCommandDetail
@@ -295,7 +334,8 @@ AgentCommandDetail = Annotated[
     | AgentTurnStartCommandDetail
     | AgentTurnSteerCommandDetail
     | AgentTurnInterruptCommandDetail
-    | AgentApprovalReplyCommandDetail,
+    | AgentApprovalReplyCommandDetail
+    | AgentWorkspaceSettingsCommandDetail,
     Field(discriminator="kind"),
 ]
 
@@ -401,10 +441,11 @@ class AgentWorkspaceSnapshot(AgentProtocolV2DetailBase):
     repo_fingerprint: str | None = Field(default=None, pattern=SHA256_HEX_PATTERN)
     default_branch: str | None = Field(default=None, max_length=256)
     allow_write: bool
+    execution_preferences: CodexWorkspaceExecutionPreferences | None = None
 
 
 class AgentPendingCommandSnapshot(AgentProtocolV2DetailBase):
-    """本地 journal 未完成命令摘要。"""
+    """本地 journal 有界恢复摘要，包括最近终态。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -414,6 +455,7 @@ class AgentPendingCommandSnapshot(AgentProtocolV2DetailBase):
     command_kind: str = Field(min_length=1, max_length=64)
     state: Literal["received", "executing", "completed", "failed", "unknown"]
     recovery_required: bool
+    result_summary: AgentCommandResultSummary | None = None
 
 
 class AgentPendingApprovalSnapshot(AgentProtocolV2DetailBase):
@@ -451,6 +493,7 @@ class AgentStateSnapshotV2Detail(AgentProtocolV2DetailBase):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     kind: Literal["state_snapshot"] = "state_snapshot"
+    execution_generation: int | None = Field(default=None, ge=0)
     app_server_instance_id: UUID
     page_index: int = Field(ge=0)
     continuation_token: str | None = Field(default=None, max_length=512)
@@ -696,6 +739,8 @@ AgentProtocolV2Detail = Annotated[
     AgentHelloV2Detail
     | AgentHelloAckV2Detail
     | AgentHeartbeatV2Detail
+    | AgentExecutionLeaseV2Detail
+    | AgentExecutionStoppedV2Detail
     | AgentCommandV2Detail
     | AgentCommandAckV2Detail
     | AgentCommandResultV2Detail

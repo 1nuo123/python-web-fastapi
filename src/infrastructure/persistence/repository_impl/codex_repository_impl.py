@@ -528,22 +528,32 @@ class CodexDeviceKeyRepositoryImpl(CodexDeviceKeyRepositoryPort):
         ).all()
         return [self._to_snapshot(row) for row in rows]
 
-    def list_pending_created_before(
+    def list_unconnected_created_before(
         self,
         *,
         created_before: datetime,
         limit: int,
     ) -> list[CodexDeviceKeySnapshot]:
-        """读取达到清理期限的 pending key。"""
+        """读取过期未完成身份，含已批准但从未连接的孤立主机。"""
 
         statement = (
             select(CodexHostDeviceKeyOrmModel)
+            .join(
+                CodexHostOrmModel, CodexHostOrmModel.host_id == CodexHostDeviceKeyOrmModel.host_id
+            )
             .where(
-                CodexHostDeviceKeyOrmModel.state == DeviceKeyState.PENDING.value,
+                or_(
+                    CodexHostDeviceKeyOrmModel.state == DeviceKeyState.PENDING.value,
+                    and_(
+                        CodexHostDeviceKeyOrmModel.state == DeviceKeyState.ACTIVE.value,
+                        CodexHostOrmModel.last_seen_at.is_(None),
+                    ),
+                ),
                 CodexHostDeviceKeyOrmModel.created_at <= created_before,
             )
             .order_by(CodexHostDeviceKeyOrmModel.created_at.asc())
             .limit(limit)
+            .with_for_update(skip_locked=True)
         )
         return [self._to_snapshot(row) for row in self._session.scalars(statement).all()]
 
@@ -635,6 +645,8 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
         self,
         host_id: UUID,
         owner_subject_id: str,
+        *,
+        include_disabled: bool = False,
     ) -> list[CodexWorkspaceSnapshot]:
         statement = (
             select(CodexWorkspaceOrmModel)
@@ -645,7 +657,6 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
             .where(
                 CodexWorkspaceOrmModel.host_id == host_id,
                 CodexWorkspaceOrmModel.owner_subject_id == owner_subject_id,
-                CodexWorkspaceOrmModel.enabled.is_(True),
                 CodexHostOrmModel.owner_subject_id == owner_subject_id,
                 CodexHostOrmModel.revoked_at.is_(None),
             )
@@ -655,6 +666,11 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
                 CodexWorkspaceOrmModel.workspace_id.desc(),
             )
         )
+        if not include_disabled:
+            statement = statement.where(
+                CodexWorkspaceOrmModel.enabled.is_(True),
+                CodexWorkspaceOrmModel.retired_at.is_(None),
+            )
         return [self._to_snapshot(row) for row in self._session.scalars(statement).all()]
 
     def count_enabled_by_host_and_owner(
@@ -683,6 +699,8 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
         self,
         workspace_id: UUID,
         owner_subject_id: str,
+        *,
+        include_disabled: bool = False,
     ) -> CodexWorkspaceSnapshot | None:
         statement = (
             select(CodexWorkspaceOrmModel)
@@ -693,11 +711,13 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
             .where(
                 CodexWorkspaceOrmModel.workspace_id == workspace_id,
                 CodexWorkspaceOrmModel.owner_subject_id == owner_subject_id,
-                CodexWorkspaceOrmModel.enabled.is_(True),
+                CodexWorkspaceOrmModel.retired_at.is_(None),
                 CodexHostOrmModel.owner_subject_id == owner_subject_id,
                 CodexHostOrmModel.revoked_at.is_(None),
             )
         )
+        if not include_disabled:
+            statement = statement.where(CodexWorkspaceOrmModel.enabled.is_(True))
         row = self._session.scalars(statement).one_or_none()
         return None if row is None else self._to_snapshot(row)
 
@@ -738,6 +758,7 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
                 execution_preferences=snapshot.execution_preferences.model_dump(mode="json"),
                 is_pinned=snapshot.is_pinned,
                 enabled=snapshot.enabled,
+                retired_at=snapshot.retired_at,
                 created_at=snapshot.created_at,
                 updated_at=snapshot.updated_at,
                 version=snapshot.version,
@@ -770,6 +791,7 @@ class CodexWorkspaceRepositoryImpl(CodexWorkspaceRepositoryPort):
             ),
             is_pinned=row.is_pinned,
             enabled=row.enabled,
+            retired_at=CodexRepositoryDatetimeConverter.normalize_optional(row.retired_at),
             created_at=CodexRepositoryDatetimeConverter.normalize_required(row.created_at),
             updated_at=CodexRepositoryDatetimeConverter.normalize_required(row.updated_at),
             version=row.version,

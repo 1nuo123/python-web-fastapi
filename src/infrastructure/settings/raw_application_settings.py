@@ -1232,6 +1232,7 @@ class RawCodexControlRuntimeMapping(TypedDict, total=False):
     agent_release_download_url: str
     agent_release_manifest_url: str
     agent_release_minimum_security_version: str
+    agent_release_available: bool
 
 
 class RawRuntimeRootMapping(TypedDict, total=False):

@@ -34,6 +34,7 @@ from src.core.codex_contract.host_contract import (
 )
 from src.core.codex_contract.operation_contract import (
     CodexControlOperationSnapshot,
+    CodexOperationView,
     CodexOperationProjection,
     CodexOperationProjectionHeader,
     CodexOperationProjectionKind,
@@ -45,6 +46,7 @@ from src.core.codex_contract.product_command_contract import (
 )
 from src.core.codex_contract.thread_contract import CodexThreadTitleSource
 from src.core.codex_contract.turn_contract import CodexExecutionOptions, CodexOperationAccepted
+from src.core.codex_contract.workspace_contract import ProjectExecutionSettingsApply
 from src.core.codex_contract.turn_runtime_contract import CodexTurnPhase
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.core.persistence_contract.unit_of_work_contract import PersistenceSession, UnitOfWork
@@ -124,6 +126,27 @@ class ExecuteCodexThreadCommandUsecase:
             operation_type="thread.start",
             params=params,
             execution=execution,
+        )
+        return await self._dispatch(prepared)
+
+    async def apply_workspace_settings(
+        self,
+        *,
+        host_id: UUID,
+        workspace_id: UUID,
+        actor_subject_id: str,
+        idempotency_key: str,
+        settings: ProjectExecutionSettingsApply,
+    ) -> CodexOperationAccepted:
+        prepared = await asyncio.to_thread(
+            self._prepare_workspace_operation,
+            host_id=host_id,
+            workspace_id=workspace_id,
+            actor_subject_id=actor_subject_id,
+            idempotency_key=idempotency_key,
+            operation_type="workspace.settings",
+            params={"settings": settings.model_dump(mode="json")},
+            execution=None,
         )
         return await self._dispatch(prepared)
 
@@ -239,6 +262,7 @@ class ExecuteCodexThreadCommandUsecase:
         upstream_thread_id: str,
         actor_subject_id: str,
         idempotency_key: str,
+        execution: CodexExecutionOptions,
     ) -> CodexOperationAccepted:
         """在所属工作区恢复已持久化 thread。"""
 
@@ -249,6 +273,7 @@ class ExecuteCodexThreadCommandUsecase:
             actor_subject_id=actor_subject_id,
             idempotency_key=idempotency_key,
             operation_type="thread.resume",
+            execution=execution,
             params={"threadId": upstream_thread_id},
         )
         return await self._dispatch(prepared)
@@ -857,6 +882,38 @@ class ExecuteCodexThreadCommandUsecase:
             occurred_at=applied_projection.occurred_at,
         )
 
+    def read_operation(
+        self, *, operation_id: UUID, host_id: UUID, owner_subject_id: str
+    ) -> CodexOperationView:
+        """按账号和主机读取既有账本，为断线后的终态核对提供同一入口。"""
+
+        unit_of_work = self._control_port.create_unit_of_work()
+        try:
+            repository = self._control_port.create_codex_operation_repository(
+                unit_of_work.get_session()
+            )
+            operation = repository.get_by_id_and_owner(operation_id, owner_subject_id)
+            if operation is None or operation.host_id != host_id:
+                raise self._not_found()
+            if operation.status not in {"completed", "failed", "cancelled", "timed_out", "unknown"}:
+                outbox = self._control_port.create_codex_command_outbox_repository(
+                    unit_of_work.get_session()
+                ).get_by_command_id(operation.command_id)
+                if outbox is not None and outbox.expires_at <= datetime.now(UTC):
+                    # 到期后不会再投递；未收到终态不能宣称失败或永久显示执行中。
+                    # 只派生查询结果，迟到的真实 ACK/result 仍由既有账本入口收敛。
+                    operation = operation.model_copy(
+                        update={
+                            "status": "unknown",
+                            "error_code": "codex.command.result_unconfirmed",
+                        }
+                    )
+            return CodexOperationView.model_validate(
+                operation.model_dump(include=set(CodexOperationView.model_fields))
+            )
+        finally:
+            unit_of_work.dispose()
+
     def _to_acceptance(
         self,
         operation: CodexControlOperationSnapshot,
@@ -910,7 +967,9 @@ class ExecuteCodexThreadCommandUsecase:
         if execution is None:
             return
         selection_error = model_selection_error(
-            host.capabilities, execution.model, execution.reasoning_effort,
+            host.capabilities,
+            execution.model,
+            execution.reasoning_effort,
             inherited_model=inherited_model,
         )
         if selection_error:

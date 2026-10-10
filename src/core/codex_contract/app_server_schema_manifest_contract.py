@@ -35,6 +35,9 @@ class AppServerMethodName(StrEnum):
 
     INITIALIZE = "initialize"
     MODEL_LIST = "model/list"
+    ACCOUNT_READ = "account/read"
+    CONFIG_READ = "config/read"
+    CONFIG_REQUIREMENTS_READ = "configRequirements/read"
     THREAD_LIST = "thread/list"
     THREAD_READ = "thread/read"
     THREAD_TURNS_LIST = "thread/turns/list"
@@ -230,6 +233,9 @@ class AppServerDefaultCatalog:
 
         read_methods = (
             (AppServerMethodName.INITIALIZE, None),
+            (AppServerMethodName.ACCOUNT_READ, None),
+            (AppServerMethodName.CONFIG_READ, None),
+            (AppServerMethodName.CONFIG_REQUIREMENTS_READ, None),
             (AppServerMethodName.MODEL_LIST, AppServerCapabilityCode.MODEL_LIST),
             (AppServerMethodName.THREAD_LIST, AppServerCapabilityCode.THREAD_LIST),
             (AppServerMethodName.THREAD_READ, AppServerCapabilityCode.THREAD_READ),

@@ -717,7 +717,7 @@ class CleanupExpiredDeviceAuthorizationsUsecase:
         try:
             session = unit_of_work.get_session()
             repository = self._control_port.create_codex_device_key_repository(session)
-            expired = repository.list_pending_created_before(
+            expired = repository.list_unconnected_created_before(
                 created_before=datetime.now(UTC) - timedelta(seconds=self._pending_ttl_seconds),
                 limit=DEVICE_AUTHORIZATION_CLEANUP_BATCH_SIZE,
             )

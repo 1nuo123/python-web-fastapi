@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import argparse
 import re
+import hashlib
 from collections.abc import Sequence
 from pathlib import Path
+
+import httpx
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
@@ -26,6 +29,7 @@ _RELEASE_KEYS = frozenset(
         "agent_release_source_repository",
         "agent_release_source_revision",
         "agent_release_source_dirty",
+        "agent_release_available",
     }
 )
 _REQUIRED_RUNTIME_RELEASE_KEYS = _RELEASE_KEYS - {
@@ -55,6 +59,7 @@ class CodexAgentInternalReleaseMetadataSynchronizer:
             command.manifest.read_text(encoding="utf-8")
         )
         detail = manifest.detail
+        self._verify_published_release(manifest)
         if (
             detail.source_repository is None
             or detail.source_revision is None
@@ -62,6 +67,7 @@ class CodexAgentInternalReleaseMetadataSynchronizer:
         ):
             raise ValueError("内部发布清单缺少构建来源信息，不能同步到运行时配置。")
         values: dict[str, str] = {
+            "agent_release_available": "true",
             "agent_release_version": self._toml_string(detail.version),
             "agent_release_distribution_mode": self._toml_string("internal"),
             "agent_release_artifact_sha256": self._toml_string(detail.artifact_sha256),
@@ -76,13 +82,45 @@ class CodexAgentInternalReleaseMetadataSynchronizer:
             "agent_release_source_revision": self._toml_string(detail.source_revision),
             "agent_release_source_dirty": self._toml_bool(detail.source_dirty),
         }
-        for config in command.configs:
-            updated = self._update_config(config, values)
+        updates = [(config, self._update_config(config, values)) for config in command.configs]
+        for config, updated in updates:
             if not command.dry_run:
                 temporary_path = config.with_suffix(f"{config.suffix}.tmp")
                 temporary_path.write_text(updated, encoding="utf-8", newline="")
                 temporary_path.replace(config)
-            logger.info("Codex Agent内部发布元数据已{}：{}", "校验" if command.dry_run else "同步", config)
+            logger.info(
+                "Codex Agent内部发布元数据已{}：{}", "校验" if command.dry_run else "同步", config
+            )
+
+    def _verify_published_release(
+        self, manifest: CodexAgentInternalReleaseManifestEnvelope
+    ) -> None:
+        """只校验用户已发布的匿名资源；失败不写任何 current 元数据。"""
+
+        with httpx.Client(timeout=30, follow_redirects=True, trust_env=False) as client:
+            response = client.get(self._manifest_download_url(manifest.detail.download_url))
+            response.raise_for_status()
+            published = CodexAgentInternalReleaseManifestEnvelope.model_validate_json(
+                response.content
+            )
+            if published != manifest:
+                raise ValueError("已发布清单与候选清单不一致。")
+            digest = hashlib.sha256()
+            length = 0
+            with client.stream("GET", manifest.detail.download_url) as artifact:
+                artifact.raise_for_status()
+                if artifact.url.scheme != "https":
+                    raise ValueError("下载重定向未使用 HTTPS。")
+                for chunk in artifact.iter_bytes():
+                    length += len(chunk)
+                    if length > 1_073_741_824:
+                        raise ValueError("安装包超过允许大小。")
+                    digest.update(chunk)
+                expected_length = artifact.headers.get("content-length")
+                if not length or (expected_length is not None and length != int(expected_length)):
+                    raise ValueError("安装包下载长度不完整。")
+            if digest.hexdigest() != manifest.detail.artifact_sha256:
+                raise ValueError("已发布安装包 SHA-256 与候选清单不一致。")
 
     @staticmethod
     def _manifest_download_url(installer_url: str) -> str:

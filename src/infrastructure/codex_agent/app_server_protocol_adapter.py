@@ -41,7 +41,7 @@ from src.core.codex_contract.app_server_product_contract import (
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerNotificationName,
 )
-from src.core.codex_contract.thread_contract import CodexPlanStepStatus
+from src.core.codex_contract.thread_contract import CODEX_THREAD_TITLE_MAX_LENGTH, CodexPlanStepStatus
 
 APP_SERVER_RESPONSE_HISTORY_STATUS_FIELD = "historyStatus"
 APP_SERVER_RESPONSE_HISTORY_OMITTED = "omitted_too_large"
@@ -152,7 +152,9 @@ class AppServerProtocolAdapter:
         if method == AppServerNotificationName.THREAD_NAME_UPDATED:
             return AppServerThreadMetadataChangedDetail(
                 thread_id=self._read_string(params, "threadId"),
-                display_name=self._read_optional_string(params.get("threadName")),
+                display_name=self._bounded_optional_text(
+                    params.get("threadName"), limit=CODEX_THREAD_TITLE_MAX_LENGTH
+                ),
             )
         if method == AppServerNotificationName.THREAD_SETTINGS_UPDATED:
             settings = self._read_mapping(params, "threadSettings")
@@ -187,12 +189,14 @@ class AppServerProtocolAdapter:
                 thread_id=self._read_string(params, "threadId"),
                 turn_id=self._read_string(params, "turnId"),
                 status="started",
-                item=self._to_timeline_item({
-                    "id": self._read_string(params, "itemId"),
-                    "type": "fileChange",
-                    "status": "inProgress",
-                    "changes": params.get("changes"),
-                }),
+                item=self._to_timeline_item(
+                    {
+                        "id": self._read_string(params, "itemId"),
+                        "type": "fileChange",
+                        "status": "inProgress",
+                        "changes": params.get("changes"),
+                    }
+                ),
             )
         if method in {
             AppServerNotificationName.ITEM_STARTED,
@@ -313,7 +317,7 @@ class AppServerProtocolAdapter:
         return value
 
     def _read_optional_string(self, value: JsonValue | None) -> str | None:
-        if value is None:
+        if value is None or value == "":
             return None
         if not isinstance(value, str) or not value:
             raise ValueError("App Server可选字段不是非空字符串。")
@@ -509,11 +513,13 @@ class AppServerProtocolAdapter:
 
         return AppServerThreadProductSnapshot(
             thread_id=thread_id,
-            display_name=self._read_optional_string(thread.get("name") or thread.get("preview")),
+            display_name=self._bounded_optional_text(
+                thread.get("name") or thread.get("preview"), limit=CODEX_THREAD_TITLE_MAX_LENGTH
+            ),
             model_id=None,
             model_provider=self._read_optional_string(thread.get("modelProvider")),
             status=status or self._read_status(thread.get("status")),
-            archived=False,
+            archived=thread.get("archived") if isinstance(thread.get("archived"), bool) else None,
             created_at=self._read_optional_timestamp(thread.get("createdAt")),
             updated_at=self._read_optional_timestamp(thread.get("updatedAt")),
             recency_at=self._read_optional_timestamp(thread.get("recencyAt")),
@@ -618,7 +624,9 @@ class AppServerProtocolAdapter:
                     kind_type = kind_mapping.get("type")
                     move_path = kind_mapping.get("move_path")
                     if kind_type == "add":
-                        normalized_kind: Literal["added", "modified", "deleted", "renamed"] = "added"
+                        normalized_kind: Literal["added", "modified", "deleted", "renamed"] = (
+                            "added"
+                        )
                     elif kind_type == "delete":
                         normalized_kind = "deleted"
                     elif kind_type == "update" and isinstance(move_path, str) and move_path:
@@ -631,11 +639,16 @@ class AppServerProtocolAdapter:
                     diffs.append(bounded_diff)
                     structured_changes.append(
                         AppServerFileChange(
-                            path=self._bounded_text(path, limit=1_024),
+                            path=self._bounded_text(
+                                move_path
+                                if normalized_kind == "renamed" and isinstance(move_path, str)
+                                else path,
+                                limit=1_024,
+                            ),
                             change_kind=normalized_kind,
                             diff=bounded_diff,
                             old_path=(
-                                self._bounded_text(move_path, limit=1_024)
+                                self._bounded_text(path, limit=1_024)
                                 if normalized_kind == "renamed"
                                 and isinstance(move_path, str)
                                 and move_path

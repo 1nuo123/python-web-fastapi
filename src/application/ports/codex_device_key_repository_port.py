@@ -30,7 +30,7 @@ class CodexDeviceKeyRepositoryPort(Protocol):
         owner_subject_id: str,
     ) -> list[CodexDeviceKeySnapshot]: ...
 
-    def list_pending_created_before(
+    def list_unconnected_created_before(
         self,
         *,
         created_before: datetime,

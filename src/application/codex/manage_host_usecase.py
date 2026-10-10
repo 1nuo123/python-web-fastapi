@@ -14,6 +14,8 @@ from src.application.ports.codex_control_port import CodexControlPort
 from src.application.ports.step_up_grant_port import StepUpGrantPort
 from src.core.auth_contract.step_up_grant_contract import StepUpGrantPurpose
 from src.core.codex_contract.host_contract import CodexHostSnapshot
+from src.core.codex_contract.approval_contract import CodexApprovalState
+from src.core.codex_contract.command_outbox_contract import CodexCommandOutboxState
 from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.domain.codex.codex_error_code import CodexErrorCode
 
@@ -167,6 +169,46 @@ class RevokeCodexHostUsecase:
                 owner_subject_id=owner_subject_id,
                 revoked_at=now,
             )
+            approvals = self._control_port.create_codex_approval_repository(session)
+            for approval in approvals.list_by_owner(owner_subject_id):
+                if approval.host_id == host_id and approval.state in {
+                    CodexApprovalState.PENDING,
+                    CodexApprovalState.CLAIMED,
+                    CodexApprovalState.DELIVERY_FAILED,
+                }:
+                    approvals.save(
+                        approval.model_copy(
+                            update={"state": CodexApprovalState.CANCELLED, "updated_at": now}
+                        )
+                    )
+            operations = self._control_port.create_codex_operation_repository(session)
+            outbox = self._control_port.create_codex_command_outbox_repository(session)
+            for operation in operations.list_pending_by_host(
+                host_id, ["pending", "dispatched", "acknowledged", "timed_out", "unknown"]
+            ):
+                operations.save(
+                    operation.model_copy(
+                        update={
+                            "status": "cancelled",
+                            "error_code": "host_revoked",
+                            "completed_at": now,
+                            "updated_at": now,
+                        }
+                    )
+                )
+                command = outbox.get_by_command_id(operation.command_id)
+                if command is not None:
+                    outbox.save(
+                        command.model_copy(
+                            update={
+                                "state": CodexCommandOutboxState.FAILED,
+                                "last_error_code": "host_revoked",
+                                "completed_at": now,
+                                "updated_at": now,
+                                "version": command.version + 1,
+                            }
+                        )
+                    )
             unit_of_work.commit()
             return revoked
         except BaseException:

@@ -117,10 +117,6 @@ class ReadCodexThreadSnapshotUsecase:
             if thread.source_kind == "remote":
                 return self._build_unavailable_snapshot(thread)
             raise
-        except RuntimeError:
-            if thread.source_kind == "remote":
-                return self._build_unavailable_snapshot(thread)
-            raise
         if result.outcome != "completed" or result.result is None:
             if result.error_code == "response_too_large":
                 return CodexThreadAuthoritySnapshot(
@@ -133,7 +129,15 @@ class ReadCodexThreadSnapshotUsecase:
             # is loadable by thread/read. The control-plane index is still the
             # authoritative identity; expose an empty timeline until the first
             # turn materializes the rollout instead of returning a 500.
-            if result.error_code == "-32600" and thread.source_kind == "remote":
+            if (
+                result.error_code == "-32600"
+                and thread.source_kind == "remote"
+                and thread.turn_runtime is None
+                and any(
+                    marker in (result.error_message or "").lower()
+                    for marker in ("thread not found", "no rollout", "not materialized")
+                )
+            ):
                 return CodexThreadAuthoritySnapshot(
                     thread=thread,
                     turns=[],
@@ -188,6 +192,8 @@ class ReadCodexThreadSnapshotUsecase:
         if self._event_port is not None and persisted != thread:
             await self._event_port.publish_thread_updated(persisted, occurred_at=datetime.now(UTC))
         return CodexThreadAuthoritySnapshot(
+            source_epoch=mapped.source_epoch,
+            source_seq=mapped.source_seq,
             thread=persisted,
             turns=turns,
             items=(

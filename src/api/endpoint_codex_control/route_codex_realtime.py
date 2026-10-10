@@ -394,6 +394,20 @@ class CodexRealtimeRouteCatalog:
             runtime,
             subscription.subject_id,
         )
+        active = await runtime.active_host.read(subscription.subject_id)
+        present = await runtime.presence_adapter.list_present(
+            [UUID(str(host["host_id"])) for host in hosts if isinstance(host, dict)]
+        )
+        for host in hosts:
+            if (
+                isinstance(host, dict)
+                and host.get("status") == "online"
+                and (
+                    str(active.active_host_id) != host.get("host_id")
+                    or UUID(str(host["host_id"])) not in present
+                )
+            ):
+                host["status"] = "offline"
         runtime.browser_event_hub.enqueue_local(
             subscription,
             event_type=CodexRealtimeEventType.HOST_SNAPSHOT,

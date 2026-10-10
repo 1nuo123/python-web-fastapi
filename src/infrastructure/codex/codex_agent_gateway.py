@@ -30,6 +30,7 @@ from src.core.codex_contract.agent_protocol_contract import (
 from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentApprovalOpenedEventDetail,
     AgentCommandAckV2Detail,
+    AgentCommandV2Detail,
     AgentCommandResultPayload,
     AgentCommandResultReference,
     AgentCommandResultV2Detail,
@@ -40,6 +41,8 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentEventRecord,
     AgentGapEventDetail,
     AgentHeartbeatV2Detail,
+    AgentExecutionLeaseV2Detail,
+    AgentExecutionStoppedV2Detail,
     AgentHelloAckV2Detail,
     AgentHelloV2Detail,
     AgentItemChangedEventDetail,
@@ -68,6 +71,7 @@ from src.core.codex_contract.app_server_schema_manifest_contract import (
 from src.core.codex_contract.approval_contract import CodexApprovalKind
 from src.core.codex_contract.connection_session_contract import (
     CodexConnectionFrame,
+    CodexHostOfflineError,
     CodexConnectionProtocolVersion,
     CodexOutboundFrameSenderPort,
 )
@@ -96,6 +100,7 @@ from src.infrastructure.codex.codex_connection_registry import (
 )
 from src.infrastructure.codex.codex_host_actor import CodexHostActorRegistry
 from src.infrastructure.codex.codex_host_presence_adapter import CodexHostPresenceAdapter
+from src.infrastructure.codex.codex_active_host_service import CodexActiveHostService
 
 COMMAND_RESULT_ID_FIELD: Final = "id"
 COMMAND_RESULT_STATUS_FIELD: Final = "status"
@@ -135,6 +140,7 @@ class CodexAgentGatewayHandler:
         event_cursor_store: CodexAgentEventCursorStore,
         revocation_generation: int = 0,
         presence_adapter: CodexHostPresenceAdapter | None = None,
+        active_host: CodexActiveHostService | None = None,
         instance_id: UUID | None = None,
         revocation_signal: CodexAgentRevocationSignalPort | None = None,
         shutdown_event: asyncio.Event | None = None,
@@ -156,6 +162,8 @@ class CodexAgentGatewayHandler:
         self._heartbeat_seconds = heartbeat_seconds
         self._event_cursor_store = event_cursor_store
         self._revocation_generation = revocation_generation
+        self._active_host = active_host
+        self._command_sender: CodexExecutionCommandSender | None = None
         self._presence_adapter = presence_adapter
         self._instance_id = instance_id
         self._revocation_signal = revocation_signal
@@ -243,6 +251,8 @@ class CodexAgentGatewayHandler:
         hello: CodexAgentHello,
         sender: CodexOutboundFrameSenderPort,
     ) -> None:
+        if self._active_host is not None:
+            raise PermissionError("旧版 Agent 不支持账号执行租约，请安装新版。")
         self._verify_bound_host(hello.host_id)
         if hello.agent_protocol_version != CODEX_AGENT_PROTOCOL_VERSION:
             raise ValueError("Agent v1协议版本不兼容。")
@@ -276,6 +286,10 @@ class CodexAgentGatewayHandler:
         hello: AgentHelloV2Detail,
         sender: CodexOutboundFrameSenderPort,
     ) -> None:
+        if self._active_host is not None and (
+            not hello.execution_lease_supported or hello.lease_request_id is None
+        ):
+            raise PermissionError("Agent 不支持账号执行租约，请安装新版 Agent。")
         host_id = UUID(self._principal.host_id)
         decision = self._evaluate_connection(
             codex_version=hello.codex_version,
@@ -341,6 +355,26 @@ class CodexAgentGatewayHandler:
                 ),
             )
         )
+        await self._send_execution_lease(sender, hello.lease_request_id)
+
+    async def _send_execution_lease(
+        self, sender: CodexOutboundFrameSenderPort, request_id: UUID | None
+    ) -> None:
+        if self._active_host is None:
+            return
+        state = await self._active_host.read(self._principal.owner_subject_id)
+        host_id = UUID(self._principal.host_id)
+        await sender.send(
+            self._codec.encode_v2(
+                host_id=host_id,
+                message_id=uuid4(),
+                detail=AgentExecutionLeaseV2Detail(
+                    generation=state.version,
+                    enabled=state.active_host_id == host_id,
+                    request_id=request_id,
+                ),
+            )
+        )
 
     async def _register(
         self,
@@ -350,9 +384,16 @@ class CodexAgentGatewayHandler:
         protocol_version: CodexConnectionProtocolVersion,
         decision: CodexCompatibilityDecision,
     ) -> CodexConnectionLease:
+        command_sender = (
+            CodexExecutionCommandSender(sender, self._active_host, self._principal)
+            if self._active_host is not None
+            else sender
+        )
+        if isinstance(command_sender, CodexExecutionCommandSender):
+            self._command_sender = command_sender
         lease = await self._connection_registry.register(
             host_id,
-            sender,
+            command_sender,
             shutdown_event=self._shutdown_event,
             protocol_version=protocol_version,
             compatibility_decision=decision,
@@ -430,6 +471,12 @@ class CodexAgentGatewayHandler:
         sender: CodexOutboundFrameSenderPort,
     ) -> None:
         host_id = UUID(self._principal.host_id)
+        if isinstance(detail, AgentExecutionStoppedV2Detail):
+            if self._active_host is not None:
+                await self._active_host.acknowledge_stopped(
+                    self._principal.owner_subject_id, host_id, detail.generation
+                )
+            return
         if isinstance(detail, AgentHeartbeatV2Detail):
             if self._revocation_signal is not None:
                 current_generation = await self._revocation_signal.read_generation(host_id)
@@ -451,6 +498,7 @@ class CodexAgentGatewayHandler:
                 ),
                 self._principal,
             )
+            await self._send_execution_lease(sender, detail.lease_request_id)
             return
         if isinstance(detail, AgentCommandAckV2Detail):
             await self._accept_command_ack(
@@ -484,6 +532,8 @@ class CodexAgentGatewayHandler:
                 self._to_v1_snapshot(host_id, detail),
                 self._principal,
             )
+            if self._command_sender is not None:
+                self._command_sender.confirm_ready(detail.execution_generation)
             return
 
         if isinstance(detail, AgentEventBatchV2Detail):
@@ -576,7 +626,7 @@ class CodexAgentGatewayHandler:
                 "status": item.status,
                 "changes": [
                     {
-                        "path": change.path,
+                        "path": change.old_path or change.path,
                         "kind": {
                             "type": (
                                 "add"
@@ -585,7 +635,7 @@ class CodexAgentGatewayHandler:
                                 if change.change_kind == "deleted"
                                 else "update"
                             ),
-                            "move_path": change.old_path,
+                            "move_path": change.path if change.old_path else None,
                         },
                         "diff": change.diff,
                     }
@@ -673,6 +723,8 @@ class CodexAgentGatewayHandler:
             method=self._to_v1_event_method(record.detail),
             params=self._to_v1_event_params(record.detail),
             detail=record.detail,
+            source_epoch=record.agent_event_epoch,
+            source_seq=record.seq,
         )
 
     def _to_v1_event_params(self, detail: AgentEventDetail) -> dict[str, JsonValue]:
@@ -794,6 +846,7 @@ class CodexAgentGatewayHandler:
                     repo_fingerprint=item.repo_fingerprint,
                     default_branch=item.default_branch,
                     allow_write=item.allow_write,
+                    execution_preferences=item.execution_preferences,
                 )
                 for item in snapshot.workspaces
             ],
@@ -915,3 +968,45 @@ class CodexAgentGatewayHandler:
         _decision: CodexCompatibilityDecision,
     ) -> None:
         return None
+
+
+class CodexExecutionCommandSender:
+    """所有 actor 命令的统一执行栅栏，包括不进入 outbox 的读取请求。"""
+
+    def __init__(
+        self,
+        sender: CodexOutboundFrameSenderPort,
+        active_host: CodexActiveHostService,
+        principal: AgentDevicePrincipal,
+    ) -> None:
+        self._sender = sender
+        self._active_host = active_host
+        self._principal = principal
+        self._codec = AgentProtocolCodecRegistry()
+        self._confirmed_generation: int | None = None
+
+    def confirm_ready(self, generation: int | None) -> None:
+        """当前 Agent 已取得租约、启动执行进程并成功同步项目，才允许投递。"""
+        self._confirmed_generation = generation
+
+    async def send(self, frame: CodexConnectionFrame) -> None:
+        decoded = self._codec.decode(frame)
+        if decoded.v2 is None or not isinstance(decoded.v2.detail, AgentCommandV2Detail):
+            raise PermissionError("执行通道只接受带租约的 v2 命令。")
+        state = await self._active_host.read(self._principal.owner_subject_id)
+        command = decoded.v2.detail
+        if self._confirmed_generation != state.version:
+            raise CodexHostOfflineError("电脑正在建立执行环境，命令将在就绪后投递。")
+        if str(state.active_host_id) != self._principal.host_id or (
+            command.header.execution_generation is not None
+            and command.header.execution_generation != state.version
+        ):
+            raise CodexHostOfflineError("当前电脑已经失去账号执行资格。")
+        header = command.header.model_copy(update={"execution_generation": state.version})
+        await self._sender.send(
+            self._codec.encode_v2(
+                host_id=decoded.v2.header.host_id,
+                message_id=decoded.v2.header.message_id,
+                detail=command.model_copy(update={"header": header}),
+            )
+        )

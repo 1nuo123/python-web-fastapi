@@ -11,6 +11,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.api.dependency_context_accessor import DependencyContextAccessor
 from src.core.codex_contract.host_contract import CodexSandboxMode
+from src.core.codex_contract.operation_contract import CodexOperationView
 from src.core.codex_contract.thread_contract import (
     CODEX_CONVERSATION_PAGE_LIMIT_DEFAULT,
     CODEX_CONVERSATION_PAGE_LIMIT_MAXIMUM,
@@ -67,6 +68,13 @@ class CodexThreadRouteCatalog:
     def __init__(self) -> None:
         self._accessor = DependencyContextAccessor()
         self.router = APIRouter()
+        self.router.add_api_route(
+            "/codex/hosts/{host_id}/operations/{operation_id}",
+            self.get_operation,
+            methods=["GET"],
+            response_model=ResponseEnvelope[CodexOperationView],
+            dependencies=[Depends(self.require_codex_read)],
+        )
         self.router.add_api_route(
             "/codex/hosts/{host_id}/threads",
             self.get_threads,
@@ -190,6 +198,28 @@ class CodexThreadRouteCatalog:
         self._accessor.read_authorized_principal(
             request,
             CODEX_OPERATE_AUTHORIZATION_REQUIREMENT,
+        )
+
+    async def get_operation(
+        self, request: Request, host_id: UUID, operation_id: UUID
+    ) -> ResponseEnvelope[CodexOperationView]:
+        """核对已有操作，读取不会重新执行命令。"""
+
+        principal = self._accessor.read_authenticated_principal(request)
+        payload = await self._accessor.read_request_execution_bridge(request).run_sync(
+            execution_name="default_sync_usecase",
+            callable_object=self._accessor.read_execute_codex_thread_command_usecase(
+                request
+            ).read_operation,
+            operation_id=operation_id,
+            host_id=host_id,
+            owner_subject_id=principal.subject_id,
+        )
+        return self._accessor.read_response_factory(request).build(
+            code=str(SuccessCode.OK),
+            message="Codex操作状态读取成功。",
+            request_scope=self._accessor.read_request_scope(request),
+            data=payload,
         )
 
     async def get_threads(
@@ -362,11 +392,13 @@ class CodexThreadRouteCatalog:
         request: Request,
         host_id: UUID,
         thread_id: str,
+        body: CodexExecutionOptions,
         idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=256),
     ) -> ResponseEnvelope[CodexOperationAccepted]:
         """恢复已持久化 thread。"""
 
         principal = self._accessor.read_authenticated_principal(request)
+        self._require_execution_scopes(request, body)
         payload = await self._accessor.read_execute_codex_thread_command_usecase(
             request
         ).resume_thread(
@@ -374,6 +406,7 @@ class CodexThreadRouteCatalog:
             upstream_thread_id=thread_id,
             actor_subject_id=principal.subject_id,
             idempotency_key=idempotency_key,
+            execution=body,
         )
         return self._accepted_response(request, payload, "Codex thread恢复操作已接受。")
 

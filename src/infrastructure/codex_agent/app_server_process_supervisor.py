@@ -34,6 +34,7 @@ from src.infrastructure.codex_agent.app_server_jsonrpc_client import (
     AppServerWarningHandler,
     BoundedAppServerLineReader,
 )
+from src.infrastructure.process.windows_process_job import WindowsProcessJob
 from src.infrastructure.process.windows_subprocess_launcher import (
     WindowsAppServerProcessExtension,
     WindowsSubprocessLauncher,
@@ -139,6 +140,8 @@ class AppServerProcessSupervisor:
         self._subprocess_launcher = subprocess_launcher or WindowsSubprocessLauncher()
         self._handle: AppServerProcessHandle | None = None
         self._stderr_task: asyncio.Task[None] | None = None
+        self._process_job: WindowsProcessJob | None = None
+        self._stop_lock = asyncio.Lock()
 
     @property
     def handle(self) -> AppServerProcessHandle:
@@ -160,12 +163,18 @@ class AppServerProcessSupervisor:
                 environment=CodexProcessSupport.build_standalone_environment(),
                 stream_limit_bytes=self._max_line_bytes + 1,
                 log_category=WindowsSubprocessLogCategory.CODEX,
-                extension=WindowsAppServerProcessExtension(),
+                extension=WindowsAppServerProcessExtension(start_suspended=True),
             ),
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+        try:
+            self._process_job = WindowsProcessJob(process.pid, resume=True)
+        except BaseException:
+            process.kill()
+            await process.wait()
+            raise
         if process.stdin is None or process.stdout is None or process.stderr is None:
             process.kill()
             await process.wait()
@@ -209,6 +218,9 @@ class AppServerProcessSupervisor:
                 allow_experimental_api=self._allow_experimental_api
             )
         except BaseException:
+            if self._process_job is not None:
+                self._process_job.close()
+                self._process_job = None
             self._handle = None
             await client.close()
             process.kill()
@@ -227,8 +239,11 @@ class AppServerProcessSupervisor:
     async def stop(self, *, grace_seconds: float = 3.0) -> None:
         """停止接受 RPC 后关闭客户端，并在宽限期后终止子进程。"""
 
+        async with self._stop_lock:
+            await self._stop_process(grace_seconds)
+
+    async def _stop_process(self, grace_seconds: float) -> None:
         handle = self._handle
-        self._handle = None
         if handle is None:
             await self._stop_stderr_task()
             return
@@ -242,14 +257,22 @@ class AppServerProcessSupervisor:
             try:
                 await asyncio.wait_for(handle.process.wait(), timeout=grace_seconds)
             except TimeoutError:
-                handle.process.terminate()
+                if self._process_job is not None:
+                    self._process_job.close()
+                    self._process_job = None
+                if handle.process.returncode is None:
+                    handle.process.terminate()
                 try:
                     await asyncio.wait_for(handle.process.wait(), timeout=grace_seconds)
                 except TimeoutError:
                     handle.process.kill()
                     await handle.process.wait()
+        if self._process_job is not None:
+            self._process_job.close()
+            self._process_job = None
         await asyncio.sleep(0)
         await handle.client.close()
+        self._handle = None
         await self._stop_stderr_task()
         if handle.process.returncode not in {None, 0}:
             self._logger.warning(

@@ -58,6 +58,7 @@ allow_experimental_app_server_api = false
 minimum_codex_version = "0.145.0"
 blocked_codex_versions = []
 agent_release_version = "0.1.31"
+agent_release_available = false
 agent_release_distribution_mode = "internal"
 agent_release_artifact_sha256 = "05efb372d07d7f8b17e772dd18ea1354e7fd314430d8d4eea5d7fc2400430abc"
 agent_release_download_url = "https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.31/CodexRemoteAgent.msi"

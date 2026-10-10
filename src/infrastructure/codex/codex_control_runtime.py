@@ -118,6 +118,7 @@ from src.infrastructure.codex.codex_device_challenge_store import CodexDeviceCha
 from src.infrastructure.codex.codex_enrollment_intent_store import CodexEnrollmentIntentStore
 from src.infrastructure.codex.codex_host_actor import CodexHostActorRegistry
 from src.infrastructure.codex.codex_host_presence_adapter import CodexHostPresenceAdapter
+from src.infrastructure.codex.codex_active_host_service import CodexActiveHostService
 from src.infrastructure.codex.codex_instance_control_signal_adapter import (
     CodexInstanceControlSignalAdapter,
 )
@@ -193,6 +194,7 @@ class CodexControlRuntime:
     record_client_diagnostic: RecordCodexClientDiagnosticUsecase
     record_client_performance: RecordCodexClientPerformanceUsecase
     client_diagnostic_retention_cleaner: CodexClientDiagnosticRetentionCleaner
+    active_host: CodexActiveHostService
     presence_adapter: CodexHostPresenceAdapter
     instance_control_signal_adapter: CodexInstanceControlSignalAdapter
     outbox_dispatcher: CodexCommandOutboxDispatcher
@@ -232,6 +234,7 @@ class CodexControlRuntime:
             store=fenced_lease_store,
             ttl_seconds=settings.agent_offline_after_seconds,
         )
+        active_host = CodexActiveHostService(atomic_state, control_port)
         actor_registry = CodexHostActorRegistry(connection_registry)
         instance_control_signal_adapter = CodexInstanceControlSignalAdapter(
             store=stream_state_store,
@@ -239,6 +242,7 @@ class CodexControlRuntime:
             max_events=settings.instance_control_stream_max_events,
         )
         outbox_dispatcher = CodexCommandOutboxDispatcher(
+            active_host=active_host,
             control_port=control_port,
             payload_cipher=command_payload_cipher,
             presence=presence_adapter,
@@ -403,6 +407,7 @@ class CodexControlRuntime:
                 error_retention_days=settings.client_diagnostic_error_retention_days,
                 performance_retention_days=settings.client_diagnostic_performance_retention_days,
             ),
+            active_host=active_host,
             presence_adapter=presence_adapter,
             instance_control_signal_adapter=instance_control_signal_adapter,
             outbox_dispatcher=outbox_dispatcher,
@@ -583,29 +588,42 @@ class CodexControlRuntime:
         for event in events:
             if isinstance(event.detail, AgentApprovalResolvedEventDetail):
                 approval = await asyncio.to_thread(
-                    self.state_synchronizer.accept_approval_resolved, event.detail, event.host_id, principal
+                    self.state_synchronizer.accept_approval_resolved,
+                    event.detail,
+                    event.host_id,
+                    principal,
                 )
                 resolved_events: list[CodexProductEvent] = []
                 if approval is not None:
-                    resumed = await self.turn_runtime_coordinator.observe_approval_resolved(approval)
-                    resolved_events.append(CodexProductEvent(
-                        host_id=approval.host_id,
-                        workspace_id=approval.workspace_id,
-                        thread_id=approval.thread_id,
-                        turn_id=approval.turn_id,
-                        item_id=approval.item_id,
-                        event_type=CodexRealtimeEventType.APPROVAL_RESOLVED,
-                        payload={"approval": approval.model_dump(mode="json")},
-                        occurred_at=event.occurred_at,
-                    ))
+                    resumed = await self.turn_runtime_coordinator.observe_approval_resolved(
+                        approval
+                    )
+                    resolved_events.append(
+                        CodexProductEvent(
+                            host_id=approval.host_id,
+                            workspace_id=approval.workspace_id,
+                            thread_id=approval.thread_id,
+                            turn_id=approval.turn_id,
+                            item_id=approval.item_id,
+                            event_type=CodexRealtimeEventType.APPROVAL_RESOLVED,
+                            payload={"approval": approval.model_dump(mode="json")},
+                            occurred_at=event.occurred_at,
+                        )
+                    )
                     if resumed is not None:
-                        resolved_events.append(self._build_thread_updated_product_event(resumed, occurred_at=event.occurred_at))
-                publications.append(CodexAgentEventPublication(
-                    event=event,
-                    updated_thread=None,
-                    overflowed=await self.event_buffer.publish(event, principal),
-                    approval_events=tuple(resolved_events),
-                ))
+                        resolved_events.append(
+                            self._build_thread_updated_product_event(
+                                resumed, occurred_at=event.occurred_at
+                            )
+                        )
+                publications.append(
+                    CodexAgentEventPublication(
+                        event=event,
+                        updated_thread=None,
+                        overflowed=await self.event_buffer.publish(event, principal),
+                        approval_events=tuple(resolved_events),
+                    )
+                )
                 continue
             if isinstance(event.detail, AgentApprovalOpenedEventDetail):
                 approval_events = await self._prepare_approval_opened(event, principal)
@@ -748,6 +766,8 @@ class CodexControlRuntime:
     ) -> None:
         """向浏览器推送控制面 host 可投递状态变化。"""
 
+        if status == "online" and not await self.active_host.permits(owner_subject_id, host_id):
+            status = "offline"
         await self.browser_event_hub.publish(
             owner_subject_id,
             CodexProductEvent(

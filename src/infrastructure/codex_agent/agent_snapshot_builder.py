@@ -9,7 +9,10 @@ from uuid import UUID
 
 from pydantic import JsonValue
 
-from src.core.codex_contract.agent_command_contract import AgentCommandJournalState
+from src.core.codex_contract.agent_command_contract import (
+    AgentCommandJournalState,
+    AgentCommandResultSummary,
+)
 from src.core.codex_contract.agent_protocol_contract import (
     AgentConversationSnapshotDetail,
     CodexAgentStateSnapshot,
@@ -35,7 +38,6 @@ from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspa
 from src.infrastructure.codex_agent.app_server_jsonrpc_client import AppServerJsonRpcClient
 
 THREAD_LIST_PAGE_SIZE: Final = 20
-THREAD_SNAPSHOT_LIMIT: Final = 100
 
 
 class AgentSnapshotBuilder:
@@ -77,17 +79,10 @@ class AgentSnapshotBuilder:
                 active_threads = await self._list_workspace_threads(
                     workspace.key,
                     archived=False,
-                    limit=THREAD_SNAPSHOT_LIMIT,
                 )
-                remaining = THREAD_SNAPSHOT_LIMIT - len(active_threads)
-                archived_threads = (
-                    await self._list_workspace_threads(
-                        workspace.key,
-                        archived=True,
-                        limit=remaining,
-                    )
-                    if remaining > 0
-                    else []
+                archived_threads = await self._list_workspace_threads(
+                    workspace.key,
+                    archived=True,
                 )
             except AppServerMessageTooLargeError:
                 omitted_thread_workspace_keys.append(workspace.key)
@@ -124,6 +119,7 @@ class AgentSnapshotBuilder:
         page_index: int,
         page_size: int,
         pending_approvals: tuple[AgentPendingApprovalSnapshot, ...] = (),
+        snapshot: CodexAgentStateSnapshot | None = None,
     ) -> AgentStateSnapshotV2Detail:
         """把权威快照收敛为分页强类型 v2 detail。"""
 
@@ -131,7 +127,7 @@ class AgentSnapshotBuilder:
             raise ValueError("Agent快照页码不得小于零。")
         if page_size <= 0:
             raise ValueError("Agent快照页容量必须大于零。")
-        legacy = await self.build()
+        legacy = snapshot if snapshot is not None else await self.build()
         all_threads = tuple(self._to_v2_thread(item) for item in legacy.threads)
         start = page_index * page_size
         page = all_threads[start : start + page_size]
@@ -156,6 +152,7 @@ class AgentSnapshotBuilder:
                     repo_fingerprint=item.repo_fingerprint,
                     default_branch=item.default_branch,
                     allow_write=item.allow_write,
+                    execution_preferences=item.execution_preferences,
                 )
                 for item in legacy.workspaces
             ),
@@ -166,11 +163,10 @@ class AgentSnapshotBuilder:
                     operation_id=UUID(str(item["operation_id"])),
                     command_kind=str(item["command_type"]),
                     state=self._read_v2_journal_state(str(item["state"])),
-                    recovery_required=str(item["state"])
-                    not in {
-                        AgentCommandJournalState.COMPLETED.value,
-                        AgentCommandJournalState.FAILED.value,
-                    },
+                    recovery_required=str(item["state"]) == AgentCommandJournalState.UNKNOWN.value,
+                    result_summary=AgentCommandResultSummary.model_validate(item["result_summary"])
+                    if item.get("result_summary") is not None
+                    else None,
                 )
                 for item in legacy.pending_commands
             ),
@@ -203,6 +199,8 @@ class AgentSnapshotBuilder:
         self,
         value: str,
     ) -> Literal["received", "executing", "completed", "failed", "unknown"]:
+        if value == AgentCommandJournalState.ACCEPTED.value:
+            return "executing"
         if value in {
             AgentCommandJournalState.RECEIVED.value,
             AgentCommandJournalState.EXECUTING.value,
@@ -221,7 +219,6 @@ class AgentSnapshotBuilder:
         workspace_key: str,
         *,
         archived: bool,
-        limit: int,
     ) -> list[AgentConversationSnapshotDetail]:
         """从状态库分页读取有界线程元数据，不扫描或转发历史正文。"""
 
@@ -229,10 +226,10 @@ class AgentSnapshotBuilder:
         snapshots: list[AgentConversationSnapshotDetail] = []
         cursor: str | None = None
         seen_cursors: set[str] = set()
-        while len(snapshots) < limit:
+        while True:
             params: dict[str, JsonValue] = {
                 "cwd": str(root),
-                "limit": min(THREAD_LIST_PAGE_SIZE, limit - len(snapshots)),
+                "limit": THREAD_LIST_PAGE_SIZE,
                 "useStateDbOnly": True,
                 "sortKey": "recency_at",
                 "sortDirection": "desc",

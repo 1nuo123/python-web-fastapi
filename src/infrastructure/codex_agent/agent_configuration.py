@@ -654,6 +654,9 @@ class AgentProcessSettings(BaseModel):
         return self
 
 
+from src.core.codex_contract.workspace_contract import ProjectExecutionOverrides
+
+
 class AgentWorkspaceSettings(BaseModel):
     """本地 TOML 中的一项工作区白名单。"""
 
@@ -664,6 +667,10 @@ class AgentWorkspaceSettings(BaseModel):
     root: Path
     allow_write: bool = False
     worktree_isolation_mode: WorktreeIsolationMode = WorktreeIsolationMode.DISABLED
+    execution_overrides: ProjectExecutionOverrides = Field(
+        default_factory=ProjectExecutionOverrides
+    )
+    execution_revision: int = Field(default=0, ge=0)
 
     @field_validator("root")
     @classmethod
@@ -691,7 +698,7 @@ class AgentAppServerSecuritySettings(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    approval_policy: Literal["untrusted"] = "untrusted"
+    approval_policy: Literal["untrusted", "on-request", "never"] = "untrusted"
     approvals_reviewer: Literal["user"] = "user"
     sandbox_mode: Literal["workspace-write"] = "workspace-write"
 
@@ -724,6 +731,9 @@ class CodexHostAgentSettings(BaseModel):
         keys = [workspace.key for workspace in self.workspaces]
         if len(keys) != len(set(keys)):
             raise ValueError("workspaces.key不允许重复。")
+        roots = [str(workspace.root.resolve()).casefold() for workspace in self.workspaces]
+        if len(roots) != len(set(roots)):
+            raise ValueError("同一真实项目目录不允许重复配置。")
         if self.protocol.agent_schema_version == CodexConnectionProtocolVersion.V2:
             if self.agent.key_id is None:
                 raise ValueError("Agent v2配置必须包含设备key_id。")

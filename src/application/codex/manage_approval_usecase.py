@@ -217,6 +217,14 @@ class ManageCodexApprovalUsecase:
             )
             if approval is None:
                 raise self._not_found()
+            if approval.state in {CodexApprovalState.EXPIRED, CodexApprovalState.CANCELLED} or (
+                approval.expires_at is not None and approval.expires_at <= datetime.now(UTC)
+            ):
+                raise HttpFaultException(
+                    status_code=HTTPStatus.GONE,
+                    error_code=CodexErrorCode.APPROVAL_GONE,
+                    message="原审批请求已失效，请返回会话继续操作以触发新请求。",
+                )
             parsed_decision = self._parse_decision(decision)
             # Agent 未明确广告的动作不能由历史默认值补全，避免 API 接受浏览器未展示的授权。
             allowed_actions = approval.display_summary.allowed_actions
