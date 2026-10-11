@@ -24,6 +24,10 @@
 | `Dockerfile` | 镜像入口。 |
 | `compose.yml` | 本地编排。 |
 | `compose.production.yml` | 生产覆盖。 |
+| `.github/workflows/production-image.yml` | 在 CI 构建并推送后端生产镜像。 |
+| `typescript-web-nuxt/.github/workflows/production-image.yml` | 在 CI 构建并推送前端生产镜像。 |
+| `deploy/production.sh` | 检查 CI 镜像、备份并驱动生产发布。 |
+| `deploy/run-production-ip.sh` | 拉取 Digest 镜像、迁移并启动生产 Compose。 |
 | `config/runtime/message_runtime/message_runtime_production.toml` | 生产消息后端覆盖为 RabbitMQ。 |
 | `config/runtime/task_runtime/task_runtime_production.toml` | 生产任务后端覆盖为 Funboost，供 Web 发布节点和独立 worker 共用。 |
 | `config/modules/task_module/task_module_production.toml` | 生产任务模块启用 `task_execution_probe` 注册。 |
@@ -35,6 +39,7 @@
 - `compose.yml` 本地暴露 PostgreSQL、Redis、RabbitMQ；`compose.production.yml` 使用 `ports: !reset []` 收紧 PostgreSQL、Redis、RabbitMQ 端口，应用端口仍由 `APP_HOST_PORT` 控制。
 - Dockerfile healthcheck 会根据 `runtime.web.api_prefix` 拼接探活路径；默认检查严格就绪端点 `/health/ready`。
 - 生产 app 使用非 root `app` 用户、只读根文件系统、`cap_drop=ALL`、`no-new-privileges`、256 PIDs、1 GiB 和 2 CPU 上限；可写边界限定为 tmpfs `/tmp`，第三方日志入口使用 `/tmp/logs`。
+- 生产 migration、app 和 task-worker 使用同一个由 CI 构建的后端镜像；生产前端使用由 CI 构建的前端镜像。生产服务器不执行项目镜像构建。
 - 镜像显式携带 `funboost_config.py` 与 `nb_log_config.py`，避免第三方库在只读虚拟环境中自动生成配置；RabbitMQ 健康检查使用 `check_port_connectivity` 等待 AMQP 监听就绪。
 - 生产任务拓扑已显式拆分：`app` 是 Funboost producer-only 节点，`task-worker` profile 运行 `src.cli.run_task_worker` 消费 RabbitMQ；两者共享可靠发布拓扑和 `task_execution_probe` 注册。
 

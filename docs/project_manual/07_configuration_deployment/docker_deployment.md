@@ -20,6 +20,7 @@
 | `Dockerfile` | 镜像入口。 |
 | `compose.yml` | 本地编排。 |
 | `compose.production.yml` | 生产覆盖。 |
+| `.github/workflows/production-image.yml` | 在 CI 构建并推送后端生产镜像。 |
 
 ## 4. 核心结论
 - `APP_ENV` 选择 development/test/production。
@@ -32,7 +33,7 @@
 ## 5. 结构说明
 配置加载先由 `APP_ENV` 选择 environment 层级并合并 TOML，再应用非 production dotenv 和进程环境变量覆盖；部署入口通过 Compose 注入服务地址和密钥。
 
-本地 Docker 栈使用 `docker compose --env-file .env.docker.example up --build`；生产 Web 栈必须叠加覆盖文件。需要任务消费时追加 `--profile task-worker`，例如 `docker compose --env-file <production-env-file> -f compose.yml -f compose.production.yml --profile task-worker up --build -d`。生产环境不要直接使用示例占位值作为真实密钥。
+本地 Docker 栈使用 `docker compose --env-file .env.docker.example up --build`；生产 Web 栈必须叠加覆盖文件。生产部署使用 GitHub Actions 构建的后端镜像，服务器通过 `BACKEND_IMAGE` 拉取并以 Digest 启动；需要任务消费时追加 `--profile task-worker`。生产环境不要直接使用示例占位值作为真实密钥。
 
 ## 6. 工作流程
 ```mermaid

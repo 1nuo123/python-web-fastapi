@@ -14,6 +14,25 @@ READY_URL=""
 READY_CURL_ARGS=()
 COMMAND="${1:-help}"
 
+resolve_ci_image_refs() {
+  local backend_revision frontend_revision
+  backend_revision="$(git -C "$BACKEND_ROOT" rev-parse HEAD)"
+  frontend_revision="$(git -C "$FRONTEND_ROOT" rev-parse HEAD)"
+  export BACKEND_IMAGE="${BACKEND_IMAGE:-ghcr.io/1nuo123/python-web-fastapi:${backend_revision}}"
+  export FRONTEND_IMAGE="${FRONTEND_IMAGE:-ghcr.io/1nuo123/typescript-web-nuxt:${frontend_revision}}"
+}
+
+ensure_ci_images_for_revisions() {
+  local backend_revision="$1"
+  local frontend_revision="$2"
+  local backend_image="ghcr.io/1nuo123/python-web-fastapi:${backend_revision}"
+  local frontend_image="ghcr.io/1nuo123/typescript-web-nuxt:${frontend_revision}"
+  echo "Checking backend CI image: $backend_image"
+  docker pull "$backend_image" >/dev/null
+  echo "Checking frontend CI image: $frontend_image"
+  docker pull "$frontend_image" >/dev/null
+}
+
 resolve_production_resource_profile() {
   local configured_profile=""
   if [[ -z "${PRODUCTION_RESOURCE_PROFILE:-}" && -f "$BACKEND_ENV_FILE" ]]; then
@@ -102,6 +121,8 @@ Environment overrides:
   PRODUCTION_FRONTEND_ROOT  Frontend repository path. Default: sibling typescript-web-nuxt.
   PRODUCTION_BACKUP_ROOT    Backup directory. Default: /var/backups/fastapi-web.
   PRODUCTION_RESOURCE_PROFILE  standard (default) or small. Persisted by bootstrap for later releases.
+  BACKEND_IMAGE             Explicit backend image or Digest, primarily for rollback.
+  FRONTEND_IMAGE            Explicit frontend image or Digest, primarily for rollback.
 EOF
 }
 
@@ -171,6 +192,7 @@ validate_edge_network() {
 validate_config() {
   require_repositories
   require_runtime_files
+  resolve_ci_image_refs
   validate_edge_network
   "${backend_compose[@]}" config --quiet
   "${frontend_compose[@]}" config --quiet
@@ -302,6 +324,10 @@ update_repositories_and_deploy() {
   git -C "$BACKEND_ROOT" merge-base --is-ancestor HEAD origin/main
   git -C "$FRONTEND_ROOT" merge-base --is-ancestor HEAD origin/main
 
+  ensure_ci_images_for_revisions \
+    "$(git -C "$BACKEND_ROOT" rev-parse origin/main)" \
+    "$(git -C "$FRONTEND_ROOT" rev-parse origin/main)"
+
   old_backend_revision="$(git -C "$BACKEND_ROOT" rev-parse HEAD)"
   old_frontend_revision="$(git -C "$FRONTEND_ROOT" rev-parse HEAD)"
   if postgres_is_running; then
@@ -357,6 +383,7 @@ show_logs() {
 show_status() {
   require_repositories
   require_runtime_files
+  resolve_ci_image_refs
   echo "Backend revision: $(git -C "$BACKEND_ROOT" rev-parse HEAD)"
   echo "Frontend revision: $(git -C "$FRONTEND_ROOT" rev-parse HEAD)"
   "${backend_compose[@]}" ps
@@ -372,6 +399,7 @@ show_status() {
 start_existing_images() {
   require_repositories
   require_runtime_files
+  resolve_ci_image_refs
   ensure_edge_network
   "${backend_compose[@]}" config --quiet
   "${frontend_compose[@]}" config --quiet

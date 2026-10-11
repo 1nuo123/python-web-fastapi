@@ -35,8 +35,10 @@ bash deploy/production.sh bootstrap
 ```
 
 Routine releases use `bash deploy/production.sh update`; it creates a
-PostgreSQL backup, fast-forwards both repositories, rebuilds the stack, runs
-migrations, and verifies readiness. Run `bash deploy/production.sh help` for
+PostgreSQL backup, verifies that CI has published the exact images for both
+repository commits, fast-forwards both repositories, pulls immutable image
+Digests, runs migrations, and verifies readiness. The production host never
+builds the frontend or backend images. Run `bash deploy/production.sh help` for
 the complete command list.
 
 The environment generator creates three mode-`600` files:

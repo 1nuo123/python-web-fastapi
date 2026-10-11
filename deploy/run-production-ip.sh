@@ -47,6 +47,26 @@ if [[ "$BOOTSTRAP_INITIAL_ADMIN" == "1" && ! -f "$INITIAL_ADMIN_ENV_FILE" ]]; th
   exit 1
 fi
 
+backend_revision="$(git -C "$BACKEND_ROOT" rev-parse HEAD)"
+frontend_revision="$(git -C "$FRONTEND_ROOT" rev-parse HEAD)"
+backend_image_tag="${BACKEND_IMAGE:-ghcr.io/1nuo123/python-web-fastapi:${backend_revision}}"
+frontend_image_tag="${FRONTEND_IMAGE:-ghcr.io/1nuo123/typescript-web-nuxt:${frontend_revision}}"
+
+echo "Pulling backend image: $backend_image_tag"
+docker pull "$backend_image_tag"
+echo "Pulling frontend image: $frontend_image_tag"
+docker pull "$frontend_image_tag"
+
+BACKEND_IMAGE="$(docker image inspect --format '{{index .RepoDigests 0}}' "$backend_image_tag")"
+FRONTEND_IMAGE="$(docker image inspect --format '{{index .RepoDigests 0}}' "$frontend_image_tag")"
+if [[ -z "$BACKEND_IMAGE" || -z "$FRONTEND_IMAGE" || "$BACKEND_IMAGE" != *@sha256:* || "$FRONTEND_IMAGE" != *@sha256:* ]]; then
+  echo "Pulled images did not expose immutable digests." >&2
+  exit 1
+fi
+export BACKEND_IMAGE FRONTEND_IMAGE
+echo "Using backend image: $BACKEND_IMAGE"
+echo "Using frontend image: $FRONTEND_IMAGE"
+
 if docker network inspect "$EDGE_NETWORK_NAME" >/dev/null 2>&1; then
   current_subnet="$(docker network inspect --format '{{(index .IPAM.Config 0).Subnet}}' "$EDGE_NETWORK_NAME")"
   current_internal="$(docker network inspect --format '{{.Internal}}' "$EDGE_NETWORK_NAME")"
@@ -114,11 +134,6 @@ fi
 "${backend_compose[@]}" config --quiet
 "${frontend_compose[@]}" config --quiet
 "${caddy_compose[@]}" config --quiet
-
-# 在启动运行时服务前串行构建镜像。小规格主机的构建峰值远高于稳态，
-# 先构建可避免 Nuxt 构建与数据库、Worker 同时争用 2 GiB 内存。
-COMPOSE_PARALLEL_LIMIT=1 "${backend_compose[@]}" build
-COMPOSE_PARALLEL_LIMIT=1 "${frontend_compose[@]}" build
 
 "${backend_compose[@]}" up -d --no-build
 if [[ "$BOOTSTRAP_INITIAL_ADMIN" == "1" ]]; then

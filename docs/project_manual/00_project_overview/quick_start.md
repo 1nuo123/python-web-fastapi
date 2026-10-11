@@ -28,7 +28,7 @@
 - 本地依赖由 `uv.lock` 固定，`pyproject.toml` 要求 Python `>=3.11`；本机安装依赖可运行 `uv sync --frozen`。
 - 容器入口执行 `uvicorn src.main:app --host 0.0.0.0 --port 8000`。
 - 本机直接启动可使用 `.\.venv\Scripts\python.exe -m uvicorn src.main:app --host 127.0.0.1 --port 8000`；接口统一前缀默认为空，健康检查路径为 `/health/live` 和 `/health/ready`。
-- Docker 本地启动先按仓库根目录 `.env.docker.example` 准备 `.env`，再运行 `docker compose --env-file .env up --build`；生产覆盖使用 `docker compose --env-file .env.production -f compose.yml -f compose.production.yml up --build`。
+- Docker 本地启动先按仓库根目录 `.env.docker.example` 准备 `.env`，再运行 `docker compose --env-file .env up --build`。生产环境使用 GitHub Actions 构建的不可变镜像，完整流程以 [生产环境 CI 镜像部署与运维指南](../../生产环境Docker一键部署与长期运维指南.md) 为准，生产服务器不得执行 `up --build`。
 - `compose.yml` 中 migration 服务先运行 `python -m src.cli.run_database_migrations`。
 - 任务消费者是可选 Compose profile：`docker compose --env-file .env --profile task-worker up --build` 会额外运行 `python -m src.cli.run_task_worker`。该服务在基础 Compose 中也显式设置 `APP_ENV=production`，因此会按生产校验要求读取数据库、Redis、RabbitMQ、JWT 等环境变量；不要把它当作开发内存后端的附属线程。
 - `compose.production.yml` 需与 `compose.yml` 叠加使用；它将 `APP_ENV` 设为 `production`，移除 PostgreSQL/Redis/RabbitMQ 的宿主机端口暴露，应用端口仍由 `compose.yml` 的 `APP_HOST_PORT` 控制。
