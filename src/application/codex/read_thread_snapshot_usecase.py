@@ -142,7 +142,7 @@ class ReadCodexThreadSnapshotUsecase:
                     thread=thread,
                     turns=[],
                     items=[],
-                    history_status=CodexThreadHistoryStatus.NOT_AVAILABLE_YET,
+                    history_status=CodexThreadHistoryStatus.NOT_MATERIALIZED,
                 )
             raise HttpFaultException(
                 status_code=HTTPStatus.BAD_GATEWAY,

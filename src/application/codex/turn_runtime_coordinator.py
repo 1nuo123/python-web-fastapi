@@ -335,7 +335,11 @@ class CodexTurnRuntimeCoordinator:
         if phase is None and current_runtime is not None:
             phase = current_runtime.phase
         if phase is None:
-            return TurnRuntimeEventOutcome(handled=True, accepted=False, thread=None)
+            # An execution-settings item can precede turn/started. Its concrete
+            # turn identity is already activity: persist the acquired lease with
+            # the initial runtime instead of orphaning it and rejecting every
+            # subsequent event (including turn/started) for this first turn.
+            phase = CodexTurnPhase.RUNNING
         runtime = CodexTurnRuntime(
             turn_id=signal.turn_id,
             thread_id=signal.thread_id,

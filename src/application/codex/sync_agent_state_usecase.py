@@ -742,6 +742,7 @@ class SyncCodexAgentStateUsecase:
         elif detail is None and event.method == AppServerNotificationName.THREAD_UNARCHIVED.value:
             archived = False
             activity_at = event.occurred_at
+        display_name = CodexThreadTitlePolicy().normalize(display_name)
         execution_settings = (
             detail.execution_settings
             if isinstance(detail, AgentThreadMetadataChangedEventDetail)

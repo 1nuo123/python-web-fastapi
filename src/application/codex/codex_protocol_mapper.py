@@ -53,6 +53,7 @@ from src.core.codex_contract.thread_contract import (
     CodexPlanStepStatus,
     CodexTimelineItemEnvelope,
 )
+from src.domain.codex.thread_title_policy import CodexThreadTitlePolicy
 
 MAX_PRODUCT_TEXT_CHARS = 1_048_576
 MAX_PRODUCT_DELTA_CHARS = 64 * 1024
@@ -312,8 +313,7 @@ class CodexProtocolMapper:
                         "host_id": str(event.host_id),
                         "workspace_id": str(workspace_id) if workspace_id else "",
                         "upstream_thread_id": thread.thread_id,
-                        "display_name": thread.display_name,
-                        "title_source": "app_server" if thread.display_name else None,
+                        **self._thread_title_fields(thread.display_name),
                         "model": thread.model_id,
                         "model_provider": thread.model_provider,
                         "status": self._thread_status(thread.status),
@@ -341,8 +341,7 @@ class CodexProtocolMapper:
                         "host_id": str(event.host_id),
                         "workspace_id": str(workspace_id) if workspace_id else "",
                         "upstream_thread_id": detail.thread_id,
-                        "display_name": detail.display_name,
-                        "title_source": "app_server" if detail.display_name else None,
+                        **self._thread_title_fields(detail.display_name),
                         "archived": detail.archived,
                         **(
                             detail.execution_settings.model_dump(mode="json")
@@ -612,6 +611,13 @@ class CodexProtocolMapper:
             ),
         )
 
+    @staticmethod
+    def _thread_title_fields(value: JsonValue | None) -> dict[str, JsonValue]:
+        """复用标题策略；上游空标题表示缺省，不覆盖已有权威标题及来源。"""
+
+        title = CodexThreadTitlePolicy().normalize(value if isinstance(value, str) else None)
+        return {"display_name": title, "title_source": "app_server"} if title else {}
+
     def to_thread(
         self,
         thread: Mapping[str, JsonValue],
@@ -619,17 +625,11 @@ class CodexProtocolMapper:
         workspace_id: UUID | None,
     ) -> dict[str, JsonValue]:
         thread_id = self._string(thread, "id") or "unknown"
-        display_name = thread.get("name")
         return {
             "host_id": str(host_id),
             "workspace_id": str(workspace_id) if workspace_id else "",
             "upstream_thread_id": thread_id,
-            "display_name": display_name
-            if isinstance(display_name, str) and display_name
-            else None,
-            "title_source": "app_server"
-            if isinstance(display_name, str) and display_name
-            else None,
+            **self._thread_title_fields(thread.get("name")),
             "model": None,
             "model_provider": thread.get("modelProvider"),
             "status": self._thread_status(thread.get("status")),

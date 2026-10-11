@@ -69,6 +69,7 @@ class CodexThreadHistoryStatus(StrEnum):
     NOT_REQUESTED = "not_requested"
     OMITTED_TOO_LARGE = "omitted_too_large"
     NOT_AVAILABLE_YET = "not_available_yet"
+    NOT_MATERIALIZED = "not_materialized"
 
 
 class CodexThreadHistoryQuery(BaseModel):
