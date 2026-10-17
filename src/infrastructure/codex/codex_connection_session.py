@@ -9,9 +9,12 @@ from typing import Final
 from pydantic import ValidationError
 
 from src.core.codex_contract.connection_session_contract import (
+    CodexConnectionEnd,
+    CodexConnectionEndKind,
     CodexConnectionFrame,
     CodexConnectionFrameTooLargeError,
     CodexConnectionSessionInactiveError,
+    CodexConnectionShutdown,
     CodexConnectionSlowConsumerError,
     CodexConnectionTransportClosed,
     CodexConnectionTransportPort,
@@ -63,6 +66,16 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
             maxsize=policy.outbound_queue_capacity
         )
         self._running = False
+        self._requested_end: CodexConnectionEnd | None = None
+        self._close_requested = asyncio.Event()
+
+    def request_close(self, *, code: int, reason: str) -> None:
+        """业务 owner 请求有原因的关闭；策略拒绝不能被普通停机覆盖。"""
+        if self._requested_end is None or code == 1008:
+            self._requested_end = CodexConnectionEnd(
+                CodexConnectionEndKind.LOCAL_STOP, code, reason
+            )
+        self._close_requested.set()
 
     @property
     def running(self) -> bool:
@@ -85,7 +98,7 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
         except TimeoutError as exc:
             raise CodexConnectionSlowConsumerError("Codex长期连接发送队列已满。") from exc
 
-    async def run(self, *, shutdown_event: asyncio.Event) -> None:
+    async def run(self, *, shutdown_event: asyncio.Event) -> CodexConnectionEnd:
         """运行独立读写循环，直到传输关闭、失败或收到停机通知。"""
 
         if self._running:
@@ -94,19 +107,42 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
         receiver = asyncio.create_task(self._receive_loop())
         sender = asyncio.create_task(self._send_loop())
         shutdown_waiter = asyncio.create_task(shutdown_event.wait())
-        tasks = (receiver, sender, shutdown_waiter)
+        close_waiter = asyncio.create_task(self._close_requested.wait())
+        tasks = (receiver, sender, shutdown_waiter, close_waiter)
         close_code = CODEX_CONNECTION_NORMAL_CLOSE_CODE
         close_reason = CODEX_CONNECTION_NORMAL_CLOSE_REASON
         failure: BaseException | None = None
+        ended = CodexConnectionEnd(CodexConnectionEndKind.LOCAL_STOP, 1000, "local_stop")
         try:
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             for task in done:
-                if task is shutdown_waiter:
+                if task in (shutdown_waiter, close_waiter):
                     continue
                 try:
                     task.result()
-                except CodexConnectionTransportClosed:
-                    continue
+                except CodexConnectionTransportClosed as exc:
+                    code = exc.close_code
+                    ended = CodexConnectionEnd(
+                        CodexConnectionEndKind.TRANSPORT_FAILURE
+                        if code in (None, 1006, 1011, 1012, 1013)
+                        else CodexConnectionEndKind.REMOTE_CLOSE,
+                        code,
+                        "remote_close" if code else "transport_closed",
+                        exc,
+                    )
+                except (PermissionError, ValueError) as exc:
+                    close_code = 1008 if isinstance(exc, PermissionError) else 1002
+                    close_reason = (
+                        "authorization_rejected" if close_code == 1008 else "protocol_invalid"
+                    )
+                    ended = CodexConnectionEnd(
+                        CodexConnectionEndKind.PROTOCOL_FAILURE, close_code, close_reason, exc
+                    )
+                except CodexConnectionSlowConsumerError as exc:
+                    close_code, close_reason = 1013, "overloaded"
+                    ended = CodexConnectionEnd(
+                        CodexConnectionEndKind.TRANSPORT_FAILURE, close_code, close_reason, exc
+                    )
                 except BaseException as exc:
                     failure = exc
                     close_code = CODEX_CONNECTION_INTERNAL_ERROR_CLOSE_CODE
@@ -118,9 +154,27 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             self._running = False
-            await self._transport.close(code=close_code, reason=close_reason)
+            if (
+                isinstance(shutdown_event, CodexConnectionShutdown)
+                and shutdown_event.end is not None
+            ):
+                self._requested_end = shutdown_event.end
+            if self._requested_end is not None:
+                ended = self._requested_end
+                close_code = ended.close_code or 1000
+                close_reason = ended.reason
+            try:
+                await asyncio.wait_for(
+                    self._transport.close(code=close_code, reason=close_reason), timeout=5.0
+                )
+            except (OSError, TimeoutError):
+                if failure is None and ended.kind == CodexConnectionEndKind.LOCAL_STOP:
+                    ended = CodexConnectionEnd(
+                        CodexConnectionEndKind.TRANSPORT_FAILURE, reason="close_failed"
+                    )
         if failure is not None:
             raise failure
+        return ended
 
     async def _receive_loop(self) -> None:
         """持续读取并分派多种入站消息，不绑定单次业务操作。"""

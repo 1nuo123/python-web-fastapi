@@ -23,6 +23,7 @@ class CodexErrorCode(StrEnum):
     ENROLLMENT_INTENT_NOT_FOUND = "codex.enrollment_intent.not_found"
     ENROLLMENT_INTENT_EXPIRED = "codex.enrollment_intent.expired"
     DEVICE_CHALLENGE_INVALID = "codex.device_challenge.invalid"
+    DEVICE_CHALLENGE_EXPIRED = "codex.device_challenge.expired"
     DEVICE_TICKET_INVALID = "codex.device_ticket.invalid"
     VERSION_CONFLICT = "codex.version.conflict"
     SECURITY_RATE_LIMITED = "codex.security.rate_limited"

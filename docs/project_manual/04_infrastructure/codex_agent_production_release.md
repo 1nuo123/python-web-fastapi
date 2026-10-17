@@ -196,7 +196,7 @@ Get-AuthenticodeSignature -LiteralPath $msi | Format-List Status,SignerCertifica
 
 1. 首次安装成功，无管理员权限提示。
 2. 同版本再次运行进入 Windows Installer 维护/修复语义，不创建第二份程序、任务或注册表入口。
-3. `%LOCALAPPDATA%\CodexRemoteAgent` 只有一个安装根；计划任务名包含当前用户 SID，运行级别为 Limited，`MultipleInstances=IgnoreNew`。
+3. `%LOCALAPPDATA%\CodexRemoteAgent` 只有一个安装根；计划任务名包含当前用户 SID，运行级别为 Limited，`MultipleInstances=IgnoreNew`。同一任务使用登录触发和无限期的一分钟重复触发，无执行时长限制；健康进程跨触发保持同一 PID，崩溃后下一次触发恢复。暂停必须走原任务控制器：禁用任务、停止任务并清理对应进程树；恢复启用同一任务并启动。未绑定安装保持 Disabled。不要用另一个轮询程序或定时杀进程代替这条链路。
 4. 打开设备验证页，已有在线主机时显示已连接状态；重新下载安装包只替换安装包下载行为，不重复注册主机。
 5. Agent 完成设备批准、Codex 登录/doctor、工作区选择并通过 WSS 上线。
 6. 从网站创建任务并收到最终响应；刷新后 thread 历史仍可恢复。
@@ -320,8 +320,23 @@ uv run pytest -q test/unit_test/test_codex_agent_internal_release_manifest_unit.
 
 1. 审核 `releases/<version>` 的三个文件，仅提交该版本目录；不要提交私钥、临时 payload、`dist` 中的其他安装包或历史未确认修改。
 2. 创建 GitHub Release `v<version>`，上传 `CodexRemoteAgent.msi`、`internal-release.json` 和 `SHA256SUMS.json`。发布前保持草稿；公开后通过浏览器或 `Invoke-WebRequest` 从 Release URL 下载 MSI，再次计算 SHA-256。
-3. 将下载 URL、清单 URL、版本和 SHA-256 写入后端的 `config/runtime/codex_control_runtime/codex_control_runtime_production.toml`。内部模式必须为 `internal`，最低安全版本不得高于当前版本。
+3. 使用 `src.cli.sync_codex_agent_internal_release_metadata` 从同一清单同步后端运行时配置，不手填下载 URL、版本或 SHA-256。默认校验公共下载；发布前准备配置可用下方 `--local-installer`，但必须先完成第 2 步再部署配置。内部模式必须为 `internal`，最低安全版本不得高于当前版本。
 4. 先部署后端配置，再部署前端。仅在生产 API 的 `/codex/agent-release/current` 已返回上述精确版本、内部模式和 SHA-256 后，将生产前端的 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED` 设为 `true` 并重新部署。
 5. 使用无管理员权限的干净 Windows 普通用户账号，从生产下载页确认警告后下载并核验 SHA-256，安装 MSI，完成该用户自己的设备授权。随后验证上线、添加工作区、发送/接收消息、审批、暂停和重启；每个操作均以该用户自己的 Codex 权限运行。
 
 任何一步失败时关闭 `NUXT_PUBLIC_CODEX_FEATURE_ENABLED`，保留旧的已验证版本，不复用或覆盖已发布版本号。内部通道没有自动更新，因此修复版本必须由使用者重新下载、核验并执行 MSI 升级；正式签名/TUF 发布完成后再切换到第 1 至第 5 节的正式通道。
+
+发布前准备配置（以下为 0.1.38；命令验证本地 MSI 摘要，不表示远端已经发布）：
+
+```powershell
+.venv/Scripts/python.exe -m src.cli.sync_codex_agent_internal_release_metadata `
+  --manifest ../codex-remote-agent-releases/releases/0.1.38/internal-release.json `
+  --local-installer ../codex-remote-agent-releases/releases/0.1.38/CodexRemoteAgent.msi `
+  --config config/runtime/codex_control_runtime/codex_control_runtime_base.toml `
+  --config config/runtime/codex_control_runtime/codex_control_runtime_production.toml `
+  --minimum-security-version 0.1.31
+```
+
+前端通过 `/codex/agent-release/current` 消费版本与摘要，不再手工同步第二份版本。此次连接修复不撤销旧设备，因此保留最低安全版本 0.1.31。服务端 `agent_lease_continuity_enabled=false` 是受支持的默认模式：连接自动恢复，未协商连续性时断线停止执行；连续性功能须通过真实代理、多实例和睡眠恢复门禁后再启用。无需数据库迁移。
+
+0.1.38 的本机安装、托管与连接验收记录见 `自动调度机/_artifacts/plans/待裁决/Windows-agent连接稳定性/实施与验收记录.md`。原 Task Scheduler `RestartOnFailure` 在本机实际崩溃中未按期恢复，因此采用同一任务的重复触发与 IgnoreNew，不再依赖有限失败重启计数。网络退避仍完全由 Agent 连接循环负责。

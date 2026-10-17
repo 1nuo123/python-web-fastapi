@@ -173,11 +173,11 @@ class AppServerProcessSupervisor:
             self._process_job = WindowsProcessJob(process.pid, resume=True)
         except BaseException:
             process.kill()
-            await process.wait()
+            await asyncio.wait_for(process.wait(), timeout=3.0)
             raise
         if process.stdin is None or process.stdout is None or process.stderr is None:
             process.kill()
-            await process.wait()
+            await asyncio.wait_for(process.wait(), timeout=3.0)
             raise RuntimeError("App Server stdio管道创建失败。")
         client = AppServerJsonRpcClient(
             reader=BoundedAppServerLineReader(
@@ -218,14 +218,10 @@ class AppServerProcessSupervisor:
                 allow_experimental_api=self._allow_experimental_api
             )
         except BaseException:
-            if self._process_job is not None:
-                self._process_job.close()
-                self._process_job = None
-            self._handle = None
-            await client.close()
-            process.kill()
-            await process.wait()
-            await self._stop_stderr_task()
+            try:
+                await self.stop()
+            except (OSError, RuntimeError):
+                self._logger.exception("App Server初始化失败后的进程收尾未完成。")
             raise
         self._handle = AppServerProcessHandle(
             instance_id=instance_id,
@@ -250,30 +246,35 @@ class AppServerProcessSupervisor:
         if handle.process.stdin is not None and not handle.process.stdin.is_closing():
             handle.process.stdin.close()
             try:
-                await handle.process.stdin.wait_closed()
-            except (BrokenPipeError, ConnectionResetError):
+                await asyncio.wait_for(handle.process.stdin.wait_closed(), timeout=grace_seconds)
+            except (BrokenPipeError, ConnectionResetError, TimeoutError):
                 pass
         if handle.process.returncode is None:
             try:
                 await asyncio.wait_for(handle.process.wait(), timeout=grace_seconds)
             except TimeoutError:
                 if self._process_job is not None:
-                    self._process_job.close()
-                    self._process_job = None
+                    self._process_job.terminate()
                 if handle.process.returncode is None:
                     handle.process.terminate()
                 try:
                     await asyncio.wait_for(handle.process.wait(), timeout=grace_seconds)
                 except TimeoutError:
                     handle.process.kill()
-                    await handle.process.wait()
+                    await asyncio.wait_for(handle.process.wait(), timeout=grace_seconds)
         if self._process_job is not None:
+            self._process_job.terminate()
+            deadline = asyncio.get_running_loop().time() + grace_seconds
+            while self._process_job.active_processes:
+                if asyncio.get_running_loop().time() >= deadline:
+                    raise TimeoutError("Remote进程树尚未确认停止，禁止发送execution_stopped。")
+                await asyncio.sleep(0.05)
             self._process_job.close()
             self._process_job = None
         await asyncio.sleep(0)
-        await handle.client.close()
+        await asyncio.wait_for(handle.client.close(), timeout=grace_seconds)
         self._handle = None
-        await self._stop_stderr_task()
+        await asyncio.wait_for(self._stop_stderr_task(), timeout=grace_seconds)
         if handle.process.returncode not in {None, 0}:
             self._logger.warning(
                 AgentDiagnosticEnvelope(

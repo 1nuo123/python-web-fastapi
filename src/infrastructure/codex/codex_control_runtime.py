@@ -91,6 +91,7 @@ from src.core.logging_contract.log_event_contract import (
 )
 from src.domain.codex.codex_compatibility_policy import CodexCompatibilityPolicy
 from src.infrastructure.codex.agent_device_authentication import AgentDeviceAuthenticationGuard
+from src.infrastructure.codex.codex_active_host_service import CodexActiveHostService
 from src.infrastructure.codex.codex_agent_credential_service import (
     CodexAgentCredentialService,
 )
@@ -118,7 +119,6 @@ from src.infrastructure.codex.codex_device_challenge_store import CodexDeviceCha
 from src.infrastructure.codex.codex_enrollment_intent_store import CodexEnrollmentIntentStore
 from src.infrastructure.codex.codex_host_actor import CodexHostActorRegistry
 from src.infrastructure.codex.codex_host_presence_adapter import CodexHostPresenceAdapter
-from src.infrastructure.codex.codex_active_host_service import CodexActiveHostService
 from src.infrastructure.codex.codex_instance_control_signal_adapter import (
     CodexInstanceControlSignalAdapter,
 )
@@ -669,7 +669,8 @@ class CodexControlRuntime:
                 workspace_id = (
                     publication.updated_thread.workspace_id
                     if publication.updated_thread is not None
-                    else self._find_workspace_id(
+                    else await asyncio.to_thread(
+                        self._find_workspace_id,
                         publication.event,
                         principal.owner_subject_id,
                     )
@@ -846,6 +847,14 @@ class CodexControlRuntime:
             approval,
             principal,
         )
+        return await asyncio.to_thread(self._read_approval_publication, approval, principal)
+
+    def _read_approval_publication(
+        self,
+        approval: CodexAgentApprovalOpened,
+        principal: AgentDevicePrincipal,
+    ) -> tuple[CodexProductEvent, ...]:
+        """完整同步读取闭包，session不跨线程。"""
         unit_of_work = self.control_port.create_unit_of_work()
         try:
             session = unit_of_work.get_session()
@@ -914,6 +923,7 @@ class CodexControlRuntime:
     async def shutdown(self) -> None:
         """先停止新操作，再通知所有 Agent 会话关闭。"""
 
+        await self.connection_registry.shutdown()
         if self._runtime_stop_event is not None:
             self._runtime_stop_event.set()
         if self._signal_reader_task is not None:
@@ -926,5 +936,4 @@ class CodexControlRuntime:
             await self._client_diagnostic_retention_task
             self._client_diagnostic_retention_task = None
         await self.outbox_runner.shutdown()
-        await self.connection_registry.shutdown()
         await self.browser_event_hub.shutdown()

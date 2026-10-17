@@ -1,7 +1,7 @@
 """复用原子状态 CAS 管理账号级活动主机；未确认旧执行停止绝不授予新主机。"""
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from http import HTTPStatus
 from uuid import UUID
 
@@ -30,24 +30,6 @@ class CodexActiveHostService:
         current = CodexActiveHostState.model_validate_json(record.value).model_copy(
             update={"version": record.version}
         )
-        if (
-            current.draining_host_id is not None
-            and current.drain_until is not None
-            and datetime.now(UTC) >= current.drain_until
-        ):
-            target = current.target_host_id
-            if target is not None and not await asyncio.to_thread(self._is_owned, owner, target):
-                target = None
-            next_state = CodexActiveHostState(active_host_id=target, activated_at=datetime.now(UTC))
-            updated = await self._state.compare_and_set(
-                key=self._key(owner),
-                expected_version=current.version,
-                next_value=next_state.model_dump_json(),
-                expires_at=None,
-            )
-            if updated is not None:
-                return next_state.model_copy(update={"version": updated.version})
-            return await self.read(owner)
         return current
 
     async def switch(
@@ -65,7 +47,7 @@ class CodexActiveHostService:
             draining_host_id=current.active_host_id,
             target_host_id=host_id if current.active_host_id is not None else None,
             activated_at=now if current.active_host_id is None else None,
-            drain_until=now + timedelta(seconds=45) if current.active_host_id is not None else None,
+            drain_until=None,
         )
         if current.version == 0:
             created = await self._state.create(
@@ -114,9 +96,7 @@ class CodexActiveHostService:
         while True:
             current = await self.read(owner)
             if current.active_host_id == host_id:
-                next_state = CodexActiveHostState(
-                    draining_host_id=host_id, drain_until=datetime.now(UTC) + timedelta(seconds=45)
-                )
+                next_state = CodexActiveHostState(draining_host_id=host_id)
             elif current.target_host_id == host_id:
                 next_state = current.model_copy(update={"target_host_id": None})
             else:

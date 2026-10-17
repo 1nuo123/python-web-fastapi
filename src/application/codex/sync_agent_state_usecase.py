@@ -81,8 +81,8 @@ from src.core.codex_contract.workspace_contract import (
     CodexWorkspaceExecutionPreferences,
     CodexWorkspaceSnapshot,
 )
-from src.core.worktree_contract.worktree_contract import GitWorktreePolicy
 from src.core.persistence_contract.unit_of_work_contract import PersistenceSession
+from src.core.worktree_contract.worktree_contract import GitWorktreePolicy
 from src.domain.codex.codex_compatibility_policy import CodexCompatibilityDecision
 from src.domain.codex.thread_execution_state import thread_status_for_phase
 from src.domain.codex.thread_title_policy import CodexThreadTitlePolicy
@@ -100,6 +100,8 @@ class SyncCodexAgentStateUsecase:
         self,
         hello: CodexAgentHello,
         principal: AgentDevicePrincipal,
+        *,
+        observed_at: datetime | None = None,
     ) -> None:
         """把设备认证后的 hello 写入所属主机。"""
 
@@ -127,7 +129,7 @@ class SyncCodexAgentStateUsecase:
                     detail_kind=CodexHostObservationType.HELLO,
                     host_id=hello.host_id,
                     owner_subject_id=principal.owner_subject_id,
-                    observed_at=datetime.now(UTC),
+                    observed_at=observed_at or datetime.now(UTC),
                 ),
                 detail=CodexHostHelloObservationDetail(
                     agent_version=hello.agent_version,
@@ -280,6 +282,8 @@ class SyncCodexAgentStateUsecase:
         self,
         heartbeat: CodexAgentHeartbeat,
         principal: AgentDevicePrincipal,
+        *,
+        observed_at: datetime | None = None,
     ) -> None:
         """刷新当前所有者主机的在线时间。"""
 
@@ -291,7 +295,7 @@ class SyncCodexAgentStateUsecase:
                     detail_kind=CodexHostObservationType.HEARTBEAT,
                     host_id=heartbeat.host_id,
                     owner_subject_id=principal.owner_subject_id,
-                    observed_at=datetime.now(UTC),
+                    observed_at=observed_at or datetime.now(UTC),
                 ),
                 detail=CodexHostHeartbeatObservationDetail(
                     app_server_instance_id=heartbeat.app_server_instance_id,

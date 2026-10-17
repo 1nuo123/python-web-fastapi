@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import logging
-import httpx
+import os
 import socket
 import sqlite3
 import subprocess
 import time
 from urllib.parse import urlparse
+
+import httpx
 
 from src.application.ports.agent_device_key_store_port import AgentDeviceKeyStorePort
 from src.core.codex_contract.agent_runtime_health_contract import (
@@ -19,29 +20,30 @@ from src.core.codex_contract.agent_runtime_health_contract import (
     AgentDoctorExitCode,
     AgentDoctorReport,
 )
+from src.core.codex_contract.app_server_jsonrpc_contract import AppServerRpcError
 from src.core.codex_contract.connection_session_contract import CodexConnectionProtocolVersion
+from src.core.http_contract.outbound_http_client_contract import AsyncHttpClientDetail
 from src.infrastructure.codex_agent.agent_configuration import (
     CodexHostAgentSettings,
-    build_agent_tls_context,
 )
-from src.infrastructure.codex_agent.agent_connection_ticket_provider import (
-    AgentConnectionTicketProvider,
-)
-from src.infrastructure.codex_agent.app_server_model_catalog import read_model_catalog
+from src.infrastructure.codex_agent.agent_connection_policy import AgentControlConnectionPolicy
+from src.infrastructure.codex_agent.agent_network_policy import AgentNetworkPolicy
+from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
 from src.infrastructure.codex_agent.agent_secret_store import (
     AgentSecretNotFoundError,
     AgentSecretStorePort,
 )
+from src.infrastructure.codex_agent.app_server_model_catalog import read_model_catalog
 from src.infrastructure.codex_agent.app_server_process_supervisor import (
-    CodexProcessSupport,
     AppServerProcessSupervisor,
+    CodexProcessSupport,
 )
-from src.core.codex_contract.app_server_jsonrpc_contract import AppServerRpcError
 from src.infrastructure.process.windows_subprocess_launcher import (
     WindowsSubprocessLauncher,
     WindowsSubprocessLogCategory,
     WindowsSubprocessRequest,
 )
+from src.infrastructure.resource_slot.shared_async_http_client import SharedAsyncHttpClient
 
 
 class AgentDoctor:
@@ -70,7 +72,14 @@ class AgentDoctor:
             self._check_secret_store(),
             await self._check_control_plane_dns(),
             await self._check_local_protocol(),
-            await self._check_device_authentication(),
+            await self._check_control_plane_service(),
+            self._check_runtime(),
+            AgentDoctorCheck(
+                name="device_authentication",
+                state=AgentDoctorCheckState.WARN,
+                reason_code="device_identity_not_probed",
+                detail="只读诊断未签发票据、未替换WSS连接；完整鉴权和升级由正常run入口执行。",
+            ),
         ]
         exit_code = self._choose_exit_code(tuple(checks))
         codex_version = self._read_codex_version_safely()
@@ -140,54 +149,51 @@ class AgentDoctor:
                 detail=f"本机协议检查失败：{type(exc).__name__}，请检查已有 CLI 配置。",
             )
 
-    async def _check_device_authentication(self) -> AgentDoctorCheck:
-        if self._device_key_store is None or self._settings.agent.key_id is None:
-            return AgentDoctorCheck(
-                name="device_authentication",
-                state=AgentDoctorCheckState.WARN,
-                reason_code="device_identity_not_probed",
-            )
+    def _check_runtime(self) -> AgentDoctorCheck:
+        status = AgentRuntimeStatusStore(self._settings.agent.state_database).read()
+        running = status is not None and status.connection_state not in (None, "stopped")
+        return AgentDoctorCheck(
+            name="agent_process",
+            state=AgentDoctorCheckState.PASS if running else AgentDoctorCheckState.WARN,
+            reason_code="agent_running" if running else "agent_not_running",
+            detail="进程身份和投影新鲜度已核对；连接状态不等于执行能力。",
+        )
+
+    async def _check_control_plane_service(self) -> AgentDoctorCheck:
+        network = AgentNetworkPolicy(self._settings.agent)
+        url = self._settings.agent.control_plane_api_url
+        resource = SharedAsyncHttpClient(
+            AsyncHttpClientDetail(
+                timeout_seconds=15, max_connections=2, max_keepalive_connections=1
+            ),
+            tls_context=network.tls_context,
+            proxy=network.proxy_for(url),
+            trust_env=False,
+        )
         try:
-            tls = build_agent_tls_context(
-                deployment_profile=self._settings.agent.deployment_profile,
-                development_ca_certificate_path=self._settings.agent.development_ca_certificate_path,
-            )
-            async with httpx.AsyncClient(verify=tls or True, timeout=15) as client:
-                provider = AgentConnectionTicketProvider(
-                    client=client,
-                    control_plane_api_url=self._settings.agent.control_plane_api_url,
-                    key_store=self._device_key_store,
-                )
-                await provider.issue(
-                    host_id=self._settings.agent.host_id, key_id=self._settings.agent.key_id
-                )
+            response = await resource.get_client().head(url)
+            if response.status_code >= 500:
+                response.raise_for_status()
             return AgentDoctorCheck(
-                name="device_authentication",
-                state=AgentDoctorCheckState.PASS,
-                reason_code="device_identity_verified",
-                detail="控制面已验证设备签名；未替换现有执行连接。",
+                name="control_plane_https",
+                state=(
+                    AgentDoctorCheckState.WARN
+                    if response.status_code in (401, 403)
+                    else AgentDoctorCheckState.PASS
+                ),
+                reason_code="https_reachable",
+                detail=f"{network.describe(url)}；HTTP {response.status_code}，仅证明HTTPS服务可达，未证明WSS鉴权。",
             )
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code in (408, 429) or exc.response.status_code >= 500:
-                return AgentDoctorCheck(
-                    name="device_authentication",
-                    state=AgentDoctorCheckState.FAILED,
-                    reason_code="device_identity_temporarily_unavailable",
-                    detail=f"控制面暂时无法校验身份（HTTP {exc.response.status_code}），请稍后重试。",
-                )
+        except (httpx.HTTPError, OSError, ValueError) as exc:
+            issue = AgentControlConnectionPolicy.issue(exc)
             return AgentDoctorCheck(
-                name="device_authentication",
-                state=AgentDoctorCheckState.BLOCKED,
-                reason_code="device_identity_rejected",
-                detail=f"控制面身份校验返回 HTTP {exc.response.status_code}。",
-            )
-        except (httpx.TransportError, OSError, ValueError):
-            return AgentDoctorCheck(
-                name="device_authentication",
+                name="control_plane_https",
                 state=AgentDoctorCheckState.FAILED,
-                reason_code="device_identity_unreachable",
-                detail="无法确认控制面设备身份，请检查网络和设备配置。",
+                reason_code=issue.value,
+                detail=f"{network.describe(url)}；{AgentControlConnectionPolicy.describe(exc)}，根路径拒绝不代表设备凭据失效。",
             )
+        finally:
+            await resource.close()
 
     def _check_state_database(self) -> AgentDoctorCheck:
         path = self._settings.agent.state_database
@@ -311,14 +317,9 @@ class AgentDoctor:
             )
         started = time.monotonic()
         try:
-            await asyncio.to_thread(socket.getaddrinfo, hostname, parsed.port or 443)
-            if parsed.scheme == "wss":
-                _, writer = await asyncio.wait_for(
-                    asyncio.open_connection(hostname, parsed.port or 443, ssl=True),
-                    timeout=10,
-                )
-                writer.close()
-                await writer.wait_closed()
+            await asyncio.wait_for(
+                asyncio.to_thread(socket.getaddrinfo, hostname, parsed.port or 443), timeout=10
+            )
         except OSError:
             return AgentDoctorCheck(
                 name="control_plane_dns",
@@ -330,7 +331,7 @@ class AgentDoctor:
             name="control_plane_dns",
             state=AgentDoctorCheckState.PASS,
             reason_code="control_plane_dns_ok",
-            detail=f"耗时{elapsed_ms}毫秒",
+            detail=f"本机DNS耗时{elapsed_ms}毫秒；代理可能使用远端DNS，不代表TLS或WSS已通过。",
         )
 
     def _read_codex_version_safely(self) -> str | None:
@@ -359,7 +360,7 @@ class AgentDoctor:
     def _choose_exit_code(self, checks: tuple[AgentDoctorCheck, ...]) -> AgentDoctorExitCode:
         if any(
             item.state == AgentDoctorCheckState.FAILED
-            and item.name in {"control_plane_dns", "device_authentication"}
+            and item.name in {"control_plane_dns", "control_plane_https", "device_authentication"}
             for item in checks
         ):
             return AgentDoctorExitCode.NETWORK_FAILURE
@@ -367,6 +368,7 @@ class AgentDoctor:
             return AgentDoctorExitCode.COMPATIBILITY_BLOCKED
         if any(
             item.state in {AgentDoctorCheckState.WARN, AgentDoctorCheckState.FAILED}
+            and item.reason_code != "device_identity_not_probed"
             for item in checks
         ):
             return AgentDoctorExitCode.USER_ACTION_REQUIRED

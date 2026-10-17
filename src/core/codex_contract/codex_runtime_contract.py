@@ -52,6 +52,7 @@ class CodexRuntimeSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     enabled: bool = True
+    agent_lease_continuity_enabled: bool = False
     agent_deployment_profile: CodexAgentDeploymentProfile = CodexAgentDeploymentProfile.PRODUCTION
     agent_heartbeat_seconds: int = Field(ge=15, le=15)
     agent_offline_after_seconds: int = Field(gt=0)

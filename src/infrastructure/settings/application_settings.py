@@ -674,6 +674,7 @@ class DatabaseRuntimeSettings(BaseModel):
     pool_recycle_seconds: int
     connect_timeout_seconds: int
     auto_upgrade_on_startup: bool
+    statement_timeout_seconds: int = Field(default=30, gt=0)
 
     @model_validator(mode="after")
     def validate_postgresql_backend(self) -> DatabaseRuntimeSettings:

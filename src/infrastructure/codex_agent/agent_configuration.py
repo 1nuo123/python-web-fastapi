@@ -20,6 +20,7 @@ from src.core.codex_contract.connection_session_contract import (
     CodexConnectionProtocolVersion,
 )
 from src.core.codex_contract.execution_root_binding_contract import WorktreeIsolationMode
+from src.core.codex_contract.workspace_contract import ProjectExecutionOverrides
 from src.domain.codex.agent_command_policy import AgentAppServerSecurityPolicy
 from src.infrastructure.codex_agent.agent_deployment_profile import (
     AgentDeploymentProfile,
@@ -566,6 +567,9 @@ class AgentProcessSettings(BaseModel):
     control_plane_api_url: str = Field(min_length=1)
     development_ca_certificate_path: Path | None = None
     codex_binary: str = Field(default="codex", min_length=1)
+    network_mode: Literal["system", "direct", "explicit"] = "system"
+    proxy_url: str | None = Field(default=None, repr=False)
+    ca_certificate_path: Path | None = None
     heartbeat_seconds: int = Field(default=15, ge=15, le=15)
     reconnect_min_seconds: int = Field(default=1, gt=0)
     reconnect_max_seconds: int = Field(default=30, gt=0)
@@ -644,6 +648,17 @@ class AgentProcessSettings(BaseModel):
 
         if self.reconnect_max_seconds < self.reconnect_min_seconds:
             raise ValueError("reconnect_max_seconds不得小于reconnect_min_seconds。")
+        if (self.network_mode == "explicit") != (self.proxy_url is not None):
+            raise ValueError("仅explicit网络模式必须配置proxy_url。")
+        if self.proxy_url is not None:
+            proxy = urlsplit(self.proxy_url)
+            if proxy.scheme not in {"http", "https"} or not proxy.hostname:
+                raise ValueError("proxy_url必须是HTTP或HTTPS代理地址。")
+        if self.ca_certificate_path is not None:
+            if self.development_ca_certificate_path is not None:
+                raise ValueError("CA来源只能配置一处。")
+            if not self.ca_certificate_path.is_absolute() or not self.ca_certificate_path.is_file():
+                raise ValueError("ca_certificate_path必须是可读取的绝对路径。")
         if self.event_batch_max_bytes >= self.max_app_server_line_bytes:
             raise ValueError("event_batch_max_bytes必须小于Agent单帧上限。")
         if self.development_ca_certificate_path is not None:
@@ -652,9 +667,6 @@ class AgentProcessSettings(BaseModel):
                 development_ca_certificate_path=self.development_ca_certificate_path,
             )
         return self
-
-
-from src.core.codex_contract.workspace_contract import ProjectExecutionOverrides
 
 
 class AgentWorkspaceSettings(BaseModel):

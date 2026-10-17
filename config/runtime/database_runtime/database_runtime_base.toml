@@ -7,4 +7,5 @@ pool_size = 5
 max_overflow = 10
 pool_recycle_seconds = 1800
 connect_timeout_seconds = 5
+statement_timeout_seconds = 30
 auto_upgrade_on_startup = false

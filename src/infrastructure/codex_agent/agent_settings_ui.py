@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-import tkinter
 import asyncio
 import os
+import tkinter
 import webbrowser
-from concurrent.futures import Future, ThreadPoolExecutor
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import Final, cast
+from typing import Final, Literal, cast
 
 from src.core.codex_contract.workspace_contract import (
-    ProjectExecutionOverrides,
     CodexWorkspaceExecutionPreferences,
+    ProjectExecutionOverrides,
+)
+from src.core.worktree_contract.worktree_contract import (
+    GitWorktreeRemoveRequest,
+    GitWorktreeSnapshot,
 )
 from src.infrastructure.codex_agent.agent_configuration import (
     AgentBootstrapSettings,
@@ -21,22 +25,16 @@ from src.infrastructure.codex_agent.agent_configuration import (
     CodexHostAgentSettingsLoader,
 )
 from src.infrastructure.codex_agent.agent_deployment_profile import AgentDeploymentProfile
-from src.infrastructure.codex_agent.agent_setup import WindowsEnrollmentUi
 from src.infrastructure.codex_agent.agent_doctor import AgentDoctor
-from src.infrastructure.codex_agent.agent_secret_store import WindowsAgentSecretStore
-from src.infrastructure.codex_agent.windows_dpapi_device_key_store import WindowsDpapiDeviceKeyStore
-from src.infrastructure.worktree.git_worktree_adapter import GitWorktreeAdapter
-from src.core.worktree_contract.worktree_contract import (
-    GitWorktreeRemoveRequest,
-    GitWorktreeSnapshot,
-)
 from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
+from src.infrastructure.codex_agent.agent_secret_store import WindowsAgentSecretStore
+from src.infrastructure.codex_agent.agent_setup import WindowsEnrollmentUi
 from src.infrastructure.codex_agent.agent_workspace_configuration import (
     WindowsAgentWorkspaceConfiguration,
 )
 from src.infrastructure.codex_agent.agent_workspace_registry import (
-    WindowsAgentConfigPermissionVerifier,
     AgentWorkspaceRegistry,
+    WindowsAgentConfigPermissionVerifier,
 )
 from src.infrastructure.codex_agent.windows_agent_task import (
     WindowsAgentTaskController,
@@ -44,7 +42,9 @@ from src.infrastructure.codex_agent.windows_agent_task import (
 )
 from src.infrastructure.codex_agent.windows_dpapi_device_key_store import (
     WindowsCurrentUserAclEnforcer,
+    WindowsDpapiDeviceKeyStore,
 )
+from src.infrastructure.worktree.git_worktree_adapter import GitWorktreeAdapter
 
 SETTINGS_ACTION_LABELS: Final = (
     "打开网站",
@@ -281,14 +281,15 @@ class WindowsAgentSettingsWindow:
 
             def save_draft() -> None:
                 try:
+                    permission_modes: dict[str, Literal["inherit", "restricted", "full_access"]] = {
+                        "继承本机配置": "inherit",
+                        "受限访问": "restricted",
+                        "完全访问": "full_access",
+                    }
                     overrides = ProjectExecutionOverrides(
                         model=model.get().strip() or None,
                         reasoning_effort=effort.get().strip() or None,
-                        permission_mode={
-                            "继承本机配置": "inherit",
-                            "受限访问": "restricted",
-                            "完全访问": "full_access",
-                        }[mode.get()],
+                        permission_mode=permission_modes[mode.get()],
                     )
                     updated = workspace.model_validate(
                         {
@@ -360,6 +361,7 @@ class WindowsAgentSettingsWindow:
                 ).run()
             )
             from datetime import UTC, datetime
+
             from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 
             status = AgentRuntimeStatus.from_doctor_report(report, checked_at=datetime.now(UTC))
@@ -532,8 +534,26 @@ class WindowsAgentSettingsWindow:
             "blocked": "连接受阻",
             "stopped": "已停止",
         }
-        label = labels.get(observed.connection_state, "连接尚未确认")
-        reason = observed.connection_reason or "、".join(observed.doctor_issue_codes)
+        label = labels.get(observed.connection_state or "", "连接尚未确认")
+        reason_labels = {
+            "transport_unavailable": "网络暂时不可达，正在自动重连，无需重新绑定。",
+            "connection_attempt_expired": "本次连接票据已过期，正在重新连接，无需重新绑定。",
+            "upstream_unavailable": "服务器或网关暂时不可用，正在自动重连。",
+            "rate_limited": "服务器要求稍后重试，将自动恢复连接。",
+            "tls_validation_failed": "服务器证书校验失败，请核对网络代理及CA配置。",
+            "origin_tls_failed": "网关到服务器的TLS连接失败，请检查服务端证书。",
+            "authorization_rejected": "服务器拒绝了设备身份，请检查授权状态。",
+            "gateway_policy_denied": "请求被网关或访问策略拒绝，请检查网络配置。",
+            "route_not_found": "服务器连接地址不正确，请核对安装配置。",
+            "protocol_invalid": "客户端与服务端协议不兼容，请更新匹配版本。",
+            "inactive_host": "这台电脑未被选为活动电脑，或正在等待旧电脑停止。",
+            "execution_lease_expired": "执行许可已到期，本机执行已停止；连接恢复后重新核对资格。",
+            "process_not_running": "原运行进程已退出，旧连接状态不再有效。",
+            "status_expired": "运行状态已过期，请检查Agent进程是否响应。",
+        }
+        reason = reason_labels.get(observed.connection_reason or "", "")
+        if not reason and (observed.connection_reason or observed.doctor_issue_codes):
+            reason = "需要进一步诊断，请运行doctor查看各阶段结果。"
         return f"状态：{settings.agent.display_name} · {label}" + (
             f"\n诊断：{reason}" if reason else ""
         )

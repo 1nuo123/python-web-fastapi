@@ -13,7 +13,7 @@ import platform
 import subprocess  # nosec B404
 import sys
 from collections.abc import Iterator, Sequence
-from contextlib import contextmanager
+from contextlib import AsyncExitStack, contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
@@ -57,9 +57,10 @@ from src.infrastructure.codex_agent.agent_executable_selector import (
     AgentExecutableSelector,
     WindowsAgentFileVersionReader,
 )
+from src.infrastructure.codex_agent.agent_network_policy import AgentNetworkPolicy
 from src.infrastructure.codex_agent.agent_release_runtime import CodexAgentReleaseRuntime
-from src.infrastructure.codex_agent.agent_runtime_version import AgentRuntimeVersionResolver
 from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
+from src.infrastructure.codex_agent.agent_runtime_version import AgentRuntimeVersionResolver
 from src.infrastructure.codex_agent.agent_secret_store import WindowsAgentSecretStore
 from src.infrastructure.codex_agent.agent_settings_ui import WindowsAgentSettingsWindow
 from src.infrastructure.codex_agent.agent_setup import (
@@ -114,6 +115,7 @@ AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS = 4
 AGENT_LOG_MAX_BYTES = 5 * 1024 * 1024
 AGENT_LOG_BACKUP_COUNT = 3
 AGENT_USER_ERROR_EXIT_CODE = 2
+AGENT_RUNTIME_ERROR_EXIT_CODE = 1
 
 
 class CodexPrerequisiteError(OSError):
@@ -228,51 +230,48 @@ class CodexHostAgentCli:
                 )
                 if update_exit_code is not None:
                     return update_exit_code
-                journal = AgentCommandJournal(runtime_settings.agent.state_database)
-                async_http_resource = SharedAsyncHttpClient(
-                    AsyncHttpClientDetail(
-                        timeout_seconds=AGENT_HTTP_TIMEOUT_SECONDS,
-                        max_connections=AGENT_HTTP_MAX_CONNECTIONS,
-                        max_keepalive_connections=AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
-                    ),
-                    tls_context=build_agent_tls_context(
-                        deployment_profile=runtime_settings.agent.deployment_profile,
-                        development_ca_certificate_path=(
-                            runtime_settings.agent.development_ca_certificate_path
+                async with AsyncExitStack() as resources:
+                    network = AgentNetworkPolicy(runtime_settings.agent)
+                    journal = AgentCommandJournal(runtime_settings.agent.state_database)
+                    resources.callback(journal.close)
+                    async_http_resource = SharedAsyncHttpClient(
+                        AsyncHttpClientDetail(
+                            timeout_seconds=AGENT_HTTP_TIMEOUT_SECONDS,
+                            max_connections=AGENT_HTTP_MAX_CONNECTIONS,
+                            max_keepalive_connections=AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
                         ),
-                    ),
-                )
-                key_store = WindowsDpapiDeviceKeyStore(
-                    root=runtime_settings.agent.state_database.parent / "keys"
-                )
-                channel = AgentControlChannel(
-                    settings=runtime_settings,
-                    config_path=config_path,
-                    secret_store=WindowsAgentSecretStore(),
-                    connection_ticket_provider=(
-                        AgentConnectionTicketProvider(
-                            client=async_http_resource.get_client(),
-                            control_plane_api_url=runtime_settings.agent.control_plane_api_url,
-                            key_store=key_store,
-                        )
-                        if runtime_settings.protocol.agent_schema_version
-                        is CodexConnectionProtocolVersion.V2
-                        else None
-                    ),
-                    workspace_registry=AgentWorkspaceRegistry(
-                        [workspace.to_definition() for workspace in runtime_settings.workspaces]
-                    ),
-                    journal=journal,
-                    runtime_status_reader=lambda: self._read_runtime_status(
-                        runtime_settings.agent.state_database
-                    ),
-                    logger=agent_logger,
-                )
-                try:
+                        tls_context=network.tls_context,
+                        proxy=network.proxy_for(runtime_settings.agent.control_plane_api_url),
+                        trust_env=False,
+                    )
+                    resources.push_async_callback(async_http_resource.close)
+                    key_store = WindowsDpapiDeviceKeyStore(
+                        root=runtime_settings.agent.state_database.parent / "keys"
+                    )
+                    channel = AgentControlChannel(
+                        settings=runtime_settings,
+                        config_path=config_path,
+                        secret_store=WindowsAgentSecretStore(),
+                        connection_ticket_provider=(
+                            AgentConnectionTicketProvider(
+                                client=async_http_resource.get_client(),
+                                control_plane_api_url=runtime_settings.agent.control_plane_api_url,
+                                key_store=key_store,
+                            )
+                            if runtime_settings.protocol.agent_schema_version
+                            is CodexConnectionProtocolVersion.V2
+                            else None
+                        ),
+                        workspace_registry=AgentWorkspaceRegistry(
+                            [workspace.to_definition() for workspace in runtime_settings.workspaces]
+                        ),
+                        journal=journal,
+                        runtime_status_reader=lambda: self._read_runtime_status(
+                            runtime_settings.agent.state_database
+                        ),
+                        logger=agent_logger,
+                    )
                     await channel.run()
-                finally:
-                    journal.close()
-                    await async_http_resource.close()
         return 0
 
     async def run_doctor(self, settings: CodexHostAgentSettings) -> int:
@@ -356,7 +355,6 @@ class CodexHostAgentCli:
         """运行首次授权并写入不含密钥材料的 Agent 配置。"""
 
         self._validate_codex_prerequisite(codex_version, codex_binary)
-        deployment_paths = resolve_agent_deployment_paths(deployment_profile)
         tls_context = build_agent_tls_context(
             deployment_profile=deployment_profile,
             development_ca_certificate_path=development_ca_certificate_path,
@@ -658,13 +656,7 @@ class CodexHostAgentCli:
             )
         except KeyboardInterrupt:
             return 130
-        except (
-            httpx.HTTPError,
-            OSError,
-            PermissionError,
-            ValueError,
-            portalocker.exceptions.LockException,
-        ) as exc:
+        except Exception as exc:
             logging.getLogger("codex_host_agent").exception("Agent 命令执行失败。")
             interactive_command = command in {
                 AGENT_COMMAND_URI,
@@ -676,8 +668,13 @@ class CodexHostAgentCli:
             )
             if interactive_command:
                 self._show_interactive_error(self._format_interactive_error(exc))
-                return AGENT_USER_ERROR_EXIT_CODE
-            raise
+            # 顶层入口记录完整异常并返回非零值；无控制台发行包不能进入
+            # PyInstaller 的阻塞弹窗，否则 Task Scheduler 无法检测崩溃。
+            expected_error = isinstance(
+                exc,
+                (httpx.HTTPError, OSError, ValueError, portalocker.exceptions.LockException),
+            )
+            return AGENT_USER_ERROR_EXIT_CODE if expected_error else AGENT_RUNTIME_ERROR_EXIT_CODE
         return 0
 
     def _configure_logging(self, state_directory: Path) -> None:

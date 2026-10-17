@@ -357,6 +357,8 @@ class OutboundUrlSafetyAsyncHttpTransport(httpx.AsyncHTTPTransport):
         *,
         limits: httpx.Limits,
         tls_context: ssl.SSLContext | None = None,
+        proxy: str | None = None,
+        trust_env: bool = True,
     ) -> None:
         """
         初始化异步 HTTP 传输。
@@ -371,6 +373,8 @@ class OutboundUrlSafetyAsyncHttpTransport(httpx.AsyncHTTPTransport):
         super().__init__(
             limits=limits,
             verify=tls_context if tls_context is not None else True,
+            proxy=proxy,
+            trust_env=trust_env,
         )
         pool = getattr(self, OUTBOUND_HTTP_TRANSPORT_POOL_FIELD)
         setattr(

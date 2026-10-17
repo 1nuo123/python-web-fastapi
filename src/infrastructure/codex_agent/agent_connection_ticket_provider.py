@@ -22,6 +22,7 @@ from src.core.codex_contract.device_key_contract import (
     DeviceChallengeProofRequestEnvelope,
     DeviceChallengeRequestHeader,
 )
+from src.domain.codex.codex_error_code import CodexErrorCode
 
 DEVICE_CHALLENGE_PATH = "/internal/codex-agents/device-challenges"
 DEVICE_CONNECTION_TICKET_PATH = "/internal/codex-agents/connection-tickets"
@@ -73,7 +74,7 @@ class AgentConnectionTicketProvider(AgentConnectionTicketProviderPort):
                 detail=DeviceChallengeIssueRequest(host_id=host_id, key_id=key_id),
             ).model_dump(mode="json"),
         )
-        challenge_response.raise_for_status()
+        self._require_success(challenge_response)
         challenge = DeviceChallengeIssue.model_validate(challenge_response.json())
         signature = self._key_store.sign(
             key_id,
@@ -102,5 +103,21 @@ class AgentConnectionTicketProvider(AgentConnectionTicketProviderPort):
                 ),
             ).model_dump(mode="json"),
         )
-        proof_response.raise_for_status()
+        self._require_success(proof_response)
         return AgentConnectionTicketResponse.model_validate(proof_response.json())
+
+    @staticmethod
+    def _require_success(response: httpx.Response) -> None:
+        """仅识别受控错误合同；网关HTML、通用403不能代表设备密钥被撤销。"""
+        if response.status_code in (401, 403, 404):
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = None
+            header = payload.get("header") if isinstance(payload, dict) else None
+            code = header.get("code") if isinstance(header, dict) else None
+            if code == CodexErrorCode.DEVICE_CHALLENGE_EXPIRED.value:
+                raise ConnectionError("设备挑战过期，下轮重新签发。")
+            if code == CodexErrorCode.DEVICE_CHALLENGE_INVALID.value:
+                raise PermissionError("控制面明确拒绝设备身份或签名。")
+        response.raise_for_status()

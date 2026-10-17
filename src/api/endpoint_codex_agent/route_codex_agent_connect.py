@@ -3,17 +3,24 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, WebSocket, WebSocketDisconnect
+from starlette.responses import Response
 
 from src.api.web_bundle_catalog import (
     WebBundleProvider,
     WebBundleProviderDetail,
     WebBundleProviderEnvelope,
     WebBundleProviderHeader,
+)
+from src.core.codex_contract.agent_connection_contract import (
+    AGENT_CONNECTION_REJECTION_HEADER,
+    AGENT_CONNECTION_TICKET_EXPIRED,
+    AgentConnectionTicketExpired,
 )
 from src.core.codex_contract.agent_device_auth_contract import AgentDevicePrincipal
 from src.core.codex_contract.agent_enrollment_contract import (
@@ -30,6 +37,8 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentStateSnapshot,
 )
 from src.core.codex_contract.connection_session_contract import (
+    CODEX_LEASE_CONTINUITY_SUBPROTOCOL,
+    CodexConnectionShutdown,
     CodexConnectionTransportClosed,
     CodexConnectionTransportPort,
 )
@@ -77,14 +86,18 @@ class FastApiAgentWebSocketTransport(CodexConnectionTransportPort):
             return await self._websocket.receive_text()
         except WebSocketDisconnect as exc:
             self._disconnected = True
-            raise CodexConnectionTransportClosed("Agent WebSocket已关闭。") from exc
+            error = CodexConnectionTransportClosed("Agent WebSocket已关闭。")
+            error.close_code = getattr(exc, "code", None)
+            raise error from exc
 
     async def send_text(self, payload: str) -> None:
         try:
             await self._websocket.send_text(payload)
         except (RuntimeError, WebSocketDisconnect) as exc:
             self._disconnected = True
-            raise CodexConnectionTransportClosed("Agent WebSocket已关闭。") from exc
+            error = CodexConnectionTransportClosed("Agent WebSocket已关闭。")
+            error.close_code = getattr(exc, "code", None)
+            raise error from exc
 
     async def close(self, *, code: int, reason: str) -> None:
         if self._close_sent:
@@ -92,7 +105,7 @@ class FastApiAgentWebSocketTransport(CodexConnectionTransportPort):
         self._close_sent = True
         try:
             await self._websocket.close(code=code, reason=reason)
-        except RuntimeError:
+        except (RuntimeError, WebSocketDisconnect):
             return
 
 
@@ -206,16 +219,36 @@ class CodexAgentConnectRouteCatalog:
                 )
             else:
                 raise AgentDeviceAuthenticationError("缺少Agent一次性连接票据。")
+        except AgentConnectionTicketExpired:
+            if "websocket.http.response" in websocket.scope.get("extensions", {}):
+                await websocket.send_denial_response(
+                    Response(
+                        status_code=401,
+                        headers={
+                            AGENT_CONNECTION_REJECTION_HEADER: AGENT_CONNECTION_TICKET_EXPIRED
+                        },
+                    )
+                )
+            else:
+                await websocket.close(code=AGENT_AUTHENTICATION_CLOSE_CODE)
+            return
         except (AgentDeviceAuthenticationError, PermissionError, ValueError):
             await websocket.close(code=AGENT_AUTHENTICATION_CLOSE_CODE)
             return
         revocation_generation = await runtime.revocation_signal.read_generation(
             UUID(principal.host_id)
         )
-        await websocket.accept()
-        shutdown_event = asyncio.Event()
+        selected = (
+            CODEX_LEASE_CONTINUITY_SUBPROTOCOL
+            if runtime.settings.agent_lease_continuity_enabled
+            and CODEX_LEASE_CONTINUITY_SUBPROTOCOL in websocket.scope.get("subprotocols", [])
+            else None
+        )
+        await websocket.accept(subprotocol=selected)
+        shutdown_event = CodexConnectionShutdown()
         handler = CodexAgentGatewayHandler(
             principal=principal,
+            business_queue_capacity=runtime.settings.agent_outgoing_queue_size,
             connection_registry=runtime.connection_registry,
             actor_registry=runtime.actor_registry,
             compatibility_policy=runtime.compatibility_policy,
@@ -254,12 +287,34 @@ class CodexAgentConnectRouteCatalog:
                 timeout_seconds=runtime.settings.agent_rpc_ack_timeout_seconds,
             )
         )
+        session_task = asyncio.create_task(session.run(shutdown_event=shutdown_event))
+        business_task = asyncio.create_task(handler.run_business())
         try:
-            await session.run(shutdown_event=shutdown_event)
+            done, _ = await asyncio.wait(
+                (session_task, business_task), return_when=asyncio.FIRST_COMPLETED
+            )
+            if business_task in done:
+                try:
+                    await business_task
+                except PermissionError:
+                    session.request_close(code=1008, reason="authorization_rejected")
+                    await session_task
+                    raise
+                except (ValueError, RuntimeError):
+                    session.request_close(code=1011, reason="business_failed")
+                    await session_task
+                    raise
+            await session_task
         finally:
-            hello_watchdog.cancel()
-            await asyncio.gather(hello_watchdog, return_exceptions=True)
-            await handler.close()
+            for task in (hello_watchdog, session_task, business_task):
+                task.cancel()
+            await asyncio.gather(
+                hello_watchdog, session_task, business_task, return_exceptions=True
+            )
+            try:
+                await asyncio.wait_for(handler.close(), timeout=15)
+            except Exception:
+                logging.getLogger(__name__).exception("Agent连接收尾失败。")
 
     async def _stop_if_hello_missing(
         self,
@@ -271,8 +326,11 @@ class CodexAgentConnectRouteCatalog:
         """阻止通过设备认证但不发送 hello 的空闲连接占满容量。"""
 
         await asyncio.sleep(timeout_seconds)
-        if handler.lease is None:
-            shutdown_event.set()
+        if not handler.hello_complete:
+            if isinstance(shutdown_event, CodexConnectionShutdown):
+                shutdown_event.request(1002, "hello_timeout")
+            else:
+                shutdown_event.set()
 
     def _read_runtime(self, request: Request | WebSocket) -> CodexControlRuntime:
         """从应用组合根读取唯一 Codex 运行时。"""
@@ -287,7 +345,12 @@ class CodexAgentConnectRouteCatalog:
             hello: CodexAgentHello,
             principal: AgentDevicePrincipal,
         ) -> None:
-            await asyncio.to_thread(runtime.state_synchronizer.accept_hello, hello, principal)
+            await asyncio.to_thread(
+                runtime.state_synchronizer.accept_hello,
+                hello,
+                principal,
+                observed_at=datetime.now(UTC),
+            )
             await runtime.publish_host_status_changed(
                 owner_subject_id=principal.owner_subject_id,
                 host_id=hello.host_id,
@@ -309,6 +372,7 @@ class CodexAgentConnectRouteCatalog:
                 runtime.state_synchronizer.accept_heartbeat,
                 heartbeat,
                 principal,
+                observed_at=datetime.now(UTC),
             )
             updated_threads = await runtime.turn_runtime_coordinator.renew_heartbeat_leases(
                 heartbeat,
@@ -427,13 +491,16 @@ class CodexAgentConnectRouteCatalog:
             principal: AgentDevicePrincipal,
             connection_started_at: datetime,
         ) -> None:
+            observed_until = datetime.now(UTC)
             if await runtime.connection_registry.read(host_id) is not None:
+                return
+            if await runtime.presence_adapter.read(host_id) is not None:
                 return
             host = await asyncio.to_thread(
                 runtime.state_synchronizer.accept_disconnect,
                 host_id,
                 principal,
-                connection_started_at,
+                observed_until,
             )
             if host is None:
                 return

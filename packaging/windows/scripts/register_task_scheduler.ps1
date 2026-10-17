@@ -43,6 +43,10 @@ if ($DeploymentProfile -eq "production") {
   }
 }
 $configPath = Join-Path $resolvedInstallRoot "agent.toml"
+$existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+$shouldStart = (Test-Path -LiteralPath $configPath -PathType Leaf) -and (
+  $null -eq $existingTask -or $existingTask.Settings.Enabled
+)
 $arguments = @()
 if ($DeploymentProfile -eq "development") {
   $arguments += "--deployment-profile", "development"
@@ -57,15 +61,17 @@ $action = New-ScheduledTaskAction `
   -Execute $resolvedExecutablePath `
   -Argument $arguments `
   -WorkingDirectory $resolvedInstallRoot
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
+$recoveryInterval = New-TimeSpan -Minutes 1
+$triggers = @(
+  (New-ScheduledTaskTrigger -AtLogOn -User $currentUser),
+  (New-ScheduledTaskTrigger -Once -At (Get-Date).Add($recoveryInterval) -RepetitionInterval $recoveryInterval)
+)
 $principal = New-ScheduledTaskPrincipal `
   -UserId $currentUser `
   -LogonType Interactive `
   -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet `
   -ExecutionTimeLimit ([TimeSpan]::Zero) `
-  -RestartCount 3 `
-  -RestartInterval (New-TimeSpan -Minutes 1) `
   -MultipleInstances IgnoreNew `
   -StartWhenAvailable `
   -AllowStartIfOnBatteries `
@@ -73,10 +79,14 @@ $settings = New-ScheduledTaskSettingsSet `
 Register-ScheduledTask `
   -TaskName $taskName `
   -Action $action `
-  -Trigger $trigger `
+  -Trigger $triggers `
   -Principal $principal `
   -Settings $settings `
   -Force | Out-Null
-if (Test-Path -LiteralPath $configPath -PathType Leaf) {
+# IgnoreNew preserves a live Agent; the next OS trigger recovers an exited instance.
+# Disabled is the sole pause authority, including installations not yet bound.
+if ($shouldStart) {
   Start-ScheduledTask -TaskName $taskName
+} else {
+  Disable-ScheduledTask -TaskName $taskName | Out-Null
 }

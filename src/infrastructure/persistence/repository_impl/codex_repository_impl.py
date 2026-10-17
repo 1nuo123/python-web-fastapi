@@ -254,6 +254,15 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
             CodexHostOrmModel.revoked_at.is_(None),
         )
         statement = update(CodexHostOrmModel).where(*conditions)
+        if isinstance(
+            detail, (CodexHostHelloObservationDetail, CodexHostHeartbeatObservationDetail)
+        ):
+            statement = statement.where(
+                or_(
+                    CodexHostOrmModel.last_seen_at.is_(None),
+                    CodexHostOrmModel.last_seen_at <= observation.header.observed_at,
+                )
+            )
         if isinstance(detail, CodexHostHelloObservationDetail):
             statement = statement.values(
                 agent_version=detail.agent_version,
@@ -287,6 +296,7 @@ class CodexHostRepositoryImpl(CodexHostRepositoryPort):
                 )
             ).values(
                 status=CodexHostStatus.OFFLINE.value,
+                last_seen_at=detail.connection_started_at,
                 updated_at=CodexHostOrmModel.updated_at,
             )
         else:

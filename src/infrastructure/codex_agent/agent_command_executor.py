@@ -18,6 +18,7 @@ from src.core.codex_contract.agent_command_contract import (
     AgentCommandJournalState,
     AgentCommandResultSummary,
 )
+from src.core.codex_contract.agent_connection_contract import AgentCommandAdmissionClosed
 from src.core.codex_contract.agent_protocol_contract import (
     CODEX_AGENT_PROTOCOL_VERSION,
     CodexAgentCommand,
@@ -99,6 +100,7 @@ class AgentCommandExecutor:
         command_policy: AgentCommandPolicy,
         ack_sender: AgentCommandAckSender,
         result_sender: AgentCommandResultSender,
+        admission_check: Callable[[], None] | None = None,
         approval_reply_handler: AgentApprovalReplyHandler | None = None,
         history_capacity_registry: AgentThreadHistoryCapacityRegistry | None = None,
         history_window_cache: AgentThreadHistoryWindowCache | None = None,
@@ -110,6 +112,8 @@ class AgentCommandExecutor:
         execution_settings_resolver: Callable[[str, str, str], Awaitable[dict[str, JsonValue]]]
         | None = None,
     ) -> None:
+        self._admission_check = admission_check
+        self._side_effect_started = False
         self._journal = journal
         self._client = client
         self._command_policy = command_policy
@@ -126,7 +130,40 @@ class AgentCommandExecutor:
         self._execution_settings_resolver = execution_settings_resolver
 
     async def execute(self, command: CodexAgentCommand) -> None:
-        """编排 digest 校验、账本登记、ack、RPC 与最终结果。"""
+        """生命周期取消必须收束已登记命令；网络投递不改变本地终态。"""
+        self._side_effect_started = False
+        try:
+            await self._execute(command)
+        except asyncio.CancelledError:
+            record = self._journal.read(str(command.command_id))
+            if record is not None and record.state in {
+                AgentCommandJournalState.RECEIVED,
+                AgentCommandJournalState.EXECUTING,
+                AgentCommandJournalState.ACCEPTED,
+            }:
+                summary = AgentCommandResultSummary(
+                    outcome_code="execution_cancelled_unknown"
+                    if self._side_effect_started
+                    else "cancelled_before_start",
+                    upstream_thread_id=record.result_summary.upstream_thread_id
+                    if record.result_summary
+                    else None,
+                    upstream_turn_id=record.result_summary.upstream_turn_id
+                    if record.result_summary
+                    else None,
+                )
+                if self._side_effect_started:
+                    self._journal.mark_unknown(str(command.command_id), result_summary=summary)
+                else:
+                    self._journal.mark_failed(str(command.command_id), result_summary=summary)
+            raise
+
+    def _require_admission(self) -> None:
+        if self._admission_check is not None:
+            self._admission_check()
+
+    async def _execute(self, command: CodexAgentCommand) -> None:
+        """登记后逐副作用核对原连接准入。"""
 
         self._validate_command(command)
         identity = AgentCommandIdentity(
@@ -146,20 +183,25 @@ class AgentCommandExecutor:
             await self._send_summary_result(command, summary, outcome="failed")
             return
         self._journal.mark_executing(str(command.command_id))
+        await self._ack_sender(self._build_ack(command, "executing", replayed=False))
         timeout_seconds = max((command.deadline - datetime.now(UTC)).total_seconds(), 0.001)
         command_deadline = asyncio.get_running_loop().time() + timeout_seconds
         worktree_context: AgentWorktreeExecutionContext | None = None
         try:
+            self._require_admission()
             if command.command_type == "workspace.settings":
                 if self._workspace_settings_handler is None:
                     raise RuntimeError("项目设置通道未装配。")
+                self._side_effect_started = True
                 result = await self._workspace_settings_handler(command)
             elif command.command_type == "approval.decision":
                 if self._approval_reply_handler is None:
                     raise RuntimeError("Agent审批回复处理器未装配。")
+                self._side_effect_started = True
                 result = await self._approval_reply_handler(command)
             else:
                 worktree_context = await self._prepare_worktree(command)
+                self._require_admission()
                 request = self._command_policy.build_request(
                     command_type=command.command_type,
                     params=command.params,
@@ -173,16 +215,18 @@ class AgentCommandExecutor:
                     cwd = request.params.get("cwd")
                     if not isinstance(key, str) or not isinstance(cwd, str):
                         raise ValueError("项目执行身份不完整。")
+                    self._require_admission()
+                    self._side_effect_started = True
                     resolved = await self._execution_settings_resolver(key, request.method, cwd)
                     if command.command_type in {"thread.start", "thread.resume", "turn.start"}:
                         sandbox = resolved.get("sandbox")
                         policy = resolved.get("sandboxPolicy")
-                        if isinstance(policy, dict):
+                        if isinstance(policy, dict) and isinstance(policy.get("type"), str):
                             sandbox = {
                                 "readOnly": "read-only",
                                 "workspaceWrite": "workspace-write",
                                 "dangerFullAccess": "danger-full-access",
-                            }.get(policy.get("type"))
+                            }.get(str(policy["type"]))
                         if (
                             command.sandbox_mode is None
                             or sandbox != command.sandbox_mode.value
@@ -235,6 +279,8 @@ class AgentCommandExecutor:
                             raise TimeoutError("thread/read分页读取超时。")
                         metadata_request = dict(request.params)
                         metadata_request["includeTurns"] = False
+                        self._require_admission()
+                        self._side_effect_started = True
                         metadata = await self._client.request(
                             request.method,
                             metadata_request,
@@ -248,10 +294,15 @@ class AgentCommandExecutor:
                             operation_id=str(command.operation_id),
                         )
                     else:
+                        self._require_admission()
+                        self._side_effect_started = True
+                        remaining = command_deadline - asyncio.get_running_loop().time()
+                        if remaining <= 0:
+                            raise TimeoutError("命令准备已超过截止时间。")
                         result = await self._client.request(
                             request.method,
                             request.params,
-                            timeout_seconds=timeout_seconds,
+                            timeout_seconds=remaining,
                             operation_id=str(command.operation_id),
                         )
                     if (
@@ -271,6 +322,21 @@ class AgentCommandExecutor:
                 if history_omitted and isinstance(result, Mapping):
                     result = dict(result)
                     result["historyStatus"] = "omitted_too_large"
+        except AgentCommandAdmissionClosed:
+            summary = AgentCommandResultSummary(
+                outcome_code="admission_lost_unknown"
+                if self._side_effect_started
+                else "connection_lost_before_start"
+            )
+            if self._side_effect_started:
+                self._journal.mark_unknown(str(command.command_id), result_summary=summary)
+            else:
+                await self._cleanup_failed_worktree(worktree_context)
+                self._journal.mark_failed(str(command.command_id), result_summary=summary)
+            await self._send_summary_result(
+                command, summary, outcome="unknown" if self._side_effect_started else "failed"
+            )
+            return
         except AppServerRpcError as exc:
             await self._cleanup_failed_worktree(worktree_context)
             summary = AgentCommandResultSummary(outcome_code=f"rpc_error_{exc.error.code}")
@@ -343,7 +409,7 @@ class AgentCommandExecutor:
             )
             return
         except (ConnectionError, TimeoutError):
-            await self._cleanup_failed_worktree(worktree_context)
+            # 请求可能已生效，不删除仍被执行进程使用的工作树。
             summary = AgentCommandResultSummary(outcome_code="result_unknown")
             self._journal.mark_unknown(
                 str(command.command_id),
@@ -368,6 +434,14 @@ class AgentCommandExecutor:
             )
             return
         thread_id, turn_id = read_upstream_identifiers(result)
+        self._journal.mark_accepted(
+            str(command.command_id),
+            result_summary=AgentCommandResultSummary(
+                outcome_code="upstream_accepted",
+                upstream_thread_id=thread_id,
+                upstream_turn_id=turn_id,
+            ),
+        )
         try:
             if (
                 command.command_type in {"thread.archive", "thread.unarchive", "thread.resume"}
@@ -417,9 +491,8 @@ class AgentCommandExecutor:
             upstream_thread_id=thread_id,
             upstream_turn_id=turn_id,
         )
-        self._journal.mark_accepted(str(command.command_id), result_summary=summary)
-        await self._ack_sender(self._build_ack(command, "accepted", replayed=False))
         self._journal.mark_completed(str(command.command_id), result_summary=summary)
+        await self._ack_sender(self._build_ack(command, "completed", replayed=False))
         await self._result_sender(
             CodexAgentCommandResult(
                 command_id=command.command_id,
@@ -773,7 +846,7 @@ class AgentCommandExecutor:
         command: CodexAgentCommand,
         summary: AgentCommandResultSummary,
         *,
-        outcome: Literal["completed", "failed"],
+        outcome: Literal["completed", "failed", "unknown"],
     ) -> None:
         result: dict[str, JsonValue] = {
             "outcomeCode": summary.outcome_code,

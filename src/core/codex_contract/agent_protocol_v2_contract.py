@@ -18,6 +18,8 @@ from pydantic import (
 )
 
 from src.core.codex_contract.agent_command_contract import AgentCommandResultSummary
+from src.core.codex_contract.agent_connection_contract import AGENT_EXECUTION_LEASE_SECONDS
+from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.app_server_product_contract import (
     APP_SERVER_PRODUCT_MAX_DELTA_CHARS,
     APP_SERVER_PRODUCT_MAX_TEXT_CHARS,
@@ -34,18 +36,17 @@ from src.core.codex_contract.app_server_schema_manifest_contract import (
 from src.core.codex_contract.approval_contract import (
     CodexApprovalDisplaySummary as AgentApprovalDisplaySummary,
 )
-from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.host_contract import CodexApprovalPolicy, CodexSandboxMode
 from src.core.codex_contract.model_catalog_contract import (
-    CodexModelCatalog,
     CodexEffectiveExecutionSettings,
+    CodexModelCatalog,
 )
 from src.core.codex_contract.thread_contract import CodexThreadTitleSource
-from src.core.worktree_contract.worktree_contract import GitWorktreePolicy
 from src.core.codex_contract.workspace_contract import (
-    ProjectExecutionSettingsApply,
     CodexWorkspaceExecutionPreferences,
+    ProjectExecutionSettingsApply,
 )
+from src.core.worktree_contract.worktree_contract import GitWorktreePolicy
 
 AGENT_PROTOCOL_V2_KIND: Final = "codex_agent_protocol"
 AGENT_PROTOCOL_V2_SCHEMA_VERSION: Final = "2.0"
@@ -147,7 +148,7 @@ class AgentExecutionLeaseV2Detail(AgentProtocolV2DetailBase):
     request_id: UUID | None = None
     generation: int = Field(ge=0)
     enabled: bool
-    valid_for_seconds: int = Field(default=35, ge=1, le=60)
+    valid_for_seconds: int = Field(default=AGENT_EXECUTION_LEASE_SECONDS, ge=1, le=60)
 
 
 class AgentExecutionStoppedV2Detail(AgentProtocolV2DetailBase):

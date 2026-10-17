@@ -18,13 +18,16 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from httpx import HTTPStatusError, TransportError
+from portalocker.exceptions import LockException
 from pydantic import BaseModel, JsonValue
 from websockets.asyncio.client import ClientConnection, connect
-from websockets.exceptions import ConnectionClosed, InvalidHandshake, InvalidStatus
+from websockets.exceptions import ConnectionClosed, InvalidHandshake
+from websockets.typing import Subprotocol
 
 from src.application.ports.agent_connection_ticket_provider_port import (
     AgentConnectionTicketProviderPort,
 )
+from src.core.codex_contract.agent_connection_contract import AgentCommandAdmissionClosed
 from src.core.codex_contract.agent_diagnostic_contract import (
     AgentDiagnosticCode,
     AgentDiagnosticEnvelope,
@@ -56,10 +59,10 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentEventBatchV2Detail,
     AgentEventDetail,
     AgentEventRecord,
-    AgentGapEventDetail,
-    AgentHeartbeatV2Detail,
     AgentExecutionLeaseV2Detail,
     AgentExecutionStoppedV2Detail,
+    AgentGapEventDetail,
+    AgentHeartbeatV2Detail,
     AgentHelloAckV2Detail,
     AgentHelloV2Detail,
     AgentItemChangedEventDetail,
@@ -74,14 +77,7 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentTurnChangedEventDetail,
 )
 from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
-from src.core.codex_contract.host_contract import CodexSandboxMode
-from src.core.codex_contract.workspace_contract import (
-    ProjectExecutionSettingsApply,
-    CodexWorkspaceExecutionPreferences,
-)
-from src.infrastructure.codex_agent.project_execution_settings import ProjectExecutionSettings
-from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
-from src.core.codex_contract.app_server_jsonrpc_contract import JsonRpcId
+from src.core.codex_contract.app_server_jsonrpc_contract import AppServerRpcError, JsonRpcId
 from src.core.codex_contract.app_server_product_contract import (
     AppServerDiffChangedDetail,
     AppServerDiffItem,
@@ -109,14 +105,22 @@ from src.core.codex_contract.approval_contract import (
     CodexApprovalRiskLevel,
 )
 from src.core.codex_contract.connection_session_contract import (
+    CODEX_LEASE_CONTINUITY_SUBPROTOCOL,
+    CodexConnectionEnd,
+    CodexConnectionEndKind,
     CodexConnectionFrame,
     CodexConnectionProtocolVersion,
+    CodexConnectionSlowConsumerError,
     CodexConnectionTransportClosed,
     CodexConnectionTransportPort,
     CodexOutboundFrameSenderPort,
 )
-from src.core.codex_contract.host_contract import CodexApprovalPolicy
+from src.core.codex_contract.host_contract import CodexApprovalPolicy, CodexSandboxMode
 from src.core.codex_contract.model_catalog_contract import CodexModelCatalog
+from src.core.codex_contract.workspace_contract import (
+    CodexWorkspaceExecutionPreferences,
+    ProjectExecutionSettingsApply,
+)
 from src.domain.codex.agent_command_policy import (
     AgentAppServerSecurityPolicy,
     AgentCommandPolicy,
@@ -133,17 +137,19 @@ from src.infrastructure.codex.codex_connection_session import (
 )
 from src.infrastructure.codex_agent.agent_command_executor import AgentCommandExecutor
 from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJournal
-from src.infrastructure.codex_agent.agent_timeline_store import AgentTimelineStore
 from src.infrastructure.codex_agent.agent_configuration import (
     CodexHostAgentSettings,
-    build_agent_tls_context,
 )
+from src.infrastructure.codex_agent.agent_connection_policy import AgentControlConnectionPolicy
 from src.infrastructure.codex_agent.agent_event_batcher import AgentEventBatcher
 from src.infrastructure.codex_agent.agent_event_replay_buffer import (
     AgentBufferedEvent,
     AgentEventReplayBuffer,
 )
+from src.infrastructure.codex_agent.agent_execution_lease import AgentExecutionLease
 from src.infrastructure.codex_agent.agent_execution_root_store import AgentExecutionRootStore
+from src.infrastructure.codex_agent.agent_network_policy import AgentNetworkPolicy
+from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
 from src.infrastructure.codex_agent.agent_secret_store import AgentSecretStorePort
 from src.infrastructure.codex_agent.agent_snapshot_builder import AgentSnapshotBuilder
 from src.infrastructure.codex_agent.agent_thread_history_capacity_registry import (
@@ -152,91 +158,28 @@ from src.infrastructure.codex_agent.agent_thread_history_capacity_registry impor
 from src.infrastructure.codex_agent.agent_thread_history_window_cache import (
     AgentThreadHistoryWindowCache,
 )
+from src.infrastructure.codex_agent.agent_timeline_store import AgentTimelineStore
 from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspaceRegistry
 from src.infrastructure.codex_agent.app_server_jsonrpc_client import AppServerProtocolWarning
-from src.core.codex_contract.app_server_jsonrpc_contract import AppServerRpcError
 from src.infrastructure.codex_agent.app_server_model_catalog import read_model_catalog
 from src.infrastructure.codex_agent.app_server_process_supervisor import (
     AppServerProcessHandle,
     AppServerProcessSupervisor,
 )
 from src.infrastructure.codex_agent.app_server_protocol_adapter import AppServerProtocolAdapter
+from src.infrastructure.codex_agent.project_execution_settings import ProjectExecutionSettings
 from src.infrastructure.worktree.git_worktree_adapter import GitWorktreeAdapter
 
 _SYSTEM_RANDOM = secrets.SystemRandom()
 
 INTERNAL_PROTOCOL_WARNING_METHOD = "internal/protocol.warning"
 UNRESOLVED_WORKSPACE_KEY = "unresolved"
-RETRYABLE_AGENT_HANDSHAKE_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
-RETRY_AFTER_HEADER_NAME: Final = "Retry-After"
 AGENT_HELLO_ACK_TIMEOUT_SECONDS: Final = 10.0
 AGENT_SEND_ENQUEUE_TIMEOUT_SECONDS: Final = 1.0
 AGENT_RETRY_MIN_WAIT_SECONDS: Final = 0.01
 AGENT_METADATA_REFRESH_DEBOUNCE_SECONDS: Final = 0.2
 AGENT_METADATA_REFRESH_TIMEOUT_SECONDS: Final = 10.0
 AGENT_PROTOCOL_WARNING_MAX_KEYS: Final = 128
-
-
-class AgentControlConnectionPolicy:
-    """控制面握手失败分类与退避策略。"""
-
-    @staticmethod
-    def should_retry(exc: BaseException) -> bool:
-        """判断连接失败是否允许按退避策略重试。"""
-
-        if isinstance(exc, InvalidStatus):
-            status_code = AgentControlConnectionPolicy.read_status_code(exc)
-            return status_code is None or status_code in RETRYABLE_AGENT_HANDSHAKE_STATUS_CODES
-        if isinstance(exc, HTTPStatusError):
-            return exc.response.status_code in RETRYABLE_AGENT_HANDSHAKE_STATUS_CODES
-        if isinstance(exc, InvalidHandshake):
-            return True
-        return isinstance(
-            exc,
-            (ConnectionError, OSError, TimeoutError, TransportError, ValueError),
-        )
-
-    @staticmethod
-    def describe(exc: BaseException) -> str:
-        """生成不含凭据的稳定连接失败摘要。"""
-
-        status_code = AgentControlConnectionPolicy.read_status_code(exc)
-        if status_code is not None:
-            return f"HTTP {status_code}"
-        close_code = getattr(exc, "close_code", None)
-        if isinstance(close_code, int):
-            return f"WebSocket close_code={close_code}"
-        return type(exc).__name__
-
-    @staticmethod
-    def read_status_code(exc: BaseException) -> int | None:
-        """兼容不同 websockets 版本读取握手状态码。"""
-
-        response = getattr(exc, "response", None)
-        status_code = getattr(response, "status_code", None)
-        if isinstance(status_code, int):
-            return status_code
-        legacy_status_code = getattr(exc, "status_code", None)
-        if isinstance(legacy_status_code, int):
-            return legacy_status_code
-        return None
-
-    @staticmethod
-    def read_retry_after_seconds(exc: BaseException) -> int | None:
-        """读取服务端返回的秒级 Retry-After，非法值按未提供处理。"""
-
-        response = getattr(exc, "response", None)
-        headers = getattr(response, "headers", None)
-        if headers is None:
-            return None
-        raw_value = headers.get(RETRY_AFTER_HEADER_NAME)
-        if not isinstance(raw_value, str):
-            return None
-        try:
-            seconds = int(raw_value)
-        except ValueError:
-            return None
-        return seconds if seconds > 0 else None
 
 
 class AgentEventCursorRegressionError(ConnectionError):
@@ -316,24 +259,26 @@ class AgentControlChannel:
         config_path: Path | None = None,
     ) -> None:
         self._settings = settings
-        self._execution_lease_ready = asyncio.Event()
-        self._execution_enabled = False
+        self._execution = AgentExecutionLease()
         self._execution_paused = False
-        self._execution_lease_deadline = 0.0
-        self._execution_lease_generation = 0
         self._last_event_seq = 0
-        self._lease_requests: dict[UUID, float] = {}
+        self._connection_ready = False
+        self._continuity = False
+        self._healthy_connection = False
+        self._connected_at = 0.0
+        self._connection_phase = "starting"
+        self._command_queue: asyncio.Queue[
+            tuple[CodexAgentCommand | AgentReplayRequestV2Detail, int | None]
+        ] = asyncio.Queue(maxsize=settings.agent.writer_queue_capacity)
+        self._status_event = asyncio.Event()
+        self._pending_status: dict[str, object] | None = None
+        self._connection_state = "starting"
+        self._connection_reason: str | None = None
         self._execution_resolved: CodexWorkspaceExecutionPreferences | None = None
-        self._timeline_store = AgentTimelineStore(
-            settings.agent.state_database.with_name("timeline.sqlite3")
-        )
         self._project_execution = ProjectExecutionSettings(
             config_path or settings.agent.state_database.with_name("agent.toml")
         )
-        self._tls_context = build_agent_tls_context(
-            deployment_profile=settings.agent.deployment_profile,
-            development_ca_certificate_path=settings.agent.development_ca_certificate_path,
-        )
+        self._network = AgentNetworkPolicy(settings.agent)
         self._secret_store = secret_store
         self._connection_ticket_provider = connection_ticket_provider
         self._workspace_registry = workspace_registry
@@ -381,37 +326,54 @@ class AgentControlChannel:
             logger=logger,
             host_id=str(settings.agent.host_id),
         )
+        self._timeline_store = AgentTimelineStore(
+            settings.agent.state_database.with_name("timeline.sqlite3")
+        )
 
     async def run(self) -> None:
-        """监督 Remote 专属执行进程，并在控制面失败时停止执行后退避重连。"""
-
-        await self._record_connection_state("starting")
-        try:
-            handle = await self._supervisor.start()
-        except (OSError, ValueError, RuntimeError):
-            await self._record_connection_state("blocked", "app_server_start_failed")
-            raise
-        legacy_token = self._read_legacy_token()
+        """运行期监督执行许可、命令和维护；只有连接循环拥有网络重试。"""
+        status_task = asyncio.create_task(self._publish_status())
+        shutdown_task = asyncio.create_task(self._wait_for_shutdown())
+        critical = (
+            status_task,
+            asyncio.create_task(self._watch_execution_lease()),
+            asyncio.create_task(self._command_loop()),
+            asyncio.create_task(self._maintenance_loop()),
+        )
         delay = self._settings.agent.reconnect_min_seconds
         try:
+            await self._record_connection_state("starting")
+            handle = await self._supervisor.start()
+            legacy_token = self._read_legacy_token()
             while not self._shutdown_event.is_set():
+                attempt: asyncio.Task[None] | None = None
                 try:
+                    self._connection_phase = "connecting"
+                    self._hello_ack_event.clear()
+                    self._healthy_connection = False
                     await self._record_connection_state("connecting")
                     if handle.process.returncode is not None or not handle.client.running:
                         for pending in tuple(self._pending_approvals.values()):
                             await self._close_pending_approval(pending, "instance_replaced")
-                        # 新 App Server 代次不继承旧进程的实时事件序列，必须丢弃正文窗口。
                         self._history_window_cache.clear()
                         self._file_change_items.clear()
                         await self._supervisor.stop()
                         handle = await self._supervisor.start()
                         self._execution_paused = False
-                    await self._run_connection(handle, legacy_token)
-                    delay = self._settings.agent.reconnect_min_seconds
+                    attempt = asyncio.create_task(self._run_connection(handle, legacy_token))
+                    done, _ = await asyncio.wait(
+                        (attempt, shutdown_task, *critical), return_when=asyncio.FIRST_COMPLETED
+                    )
+                    if self._shutdown_event.is_set():
+                        break
+                    for task in critical:
+                        if task in done:
+                            await task
+                            raise RuntimeError("Agent关键后台任务意外结束。")
+                    await attempt
                 except asyncio.CancelledError:
                     raise
                 except (
-                    ConnectionError,
                     OSError,
                     TimeoutError,
                     HTTPStatusError,
@@ -421,82 +383,160 @@ class AgentControlChannel:
                 ) as exc:
                     if self._shutdown_event.is_set():
                         break
+                    if any(task.done() for task in critical):
+                        raise RuntimeError("Agent关键后台任务失败，停止运行。") from exc
+                    issue = AgentControlConnectionPolicy.issue(exc)
                     if not AgentControlConnectionPolicy.should_retry(exc):
-                        await self._record_connection_state(
-                            "blocked", "control_authentication_failed"
-                        )
+                        await self._stop_execution()
+                        await self._record_connection_state("blocked", issue.value)
                         self._logger.error(
-                            "Agent控制通道握手被拒绝，请重新注册主机或检查设备凭据：%s",
+                            "Agent连接需要修复：phase=%s reason=%s detail=%s",
+                            self._connection_phase,
+                            issue.value,
                             AgentControlConnectionPolicy.describe(exc),
                         )
-                        raise
-                    phase = "established" if self._hello_ack_event.is_set() else "handshake"
-                    await self._record_connection_state("offline", f"{phase}_failed")
-                    self._logger.warning(
-                        "Agent控制通道连接失败，将重试：phase=%s error_type=%s detail=%s",
-                        phase,
-                        type(exc).__name__,
-                        AgentControlConnectionPolicy.describe(exc),
+                        # 身份、配置或证书问题保留现场和进程；设置修复后正常重启即可。
+                        waiter = asyncio.create_task(self._wait_for_shutdown())
+                        try:
+                            done, _ = await asyncio.wait(
+                                (waiter, *critical), return_when=asyncio.FIRST_COMPLETED
+                            )
+                            if self._shutdown_event.is_set():
+                                break
+                            for task in critical:
+                                if task in done:
+                                    await task
+                                    raise RuntimeError("Agent关键后台任务意外结束。")
+                        finally:
+                            waiter.cancel()
+                            await asyncio.gather(waiter, return_exceptions=True)
+                        break
+                    if self._healthy_connection:
+                        delay = self._settings.agent.reconnect_min_seconds
+                    await self._record_connection_state("offline", issue.value)
+                    jitter = delay * self._settings.agent.reconnect_jitter_ratio
+                    wait_seconds = max(
+                        AGENT_RETRY_MIN_WAIT_SECONDS,
+                        delay + _SYSTEM_RANDOM.uniform(-jitter, jitter),
+                        AgentControlConnectionPolicy.read_retry_after_seconds(exc) or 0,
                     )
+                    self._logger.warning(
+                        "Agent连接恢复：phase=%s reason=%s detail=%s retry_in=%.1fs",
+                        self._connection_phase,
+                        issue.value,
+                        AgentControlConnectionPolicy.describe(exc),
+                        wait_seconds,
+                    )
+                    waiter = asyncio.create_task(self._wait_for_shutdown())
                     try:
-                        jitter = delay * self._settings.agent.reconnect_jitter_ratio
-                        retry_after_seconds = (
-                            AgentControlConnectionPolicy.read_retry_after_seconds(exc) or 0
-                        )
-                        wait_seconds = max(
-                            AGENT_RETRY_MIN_WAIT_SECONDS,
-                            delay + _SYSTEM_RANDOM.uniform(-jitter, jitter),
-                            retry_after_seconds,
-                        )
-                        await asyncio.wait_for(
-                            self._shutdown_event.wait(),
+                        done, _ = await asyncio.wait(
+                            (waiter, *critical),
                             timeout=wait_seconds,
+                            return_when=asyncio.FIRST_COMPLETED,
                         )
-                    except TimeoutError:
-                        delay = min(delay * 2, self._settings.agent.reconnect_max_seconds)
+                        if self._shutdown_event.is_set():
+                            break
+                        for task in critical:
+                            if task in done:
+                                await task
+                                raise RuntimeError("Agent关键后台任务意外结束。")
+                    finally:
+                        waiter.cancel()
+                        await asyncio.gather(waiter, return_exceptions=True)
+                    delay = min(delay * 2, self._settings.agent.reconnect_max_seconds)
+                finally:
+                    if attempt is not None and not attempt.done():
+                        attempt.cancel()
+                        await asyncio.gather(attempt, return_exceptions=True)
         finally:
+            self._connection_ready = False
             self._active_sender = None
-            if self._batch_flush_task is not None:
-                self._batch_flush_task.cancel()
-                await asyncio.gather(self._batch_flush_task, return_exceptions=True)
-                self._batch_flush_task = None
-            for task in self._metadata_refresh_tasks.values():
-                task.cancel()
-            await asyncio.gather(
-                *self._metadata_refresh_tasks.values(),
-                return_exceptions=True,
-            )
-            self._metadata_refresh_tasks.clear()
-            self._history_window_cache.clear()
-            self._file_change_items.clear()
-            await self._supervisor.stop()
-            self._timeline_store.close()
+            try:
+                await self._stop_execution()
+            finally:
+                tasks = [shutdown_task, *critical, *self._metadata_refresh_tasks.values()]
+                if self._batch_flush_task is not None:
+                    tasks.append(self._batch_flush_task)
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+                await self._record_connection_state("stopped")
+                try:
+                    await asyncio.to_thread(
+                        AgentRuntimeStatusStore(self._settings.agent.state_database).update,
+                        self._pending_status or {},
+                    )
+                except (OSError, LockException):
+                    self._logger.warning("最终连接状态暂时无法发布。")
+                status_task.cancel()
+                await asyncio.gather(status_task, return_exceptions=True)
+                self._timeline_store.close()
+                self._history_window_cache.clear()
+                self._file_change_items.clear()
+
+    async def _stop_execution(self) -> None:
+        self._connection_ready = False
+        self._execution.disable()
+        self._execution_paused = True
+        await self._supervisor.stop()
 
     async def _watch_execution_lease(self) -> None:
-        while True:
+        while not self._shutdown_event.is_set():
             await asyncio.sleep(1)
-            if (
-                self._execution_enabled
-                and asyncio.get_running_loop().time() >= self._execution_lease_deadline
-            ):
-                self._execution_enabled = False
-                self._execution_paused = True
-                await self._supervisor.stop()
+            if self._execution.enabled and not self._execution.valid:
+                await self._stop_execution()
                 await self._record_connection_state("blocked", "execution_lease_expired")
 
     async def _record_connection_state(self, state: str, reason: str | None = None) -> None:
-        try:
-            await asyncio.to_thread(
-                AgentRuntimeStatusStore(self._settings.agent.state_database).update,
-                {
-                    "connection_state": state,
-                    "connection_updated_at": datetime.now(UTC),
-                    "connection_reason": reason,
-                    "process_id": os.getpid(),
-                },
-            )
-        except OSError:
-            self._logger.warning("本机连接状态发布失败。", exc_info=True)
+        """合并状态投影，文件锁或杀毒软件不能阻塞控制消息。"""
+        self._connection_state, self._connection_reason = state, reason
+        self._pending_status = {
+            "connection_state": state,
+            "connection_reason": reason,
+            "connection_updated_at": datetime.now(UTC),
+            "process_id": os.getpid(),
+        }
+        self._status_event.set()
+
+    async def _publish_status(self) -> None:
+        store = AgentRuntimeStatusStore(self._settings.agent.state_database)
+        while not self._shutdown_event.is_set():
+            try:
+                await asyncio.wait_for(
+                    self._status_event.wait(), self._settings.agent.heartbeat_seconds
+                )
+            except TimeoutError:
+                await self._record_connection_state(self._connection_state, self._connection_reason)
+            self._status_event.clear()
+            updates, self._pending_status = self._pending_status, None
+            if updates is not None:
+                try:
+                    await asyncio.to_thread(store.update, updates)
+                except (OSError, LockException):
+                    self._logger.warning("本机连接状态暂时无法发布。", exc_info=True)
+
+    async def _maintenance_loop(self) -> None:
+        while not self._shutdown_event.is_set():
+            await asyncio.sleep(self._settings.agent.heartbeat_seconds)
+            if (
+                self._execution.valid
+                and asyncio.get_running_loop().time() - self._last_worktree_cleanup >= 60
+            ):
+                self._last_worktree_cleanup = asyncio.get_running_loop().time()
+                for workspace in self._workspace_registry.list_workspaces():
+                    if (workspace.root / ".git").exists():
+                        try:
+                            await asyncio.to_thread(self._worktree_port.prune, workspace.key)
+                        except (OSError, RuntimeError, ValueError):
+                            self._logger.warning(
+                                "隔离工作树清理未完成：workspace=%s", workspace.key
+                            )
+            for pending in tuple(self._pending_approvals.values()):
+                if pending.expires_at <= datetime.now(UTC):
+                    await self._close_pending_approval(pending, "expired")
+
+    async def _wait_for_shutdown(self) -> None:
+        await self._shutdown_event.wait()
 
     def request_shutdown(self) -> None:
         """请求停止新连接与新命令。"""
@@ -511,38 +551,36 @@ class AgentControlChannel:
         raise CodexConnectionTransportClosed("控制面WebSocket连接意外关闭，Agent将按退避策略重连。")
 
     async def _run_connection(
-        self,
-        handle: AppServerProcessHandle,
-        legacy_token: str | None,
+        self, handle: AppServerProcessHandle, legacy_token: str | None
     ) -> None:
-        """运行一个控制面连接代次，失去执行资格时停止 Remote 专属进程。"""
-
+        self._connection_ready = False
+        self._execution.begin_connection()
         if (
             self._model_catalog_instance != handle.instance_id
             or self._model_catalog.state != "ready"
         ):
             self._model_catalog = await read_model_catalog(handle.client)
             self._model_catalog_instance = handle.instance_id
+        self._connection_phase = "ticket"
         connection_url, headers = await self._build_connection_request(legacy_token)
-        # websockets rejects an explicit ``ssl=None`` for wss:// URLs. The
-        # default system trust store is selected by omitting the argument;
-        # development profiles may still provide an explicit SSLContext.
-        if self._tls_context is not None:
-            connection_context = connect(
-                connection_url,
-                additional_headers=headers,
-                max_size=self._settings.agent.max_app_server_line_bytes,
-                ping_interval=None,
-                ssl=self._tls_context,
-            )
-        else:
-            connection_context = connect(
-                connection_url,
-                additional_headers=headers,
-                max_size=self._settings.agent.max_app_server_line_bytes,
-                ping_interval=None,
-            )
-        async with connection_context as connection:
+        self._connection_phase = "websocket"
+        async with connect(
+            connection_url,
+            additional_headers=headers,
+            max_size=self._settings.agent.max_app_server_line_bytes,
+            ping_interval=self._settings.agent.heartbeat_seconds,
+            ping_timeout=self._settings.agent.heartbeat_seconds,
+            subprotocols=[Subprotocol(CODEX_LEASE_CONTINUITY_SUBPROTOCOL)],
+            proxy=self._network.proxy_for(connection_url),
+            ssl=self._network.tls_context if connection_url.startswith("wss:") else None,
+        ) as connection:
+            negotiated = connection.subprotocol == CODEX_LEASE_CONTINUITY_SUBPROTOCOL
+            if self._continuity and not negotiated and self._execution.valid:
+                await self._stop_execution()
+                self._continuity = False
+                raise ConnectionError("控制面未协商执行连续性，按保守方式重建执行进程。")
+            self._continuity = negotiated
+            self._connected_at = asyncio.get_running_loop().time()
             session = CodexDuplexConnectionSession(
                 transport=AgentWebSocketTransport(connection),
                 inbound_handler=self._handle_control_frame,
@@ -552,77 +590,84 @@ class AgentControlChannel:
                     send_enqueue_timeout_seconds=AGENT_SEND_ENQUEUE_TIMEOUT_SECONDS,
                 ),
             )
-            self._hello_ack_event.clear()
-            self._execution_lease_ready.clear()
-            self._lease_requests.clear()
-            self._execution_lease_generation = 0
-            self._execution_enabled = False
             self._connection_epoch = None
             session_task = asyncio.create_task(session.run(shutdown_event=self._shutdown_event))
             await asyncio.sleep(0)
             self._active_sender = session
             heartbeat_task: asyncio.Task[None] | None = None
-            settings_sync_task: asyncio.Task[None] | None = None
-            watchdog_task = asyncio.create_task(self._watch_execution_lease())
-            process_wait_task = asyncio.create_task(handle.process.wait())
-            client_wait_task = asyncio.create_task(handle.client.wait_stopped())
+            settings_task: asyncio.Task[None] | None = None
+            process_task = asyncio.create_task(handle.process.wait())
+            client_task = asyncio.create_task(handle.client.wait_stopped())
+            preserve = False
             try:
+                self._connection_phase = "hello"
                 await self._require_active_session(session_task)
                 await session.send(self._build_hello_frame(handle))
                 await self._wait_for_hello_ack(session_task)
-                await self._require_active_session(session_task)
                 heartbeat_task = asyncio.create_task(self._heartbeat_loop(handle, session))
-                await asyncio.wait_for(self._execution_lease_ready.wait(), timeout=10)
-                if self._execution_enabled:
+                self._connection_phase = "execution_authorization"
+                await asyncio.wait_for(self._execution.ready.wait(), timeout=10)
+                if self._execution.valid:
+                    self._connection_phase = "snapshot"
                     await self._send_snapshot(handle, session)
-                settings_sync_task = asyncio.create_task(self._settings_sync_loop(handle, session))
+                    self._connection_ready = True
+                settings_task = asyncio.create_task(self._settings_sync_loop(handle, session))
                 await self._record_connection_state(
-                    "online" if self._execution_enabled else "blocked",
-                    None if self._execution_enabled else "inactive_host",
+                    "online" if self._execution.valid else "blocked",
+                    None if self._execution.valid else "inactive_host",
                 )
-                await self._require_active_session(session_task)
                 await self._flush_buffer(session)
-
-                done, _ = await asyncio.wait(
-                    (session_task, process_wait_task, client_wait_task),
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                if self._execution_paused and (
-                    process_wait_task in done or client_wait_task in done
-                ):
-                    await session_task
-                    self._raise_if_connection_closed_unexpectedly()
-                if process_wait_task in done:
-                    raise ConnectionError("Codex App Server进程异常退出。")
-                if client_wait_task in done:
-                    await client_wait_task
-                    raise ConnectionError("Codex App Server JSON-RPC读取循环停止。")
-                await session_task
-                self._raise_if_connection_closed_unexpectedly()
+                self._connection_phase = "running"
+                watched = (session_task, process_task, client_task, heartbeat_task, settings_task)
+                done, _ = await asyncio.wait(watched, return_when=asyncio.FIRST_COMPLETED)
+                if self._execution_paused and (process_task in done or client_task in done):
+                    done, _ = await asyncio.wait(
+                        (session_task, heartbeat_task, settings_task),
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                for task in (heartbeat_task, settings_task):
+                    if task in done:
+                        await task
+                        raise RuntimeError("Agent连接后台任务意外结束。")
+                if session_task in done:
+                    ended = await session_task
+                    preserve = (
+                        self._continuity
+                        and self._execution.valid
+                        and ended.kind == CodexConnectionEndKind.TRANSPORT_FAILURE
+                    )
+                    if not self._shutdown_event.is_set():
+                        raise ended.as_exception()
+                elif process_task in done or client_task in done:
+                    raise ConnectionError("Codex执行进程或JSON-RPC读取循环已停止。")
+            except (OSError, TimeoutError) as exc:
+                # 仅由明确的传输结束结果授予连续性；握手/业务异常保守停止。
+                if isinstance(exc, CodexConnectionTransportClosed):
+                    preserve = (
+                        self._continuity
+                        and self._execution.valid
+                        and exc.end_kind == CodexConnectionEndKind.TRANSPORT_FAILURE
+                    )
+                raise
             finally:
-                await self._record_connection_state(
-                    "stopped" if self._shutdown_event.is_set() else "offline"
-                )
-                if heartbeat_task is not None:
-                    if not heartbeat_task.done():
-                        heartbeat_task.cancel()
-                    await asyncio.gather(heartbeat_task, return_exceptions=True)
-                if settings_sync_task is not None:
-                    settings_sync_task.cancel()
-                    await asyncio.gather(settings_sync_task, return_exceptions=True)
-                self._execution_enabled = False
-                watchdog_task.cancel()
-                await asyncio.gather(watchdog_task, return_exceptions=True)
+                self._connection_ready = False
                 self._active_sender = None
-                connection_tasks = (session_task, process_wait_task, client_wait_task)
-                for task in connection_tasks:
-                    if not task.done():
-                        task.cancel()
-                await asyncio.gather(*connection_tasks, return_exceptions=True)
-                self._execution_paused = True
-                await self._supervisor.stop()
+                try:
+                    if not preserve or self._shutdown_event.is_set():
+                        await self._stop_execution()
+                finally:
+                    tasks = [session_task, process_task, client_task]
+                    tasks.extend(
+                        task for task in (heartbeat_task, settings_task) if task is not None
+                    )
+                    for connection_task in tasks:
+                        connection_task.cancel()
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                    await self._record_connection_state(
+                        "stopped" if self._shutdown_event.is_set() else "offline"
+                    )
 
-    async def _wait_for_hello_ack(self, session_task: asyncio.Task[None]) -> None:
+    async def _wait_for_hello_ack(self, session_task: asyncio.Task[CodexConnectionEnd]) -> None:
         """等待握手确认，同时立即感知已经结束的连接会话。"""
 
         hello_ack_task = asyncio.create_task(self._hello_ack_event.wait())
@@ -642,13 +687,13 @@ class AgentControlChannel:
                 hello_ack_task.cancel()
             await asyncio.gather(hello_ack_task, return_exceptions=True)
 
-    async def _require_active_session(self, session_task: asyncio.Task[None]) -> None:
+    async def _require_active_session(self, session_task: asyncio.Task[CodexConnectionEnd]) -> None:
         """拒绝向已经提前结束的控制面连接继续发送。"""
 
         if not session_task.done():
             return
-        await session_task
-        raise CodexConnectionTransportClosed("控制面WebSocket会话已提前结束。")
+        ended = await session_task
+        raise ended.as_exception()
 
     async def _handle_control_frame(
         self,
@@ -696,20 +741,16 @@ class AgentControlChannel:
         if decoded.v2 is not None and isinstance(decoded.v2.detail, AgentExecutionLeaseV2Detail):
             self._verify_v2_control_host(decoded.v2.header.host_id)
             lease = decoded.v2.detail
-            if lease.generation < self._execution_lease_generation:
+            if not self._execution.accept(lease):
                 return
-            requested_at = self._lease_requests.pop(lease.request_id, None)
-            if lease.enabled and requested_at is None:
-                raise PermissionError("执行租约缺少对应的本机请求，不能确认有效期限。")
-            # 从本机发出请求时计时，网络延迟和服务端排队不能延长旧租约。
-            # 不依赖 Windows 与服务端时钟同步。
-            self._execution_lease_deadline = (requested_at or 0) + lease.valid_for_seconds
-            self._execution_lease_generation = lease.generation
-            self._execution_lease_ready.set()
-            self._execution_enabled = (
-                lease.enabled and asyncio.get_running_loop().time() < self._execution_lease_deadline
-            )
-            if not self._execution_enabled:
+            if (
+                self._connection_ready
+                and asyncio.get_running_loop().time() - self._connected_at
+                >= self._settings.agent.heartbeat_seconds
+            ):
+                self._healthy_connection = True
+            if not self._execution.valid:
+                self._connection_ready = False
                 self._execution_paused = True
                 for pending in tuple(self._pending_approvals.values()):
                     await self._close_pending_approval(pending, "instance_replaced")
@@ -732,7 +773,11 @@ class AgentControlChannel:
             self._accept_event_ack(decoded.v2.detail)
             return
         if decoded.v2 is not None and isinstance(decoded.v2.detail, AgentReplayRequestV2Detail):
-            await self._replay_v2_events(decoded.v2.detail, sender)
+            self._verify_v2_control_host(decoded.v2.header.host_id)
+            try:
+                self._command_queue.put_nowait((decoded.v2.detail, self._connection_epoch))
+            except asyncio.QueueFull as exc:
+                raise CodexConnectionSlowConsumerError("Agent恢复处理容量已满。") from exc
             return
         if decoded.v1 is not None:
             if decoded.v1.message_type != AgentV1MessageType.COMMAND or not isinstance(
@@ -750,12 +795,41 @@ class AgentControlChannel:
             raise ValueError("控制面发送了不受支持的Agent消息。")
         if command.host_id != self._settings.agent.host_id:
             raise PermissionError("控制面命令host_id与本机Agent不匹配。")
+        self._require_command_admission(command, self._connection_epoch)
+        try:
+            self._command_queue.put_nowait((command, self._connection_epoch))
+        except asyncio.QueueFull as exc:
+            raise CodexConnectionSlowConsumerError("Agent命令处理容量已满。") from exc
+
+    def _require_command_admission(self, command: CodexAgentCommand, epoch: int | None) -> None:
         if (
-            not self._execution_enabled
-            or asyncio.get_running_loop().time() >= self._execution_lease_deadline
-            or command.execution_generation != self._execution_lease_generation
+            not self._connection_ready
+            or epoch != self._connection_epoch
+            or self._active_sender is None
         ):
-            raise PermissionError("当前电脑没有有效的账号执行租约。")
+            raise AgentCommandAdmissionClosed("命令原连接已失去执行准入。")
+        self._execution.require(command.execution_generation)
+
+    async def _command_loop(self) -> None:
+        while not self._shutdown_event.is_set():
+            command, epoch = await self._command_queue.get()
+            try:
+                if isinstance(command, AgentReplayRequestV2Detail):
+                    sender = self._active_sender
+                    if sender is not None and epoch == self._connection_epoch:
+                        try:
+                            await self._replay_v2_events(command, sender)
+                        except (ConnectionError, TimeoutError):
+                            self._logger.info("回放等待下次连接同步。")
+                else:
+                    await self._execute_command(command, epoch)
+            finally:
+                self._command_queue.task_done()
+
+    async def _execute_command(self, command: CodexAgentCommand, epoch: int | None) -> None:
+        if not self._connection_ready or epoch != self._connection_epoch:
+            # 尚未claim/无副作用：留给服务端按原投递合同重新准入。
+            return
         executor = AgentCommandExecutor(
             journal=self._journal,
             client=self._supervisor.handle.client,
@@ -763,13 +837,9 @@ class AgentControlChannel:
                 self._workspace_registry,
                 self._resolve_command_security_policy(command),
             ),
-            ack_sender=lambda ack: self._send_command_ack(sender, ack),
-            result_sender=lambda result: self._send_command_result(
-                sender,
-                result,
-                command.command_type,
-                command,
-            ),
+            admission_check=lambda: self._require_command_admission(command, epoch),
+            ack_sender=self._send_current_ack,
+            result_sender=lambda result: self._send_current_result(result, command),
             approval_reply_handler=self._reply_approval,
             history_capacity_registry=self._history_capacity_registry,
             history_window_cache=self._history_window_cache,
@@ -787,7 +857,29 @@ class AgentControlChannel:
             and self._execution_resolved is not None
             and self._execution_resolved.applied_state != "applied"
         ):
-            await self._send_snapshot(self._supervisor.handle, sender)
+            sender = self._active_sender
+            if sender is not None and self._connection_ready and self._execution.valid:
+                try:
+                    await self._send_snapshot(self._supervisor.handle, sender)
+                except (ConnectionError, TimeoutError):
+                    self._logger.info("命令已收束，快照等待下次连接同步。")
+
+    async def _send_current_ack(self, ack: CodexAgentCommandAck) -> None:
+        sender = self._active_sender
+        if sender is not None and self._connection_ready:
+            try:
+                await self._send_command_ack(sender, ack)
+            except (ConnectionError, TimeoutError):
+                self._logger.info("命令ACK暂未送达，保留原账本。")
+
+    async def _send_current_result(
+        self, result: CodexAgentCommandResult, command: CodexAgentCommand
+    ) -> None:
+        sender = self._active_sender if self._connection_ready else None
+        try:
+            await self._send_command_result(sender, result, command.command_type, command)
+        except (ConnectionError, TimeoutError):
+            self._logger.info("命令结果暂未送达，按原命令ID核对。")
 
     async def _apply_project_settings(self, command: CodexAgentCommand) -> JsonValue:
         key = command.params.get("workspace_key")
@@ -822,9 +914,7 @@ class AgentControlChannel:
         if command.sandbox_mode is None or command.approval_policy is None:
             raise PermissionError("Agent命令缺少用户确认的执行限制。")
         return AgentAppServerSecurityPolicy(
-            approval_policy=cast(
-                Literal["untrusted", "on-request", "never"], command.approval_policy.value
-            ),
+            approval_policy=command.approval_policy.value,
             approvals_reviewer=local_policy.approvals_reviewer,
             sandbox_mode=command.sandbox_mode.value,
         )
@@ -834,7 +924,7 @@ class AgentControlChannel:
         handle: AppServerProcessHandle,
         sender: CodexOutboundFrameSenderPort,
     ) -> None:
-        execution_generation = self._execution_lease_generation
+        execution_generation = self._execution.generation
         builder = AgentSnapshotBuilder(
             host_id=self._settings.agent.host_id,
             workspace_registry=self._workspace_registry,
@@ -870,8 +960,8 @@ class AgentControlChannel:
                     snapshot=snapshot,
                 )
                 if (
-                    not self._execution_enabled
-                    or execution_generation != self._execution_lease_generation
+                    not self._execution.enabled
+                    or execution_generation != self._execution.generation
                 ):
                     return
                 v2_snapshot = v2_snapshot.model_copy(
@@ -901,7 +991,7 @@ class AgentControlChannel:
         previous: tuple[str, ...] | None = None
         while True:
             await asyncio.sleep(15)
-            if not self._execution_enabled or self._execution_paused:
+            if not self._execution.enabled or self._execution_paused:
                 continue
             try:
                 values = []
@@ -928,22 +1018,6 @@ class AgentControlChannel:
 
         while True:
             await asyncio.sleep(self._settings.agent.heartbeat_seconds)
-            if (
-                self._execution_enabled
-                and asyncio.get_running_loop().time() - self._last_worktree_cleanup >= 60
-            ):
-                self._last_worktree_cleanup = asyncio.get_running_loop().time()
-                for workspace in self._workspace_registry.list_workspaces():
-                    if (workspace.root / ".git").exists():
-                        try:
-                            await asyncio.to_thread(self._worktree_port.prune, workspace.key)
-                        except (OSError, RuntimeError, ValueError):
-                            self._logger.warning(
-                                "隔离工作树清理未完成：workspace=%s", workspace.key
-                            )
-            for pending in tuple(self._pending_approvals.values()):
-                if pending.expires_at <= datetime.now(UTC):
-                    await self._close_pending_approval(pending, "expired")
             epoch = self._connection_epoch
             if epoch is None:
                 raise RuntimeError("Agent心跳缺少连接代次。")
@@ -971,13 +1045,7 @@ class AgentControlChannel:
                 await self._send_model(sender, AgentV1MessageType.HEARTBEAT.value, heartbeat)
 
     def _begin_lease_request(self) -> UUID:
-        now = asyncio.get_running_loop().time()
-        self._lease_requests = {
-            key: value for key, value in self._lease_requests.items() if now - value < 60
-        }
-        request_id = uuid4()
-        self._lease_requests[request_id] = now
-        return request_id
+        return self._execution.begin_request()
 
     def _build_hello_frame(self, handle: AppServerProcessHandle) -> CodexConnectionFrame:
         if self._protocol_version == CodexConnectionProtocolVersion.V2:
@@ -2044,7 +2112,7 @@ class AgentControlChannel:
 
     async def _send_command_result(
         self,
-        sender: CodexOutboundFrameSenderPort,
+        sender: CodexOutboundFrameSenderPort | None,
         result: CodexAgentCommandResult,
         command_type: str | None = None,
         command: CodexAgentCommand | None = None,
@@ -2062,7 +2130,8 @@ class AgentControlChannel:
             }:
                 self._project_execution.confirm(key, self._execution_resolved)
         if self._protocol_version == CodexConnectionProtocolVersion.V1:
-            await self._send_model(sender, AgentV1MessageType.COMMAND_RESULT.value, result)
+            if sender is not None:
+                await self._send_model(sender, AgentV1MessageType.COMMAND_RESULT.value, result)
             return
         thread_id, turn_id = read_upstream_identifiers(result.result)
         if thread_id is None and command is not None:
@@ -2136,6 +2205,8 @@ class AgentControlChannel:
                     update={"turns": (), "history_status": "omitted_too_large"}
                 )
             typed_result = AgentThreadReadCommandResult(snapshot=product_result)
+        if sender is None:
+            return
         await sender.send(
             self._protocol_codec.encode_v2(
                 host_id=self._settings.agent.host_id,

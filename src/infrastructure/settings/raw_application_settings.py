@@ -766,6 +766,7 @@ class RawDatabaseRuntimeMapping(TypedDict, total=False):
     pool_recycle_seconds: int
     connect_timeout_seconds: int
     auto_upgrade_on_startup: bool
+    statement_timeout_seconds: int
 
 
 class RawMemoryCacheBackendDetailMapping(TypedDict, total=False):
@@ -1191,6 +1192,7 @@ class RawCodexControlRuntimeMapping(TypedDict, total=False):
 
     enabled: bool
     agent_deployment_profile: str
+    agent_lease_continuity_enabled: bool
     agent_heartbeat_seconds: int
     agent_offline_after_seconds: int
     agent_rpc_ack_timeout_seconds: int

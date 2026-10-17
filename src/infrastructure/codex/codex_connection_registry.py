@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -10,6 +11,7 @@ from uuid import UUID
 from src.core.codex_contract.connection_session_contract import (
     CodexConnectionFrame,
     CodexConnectionProtocolVersion,
+    CodexConnectionShutdown,
     CodexHostOfflineError,
     CodexOutboundFrameSenderPort,
 )
@@ -31,6 +33,14 @@ class CodexConnectionLease:
     connected_at: datetime
     protocol_version: CodexConnectionProtocolVersion
     compatibility_decision: CodexCompatibilityDecision
+    on_revoke: Callable[[], Awaitable[None]] | None = None
+
+    def close(self, code: int, reason: str) -> None:
+        """在同一信号中携带撤销、替换或重启原因。"""
+        if isinstance(self.shutdown_event, CodexConnectionShutdown):
+            self.shutdown_event.request(code, reason)
+        else:
+            self.shutdown_event.set()
 
 
 class CodexConnectionRegistry:
@@ -53,6 +63,7 @@ class CodexConnectionRegistry:
         shutdown_event: asyncio.Event | None = None,
         protocol_version: CodexConnectionProtocolVersion = CodexConnectionProtocolVersion.V1,
         compatibility_decision: CodexCompatibilityDecision = CodexCompatibilityDecision.COMPATIBLE,
+        on_revoke: Callable[[], Awaitable[None]] | None = None,
     ) -> CodexConnectionLease:
         """注册新连接；同 host 重连原子替换并通知旧会话退出。"""
 
@@ -72,10 +83,11 @@ class CodexConnectionRegistry:
                 connected_at=datetime.now(UTC),
                 protocol_version=protocol_version,
                 compatibility_decision=compatibility_decision,
+                on_revoke=on_revoke,
             )
             self._leases[host_id] = lease
             if current is not None:
-                current.shutdown_event.set()
+                current.close(1008, "connection_replaced")
             return lease
 
     async def unregister(self, lease: CodexConnectionLease) -> None:
@@ -113,7 +125,11 @@ class CodexConnectionRegistry:
         async with self._lock:
             lease = self._leases.pop(host_id, None)
         if lease is not None:
-            lease.shutdown_event.set()
+            try:
+                if lease.on_revoke is not None:
+                    await lease.on_revoke()
+            finally:
+                lease.close(1008, "device_revoked")
 
     async def shutdown(self) -> None:
         """停止新注册并通知所有会话排空。"""
@@ -123,4 +139,4 @@ class CodexConnectionRegistry:
             leases = list(self._leases.values())
             self._leases.clear()
         for lease in leases:
-            lease.shutdown_event.set()
+            lease.close(1012, "server_restart")

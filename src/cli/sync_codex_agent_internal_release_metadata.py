@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import argparse
-import re
 import hashlib
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
 import httpx
-
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -49,6 +48,7 @@ class InternalReleaseMetadataSyncCommand(BaseModel):
     configs: tuple[Path, ...] = Field(min_length=1)
     minimum_security_version: str | None = None
     dry_run: bool = False
+    local_installer: Path | None = None
 
 
 class CodexAgentInternalReleaseMetadataSynchronizer:
@@ -59,7 +59,18 @@ class CodexAgentInternalReleaseMetadataSynchronizer:
             command.manifest.read_text(encoding="utf-8")
         )
         detail = manifest.detail
-        self._verify_published_release(manifest)
+        if command.local_installer is None:
+            self._verify_published_release(manifest)
+        else:
+            # 准备尚未发布的配置，部署顺序仍要求先发布制品再更新服务器。
+            # 与在线校验共用同一清单，不以手填版本/摘要替代制品事实。
+            installer = command.local_installer
+            if not installer.is_file() or not 0 < installer.stat().st_size <= 1_073_741_824:
+                raise ValueError("待发布的本地 MSI 不存在或大小无效。")
+            with installer.open("rb") as stream:
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            if digest != detail.artifact_sha256:
+                raise ValueError("本地 MSI SHA-256 与发布清单不一致。")
         if (
             detail.source_repository is None
             or detail.source_revision is None
@@ -184,6 +195,11 @@ class CodexAgentInternalReleaseMetadataSyncCli:
         parser.add_argument("--config", required=True, action="append", type=Path)
         parser.add_argument("--minimum-security-version")
         parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument(
+            "--local-installer",
+            type=Path,
+            help="校验本地 MSI 并准备发布后部署的配置；不声称远端已发布",
+        )
         arguments = parser.parse_args(argv)
         CodexAgentInternalReleaseMetadataSynchronizer().synchronize(
             InternalReleaseMetadataSyncCommand(
@@ -191,6 +207,7 @@ class CodexAgentInternalReleaseMetadataSyncCli:
                 configs=tuple(arguments.config),
                 minimum_security_version=arguments.minimum_security_version,
                 dry_run=arguments.dry_run,
+                local_installer=arguments.local_installer,
             )
         )
         return 0

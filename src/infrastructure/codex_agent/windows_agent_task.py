@@ -58,11 +58,13 @@ $info = Get-ScheduledTaskInfo -TaskName $taskName -ErrorAction Stop
 START_TASK_SCRIPT: Final = """
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+Enable-ScheduledTask -TaskName $env:CODEX_REMOTE_AGENT_TASK_NAME -ErrorAction Stop | Out-Null
 Start-ScheduledTask -TaskName $env:CODEX_REMOTE_AGENT_TASK_NAME -ErrorAction Stop
 """
 STOP_TASK_SCRIPT: Final = """
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+Disable-ScheduledTask -TaskName $env:CODEX_REMOTE_AGENT_TASK_NAME -ErrorAction Stop | Out-Null
 Stop-ScheduledTask -TaskName $env:CODEX_REMOTE_AGENT_TASK_NAME -ErrorAction Stop
 """
 
@@ -306,8 +308,6 @@ class WindowsAgentTaskController:
             if status.is_running:
                 self._lifecycle_state = AgentLifecycleState.RUNNING
                 return status
-            if status.state == "Disabled":
-                raise WindowsAgentTaskError("Agent 计划任务已禁用，请重新安装 Agent。")
             self._backend.start(self._task_name)
             status = self._wait_for_running(expected_running=True, action="启动")
             self._lifecycle_state = AgentLifecycleState.RUNNING
@@ -319,10 +319,10 @@ class WindowsAgentTaskController:
     def pause(self) -> WindowsAgentTaskStatus:
         self._lifecycle_state = AgentLifecycleState.STOPPING
         try:
-            status = self.read_status()
-            if status.is_running:
-                self._backend.stop(self._task_name)
-                status = self._wait_for_running(expected_running=False, action="暂停")
+            # 先禁用同一个 OS 任务，再停止：定时恢复与用户暂停共享唯一事实源。
+            # 即使 worker 已崩溃、任务当前 Ready，也必须关闭后续恢复触发。
+            self._backend.stop(self._task_name)
+            status = self._wait_for_running(expected_running=False, action="暂停")
             self._run_process_backend.stop_all()
             self._lifecycle_state = AgentLifecycleState.PAUSED
             return status

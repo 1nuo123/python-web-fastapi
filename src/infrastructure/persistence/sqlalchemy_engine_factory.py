@@ -50,7 +50,11 @@ class SqlAlchemyEngineFactory:
 
         connect_arguments = PostgresqlConnectArguments(
             connect_timeout=runtime_settings.connect_timeout_seconds,
-            options=POSTGRES_SEARCH_PATH_TEMPLATE.format(schema=runtime_settings.schema_name),
+            options=(
+                POSTGRES_SEARCH_PATH_TEMPLATE.format(schema=runtime_settings.schema_name)
+                + f" -cstatement_timeout={runtime_settings.statement_timeout_seconds * 1000}"
+                + f" -clock_timeout={runtime_settings.connect_timeout_seconds * 1000}"
+            ),
         )
         return create_engine(
             runtime_settings.url,
@@ -60,6 +64,7 @@ class SqlAlchemyEngineFactory:
             pool_size=runtime_settings.pool_size,
             max_overflow=runtime_settings.max_overflow,
             pool_recycle=runtime_settings.pool_recycle_seconds,
+            pool_timeout=runtime_settings.connect_timeout_seconds,
             connect_args=connect_arguments,
         )
 

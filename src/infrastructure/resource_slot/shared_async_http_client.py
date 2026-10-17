@@ -32,6 +32,8 @@ class SharedAsyncHttpClient:
         detail: AsyncHttpClientDetail,
         *,
         tls_context: ssl.SSLContext | None = None,
+        proxy: str | None = None,
+        trust_env: bool = True,
     ) -> None:
         """
         初始化共享异步HTTP客户端。
@@ -50,10 +52,13 @@ class SharedAsyncHttpClient:
         self._transport = OutboundUrlSafetyAsyncHttpTransport(
             limits=limits,
             tls_context=tls_context,
+            proxy=proxy,
+            trust_env=trust_env,
         )
         self._client = httpx.AsyncClient(
             timeout=detail.timeout_seconds,
             transport=self._transport,
+            trust_env=trust_env,
         )
 
     def get_client(self) -> httpx.AsyncClient:

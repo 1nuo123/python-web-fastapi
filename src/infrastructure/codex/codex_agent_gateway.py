@@ -30,19 +30,19 @@ from src.core.codex_contract.agent_protocol_contract import (
 from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentApprovalOpenedEventDetail,
     AgentCommandAckV2Detail,
-    AgentCommandV2Detail,
     AgentCommandResultPayload,
     AgentCommandResultReference,
     AgentCommandResultV2Detail,
+    AgentCommandV2Detail,
     AgentDiffChangedEventDetail,
     AgentEventAckV2Detail,
     AgentEventBatchV2Detail,
     AgentEventDetail,
     AgentEventRecord,
-    AgentGapEventDetail,
-    AgentHeartbeatV2Detail,
     AgentExecutionLeaseV2Detail,
     AgentExecutionStoppedV2Detail,
+    AgentGapEventDetail,
+    AgentHeartbeatV2Detail,
     AgentHelloAckV2Detail,
     AgentHelloV2Detail,
     AgentItemChangedEventDetail,
@@ -71,8 +71,9 @@ from src.core.codex_contract.app_server_schema_manifest_contract import (
 from src.core.codex_contract.approval_contract import CodexApprovalKind
 from src.core.codex_contract.connection_session_contract import (
     CodexConnectionFrame,
-    CodexHostOfflineError,
     CodexConnectionProtocolVersion,
+    CodexConnectionSlowConsumerError,
+    CodexHostOfflineError,
     CodexOutboundFrameSenderPort,
 )
 from src.core.codex_contract.presence_contract import (
@@ -90,6 +91,7 @@ from src.infrastructure.codex.agent_protocol_codec import (
     AgentV1Payload,
     DecodedAgentProtocolMessage,
 )
+from src.infrastructure.codex.codex_active_host_service import CodexActiveHostService
 from src.infrastructure.codex.codex_agent_event_cursor_store import (
     CodexAgentEventCursorStore,
     CodexAgentEventEpochConflictError,
@@ -100,7 +102,6 @@ from src.infrastructure.codex.codex_connection_registry import (
 )
 from src.infrastructure.codex.codex_host_actor import CodexHostActorRegistry
 from src.infrastructure.codex.codex_host_presence_adapter import CodexHostPresenceAdapter
-from src.infrastructure.codex.codex_active_host_service import CodexActiveHostService
 
 COMMAND_RESULT_ID_FIELD: Final = "id"
 COMMAND_RESULT_STATUS_FIELD: Final = "status"
@@ -133,6 +134,7 @@ class CodexAgentGatewayHandler:
         self,
         *,
         principal: AgentDevicePrincipal,
+        business_queue_capacity: int = 128,
         connection_registry: CodexConnectionRegistry,
         actor_registry: CodexHostActorRegistry,
         compatibility_policy: CodexCompatibilityPolicy,
@@ -155,6 +157,10 @@ class CodexAgentGatewayHandler:
         disconnect_observer: AgentDisconnectObserver | None = None,
         compatibility_observer: AgentCompatibilityObserver | None = None,
     ) -> None:
+        self._hello_complete = asyncio.Event()
+        self._business_queue: asyncio.Queue[
+            tuple[DecodedAgentProtocolMessage | CodexAgentHeartbeat, CodexOutboundFrameSenderPort]
+        ] = asyncio.Queue(maxsize=business_queue_capacity)
         self._principal = principal
         self._connection_registry = connection_registry
         self._actor_registry = actor_registry
@@ -183,6 +189,10 @@ class CodexAgentGatewayHandler:
         self._agent_event_epoch: UUID | None = None
         self._last_event_seq = 0
         self._presence: CodexHostPresence | None = None
+        self._revoking = False
+        self._stopped = asyncio.Event()
+        self._revocation_task: asyncio.Task[None] | None = None
+        self._stop_generation: int | None = None
 
     @property
     def lease(self) -> CodexConnectionLease | None:
@@ -200,33 +210,71 @@ class CodexAgentGatewayHandler:
         decoded = self._codec.decode(frame)
         if self._lease is None:
             await self._accept_hello(decoded, sender)
+            self._hello_complete.set()
             return
         if decoded.protocol_version != self._lease.protocol_version:
             raise ValueError("Agent连接协商后不得切换协议版本。")
-        if decoded.v1 is not None:
-            await self._accept_v1(decoded.v1.message_type, decoded.v1.payload)
-            return
-        if decoded.v2 is None:
-            raise ValueError("Agent协议解码结果为空。")
-        self._verify_bound_host(decoded.v2.header.host_id)
-        self._verify_bound_key(decoded.v2.header.key_id)
-        await self._accept_v2(decoded.v2.detail, sender)
+        if decoded.v2 is not None:
+            self._verify_bound_host(decoded.v2.header.host_id)
+            self._verify_bound_key(decoded.v2.header.key_id)
+            if isinstance(
+                decoded.v2.detail, (AgentHeartbeatV2Detail, AgentExecutionStoppedV2Detail)
+            ):
+                await self._accept_v2(decoded.v2.detail, sender)
+                return
+        self._enqueue_business(decoded, sender)
+
+    @property
+    def hello_complete(self) -> bool:
+        return self._hello_complete.is_set()
+
+    def _enqueue_business(
+        self,
+        message: DecodedAgentProtocolMessage | CodexAgentHeartbeat,
+        sender: CodexOutboundFrameSenderPort,
+    ) -> None:
+        try:
+            self._business_queue.put_nowait((message, sender))
+        except asyncio.QueueFull as exc:
+            raise CodexConnectionSlowConsumerError("Agent业务处理容量已满。") from exc
+
+    async def run_business(self) -> None:
+        """按序应用业务消息，控制读取不等待投影/数据库。"""
+        while True:
+            message, sender = await self._business_queue.get()
+            try:
+                if self._revoking:
+                    continue
+                if isinstance(message, CodexAgentHeartbeat):
+                    await self._heartbeat_observer(message, self._principal)
+                elif message.v1 is not None:
+                    await self._accept_v1(message.v1.message_type, message.v1.payload)
+                elif message.v2 is not None:
+                    await self._accept_v2(message.v2.detail, sender)
+                else:
+                    raise ValueError("Agent协议解码结果为空。")
+            finally:
+                self._business_queue.task_done()
 
     async def close(self) -> None:
         """释放当前代次的 registry 租约。"""
 
-        if self._lease is not None:
-            lease = self._lease
+        if self._revocation_task is not None:
+            self._revocation_task.cancel()
+            await asyncio.gather(self._revocation_task, return_exceptions=True)
+        lease, presence = self._lease, self._presence
+        self._lease = None
+        self._presence = None
+        if lease is None:
+            return
+        try:
             await self._connection_registry.unregister(lease)
-            if self._presence_adapter is not None and self._presence is not None:
-                await self._presence_adapter.release(self._presence)
-                self._presence = None
-            self._lease = None
-            await self._disconnect_observer(
-                lease.host_id,
-                self._principal,
-                lease.connected_at,
-            )
+        finally:
+            try:
+                if self._presence_adapter is not None and presence is not None:
+                    await self._presence_adapter.release(presence)
+            finally:
+                await self._disconnect_observer(lease.host_id, self._principal, lease.connected_at)
 
     async def _accept_hello(
         self,
@@ -318,8 +366,6 @@ class CodexAgentGatewayHandler:
                 "approval_policies": [item.value for item in hello.approval_policies],
             },
         )
-        await self._hello_observer(legacy_hello, self._principal)
-        await self._compatibility_observer(host_id, self._principal, decision)
         lease = await self._register(
             host_id,
             sender,
@@ -342,6 +388,8 @@ class CodexAgentGatewayHandler:
             host_id=host_id,
             event_epoch=hello.agent_event_epoch,
         )
+        await self._hello_observer(legacy_hello, self._principal)
+        await self._compatibility_observer(host_id, self._principal, decision)
         await sender.send(
             self._codec.encode_v2(
                 host_id=host_id,
@@ -364,13 +412,15 @@ class CodexAgentGatewayHandler:
             return
         state = await self._active_host.read(self._principal.owner_subject_id)
         host_id = UUID(self._principal.host_id)
+        if self._revoking:
+            self._stop_generation = state.version
         await sender.send(
             self._codec.encode_v2(
                 host_id=host_id,
                 message_id=uuid4(),
                 detail=AgentExecutionLeaseV2Detail(
                     generation=state.version,
-                    enabled=state.active_host_id == host_id,
+                    enabled=not self._revoking and state.active_host_id == host_id,
                     request_id=request_id,
                 ),
             )
@@ -397,9 +447,25 @@ class CodexAgentGatewayHandler:
             shutdown_event=self._shutdown_event,
             protocol_version=protocol_version,
             compatibility_decision=decision,
+            on_revoke=lambda: self._revoke_execution(sender),
         )
         self._lease = lease
         return lease
+
+    async def _revoke_execution(self, sender: CodexOutboundFrameSenderPort) -> None:
+        """撤销立即关闭准入；已认证会话仅保留停止回执的有界窗口。"""
+        self._revoking = True
+        self._stopped.clear()
+        if self._active_host is None or self._lease is None:
+            return
+        host_id = UUID(self._principal.host_id)
+        await self._active_host.revoke(self._principal.owner_subject_id, host_id)
+        try:
+            await self._send_execution_lease(sender, None)
+            await asyncio.wait_for(self._stopped.wait(), timeout=15)
+        except (ConnectionError, TimeoutError):
+            # 未收到可信停止证明，active-host继续阻断接管，不能按时间猜测已停止。
+            return
 
     def _evaluate_connection(
         self,
@@ -476,12 +542,20 @@ class CodexAgentGatewayHandler:
                 await self._active_host.acknowledge_stopped(
                     self._principal.owner_subject_id, host_id, detail.generation
                 )
+            if self._revoking and detail.generation == self._stop_generation:
+                self._stopped.set()
             return
         if isinstance(detail, AgentHeartbeatV2Detail):
+            if self._revoking:
+                return
             if self._revocation_signal is not None:
                 current_generation = await self._revocation_signal.read_generation(host_id)
                 if current_generation != self._revocation_generation:
-                    raise PermissionError("Agent设备已经撤销或代次已更新。")
+                    if self._revocation_task is None:
+                        self._revocation_task = asyncio.create_task(
+                            self._connection_registry.revoke(host_id)
+                        )
+                    return
             if detail.revocation_generation != self._revocation_generation:
                 raise PermissionError("Agent撤销代次与当前连接身份不一致。")
             if self._presence_adapter is not None and self._presence is not None:
@@ -489,16 +563,18 @@ class CodexAgentGatewayHandler:
                 if renewed is None:
                     raise PermissionError("Agent presence fencing token已经失效。")
                 self._presence = renewed
-            await self._heartbeat_observer(
+            if self._lease is None or detail.connection_epoch != self._lease.epoch:
+                raise PermissionError("Agent心跳连接代次已失效。")
+            await self._send_execution_lease(sender, detail.lease_request_id)
+            self._enqueue_business(
                 CodexAgentHeartbeat(
                     host_id=host_id,
                     connection_epoch=detail.connection_epoch,
                     app_server_instance_id=str(detail.app_server_instance_id),
                     sent_at=datetime.now(UTC),
                 ),
-                self._principal,
+                sender,
             )
-            await self._send_execution_lease(sender, detail.lease_request_id)
             return
         if isinstance(detail, AgentCommandAckV2Detail):
             await self._accept_command_ack(
@@ -532,7 +608,7 @@ class CodexAgentGatewayHandler:
                 self._to_v1_snapshot(host_id, detail),
                 self._principal,
             )
-            if self._command_sender is not None:
+            if self._command_sender is not None and detail.continuation_token is None:
                 self._command_sender.confirm_ready(detail.execution_generation)
             return
 

@@ -18,6 +18,7 @@ from src.application.ports.signature_verifier_port import SignatureVerifierPort
 from src.application.streaming.stream_access_ticket_service import (
     StreamAccessTicketService,
 )
+from src.core.codex_contract.agent_connection_contract import AgentConnectionTicketExpired
 from src.core.codex_contract.agent_device_auth_contract import AgentDevicePrincipal
 from src.core.codex_contract.device_key_contract import (
     DEVICE_CHALLENGE_AUDIENCE,
@@ -173,7 +174,11 @@ class VerifyDeviceChallengeUsecase:
 
         record = await self._store.read(proof.challenge_id)
         if record is None or record.challenge.expires_at <= datetime.now(UTC):
-            raise self._invalid()
+            raise HttpFaultException(
+                status_code=HTTPStatus.UNAUTHORIZED,
+                error_code=CodexErrorCode.DEVICE_CHALLENGE_EXPIRED,
+                message="设备挑战已过期或已消费，请开始新的连接尝试。",
+            )
         challenge = record.challenge
         if challenge.host_id != proof.host_id or challenge.key_id != proof.key_id:
             raise self._invalid()
@@ -284,12 +289,12 @@ class ConsumeAgentConnectionTicketUsecase:
             client_ip=client_ip,
         )
         if record is None:
-            raise PermissionError("Agent连接票据无效或已消费。")
+            raise AgentConnectionTicketExpired("Agent连接票据无效或已消费。")
         try:
             subject = AgentConnectionTicketSubject.decode(record.subject_id)
         except ValueError as exc:
             raise PermissionError("Agent连接票据主体结构无效。") from exc
-        self._verify_current_identity(subject)
+        await asyncio.to_thread(self._verify_current_identity, subject)
         return AgentDevicePrincipal(
             credential_id=str(subject.key_id),
             host_id=str(subject.host_id),
