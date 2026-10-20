@@ -268,11 +268,7 @@ postgres_is_running() {
   [[ -n "$container_id" ]] && [[ "$(docker inspect --format '{{.State.Running}}' "$container_id")" == "true" ]]
 }
 
-postgres_container_exists() {
-  [[ -n "$("${backend_compose[@]}" ps --all -q postgres 2>/dev/null || true)" ]]
-}
-
-create_backup() {
+create_backup() (
   local requested_root="${1:-$BACKUP_ROOT}"
   local timestamp
   local dump_path
@@ -280,6 +276,7 @@ create_backup() {
   local metadata_path
   require_repositories
   require_runtime_files
+  resolve_ci_image_refs
   if ! postgres_is_running; then
     echo "PostgreSQL is not running; backup cannot be created." >&2
     exit 1
@@ -309,7 +306,7 @@ create_backup() {
   echo "PostgreSQL backup created: $dump_path"
   echo "Checksum: $dump_path.sha256"
   echo "Revision metadata: $metadata_path"
-}
+)
 
 update_repositories_and_deploy() {
   local old_backend_revision
@@ -330,14 +327,16 @@ update_repositories_and_deploy() {
 
   old_backend_revision="$(git -C "$BACKEND_ROOT" rev-parse HEAD)"
   old_frontend_revision="$(git -C "$FRONTEND_ROOT" rev-parse HEAD)"
-  if postgres_is_running; then
-    create_backup "$BACKUP_ROOT"
-  elif postgres_container_exists; then
-    echo "PostgreSQL container exists but is not running; update aborted before changing code." >&2
-    exit 1
-  else
-    echo "No PostgreSQL container exists; update continues without a database backup."
-  fi
+  # Keep pre-update image refs out of the subsequent deployment environment.
+  (
+    resolve_ci_image_refs
+    postgres_container_id="$("${backend_compose[@]}" ps --all -q postgres)" || exit 1
+    if [[ -n "$postgres_container_id" ]]; then
+      create_backup "$BACKUP_ROOT"
+    else
+      echo "No PostgreSQL container exists; update continues without a database backup."
+    fi
+  )
 
   git -C "$BACKEND_ROOT" merge --ff-only origin/main
   git -C "$FRONTEND_ROOT" merge --ff-only origin/main
@@ -351,6 +350,7 @@ show_logs() {
   local follow_flag="${2:-0}"
   local log_args=(logs --tail 200)
   require_runtime_files
+  resolve_ci_image_refs
   if [[ "$follow_flag" == "1" ]]; then
     if [[ "$group" == "all" ]]; then
       echo "Follow one group at a time: backend, frontend, or caddy." >&2
@@ -412,6 +412,7 @@ start_existing_images() {
 
 stop_stack() {
   require_runtime_files
+  resolve_ci_image_refs
   "${caddy_compose[@]}" stop
   "${frontend_compose[@]}" stop
   "${backend_compose[@]}" stop

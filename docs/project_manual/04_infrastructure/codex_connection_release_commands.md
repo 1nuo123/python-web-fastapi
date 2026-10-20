@@ -48,6 +48,7 @@ git add -- `
   protocol/codex_app_server/0.163.0 `
   scripts/codex/acceptance `
   scripts/codex/verify_compatibility_release.py `
+  deploy/production.sh `
   src `
   docs/project_manual/04_infrastructure/codex_agent_production_release.md `
   docs/project_manual/04_infrastructure/codex_connection_release_commands.md `
@@ -83,7 +84,7 @@ git add -- `
   app/stores/codex-session.ts `
   app/types/codex-enrollment.ts `
   app/utils/codex-realtime-write-guard.ts `
-  scripts/acceptance/codex-connection.cjs
+  scripts/acceptance
 git diff --cached --stat
 git commit -m 'feat(codex): unify enrollment and realtime recovery'
 $FrontendSha = (git rev-parse HEAD).Trim()
@@ -144,6 +145,9 @@ export PRODUCTION_FRONTEND_ROOT=/opt/web/typescript-web-nuxt
 export COMPOSE_PROFILES=task-worker
 unset BACKEND_IMAGE FRONTEND_IMAGE
 
+# 先取得修复后的部署入口；旧入口缺少日志/备份所需的镜像变量初始化。
+# 这一步只更新源码，运行中的容器仍由下面的 update 统一切换。
+git pull --ff-only origin main || exit 1
 bash deploy/production.sh doctor || exit 1
 deploy_log="/tmp/codex-deploy-$(date +%Y%m%d-%H%M%S).log"
 nohup bash -c '
@@ -222,10 +226,15 @@ if ($Manifest.detail.version -ne $ReleaseVersion -or $Manifest.detail.automatic_
 if ((git -C $ReleaseRoot branch --show-current) -ne 'master') { throw '发布仓库不是 master。' }
 if (git -C $ReleaseRoot diff --cached --name-only) { throw '发布仓库已有暂存内容，请先确认。' }
 git -C $ReleaseRoot pull --ff-only origin master
-if (Test-Path -LiteralPath $ReleaseDirectory) { throw '版本目录已存在，先确认是否已发布，不覆盖它。' }
-New-Item -ItemType Directory -Path $ReleaseDirectory | Out-Null
+New-Item -ItemType Directory -Path $ReleaseDirectory -Force | Out-Null
 foreach ($Name in @('CodexRemoteAgent.msi', 'internal-release.json', 'SHA256SUMS.json')) {
-  Copy-Item -LiteralPath (Join-Path $BuiltRelease $Name) -Destination $ReleaseDirectory
+  $SourceFile = Join-Path $BuiltRelease $Name
+  $TargetFile = Join-Path $ReleaseDirectory $Name
+  if (Test-Path -LiteralPath $TargetFile) {
+    if ((Get-FileHash -LiteralPath $SourceFile).Hash -ne (Get-FileHash -LiteralPath $TargetFile).Hash) {
+      throw "现有发布文件不一致，禁止覆盖：$Name"
+    }
+  } else { Copy-Item -LiteralPath $SourceFile -Destination $TargetFile }
 }
 git -C $ReleaseRoot add -- "releases/$ReleaseVersion"
 git -C $ReleaseRoot diff --cached --stat
@@ -257,7 +266,7 @@ gh release view "v$ReleaseVersion" --repo $ReleaseRepo --web
 gh release edit "v$ReleaseVersion" --repo $ReleaseRepo --draft=false --prerelease --latest=false
 ```
 
-也可在同一个 GitHub 草稿页手动点 Publish release。不要重复创建 tag 或替换已发布资产。本地发布仓库另有历史未跟踪产物，以上只提交本次版本目录。
+也可在同一个 GitHub 草稿页手动点 Publish release。不要重复创建 tag 或替换已发布资产。本地发布仓库另有历史未跟踪产物，以上只提交本次版本目录。2026-10-20 已将验收后的三个文件复制到该目录，复制步骤会核对已有文件后跳过；若你已完成提交或公开发布，跳过相应已完成步骤。
 
 ## 6. 同步下载清单并更新后端仓库
 
