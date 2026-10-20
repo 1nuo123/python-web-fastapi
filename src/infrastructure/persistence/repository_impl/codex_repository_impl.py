@@ -510,18 +510,20 @@ class CodexDeviceKeyRepositoryImpl(CodexDeviceKeyRepositoryPort):
         host_id: UUID,
     ) -> CodexDeviceKeySnapshot | None:
         row = self._session.scalars(
-            select(CodexHostDeviceKeyOrmModel).where(
+            select(CodexHostDeviceKeyOrmModel)
+            .where(
                 CodexHostDeviceKeyOrmModel.key_id == key_id,
                 CodexHostDeviceKeyOrmModel.host_id == host_id,
             )
+            .with_for_update()
         ).one_or_none()
         return None if row is None else self._to_snapshot(row)
 
     def get_by_enrollment(self, enrollment_id: UUID) -> CodexDeviceKeySnapshot | None:
         row = self._session.scalars(
-            select(CodexHostDeviceKeyOrmModel).where(
-                CodexHostDeviceKeyOrmModel.enrollment_id == enrollment_id
-            )
+            select(CodexHostDeviceKeyOrmModel)
+            .where(CodexHostDeviceKeyOrmModel.enrollment_id == enrollment_id)
+            .with_for_update()
         ).one_or_none()
         return None if row is None else self._to_snapshot(row)
 
@@ -619,6 +621,29 @@ class CodexDeviceAuthorizationAuditRepositoryImpl(CodexDeviceAuthorizationAuditR
 
     def add(self, snapshot: DeviceAuthorizationAuditSnapshot) -> None:
         self._session.add(CodexDeviceAuthorizationAuditOrmModel(**snapshot.model_dump()))
+
+    def get_approval(self, enrollment_id: UUID) -> DeviceAuthorizationAuditSnapshot | None:
+        row = self._session.scalars(
+            select(CodexDeviceAuthorizationAuditOrmModel)
+            .where(
+                CodexDeviceAuthorizationAuditOrmModel.enrollment_id == enrollment_id,
+                CodexDeviceAuthorizationAuditOrmModel.decision
+                == DeviceAuthorizationDecision.APPROVE.value,
+            )
+            .order_by(CodexDeviceAuthorizationAuditOrmModel.occurred_at.desc())
+            .limit(1)
+        ).first()
+        if row is None:
+            return None
+        return DeviceAuthorizationAuditSnapshot(
+            audit_id=row.audit_id,
+            enrollment_id=row.enrollment_id,
+            host_id=row.host_id,
+            owner_subject_id=row.owner_subject_id,
+            decision=DeviceAuthorizationDecision.APPROVE,
+            idempotency_key=row.idempotency_key,
+            occurred_at=CodexRepositoryDatetimeConverter.normalize_required(row.occurred_at),
+        )
 
     def get_by_enrollment_and_idempotency_key(
         self,

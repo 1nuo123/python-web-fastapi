@@ -66,10 +66,14 @@ from src.core.codex_contract.app_server_product_contract import (
 )
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerCapabilityCode,
+    AppServerMethodName,
     AppServerNotificationName,
 )
+from src.domain.codex.agent_command_policy import AGENT_COMMAND_METHODS
+from src.domain.codex.codex_compatibility_policy import CodexCompatibilityTuple
 from src.core.codex_contract.approval_contract import CodexApprovalKind
 from src.core.codex_contract.connection_session_contract import (
+    CodexConnectionPresenceExpiredError,
     CodexConnectionFrame,
     CodexConnectionProtocolVersion,
     CodexConnectionSlowConsumerError,
@@ -345,6 +349,9 @@ class CodexAgentGatewayHandler:
             schema_digest=hello.app_server_schema_digest,
             capabilities=frozenset(item.code for item in hello.capabilities),
         )
+        if hello.app_server_state == "unavailable":
+            self._allowed_commands = frozenset()
+            decision = CodexCompatibilityDecision.BLOCKED
         legacy_hello = CodexAgentHello(
             host_id=host_id,
             agent_version=hello.agent_version,
@@ -447,6 +454,7 @@ class CodexAgentGatewayHandler:
             shutdown_event=self._shutdown_event,
             protocol_version=protocol_version,
             compatibility_decision=decision,
+            allowed_commands=self._allowed_commands,
             on_revoke=lambda: self._revoke_execution(sender),
         )
         self._lease = lease
@@ -470,9 +478,9 @@ class CodexAgentGatewayHandler:
     def _evaluate_connection(
         self,
         *,
-        codex_version: str,
+        codex_version: str | None,
         protocol_version: str,
-        schema_digest: str,
+        schema_digest: str | None,
         capabilities: frozenset[AppServerCapabilityCode],
     ) -> CodexCompatibilityDecision:
         result = self._compatibility_policy.evaluate_connection(
@@ -483,11 +491,24 @@ class CodexAgentGatewayHandler:
                 capabilities=capabilities,
             )
         )
-        if result.decision in {
-            CodexCompatibilityDecision.BLOCKED,
-            CodexCompatibilityDecision.UPGRADE_REQUIRED,
-        }:
-            raise ValueError(f"Agent兼容性检查失败：{result.reason.value}。")
+        self._allowed_commands = frozenset(
+            command
+            for command, method in AGENT_COMMAND_METHODS.items()
+            if self._compatibility_policy.evaluate(
+                CodexCompatibilityTuple(
+                    codex_version=codex_version,
+                    agent_protocol_version=protocol_version,
+                    app_server_schema_digest=schema_digest,
+                    capabilities=capabilities,
+                    method=AppServerMethodName(method),
+                )
+            ).decision
+            == CodexCompatibilityDecision.COMPATIBLE
+        )
+        if result.decision == CodexCompatibilityDecision.COMPATIBLE:
+            self._allowed_commands |= frozenset({"workspace.settings"})
+            if any(code.value.startswith("approval.") for code in capabilities):
+                self._allowed_commands |= frozenset({"approval.decision"})
         return result.decision
 
     async def _accept_v1(
@@ -561,7 +582,10 @@ class CodexAgentGatewayHandler:
             if self._presence_adapter is not None and self._presence is not None:
                 renewed = await self._presence_adapter.renew(self._presence)
                 if renewed is None:
-                    raise PermissionError("Agent presence fencing token已经失效。")
+                    current = await self._presence_adapter.read(host_id)
+                    if current is not None and current.owner != self._presence.owner:
+                        raise PermissionError("Agent连接已被另一个实例接管。")
+                    raise CodexConnectionPresenceExpiredError("Agent presence已过期，重新建链。")
                 self._presence = renewed
             if self._lease is None or detail.connection_epoch != self._lease.epoch:
                 raise PermissionError("Agent心跳连接代次已失效。")
@@ -570,7 +594,11 @@ class CodexAgentGatewayHandler:
                 CodexAgentHeartbeat(
                     host_id=host_id,
                     connection_epoch=detail.connection_epoch,
-                    app_server_instance_id=str(detail.app_server_instance_id),
+                    app_server_instance_id=(
+                        str(detail.app_server_instance_id)
+                        if detail.app_server_instance_id
+                        else None
+                    ),
                     sent_at=datetime.now(UTC),
                 ),
                 sender,

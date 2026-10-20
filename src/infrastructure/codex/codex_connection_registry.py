@@ -33,6 +33,7 @@ class CodexConnectionLease:
     connected_at: datetime
     protocol_version: CodexConnectionProtocolVersion
     compatibility_decision: CodexCompatibilityDecision
+    allowed_commands: frozenset[str] | None = None
     on_revoke: Callable[[], Awaitable[None]] | None = None
 
     def close(self, code: int, reason: str) -> None:
@@ -64,6 +65,7 @@ class CodexConnectionRegistry:
         protocol_version: CodexConnectionProtocolVersion = CodexConnectionProtocolVersion.V1,
         compatibility_decision: CodexCompatibilityDecision = CodexCompatibilityDecision.COMPATIBLE,
         on_revoke: Callable[[], Awaitable[None]] | None = None,
+        allowed_commands: frozenset[str] | None = None,
     ) -> CodexConnectionLease:
         """注册新连接；同 host 重连原子替换并通知旧会话退出。"""
 
@@ -83,6 +85,7 @@ class CodexConnectionRegistry:
                 connected_at=datetime.now(UTC),
                 protocol_version=protocol_version,
                 compatibility_decision=compatibility_decision,
+                allowed_commands=allowed_commands,
                 on_revoke=on_revoke,
             )
             self._leases[host_id] = lease

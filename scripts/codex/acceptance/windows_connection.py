@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -38,7 +39,6 @@ from src.core.http_contract.outbound_http_client_contract import AsyncHttpClient
 from src.infrastructure.codex_agent.agent_configuration import (
     CodexHostAgentSettings,
     AgentBootstrapSettings,
-    AgentLocalBootstrapConnectionSettings,
 )
 from src.infrastructure.codex_agent.agent_config_store import AgentConfigStore
 from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
@@ -72,10 +72,13 @@ class FaultBoundary:
         self.ticket_reuse = 0
         self.auth_requests = 0
         self.consume_next_ticket = True
+        self.websocket_peers = []
+        self.auth_peers = []
 
     async def __call__(self, scope, receive, send):
         path = scope.get("path", "")
         if scope["type"] == "websocket":
+            self.websocket_peers.append(tuple(scope["client"]))
             digest = hashlib.sha256(scope.get("query_string", b"")).hexdigest()
             self.ticket_reuse += int(digest in self.tickets)
             self.tickets.add(digest)
@@ -84,6 +87,7 @@ class FaultBoundary:
             "/internal/codex-agents/connection-tickets",
         ):
             self.auth_requests += 1
+            self.auth_peers.append(tuple(scope["client"]))
         failures = self.failures.get(path, [])
         if failures and scope["type"] in ("http", "websocket"):
             status = failures.pop(0)
@@ -148,6 +152,12 @@ async def until(predicate, *, timeout=90, task=None):
             await task
             raise AssertionError("Agent运行循环提前结束")
         if asyncio.get_running_loop().time() >= deadline:
+            for pending in asyncio.all_tasks():
+                print(
+                    "acceptance pending",
+                    pending.get_name(),
+                    [f"{frame.f_code.co_name}:{frame.f_lineno}" for frame in pending.get_stack()],
+                )
             raise TimeoutError("端到端条件未在截止时间内成立")
         await asyncio.sleep(0.1)
 
@@ -173,10 +183,14 @@ async def binary_acceptance(directory, settings, app, boundary, report):
     config = directory / "agent.toml"
     store = AgentConfigStore(config, WindowsCurrentUserAclEnforcer())
     store.write(store.serialize(settings))
+    from src.infrastructure.codex_agent.agent_executable_selector import (
+        WindowsAgentFileVersionReader,
+    )
+
     bootstrap = AgentBootstrapSettings(
         deployment_state="unconfigured",
         connection=None,
-        agent_version="0.1.38",
+        agent_version=WindowsAgentFileVersionReader().read(executable),
         expected_codex_version="0.145.0",
         app_server_schema_digest=settings.protocol.app_server_schema_digest,
     )
@@ -264,6 +278,10 @@ async def binary_acceptance(directory, settings, app, boundary, report):
         if "--scheduler" in sys.argv:
             await scheduler_acceptance(args, directory, settings, runtime, status_store, report)
     finally:
+        log = directory / "logs/agent.log"
+        if log.exists():
+            (ROOT / ".codex-validation-logs/binary-agent.log").write_bytes(log.read_bytes())
+        report["process_exit_code"] = process.returncode
         for owned in reversed(owned_processes):
             if owned.returncode is not None:
                 continue
@@ -426,6 +444,11 @@ if ($null -ne $task) {
 
 
 async def main():
+    proxy_kind = next(
+        (arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--proxy=")), None
+    )
+    if proxy_kind not in (None, "http", "https", "system"):
+        raise ValueError("Unsupported proxy scenario")
     rejection = next(
         (arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--rejection=")), None
     )
@@ -447,7 +470,15 @@ async def main():
             if "--binary" in sys.argv
             else "mutation.json"
             if "--mutation-only" in sys.argv
+            else "runtime-recovery.json"
+            if "--runtime-recovery" in sys.argv
             else "acceptance.json"
+        )
+    )
+    output = Path(
+        next(
+            (arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--acceptance-report=")),
+            str(output),
         )
     )
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -469,7 +500,6 @@ async def main():
             "runtime": {
                 "web": {"cors": {"allow_origins": ["http://testserver", origin]}},
                 "codex_control": {
-                    "agent_lease_continuity_enabled": True,
                     "max_connected_agents": 4,
                 },
             }
@@ -493,8 +523,27 @@ async def main():
     run_task = None
     journal = None
     resource = None
+    proxy = None
+    proxy_environment = {}
     try:
         await until(lambda: server.started, task=server_task)
+        proxy_url = None
+        if proxy_kind is not None:
+            from scripts.codex.acceptance.connect_proxy import AcceptanceConnectProxy
+
+            proxy = AcceptanceConnectProxy(port)
+            proxy_url = await proxy.start(
+                certificate=cert if proxy_kind == "https" else None, key=key
+            )
+            if proxy_kind == "system":
+                for name, value in {
+                    "HTTPS_PROXY": proxy_url,
+                    "https_proxy": proxy_url,
+                    "NO_PROXY": "nonexistent.invalid",
+                    "no_proxy": "nonexistent.invalid",
+                }.items():
+                    proxy_environment[name] = os.environ.get(name)
+                    os.environ[name] = value
 
         def enroll():
             with httpx.Client(
@@ -533,7 +582,12 @@ async def main():
                     "control_plane_api_url": origin,
                     "state_database": directory / "state.sqlite",
                     "ca_certificate_path": cert,
-                    "network_mode": "direct",
+                    "network_mode": "system"
+                    if proxy_kind == "system"
+                    else "explicit"
+                    if proxy_url
+                    else "direct",
+                    "proxy_url": proxy_url if proxy_kind != "system" else None,
                 },
                 "protocol": {
                     "agent_schema_version": "2.0",
@@ -551,6 +605,30 @@ async def main():
                 ],
             }
         )
+        settings = settings.model_copy(
+            update={
+                "agent": settings.agent.model_copy(
+                    update={
+                        "codex_binary": next(
+                            (
+                                arg.split("=", 1)[1]
+                                for arg in sys.argv
+                                if arg.startswith("--codex-bin=")
+                            ),
+                            "codex",
+                        )
+                    }
+                )
+            }
+        )
+        if "--runtime-recovery" in sys.argv:
+            settings = settings.model_copy(
+                update={
+                    "agent": settings.agent.model_copy(
+                        update={"codex_binary": str(directory / "recovering-codex.cmd")}
+                    )
+                }
+            )
         if any(flag in sys.argv for flag in ("--binary", "--scheduler", "--pause-only")):
             await binary_acceptance(directory, settings, app, boundary, report)
             report["passed"] = True
@@ -571,12 +649,15 @@ async def main():
             rtoml.dumps(json.loads(settings.model_dump_json(exclude_none=True))), encoding="utf-8"
         )
         network = AgentNetworkPolicy(settings.agent)
+        assert set(ssl.create_default_context().get_ca_certs(binary_form=True)).issubset(
+            set(network.tls_context.get_ca_certs(binary_form=True))
+        ), "Additional CA replaced system trust roots"
         resource = SharedAsyncHttpClient(
             AsyncHttpClientDetail(
                 timeout_seconds=15, max_connections=4, max_keepalive_connections=2
             ),
             tls_context=network.tls_context,
-            proxy=None,
+            proxy=network.http_proxy_for(origin),
             trust_env=False,
         )
         journal = AgentCommandJournal(settings.agent.state_database)
@@ -595,6 +676,63 @@ async def main():
             logger=logging.getLogger("acceptance"),
             config_path=directory / "agent.toml",
         )
+        if "--runtime-recovery" in sys.argv:
+            boundary.consume_next_ticket = False
+            run_task = asyncio.create_task(channel.run())
+            await until(lambda: channel._hello_ack_event.is_set(), task=run_task)
+            assert not channel._connection_ready and channel._local_issue == "cli_not_found"
+            runtime = app.state.container.resource_mount.get_codex_control_runtime()
+            lease = await runtime.connection_registry.read(device.host_id)
+            assert not lease.allowed_commands
+            assert channel._supervisor.current_handle is None
+            import shutil
+
+            actual = shutil.which("codex")
+            Path(settings.agent.codex_binary).write_text(
+                '@echo off\ncall "' + actual + '" %*\n', encoding="utf-8"
+            )
+            await until(lambda: channel._connection_ready, timeout=120, task=run_task)
+            assert channel._supervisor.handle.profile is not None
+            ready_instance = channel._supervisor.handle.instance_id
+            Path(settings.agent.codex_binary).write_text(
+                '@echo off\nif "%1"=="--version" (echo codex-cli 9.9.9 & exit /b 0)\ncall "'
+                + actual
+                + '" %*\n',
+                encoding="utf-8",
+            )
+            await until(
+                lambda: (
+                    channel._local_issue == "cli_version_unverified"
+                    and channel._hello_ack_event.is_set()
+                ),
+                timeout=90,
+                task=run_task,
+            )
+            assert not channel._connection_ready
+            assert channel._supervisor.handle.instance_id != ready_instance
+            lease = await runtime.connection_registry.read(device.host_id)
+            assert not lease.allowed_commands
+            epoch = channel._connection_epoch
+            await asyncio.sleep(settings.agent.heartbeat_seconds + 1)
+            assert channel._connection_epoch == epoch
+            Path(settings.agent.codex_binary).write_text(
+                '@echo off\ncall "' + actual + '" %*\n', encoding="utf-8"
+            )
+            await until(lambda: channel._connection_ready, timeout=90, task=run_task)
+            report["scenarios"].append(
+                {
+                    "name": "idle CLI identity change reselects profile; unknown version retains stable management; known version automatically recovers",
+                    "passed": True,
+                }
+            )
+            report["scenarios"].append(
+                {
+                    "name": "missing CLI retains authenticated management and automatically recovers same device",
+                    "passed": True,
+                }
+            )
+            report["passed"] = True
+            return
         boundary.failures = {
             "/internal/codex-agents/device-challenges": [520],
             "/internal/codex-agents/connection-tickets": [522],
@@ -607,6 +745,9 @@ async def main():
                 if rejection == "tls"
                 else {"/internal/codex-agents/device-challenges": [int(rejection)]}
             )
+        if "--approval-matrix" in sys.argv or proxy is not None:
+            boundary.failures = {}
+            boundary.consume_next_ticket = False
         run_task = asyncio.create_task(channel.run())
         if rejection is not None:
             await until(lambda: channel._connection_state == "blocked", task=run_task)
@@ -639,6 +780,63 @@ async def main():
             task=run_task,
         )
         first = channel._supervisor.handle
+        soak_seconds = next(
+            (int(arg.split("=", 1)[1]) for arg in sys.argv if arg.startswith("--soak-seconds=")),
+            None,
+        )
+        if soak_seconds is not None:
+            from scripts.codex.acceptance.connection_soak import run_connection_soak
+
+            await run_connection_soak(
+                channel,
+                runtime=runtime,
+                run_task=run_task,
+                report=report,
+                output=output,
+                seconds=soak_seconds,
+            )
+            report["passed"] = True
+            return
+        if proxy is not None:
+            assert boundary.websocket_peers[-1] in proxy.upstream_peers
+            assert boundary.auth_peers[-1] in proxy.upstream_peers
+            previous_tickets = len(boundary.tickets)
+            proxy.interrupt_tunnels()
+            await until(lambda: not channel._connection_ready, task=run_task)
+            await until(
+                lambda: channel._connection_ready and len(boundary.tickets) > previous_tickets,
+                task=run_task,
+            )
+            assert channel._supervisor.handle.instance_id == first.instance_id
+            assert boundary.websocket_peers[-1] in proxy.upstream_peers
+            assert boundary.auth_peers[-1] in proxy.upstream_peers
+            assert boundary.ticket_reuse == 0
+            report["scenarios"].append(
+                {
+                    "name": f"{proxy_kind} CONNECT proxy: real HTTP and WSS, custom CA, tunnel interruption and fresh-ticket recovery",
+                    "passed": True,
+                    "tunnels": proxy.connections,
+                }
+            )
+            report["passed"] = True
+            return
+        if "--approval-matrix" in sys.argv:
+            from scripts.codex.acceptance.approval_matrix import run_approval_matrix
+
+            await run_approval_matrix(
+                channel,
+                actor=runtime.actor_registry.get(device.host_id),
+                journal=journal,
+                origin=origin,
+                certificate=cert,
+                workspace=workspace,
+                report=report,
+                previous_report=json.loads(output.read_text(encoding="utf-8"))
+                if "--approval-resume" in sys.argv and output.is_file()
+                else None,
+            )
+            report["passed"] = True
+            return
         report["scenarios"].append(
             {
                 "name": "520/522 challenge-ticket-upgrade recovery",
@@ -923,6 +1121,13 @@ async def main():
             journal.close()
         if resource is not None:
             await resource.close()
+        if proxy is not None:
+            await proxy.close()
+        for name, value in proxy_environment.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
         server.should_exit = True
         await asyncio.wait_for(server_task, 30)
         report["completed_at"] = datetime.now(UTC).isoformat()

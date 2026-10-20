@@ -72,6 +72,16 @@ class CodexHostActor:
             if lease is None:
                 raise CodexHostOfflineError("Codex主机离线。")
             if (
+                lease.allowed_commands is not None
+                and command.command_type not in lease.allowed_commands
+            ):
+                raise PermissionError("当前Codex兼容档案未开放该功能。")
+            if lease.compatibility_decision in {
+                CodexCompatibilityDecision.BLOCKED,
+                CodexCompatibilityDecision.UPGRADE_REQUIRED,
+            }:
+                raise PermissionError("电脑已连接，当前Codex版本需要适配更新。")
+            if (
                 lease.compatibility_decision == CodexCompatibilityDecision.READ_ONLY
                 and command.command_type not in {"thread.list", "thread.read"}
             ):

@@ -182,6 +182,9 @@ class AppServerSchemaSnapshotDetail(BaseModel):
     )
     confirmation_response_expected: bool
     supported_agent_protocol_versions: tuple[str, ...] = Field(min_length=1)
+    adapter_revision: Literal["1"] = "1"
+    history_strategy: Literal["thread_read", "turns_page"] = "turns_page"
+    allow_experimental_api: bool = True
     capabilities: tuple[AppServerCapabilityDetail, ...] = Field(min_length=1)
     method_catalog: tuple[AppServerMethodPolicy, ...] = Field(min_length=1)
     license_notice_path: str = Field(min_length=1, max_length=512)

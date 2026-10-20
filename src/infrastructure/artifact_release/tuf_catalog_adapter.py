@@ -71,11 +71,14 @@ class AllowlistedTufFetcher(FetcherInterface):
 class TufArtifactCatalogAdapter(ArtifactCatalogPort):
     """只负责调用 python-tuf，不复制 metadata 状态机。"""
 
-    def __init__(self, *, settings: ArtifactReleaseRuntimeSettings) -> None:
+    def __init__(
+        self, *, settings: ArtifactReleaseRuntimeSettings, client: httpx.Client | None = None
+    ) -> None:
         self._settings = settings
         self._fetcher = AllowlistedTufFetcher(
             host_allowlist=settings.repository_host_allowlist,
             timeout_seconds=settings.request_timeout_seconds,
+            client=client,
         )
 
     async def resolve(self, identity: ArtifactIdentity) -> ArtifactReleaseEnvelope:

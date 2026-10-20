@@ -1,0 +1,301 @@
+{
+  "header": {
+    "kind": "app_server_schema_manifest",
+    "schema_version": "1.0",
+    "codex_version": "0.162.0",
+    "review_status": "approved"
+  },
+  "detail": {
+    "kind": "app_server_schema_snapshot",
+    "schema_version": "1.0",
+    "generated_at": "2026-10-20T03:53:53.459283Z",
+    "target_platform": "windows-amd64",
+    "generator_commands": [
+      "codex app-server generate-json-schema",
+      "codex app-server generate-ts"
+    ],
+    "json_schema_file_count": 317,
+    "json_schema_bundle_sha256": "d56de014b2f9312defddbec6915371e2f995fa17b25b5389e5137a5ebb734fd9",
+    "typescript_file_count": 743,
+    "typescript_bundle_sha256": "e9988d8ae73ddecdeff4cc441237fe34644b49419fa2f62abd85c1d3ba49bada",
+    "approval_schema_digest_sha256": "b41c6c0e7a50f36a25e4e627be5291982270594faa1f6c7a43cca2476bdab094",
+    "approval_server_request_methods": [
+      "item/commandExecution/requestApproval",
+      "item/fileChange/requestApproval",
+      "item/permissions/requestApproval"
+    ],
+    "approval_response_requirements": [
+      {
+        "schema_filename": "CommandExecutionRequestApprovalResponse.json",
+        "required_fields": [
+          "decision"
+        ]
+      },
+      {
+        "schema_filename": "FileChangeRequestApprovalResponse.json",
+        "required_fields": [
+          "decision"
+        ]
+      },
+      {
+        "schema_filename": "PermissionsRequestApprovalResponse.json",
+        "required_fields": [
+          "permissions"
+        ]
+      }
+    ],
+    "confirmation_response_expected": false,
+    "supported_agent_protocol_versions": [
+      "1.0",
+      "2.0"
+    ],
+    "capabilities": [
+      {
+        "code": "model.list",
+        "version": 1
+      },
+      {
+        "code": "thread.list",
+        "version": 1
+      },
+      {
+        "code": "thread.read",
+        "version": 1
+      },
+      {
+        "code": "thread.start",
+        "version": 1
+      },
+      {
+        "code": "thread.resume",
+        "version": 1
+      },
+      {
+        "code": "thread.name_set",
+        "version": 1
+      },
+      {
+        "code": "thread.archive",
+        "version": 1
+      },
+      {
+        "code": "thread.unarchive",
+        "version": 1
+      },
+      {
+        "code": "thread.delete",
+        "version": 1
+      },
+      {
+        "code": "thread.compact",
+        "version": 1
+      },
+      {
+        "code": "turn.start",
+        "version": 1
+      },
+      {
+        "code": "turn.steer",
+        "version": 1
+      },
+      {
+        "code": "turn.interrupt",
+        "version": 1
+      },
+      {
+        "code": "approval.command",
+        "version": 1
+      },
+      {
+        "code": "approval.file_change",
+        "version": 1
+      },
+      {
+        "code": "approval.permissions",
+        "version": 1
+      },
+      {
+        "code": "event.replay",
+        "version": 1
+      },
+      {
+        "code": "snapshot.pagination",
+        "version": 1
+      }
+    ],
+    "method_catalog": [
+      {
+        "method": "initialize",
+        "effect": "read",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": false,
+        "required_capability": null
+      },
+      {
+        "method": "account/read",
+        "effect": "read",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": false,
+        "required_capability": null
+      },
+      {
+        "method": "config/read",
+        "effect": "read",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": false,
+        "required_capability": null
+      },
+      {
+        "method": "configRequirements/read",
+        "effect": "read",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": false,
+        "required_capability": null
+      },
+      {
+        "method": "model/list",
+        "effect": "read",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": false,
+        "required_capability": "model.list"
+      },
+      {
+        "method": "thread/list",
+        "effect": "read",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": false,
+        "required_capability": "thread.list"
+      },
+      {
+        "method": "thread/read",
+        "effect": "read",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": false,
+        "required_capability": "thread.read"
+      },
+      {
+        "method": "thread/turns/list",
+        "effect": "read",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": false,
+        "required_capability": null
+      },
+      {
+        "method": "thread/start",
+        "effect": "mutation",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "thread.start"
+      },
+      {
+        "method": "thread/resume",
+        "effect": "mutation",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "thread.resume"
+      },
+      {
+        "method": "thread/name/set",
+        "effect": "mutation",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "thread.name_set"
+      },
+      {
+        "method": "thread/archive",
+        "effect": "mutation",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "thread.archive"
+      },
+      {
+        "method": "thread/unarchive",
+        "effect": "mutation",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "thread.unarchive"
+      },
+      {
+        "method": "thread/delete",
+        "effect": "mutation",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": true,
+        "required_capability": "thread.delete"
+      },
+      {
+        "method": "thread/compact/start",
+        "effect": "mutation",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "thread.compact"
+      },
+      {
+        "method": "turn/start",
+        "effect": "mutation",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "turn.start"
+      },
+      {
+        "method": "turn/steer",
+        "effect": "mutation",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "turn.steer"
+      },
+      {
+        "method": "turn/interrupt",
+        "effect": "mutation",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": true,
+        "required_capability": "turn.interrupt"
+      },
+      {
+        "method": "item/commandExecution/requestApproval",
+        "effect": "server_request",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "approval.command"
+      },
+      {
+        "method": "item/fileChange/requestApproval",
+        "effect": "server_request",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "approval.file_change"
+      },
+      {
+        "method": "item/permissions/requestApproval",
+        "effect": "server_request",
+        "idempotent": false,
+        "retry_on_overload": false,
+        "ordering_barrier": true,
+        "required_capability": "approval.permissions"
+      }
+    ],
+    "license_notice_path": "../THIRD_PARTY_NOTICES.md",
+    "adapter_revision": "1",
+    "history_strategy": "turns_page",
+    "allow_experimental_api": true
+  }
+}

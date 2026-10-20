@@ -262,7 +262,13 @@ class MemoryStreamStateStore(StreamStateStorePort):
             ]
             self._cursor_events[request.stream_key] = records
             if not records:
-                return CursorStreamWindow(stream_key=request.stream_key, events=(), cursors=())
+                return CursorStreamWindow(
+                    stream_key=request.stream_key,
+                    events=(),
+                    cursors=(),
+                    gap=request.after_cursor is not None,
+                    snapshot_required=request.after_cursor is not None,
+                )
             if any(item[1].owner_subject_id != request.owner_subject_id for item in records):
                 raise PermissionError("cursor流owner校验失败。")
             after_sequence = 0
@@ -272,15 +278,23 @@ class MemoryStreamStateStore(StreamStateStorePort):
                     after_sequence = int(raw.split("-", maxsplit=1)[0])
                 except ValueError as exc:
                     raise ValueError("内存cursor结构无效。") from exc
-                if after_sequence < records[0][0]:
+                if after_sequence < records[0][0] or after_sequence > records[-1][0]:
                     return CursorStreamWindow(
                         stream_key=request.stream_key,
                         events=(),
                         cursors=(),
                         gap=True,
                         snapshot_required=True,
+                        tail_cursor=OpaqueStreamCursorCodec.encode(f"{records[-1][0]}-0"),
                     )
-            selected = [item for item in records if item[0] > after_sequence][: request.limit]
+            through_sequence = (
+                int(OpaqueStreamCursorCodec.decode(request.through_cursor).split("-", 1)[0])
+                if request.through_cursor is not None
+                else records[-1][0]
+            )
+            selected = [item for item in records if after_sequence < item[0] <= through_sequence][
+                : request.limit
+            ]
             cursors = tuple(
                 OpaqueStreamCursorCodec.encode(f"{sequence}-0") for sequence, _event in selected
             )
@@ -289,6 +303,7 @@ class MemoryStreamStateStore(StreamStateStorePort):
                 events=tuple(event for _sequence, event in selected),
                 cursors=cursors,
                 next_cursor=cursors[-1] if cursors else request.after_cursor,
+                tail_cursor=OpaqueStreamCursorCodec.encode(f"{records[-1][0]}-0"),
             )
 
     def _assert_opened(self) -> None:

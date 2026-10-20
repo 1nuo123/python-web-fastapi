@@ -73,6 +73,7 @@ class CursorStreamReadRequest(BaseModel):
     stream_key: str = Field(min_length=1, max_length=256)
     owner_subject_id: str = Field(min_length=1, max_length=128)
     after_cursor: str | None = Field(default=None, max_length=512)
+    through_cursor: str | None = Field(default=None, max_length=512)
     limit: int = Field(default=100, gt=0, le=1_000)
 
 
@@ -85,5 +86,6 @@ class CursorStreamWindow(BaseModel):
     events: tuple[CursorStreamEvent, ...]
     cursors: tuple[str, ...]
     next_cursor: str | None = None
+    tail_cursor: str | None = None
     gap: bool = False
     snapshot_required: bool = False

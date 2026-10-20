@@ -321,14 +321,29 @@ class RedisStreamStateStore(StreamStateStorePort):
             else OpaqueStreamCursorCodec.decode(request.after_cursor)
         )
         try:
-            first = await cast(
-                Awaitable[list[tuple[str, dict[str, str]]]],
-                self._get_client().xrange(key, min="-", max="+", count=1),
+            milliseconds, sequence = (int(value) for value in after_id.split("-"))
+            minimum = (
+                f"{milliseconds}-{sequence + 1}"
+                if sequence < 2**64 - 1
+                else f"{milliseconds + 1}-0"
             )
-            if (
-                request.after_cursor is not None
-                and first
-                and self._stream_id_before(after_id, first[0][0])
+            maximum = (
+                OpaqueStreamCursorCodec.decode(request.through_cursor)
+                if request.through_cursor
+                else "+"
+            )
+            # A transaction prevents trimming between boundary inspection and page read.
+            async with self._get_client().pipeline(transaction=True) as pipeline:
+                pipeline.xrange(key, min="-", max="+", count=1)
+                pipeline.xrevrange(key, max="+", min="-", count=1)
+                pipeline.xrange(key, min=minimum, max=maximum, count=request.limit)
+                first, last, response = await pipeline.execute()
+            tail_cursor = OpaqueStreamCursorCodec.encode(last[0][0]) if last else None
+            if request.after_cursor is not None and (
+                not first
+                or not last
+                or self._stream_id_before(after_id, first[0][0])
+                or self._stream_id_before(last[0][0], after_id)
             ):
                 return CursorStreamWindow(
                     stream_key=request.stream_key,
@@ -336,11 +351,8 @@ class RedisStreamStateStore(StreamStateStorePort):
                     cursors=(),
                     gap=True,
                     snapshot_required=True,
+                    tail_cursor=tail_cursor,
                 )
-            response = await cast(
-                Awaitable[list[tuple[str, list[tuple[str, dict[str, str]]]]]],
-                self._get_client().xread({key: after_id}, count=request.limit),
-            )
         except RedisError as exc:
             raise RuntimeError(REDIS_STREAM_UNAVAILABLE_MESSAGE) from exc
         if not response:
@@ -349,15 +361,18 @@ class RedisStreamStateStore(StreamStateStorePort):
                 events=(),
                 cursors=(),
                 next_cursor=request.after_cursor,
+                tail_cursor=tail_cursor,
             )
         now = datetime.now(UTC)
         records: list[CursorStreamEvent] = []
         cursors: list[str] = []
-        for stream_id, fields in response[0][1]:
+        expired = False
+        for stream_id, fields in response:
             if fields.get(REDIS_CURSOR_FIELD_OWNER) != request.owner_subject_id:
                 raise PermissionError("cursor流owner校验失败。")
             expires_at = datetime.fromisoformat(fields[REDIS_CURSOR_FIELD_EXPIRES_AT])
             if expires_at <= now:
+                expired = True
                 continue
             records.append(
                 CursorStreamEvent(
@@ -373,7 +388,10 @@ class RedisStreamStateStore(StreamStateStorePort):
             stream_key=request.stream_key,
             events=tuple(records),
             cursors=tuple(cursors),
-            next_cursor=cursors[-1] if cursors else request.after_cursor,
+            next_cursor=OpaqueStreamCursorCodec.encode(response[-1][0]),
+            tail_cursor=tail_cursor,
+            gap=expired,
+            snapshot_required=expired,
         )
 
     def _stream_id_before(self, left: str, right: str) -> bool:

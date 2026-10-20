@@ -9,9 +9,27 @@ from typing import Annotated, Final, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+from src.core.codex_contract.device_key_contract import DeviceChallengeProof
 
 DEVICE_AUTHORIZATION_KIND: Final = "codex_device_authorization"
 DEVICE_AUTHORIZATION_SCHEMA_VERSION: Final = "1.0"
+
+
+class DeviceAuthorizationRecoveryRequest(BaseModel):
+    """同一设备 key 的批准结果恢复；proof 缺省时只申请用途绑定挑战。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    enrollment_id: UUID
+    key_id: UUID
+    proof: DeviceChallengeProof | None = None
+
+
+class DeviceAuthorizationRecoveryResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    enrollment_id: UUID
+    host_id: UUID
+    key_id: UUID
+    activated: Literal[True] = True
 
 
 class DeviceAuthorizationState(StrEnum):

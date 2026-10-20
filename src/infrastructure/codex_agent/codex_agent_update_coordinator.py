@@ -39,7 +39,7 @@ class CodexAgentUpdateCoordinator:
         rollout_subject_digest: str,
         forced: bool,
         health_check: ArtifactHealthCallback,
-    ) -> ArtifactReleaseResult:
+    ) -> ArtifactReleaseResult | None:
         identity = ArtifactIdentity(
             artifact_name=AGENT_ARTIFACT_NAME,
             platform=ArtifactPlatform.WINDOWS,
@@ -55,7 +55,7 @@ class CodexAgentUpdateCoordinator:
             paused=False,
             forced=forced,
         ):
-            raise PermissionError("Agent更新尚未进入当前灰度桶。")
+            return None
         return await self._orchestrator.execute(
             identity=identity,
             target_url=target_url,

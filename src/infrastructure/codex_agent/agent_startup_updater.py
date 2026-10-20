@@ -25,6 +25,7 @@ class AgentStartupUpdateState(StrEnum):
     """Agent 启动更新结果。"""
 
     CURRENT = "current"
+    NOT_ELIGIBLE = "not_eligible"
     UPDATED = "updated"
     ROLLED_BACK = "rolled_back"
 
@@ -94,6 +95,7 @@ class CodexAgentUpdateHealthCheck:
                     "--bootstrap",
                     str(self._bootstrap_path),
                     "doctor",
+                    "--local-only",
                 ),
                 timeout_seconds=self._timeout_seconds,
                 log_category=WindowsSubprocessLogCategory.WINDOWS,
@@ -169,6 +171,8 @@ class CodexAgentStartupUpdater:
             if current_is_blocked:
                 raise PermissionError("最低安全版本更新失败，Agent已停止连接。") from exc
             raise
+        if result is None:
+            return AgentStartupUpdateState.NOT_ELIGIBLE
         if result.rollback_performed:
             if current_is_blocked:
                 raise PermissionError("最低安全版本健康检查失败，Agent已停止连接。")

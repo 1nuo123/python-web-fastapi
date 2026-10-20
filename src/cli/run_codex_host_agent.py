@@ -42,7 +42,6 @@ from src.infrastructure.codex_agent.agent_configuration import (
     AgentWorkspaceSettings,
     CodexHostAgentSettings,
     CodexHostAgentSettingsLoader,
-    build_agent_tls_context,
 )
 from src.infrastructure.codex_agent.agent_connection_ticket_provider import (
     AgentConnectionTicketProvider,
@@ -57,7 +56,10 @@ from src.infrastructure.codex_agent.agent_executable_selector import (
     AgentExecutableSelector,
     WindowsAgentFileVersionReader,
 )
-from src.infrastructure.codex_agent.agent_network_policy import AgentNetworkPolicy
+from src.infrastructure.codex_agent.agent_network_policy import (
+    AgentNetworkPolicy,
+    AgentNetworkSettings,
+)
 from src.infrastructure.codex_agent.agent_release_runtime import CodexAgentReleaseRuntime
 from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
 from src.infrastructure.codex_agent.agent_runtime_version import AgentRuntimeVersionResolver
@@ -146,7 +148,10 @@ class CodexHostAgentCli:
         parser.add_argument("--bootstrap", type=Path)
         subparsers = parser.add_subparsers(dest="command", required=False)
         subparsers.add_parser(AGENT_COMMAND_RUN, help="启动 Agent 主循环")
-        subparsers.add_parser(AGENT_COMMAND_DOCTOR, help="执行脱敏诊断")
+        doctor_parser = subparsers.add_parser(AGENT_COMMAND_DOCTOR, help="执行脱敏诊断")
+        doctor_parser.add_argument(
+            "--local-only", action="store_true", help="仅执行本地更新健康检查"
+        )
         setup_parser = subparsers.add_parser(AGENT_COMMAND_SETUP, help="首次绑定这台电脑")
         setup_parser.add_argument("--api-url", required=True)
         setup_parser.add_argument("--websocket-url", required=True)
@@ -221,13 +226,21 @@ class CodexHostAgentCli:
             with self._hold_runtime_profile_resources(
                 state_directory=runtime_settings.agent.state_database.parent
             ):
-                update_exit_code = await self._apply_startup_update(
-                    settings=runtime_settings,
-                    config_path=config_path,
-                    bootstrap_path=bootstrap_path,
-                    bootstrap=bootstrap,
-                    agent_logger=agent_logger,
-                )
+                update_exit_code = None
+                if (
+                    bootstrap.release is not None
+                    and bootstrap.release.enabled
+                    and AgentVersionPolicy().is_older(
+                        runtime_version, bootstrap.release.minimum_security_version
+                    )
+                ):
+                    update_exit_code = await self._apply_startup_update(
+                        settings=runtime_settings,
+                        config_path=config_path,
+                        bootstrap_path=bootstrap_path,
+                        bootstrap=bootstrap,
+                        agent_logger=agent_logger,
+                    )
                 if update_exit_code is not None:
                     return update_exit_code
                 async with AsyncExitStack() as resources:
@@ -241,7 +254,7 @@ class CodexHostAgentCli:
                             max_keepalive_connections=AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
                         ),
                         tls_context=network.tls_context,
-                        proxy=network.proxy_for(runtime_settings.agent.control_plane_api_url),
+                        proxy=network.http_proxy_for(runtime_settings.agent.control_plane_api_url),
                         trust_env=False,
                     )
                     resources.push_async_callback(async_http_resource.close)
@@ -271,10 +284,64 @@ class CodexHostAgentCli:
                         ),
                         logger=agent_logger,
                     )
-                    await channel.run()
+                    channel_task = asyncio.create_task(channel.run())
+                    update_task = asyncio.create_task(
+                        self._run_background_updates(
+                            channel=channel,
+                            settings=runtime_settings,
+                            config_path=config_path,
+                            bootstrap_path=bootstrap_path,
+                            bootstrap=bootstrap,
+                            agent_logger=agent_logger,
+                        )
+                    )
+                    try:
+                        done, _ = await asyncio.wait(
+                            (channel_task, update_task), return_when=asyncio.FIRST_COMPLETED
+                        )
+                        if update_task in done:
+                            update_exit_code = await update_task
+                        await channel_task
+                        return update_exit_code or 0
+                    finally:
+                        channel.request_shutdown()
+                        update_task.cancel()
+                        if not channel_task.done():
+                            channel_task.cancel()
+                        await asyncio.gather(channel_task, update_task, return_exceptions=True)
         return 0
 
-    async def run_doctor(self, settings: CodexHostAgentSettings) -> int:
+    async def _run_background_updates(
+        self,
+        *,
+        channel: AgentControlChannel,
+        settings: CodexHostAgentSettings,
+        config_path: Path,
+        bootstrap_path: Path,
+        bootstrap: AgentBootstrapSettings,
+        agent_logger: logging.Logger,
+    ) -> int | None:
+        while True:
+            try:
+                result = await self._apply_startup_update(
+                    settings=settings,
+                    config_path=config_path,
+                    bootstrap_path=bootstrap_path,
+                    bootstrap=bootstrap,
+                    agent_logger=agent_logger,
+                )
+            except PermissionError:
+                channel.request_shutdown()
+                raise
+            if result is not None:
+                while not channel.request_shutdown_if_idle():
+                    await asyncio.sleep(settings.agent.heartbeat_seconds)
+                return result
+            await asyncio.sleep(3600)
+
+    async def run_doctor(
+        self, settings: CodexHostAgentSettings, *, local_only: bool = False
+    ) -> int:
         """执行诊断并记录脱敏 JSON。"""
 
         report = await AgentDoctor(
@@ -283,7 +350,7 @@ class CodexHostAgentCli:
             device_key_store=WindowsDpapiDeviceKeyStore(
                 root=settings.agent.state_database.parent / "keys"
             ),
-        ).run()
+        ).run(local_only=local_only)
         doctor_status = AgentRuntimeStatus.from_doctor_report(
             report,
             checked_at=datetime.now(UTC),
@@ -354,60 +421,82 @@ class CodexHostAgentCli:
     ) -> int:
         """运行首次授权并写入不含密钥材料的 Agent 配置。"""
 
-        self._validate_codex_prerequisite(codex_version, codex_binary)
-        tls_context = build_agent_tls_context(
+        try:
+            self._validate_codex_prerequisite(codex_version, codex_binary)
+        except CodexPrerequisiteError as exc:
+            if exc.stage not in {"cli_missing", "cli_permission"}:
+                raise
+            codex_binary = WindowsEnrollmentUi().select_codex_binary()
+            self._validate_codex_prerequisite(codex_version, codex_binary)
+        network_settings = AgentNetworkSettings(
             deployment_profile=deployment_profile,
             development_ca_certificate_path=development_ca_certificate_path,
         )
-        http_resource = SharedAsyncHttpClient(
-            AsyncHttpClientDetail(
-                timeout_seconds=AGENT_HTTP_TIMEOUT_SECONDS,
-                max_connections=AGENT_HTTP_MAX_CONNECTIONS,
-                max_keepalive_connections=AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
-            ),
-            tls_context=tls_context,
-        )
-        try:
-            await CodexAgentSetupUsecase(
-                client=http_resource.get_client(),
-                key_store=WindowsDpapiDeviceKeyStore(root=config_path.parent / "keys"),
-                ui=WindowsEnrollmentUi(),
-                acl_enforcer=WindowsCurrentUserAclEnforcer(),
-            ).execute(
-                config_path=config_path,
-                api_url=api_url,
-                websocket_url=websocket_url,
-                verification_url=verification_url,
-                display_name=display_name,
-                platform="windows",
-                expected_codex_version=codex_version,
-                codex_binary=codex_binary,
-                agent_version=agent_version,
-                schema_digest=schema_digest,
-                workspace=(
-                    AgentWorkspaceSettings(
-                        key=workspace_key,
-                        display_name=workspace_name,
-                        root=workspace_root,
-                        allow_write=True,
-                    )
-                    if workspace_root is not None
-                    else None
+        while True:
+            network = AgentNetworkPolicy(network_settings)
+            http_resource = SharedAsyncHttpClient(
+                AsyncHttpClientDetail(
+                    timeout_seconds=AGENT_HTTP_TIMEOUT_SECONDS,
+                    max_connections=AGENT_HTTP_MAX_CONNECTIONS,
+                    max_keepalive_connections=AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
                 ),
-                deployment_profile=deployment_profile,
-                development_ca_certificate_path=development_ca_certificate_path,
-                enrollment_intent_token=enrollment_intent_token,
-                default_workspace_key=(
-                    bootstrap.default_workspace_key if bootstrap is not None else workspace_key
-                ),
-                default_workspace_name=(
-                    bootstrap.default_workspace_name if bootstrap is not None else workspace_name
-                ),
+                tls_context=network.tls_context,
+                proxy=network.http_proxy_for(api_url),
+                trust_env=False,
             )
-            logger.info("Agent设备授权和本地配置已经完成。")
-            return 0
-        finally:
-            await http_resource.close()
+            try:
+                await CodexAgentSetupUsecase(
+                    client=http_resource.get_client(),
+                    key_store=WindowsDpapiDeviceKeyStore(root=config_path.parent / "keys"),
+                    ui=WindowsEnrollmentUi(),
+                    acl_enforcer=WindowsCurrentUserAclEnforcer(),
+                ).execute(
+                    config_path=config_path,
+                    api_url=api_url,
+                    websocket_url=websocket_url,
+                    verification_url=verification_url,
+                    display_name=display_name,
+                    platform="windows",
+                    expected_codex_version=codex_version,
+                    codex_binary=codex_binary,
+                    agent_version=agent_version,
+                    schema_digest=schema_digest,
+                    workspace=(
+                        AgentWorkspaceSettings(
+                            key=workspace_key,
+                            display_name=workspace_name,
+                            root=workspace_root,
+                            allow_write=True,
+                        )
+                        if workspace_root is not None
+                        else None
+                    ),
+                    deployment_profile=deployment_profile,
+                    development_ca_certificate_path=development_ca_certificate_path,
+                    enrollment_intent_token=enrollment_intent_token,
+                    network_settings=network_settings,
+                    default_workspace_key=(
+                        bootstrap.default_workspace_key if bootstrap is not None else workspace_key
+                    ),
+                    default_workspace_name=(
+                        bootstrap.default_workspace_name
+                        if bootstrap is not None
+                        else workspace_name
+                    ),
+                )
+                logger.info("Agent设备授权和本地配置已经完成。")
+                return 0
+            except httpx.TransportError:
+                from src.infrastructure.codex_agent.agent_connection_settings_ui import (
+                    edit_connection_settings,
+                )
+
+                result = edit_connection_settings(codex_binary, network_settings)
+                if result is None:
+                    raise
+                codex_binary, network_settings = result
+            finally:
+                await http_resource.close()
 
     def run_uri(
         self,
@@ -434,11 +523,9 @@ class CodexHostAgentCli:
                 if config_path.is_file():
                     current = self.load_settings(config_path)
                     if asyncio.run(self._binding_is_active(current)):
+                        asyncio.run(self._resume_enrollment_intent(current, token))
                         self._start_scheduled_agent(
                             config_path, deployment_profile=deployment_profile
-                        )
-                        WindowsEnrollmentUi().show_info(
-                            "这台电脑仍有有效绑定，Agent 已启动；如需重新授权，请先在网站撤销连接。"
                         )
                         return 0
                     WindowsAgentTaskController(
@@ -477,6 +564,9 @@ class CodexHostAgentCli:
                     )
                 )
                 if result == 0:
+                    asyncio.run(
+                        self._resume_enrollment_intent(self.load_settings(config_path), token)
+                    )
                     if deployment_profile is AgentDeploymentProfile.DEVELOPMENT:
                         self._start_scheduled_agent(
                             config_path,
@@ -496,10 +586,45 @@ class CodexHostAgentCli:
         deployment_profile: AgentDeploymentProfile = AgentDeploymentProfile.PRODUCTION,
     ) -> int:
         """打开最小设置窗口。"""
-
+        bootstrap = AgentBootstrapSettingsLoader().load(bootstrap_path)
+        if not config_path.is_file():
+            connection = bootstrap.require_connection_for_profile(deployment_profile)
+            lock_path = config_path.parent / "enrollment.lock"
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            with portalocker.Lock(
+                lock_path,
+                mode="a",
+                timeout=0,
+                flags=portalocker.LockFlags.EXCLUSIVE | portalocker.LockFlags.NON_BLOCKING,
+            ):
+                result = asyncio.run(
+                    self.run_setup(
+                        config_path=config_path,
+                        api_url=connection.api_url,
+                        websocket_url=connection.websocket_url,
+                        verification_url=connection.verification_url,
+                        display_name=platform.node().strip() or DEFAULT_AGENT_DISPLAY_NAME,
+                        workspace_root=None,
+                        workspace_key=bootstrap.default_workspace_key,
+                        workspace_name=bootstrap.default_workspace_name,
+                        agent_version=bootstrap.agent_version,
+                        codex_version=bootstrap.expected_codex_version,
+                        schema_digest=bootstrap.app_server_schema_digest,
+                        deployment_profile=deployment_profile,
+                        development_ca_certificate_path=(
+                            self._resolve_development_ca_certificate_path(bootstrap_path)
+                            if deployment_profile is AgentDeploymentProfile.DEVELOPMENT
+                            else None
+                        ),
+                        bootstrap=bootstrap,
+                    )
+                )
+            if result == 0:
+                self._start_scheduled_agent(config_path, deployment_profile=deployment_profile)
+            return result
         WindowsAgentSettingsWindow(
             config_path=config_path,
-            bootstrap=AgentBootstrapSettingsLoader().load(bootstrap_path),
+            bootstrap=bootstrap,
             deployment_profile=deployment_profile,
         ).show()
         return 0
@@ -643,7 +768,7 @@ class CodexHostAgentCli:
             if settings.agent.deployment_profile is not deployment_profile:
                 raise ValueError("Agent配置的deployment_profile与启动参数不一致。")
             if command == AGENT_COMMAND_DOCTOR:
-                return asyncio.run(self.run_doctor(settings))
+                return asyncio.run(self.run_doctor(settings, local_only=arguments.local_only))
             bootstrap = AgentBootstrapSettingsLoader().load(bootstrap_path)
             bootstrap.validate_deployment_profile(deployment_profile)
             return asyncio.run(
@@ -722,11 +847,8 @@ class CodexHostAgentCli:
             version_output = completed.stdout.strip()
             if not version_output:
                 raise CodexPrerequisiteError("cli_protocol", "Codex CLI未返回版本。")
-            if version_output.split()[-1] != expected_version:
-                raise CodexPrerequisiteError(
-                    "cli_version",
-                    f"当前 CLI 版本不符合本版本 Agent 的兼容契约（{expected_version}）。",
-                )
+            # Setup establishes device identity; runtime selects the verified CLI profile.
+            # An unknown host CLI must not make installation or device recovery impossible.
         except FileNotFoundError as exc:
             raise CodexPrerequisiteError("cli_missing", "未找到已配置的 Codex CLI。") from exc
         except PermissionError as exc:
@@ -781,11 +903,13 @@ class CodexHostAgentCli:
     async def _binding_is_active(self, settings: CodexHostAgentSettings) -> bool:
         if settings.agent.key_id is None:
             raise ValueError("旧版设备身份无法自动核对，请先完成设备迁移。")
-        tls = build_agent_tls_context(
-            deployment_profile=settings.agent.deployment_profile,
-            development_ca_certificate_path=settings.agent.development_ca_certificate_path,
-        )
-        async with httpx.AsyncClient(verify=tls or True, timeout=15) as client:
+        network = AgentNetworkPolicy(settings.agent)
+        async with httpx.AsyncClient(
+            verify=network.tls_context,
+            timeout=15,
+            proxy=network.http_proxy_for(settings.agent.control_plane_api_url),
+            trust_env=False,
+        ) as client:
             provider = AgentConnectionTicketProvider(
                 client=client,
                 control_plane_api_url=settings.agent.control_plane_api_url,
@@ -796,6 +920,39 @@ class CodexHostAgentCli:
             return await provider.binding_is_active(
                 host_id=settings.agent.host_id, key_id=settings.agent.key_id
             )
+
+    async def _resume_enrollment_intent(self, settings: CodexHostAgentSettings, token: str) -> None:
+        from src.core.codex_contract.enrollment_intent_contract import (
+            CodexEnrollmentIntentResumeRequest,
+        )
+
+        if settings.agent.key_id is None:
+            raise ValueError("设备缺少可恢复身份。")
+        network = AgentNetworkPolicy(settings.agent)
+        api_url = settings.agent.control_plane_api_url
+        async with httpx.AsyncClient(
+            verify=network.tls_context,
+            timeout=15,
+            proxy=network.http_proxy_for(api_url),
+            trust_env=False,
+        ) as client:
+            provider = AgentConnectionTicketProvider(
+                client=client,
+                control_plane_api_url=api_url,
+                key_store=WindowsDpapiDeviceKeyStore(
+                    root=settings.agent.state_database.parent / "keys"
+                ),
+            )
+            proof = await provider.prove(
+                host_id=settings.agent.host_id, key_id=settings.agent.key_id
+            )
+            response = await client.post(
+                f"{api_url.rstrip('/')}/internal/codex-agents/enrollment-intents/resume",
+                json=CodexEnrollmentIntentResumeRequest(intent_token=token, proof=proof).model_dump(
+                    mode="json"
+                ),
+            )
+            response.raise_for_status()
 
     def _read_enrollment_token(
         self,
@@ -876,7 +1033,9 @@ class CodexHostAgentCli:
             rollback_budget=release.rollback_budget,
             minimum_security_version=release.minimum_security_version,
         )
-        runtime = CodexAgentReleaseRuntime.build(runtime_settings)
+        runtime = CodexAgentReleaseRuntime.build(
+            runtime_settings, network=AgentNetworkPolicy(settings.agent)
+        )
         target_version: str | None = None
         try:
             updater = CodexAgentStartupUpdater(
@@ -937,9 +1096,13 @@ class CodexHostAgentCli:
         else:
             self._record_update_status(
                 settings.agent.state_database,
-                state="current",
+                state="not_eligible"
+                if state is AgentStartupUpdateState.NOT_ELIGIBLE
+                else "current",
                 target_version=None,
-                reason_code="no_update_available",
+                reason_code="rollout_not_selected"
+                if state is AgentStartupUpdateState.NOT_ELIGIBLE
+                else "no_update_available",
             )
         return None
 

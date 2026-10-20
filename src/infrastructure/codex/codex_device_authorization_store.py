@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+from datetime import timedelta
 from uuid import UUID
 
 from src.application.ports.codex_device_authorization_store_port import (
@@ -32,9 +33,11 @@ class CodexDeviceAuthorizationStore(CodexDeviceAuthorizationStorePort):
         *,
         state: AtomicStatePort,
         digest_service: SensitiveDigestService,
+        recovery_seconds: int = 86_400,
     ) -> None:
         self._state = state
         self._digest_service = digest_service
+        self._recovery_seconds = recovery_seconds
 
     async def create(self, record: DeviceAuthorizationStoreRecord) -> bool:
         return await self._state.create_with_index(
@@ -42,13 +45,13 @@ class CodexDeviceAuthorizationStore(CodexDeviceAuthorizationStorePort):
                 key=self._device_key(record.enrollment_id),
                 value=record.model_dump_json(),
                 version=record.version,
-                expires_at=record.expires_at,
+                expires_at=record.expires_at + timedelta(seconds=self._recovery_seconds),
             ),
             index_record=AtomicStateRecord(
                 key=self._user_key_from_digest(record.user_code_digest),
                 value=str(record.enrollment_id),
                 version=1,
-                expires_at=record.expires_at,
+                expires_at=record.expires_at + timedelta(seconds=self._recovery_seconds),
             ),
         )
 
@@ -104,7 +107,7 @@ class CodexDeviceAuthorizationStore(CodexDeviceAuthorizationStorePort):
             key=self._device_key(enrollment_id),
             expected_version=expected_version,
             next_value=next_record.model_dump_json(),
-            expires_at=next_record.expires_at,
+            expires_at=next_record.expires_at + timedelta(seconds=self._recovery_seconds),
         )
         return next_record if changed is not None else None
 

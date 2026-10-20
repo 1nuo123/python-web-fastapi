@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+import hashlib
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from urllib.parse import quote
@@ -115,22 +116,35 @@ class ManageCodexEnrollmentIntentUsecase:
         current = await self._store.read_by_token(detail.intent_token)
         if current is None:
             raise self._not_found()
-        self._ensure_not_expired(current)
+        request_digest = hashlib.sha256(detail.authorization.model_dump_json().encode()).hexdigest()
+        if current.request_digest is not None and current.request_digest != request_digest:
+            raise self._conflict()
         if current.state == CodexEnrollmentIntentState.CONSUMED:
+            if current.request_digest != request_digest:
+                raise self._conflict()
             return self._build_issued_authorization(current)
-        if current.state != CodexEnrollmentIntentState.ISSUED:
+        self._ensure_not_expired(current)
+        if current.state not in {
+            CodexEnrollmentIntentState.ISSUED,
+            CodexEnrollmentIntentState.CONSUMING,
+        }:
             raise self._conflict()
         consuming = current.model_copy(
             update={
                 "state": CodexEnrollmentIntentState.CONSUMING,
                 "version": current.version + 1,
+                "request_digest": request_digest,
             }
         )
-        claimed = await self._store.transition(
-            intent_id=current.intent_id,
-            expected_version=current.version,
-            expected_state=CodexEnrollmentIntentState.ISSUED,
-            next_record=consuming,
+        claimed = (
+            current
+            if current.state == CodexEnrollmentIntentState.CONSUMING
+            else await self._store.transition(
+                intent_id=current.intent_id,
+                expected_version=current.version,
+                expected_state=CodexEnrollmentIntentState.ISSUED,
+                next_record=consuming,
+            )
         )
         if claimed is None:
             raise self._conflict()
@@ -151,6 +165,7 @@ class ManageCodexEnrollmentIntentUsecase:
                     "user_code": issued.user_code,
                     "device_code": issued.device_code,
                     "poll_interval_seconds": issued.interval_seconds,
+                    "authorization_expires_at": issued.expires_at,
                 }
             )
             changed = await self._store.transition(
@@ -192,8 +207,37 @@ class ManageCodexEnrollmentIntentUsecase:
             or record.token_session_id != token_session_id
         ):
             raise self._not_found()
-        self._ensure_not_expired(record)
+        if record.state != CodexEnrollmentIntentState.CONSUMED:
+            self._ensure_not_expired(record)
         return await self._build_status(record)
+
+    async def resume(
+        self, *, intent_token: str, host_id: UUID, key_id: UUID, owner_subject_id: str
+    ) -> CodexEnrollmentIntentEnvelope:
+        """仅由已验证设备身份完成同账号意图，不创建第二个主机。"""
+        current = await self._store.read_by_token(intent_token)
+        if current is None or current.subject_id != owner_subject_id:
+            raise self._not_found()
+        self._ensure_not_expired(current)
+        if current.state == CodexEnrollmentIntentState.CONSUMED and current.host_id == host_id:
+            return await self._build_status(current)
+        if current.state != CodexEnrollmentIntentState.ISSUED and current.enrollment_id != key_id:
+            raise self._conflict()
+        changed = await self._store.transition(
+            intent_id=current.intent_id,
+            expected_version=current.version,
+            expected_state=current.state,
+            next_record=current.model_copy(
+                update={
+                    "state": CodexEnrollmentIntentState.CONSUMED,
+                    "host_id": host_id,
+                    "version": current.version + 1,
+                }
+            ),
+        )
+        if changed is None:
+            raise self._conflict()
+        return await self._build_status(changed)
 
     async def _build_status(
         self,
@@ -213,6 +257,7 @@ class ManageCodexEnrollmentIntentUsecase:
                 expires_at=record.expires_at,
                 user_code=record.user_code,
                 authorization=authorization,
+                host_id=record.host_id,
             ),
         )
 
@@ -234,7 +279,7 @@ class ManageCodexEnrollmentIntentUsecase:
                 user_code=record.user_code,
                 verification_uri=record.verification_uri,
                 interval_seconds=record.poll_interval_seconds,
-                expires_at=record.expires_at,
+                expires_at=record.authorization_expires_at or record.expires_at,
             ),
         )
 

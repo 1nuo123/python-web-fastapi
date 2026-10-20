@@ -41,7 +41,10 @@ from src.core.codex_contract.app_server_product_contract import (
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerNotificationName,
 )
-from src.core.codex_contract.thread_contract import CODEX_THREAD_TITLE_MAX_LENGTH, CodexPlanStepStatus
+from src.core.codex_contract.thread_contract import (
+    CODEX_THREAD_TITLE_MAX_LENGTH,
+    CodexPlanStepStatus,
+)
 
 APP_SERVER_RESPONSE_HISTORY_STATUS_FIELD = "historyStatus"
 APP_SERVER_RESPONSE_HISTORY_OMITTED = "omitted_too_large"
@@ -179,10 +182,18 @@ class AppServerProtocolAdapter:
             AppServerNotificationName.TURN_COMPLETED,
         }:
             turn = self._read_mapping(params, "turn")
+            status = self._read_status(turn.get("status"))
+            expected = (
+                {"completed", "failed", "interrupted"}
+                if method == AppServerNotificationName.TURN_COMPLETED
+                else {"inProgress"}
+            )
+            if status not in expected:
+                raise ValueError("App Server核心turn状态尚未适配。")
             return AppServerTurnChangedDetail(
                 thread_id=self._read_string(params, "threadId"),
                 turn_id=self._read_string(turn, "id"),
-                status=self._read_status(turn.get("status")),
+                status=status,
             )
         if method == AppServerNotificationName.FILE_PATCH_UPDATED:
             return AppServerItemChangedDetail(
@@ -670,7 +681,7 @@ class AppServerProtocolAdapter:
     ) -> Literal["inProgress", "completed", "failed", "declined"]:
         """只接受冻结协议列出的工具 item 状态。"""
 
-        status = self._read_status(value) if value is not None else "completed"
+        status = self._read_status(value)
         if status not in {"inProgress", "completed", "failed", "declined"}:
             raise ValueError("App Server工具条目状态不受支持。")
         return cast(Literal["inProgress", "completed", "failed", "declined"], status)

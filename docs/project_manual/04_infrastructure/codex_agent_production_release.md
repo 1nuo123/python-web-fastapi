@@ -2,6 +2,8 @@
 
 本文只描述正式生产发布。开发环境、自签名证书、未配置 bootstrap 和未签名 MSI 均不得发布给外部用户。
 
+本次安装连接与 CLI 兼容改造的仓库提交、CI 镜像、服务器部署及用户选择的手动内部包发布命令，见 [本次发布执行命令](codex_connection_release_commands.md)。服务器部署继续使用既有 `deploy/production.sh`；该命令单不引入第二套部署入口。本文正式签名通道与第 7 节内部通道继续区分。
+
 ## 1. 固定发布边界
 
 - 控制面必须使用一个公网 HTTPS origin；API、WSS Agent 连接、设备验证页和网站入口均从该 origin 固定派生。
@@ -152,7 +154,6 @@ signed_build_run_id: 上一步成功的 Signed Build run ID
 version: 与 signed build 和 TUF metadata 完全一致
 public_origin: https://<public-host>[:port]
 expected_codex_version: 0.145.0
-app_server_schema_digest: 当前审核的 64 位 SHA-256
 release_repository: 1nuo123/codex-remote-agent-releases
 release_repository_branch: master
 release_base_url: https://raw.githubusercontent.com/1nuo123/codex-remote-agent-releases/master
@@ -168,6 +169,8 @@ website_url: <public_origin>
 ```
 
 四个入口必须使用同一主机和端口；任一路径或 origin 不匹配时，Bootstrap 校验会在构建 MSI 前终止发布。
+
+`expected_codex_version` 仅选择 bootstrap 参考档案。schema digest 由工作流从该版本已批准的 manifest 自动读取，不再提供手填输入；Agent 运行时独立识别本机 CLI 并选择已验证档案。Signed Build 会先核对随源码提交的三版本 CLI 与审批验收证据。
 
 工作流按顺序执行：
 
@@ -198,7 +201,7 @@ Get-AuthenticodeSignature -LiteralPath $msi | Format-List Status,SignerCertifica
 2. 同版本再次运行进入 Windows Installer 维护/修复语义，不创建第二份程序、任务或注册表入口。
 3. `%LOCALAPPDATA%\CodexRemoteAgent` 只有一个安装根；计划任务名包含当前用户 SID，运行级别为 Limited，`MultipleInstances=IgnoreNew`。同一任务使用登录触发和无限期的一分钟重复触发，无执行时长限制；健康进程跨触发保持同一 PID，崩溃后下一次触发恢复。暂停必须走原任务控制器：禁用任务、停止任务并清理对应进程树；恢复启用同一任务并启动。未绑定安装保持 Disabled。不要用另一个轮询程序或定时杀进程代替这条链路。
 4. 打开设备验证页，已有在线主机时显示已连接状态；重新下载安装包只替换安装包下载行为，不重复注册主机。
-5. Agent 完成设备批准、Codex 登录/doctor、工作区选择并通过 WSS 上线。
+5. Agent 完成项目选择、设备批准并通过 WSS 上线；本地 doctor 不以主机 Codex 登录状态作为安装或更新前置，不操作主机凭据。
 6. 从网站创建任务并收到最终响应；刷新后 thread 历史仍可恢复。
 7. 新版本 MSI 完成 major upgrade，保留配置、DPAPI 密钥、状态和工作区；旧版本 downgrade 被拒绝。
 8. 卸载后计划任务、URI scheme、快捷方式、安装文件、配置、DPAPI 密钥、SQLite、日志、staging/release 目录和 HKCU 组件键全部移除。
@@ -337,6 +340,6 @@ uv run pytest -q test/unit_test/test_codex_agent_internal_release_manifest_unit.
   --minimum-security-version 0.1.31
 ```
 
-前端通过 `/codex/agent-release/current` 消费版本与摘要，不再手工同步第二份版本。此次连接修复不撤销旧设备，因此保留最低安全版本 0.1.31。服务端 `agent_lease_continuity_enabled=false` 是受支持的默认模式：连接自动恢复，未协商连续性时断线停止执行；连续性功能须通过真实代理、多实例和睡眠恢复门禁后再启用。无需数据库迁移。
+前端通过 `/codex/agent-release/current` 消费版本与摘要，不再手工同步第二份版本。0.1.38 发布保留最低安全版本 0.1.31，未撤销旧设备。该历史版本以 `agent_lease_continuity_enabled=false` 发布；2026-10-20 改造已启用默认连续性，并完成短断保进程、长断停进程树及本地代理/多实例验收，详细边界以本次方案第 14 节为准。历史记录不覆盖当前运行时配置。
 
 0.1.38 的本机安装、托管与连接验收记录见 `自动调度机/_artifacts/plans/待裁决/Windows-agent连接稳定性/实施与验收记录.md`。原 Task Scheduler `RestartOnFailure` 在本机实际崩溃中未按期恢复，因此采用同一任务的重复触发与 IgnoreNew，不再依赖有限失败重启计数。网络退避仍完全由 Agent 连接循环负责。

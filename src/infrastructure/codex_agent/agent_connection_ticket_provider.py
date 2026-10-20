@@ -67,6 +67,19 @@ class AgentConnectionTicketProvider(AgentConnectionTicketProviderPort):
         return True
 
     async def issue(self, *, host_id: UUID, key_id: UUID) -> AgentConnectionTicketResponse:
+        proof = await self.prove(host_id=host_id, key_id=key_id)
+        proof_response = await self._client.post(
+            urljoin(self._control_plane_api_url, DEVICE_CONNECTION_TICKET_PATH.lstrip("/")),
+            json=DeviceChallengeProofRequestEnvelope(
+                header=DeviceChallengeRequestHeader(request_id=uuid4()),
+                detail=proof,
+            ).model_dump(mode="json"),
+        )
+        self._require_success(proof_response)
+        return AgentConnectionTicketResponse.model_validate(proof_response.json())
+
+    async def prove(self, *, host_id: UUID, key_id: UUID) -> DeviceChallengeProof:
+        """签名现有挑战，调用方决定用于连接还是恢复同账号设备意图。"""
         challenge_response = await self._client.post(
             urljoin(self._control_plane_api_url, DEVICE_CHALLENGE_PATH.lstrip("/")),
             json=DeviceChallengeIssueRequestEnvelope(
@@ -88,23 +101,12 @@ class AgentConnectionTicketProvider(AgentConnectionTicketProviderPort):
                 expires_at=challenge.expires_at,
             ).canonical_bytes(),
         )
-        proof_response = await self._client.post(
-            urljoin(
-                self._control_plane_api_url,
-                DEVICE_CONNECTION_TICKET_PATH.lstrip("/"),
-            ),
-            json=DeviceChallengeProofRequestEnvelope(
-                header=DeviceChallengeRequestHeader(request_id=uuid4()),
-                detail=DeviceChallengeProof(
-                    challenge_id=challenge.challenge_id,
-                    host_id=host_id,
-                    key_id=key_id,
-                    signature_base64=base64.b64encode(signature).decode("ascii"),
-                ),
-            ).model_dump(mode="json"),
+        return DeviceChallengeProof(
+            challenge_id=challenge.challenge_id,
+            host_id=host_id,
+            key_id=key_id,
+            signature_base64=base64.b64encode(signature).decode("ascii"),
         )
-        self._require_success(proof_response)
-        return AgentConnectionTicketResponse.model_validate(proof_response.json())
 
     @staticmethod
     def _require_success(response: httpx.Response) -> None:

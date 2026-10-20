@@ -30,8 +30,9 @@ def build_allowed_browser_origins(
     remains useful for direct requests and test clients.
     """
 
+    scheme = {"ws": "http", "wss": "https"}.get(request.url.scheme, request.url.scheme)
     origins = {
-        f"{request.url.scheme}://{request.url.netloc}",
+        f"{scheme}://{request.url.netloc}",
         *(origin.rstrip("/") for origin in configured_origins),
     }
     forwarded_origin = read_trusted_forwarded_origin(request, client_ip_resolver)

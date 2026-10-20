@@ -13,12 +13,9 @@ on:
         description: Public HTTPS origin for API, WSS, device verification, and website
         required: true
       expected_codex_version:
-        description: Frozen Codex CLI version
+        description: Bootstrap reference profile (runtime selects each installed CLI independently)
         required: true
         default: "0.145.0"
-      app_server_schema_digest:
-        description: Frozen App Server schema SHA-256
-        required: true
       release_repository:
         description: Public repository that stores the MSI and TUF repository
         required: true
@@ -127,7 +124,6 @@ jobs:
           RELEASE_VERSION: ${{ inputs.version }}
           PUBLIC_ORIGIN: ${{ inputs.public_origin }}
           EXPECTED_CODEX_VERSION: ${{ inputs.expected_codex_version }}
-          APP_SERVER_SCHEMA_DIGEST: ${{ inputs.app_server_schema_digest }}
         run: |
           New-Item -ItemType Directory -Force dist/installer-payload | Out-Null
           Copy-Item -LiteralPath dist/signed-build/codex-remote-agent.exe -Destination dist/installer-payload/codex-remote-agent.exe
@@ -135,12 +131,15 @@ jobs:
           Copy-Item -LiteralPath dist/trust/root.json -Destination dist/installer-payload/root.json
           $buildRecord = Get-Content -Raw -Encoding UTF8 dist/signed-build/release-build.json | ConvertFrom-Json
           $repositoryHost = ([Uri]$buildRecord.cdn_base_url).DnsSafeHost.ToLowerInvariant()
+          $profilePath = Join-Path "protocol/codex_app_server" "$env:EXPECTED_CODEX_VERSION/manifest.json"
+          $profile = Get-Content -LiteralPath $profilePath -Raw | ConvertFrom-Json
+          if ($profile.header.review_status -ne "approved") { throw "Bootstrap profile is not approved." }
           uv run python -m src.cli.build_codex_agent_bootstrap `
             --output dist/installer-payload/agent-bootstrap.toml `
             --public-origin "$env:PUBLIC_ORIGIN" `
             --agent-version "$env:RELEASE_VERSION" `
             --expected-codex-version "$env:EXPECTED_CODEX_VERSION" `
-            --app-server-schema-digest "$env:APP_SERVER_SCHEMA_DIGEST" `
+            --app-server-schema-digest "$($profile.detail.json_schema_bundle_sha256)" `
             --release-repository-url "$($buildRecord.cdn_base_url)" `
             --repository-host "$repositoryHost" `
             --authenticode-signer-sha256 "$($buildRecord.authenticode_signer_sha256)" `

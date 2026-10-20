@@ -15,6 +15,8 @@ class CodexDeviceAuthorizationAuditRepositoryPort(Protocol):
 
     def add(self, snapshot: DeviceAuthorizationAuditSnapshot) -> None: ...
 
+    def get_approval(self, enrollment_id: UUID) -> DeviceAuthorizationAuditSnapshot | None: ...
+
     def get_by_enrollment_and_idempotency_key(
         self,
         *,

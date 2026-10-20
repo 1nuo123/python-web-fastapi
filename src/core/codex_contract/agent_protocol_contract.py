@@ -31,9 +31,9 @@ class CodexAgentHello(BaseModel):
 
     host_id: UUID
     agent_version: str = Field(min_length=1, max_length=64)
-    codex_version: str = Field(min_length=1, max_length=64)
+    codex_version: str | None = Field(default=None, min_length=1, max_length=64)
     agent_protocol_version: str = Field(min_length=1, max_length=64)
-    app_server_schema_digest: str = Field(min_length=64, max_length=128)
+    app_server_schema_digest: str | None = Field(default=None, min_length=64, max_length=128)
     capabilities: dict[str, JsonValue] = Field(default_factory=dict)
 
 
@@ -54,7 +54,7 @@ class CodexAgentHeartbeat(BaseModel):
 
     host_id: UUID
     connection_epoch: int = Field(ge=1)
-    app_server_instance_id: str = Field(min_length=1, max_length=128)
+    app_server_instance_id: str | None = Field(default=None, min_length=1, max_length=128)
     sent_at: datetime
 
 

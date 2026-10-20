@@ -28,6 +28,9 @@ from src.application.codex.manage_device_challenge_usecase import (
 from src.application.codex.manage_enrollment_intent_usecase import (
     ManageCodexEnrollmentIntentUsecase,
 )
+from src.application.codex.recover_device_authorization_usecase import (
+    RecoverDeviceAuthorizationUsecase,
+)
 from src.application.codex.manage_host_usecase import (
     RenameCodexHostUsecase,
     RevokeCodexHostUsecase,
@@ -191,6 +194,7 @@ class CodexControlRuntime:
     start_device_key_rotation: StartDeviceKeyRotationUsecase
     cleanup_expired_device_authorizations: CleanupExpiredDeviceAuthorizationsUsecase
     manage_enrollment_intent: ManageCodexEnrollmentIntentUsecase
+    recover_device_authorization: RecoverDeviceAuthorizationUsecase
     record_client_diagnostic: RecordCodexClientDiagnosticUsecase
     record_client_performance: RecordCodexClientPerformanceUsecase
     client_diagnostic_retention_cleaner: CodexClientDiagnosticRetentionCleaner
@@ -274,11 +278,13 @@ class CodexControlRuntime:
         device_authorization_store = CodexDeviceAuthorizationStore(
             state=atomic_state,
             digest_service=sensitive_digest_service,
+            recovery_seconds=settings.device_authorization_recovery_seconds,
         )
         device_challenge_store = CodexDeviceChallengeStore(state=atomic_state)
         enrollment_intent_store = CodexEnrollmentIntentStore(
             state=atomic_state,
             digest_service=sensitive_digest_service,
+            recovery_seconds=settings.device_authorization_recovery_seconds,
         )
         revocation_signal = CodexAgentRevocationSignal(
             state=atomic_state,
@@ -378,7 +384,14 @@ class CodexControlRuntime:
             ),
             cleanup_expired_device_authorizations=CleanupExpiredDeviceAuthorizationsUsecase(
                 control_port=control_port,
-                pending_ttl_seconds=settings.device_authorization_ttl_seconds,
+                pending_ttl_seconds=settings.device_authorization_recovery_seconds,
+            ),
+            recover_device_authorization=RecoverDeviceAuthorizationUsecase(
+                control_port=control_port,
+                store=device_challenge_store,
+                verifier=signature_verifier,
+                recovery_seconds=settings.device_authorization_recovery_seconds,
+                challenge_seconds=settings.device_challenge_ttl_seconds,
             ),
             manage_enrollment_intent=ManageCodexEnrollmentIntentUsecase(
                 store=enrollment_intent_store,

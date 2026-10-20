@@ -9,6 +9,7 @@ import logging
 import os
 import secrets
 from collections.abc import Callable, Mapping
+from collections import deque
 from dataclasses import dataclass
 from dataclasses import replace as dataclass_replace
 from datetime import UTC, datetime, timedelta
@@ -76,7 +77,10 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentThreadReadCommandResult,
     AgentTurnChangedEventDetail,
 )
-from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
+from src.core.codex_contract.agent_runtime_health_contract import (
+    AgentDoctorCheckState,
+    AgentRuntimeStatus,
+)
 from src.core.codex_contract.app_server_jsonrpc_contract import AppServerRpcError, JsonRpcId
 from src.core.codex_contract.app_server_product_contract import (
     AppServerDiffChangedDetail,
@@ -94,7 +98,6 @@ from src.core.codex_contract.app_server_product_contract import (
     AppServerWarningDetail,
 )
 from src.core.codex_contract.app_server_schema_manifest_contract import (
-    AppServerDefaultCatalog,
     AppServerNotificationName,
 )
 from src.core.codex_contract.approval_contract import (
@@ -295,6 +298,10 @@ class AgentControlChannel:
         self._command_mapper = AgentCommandV2Mapper()
         self._shutdown_event = asyncio.Event()
         self._active_sender: CodexOutboundFrameSenderPort | None = None
+        self._running_turns: set[str] = set()
+        self._completed_turns: deque[str] = deque(maxlen=2000)
+        self._refresh_process = asyncio.Event()
+        self._command_active = False
         self._connection_epoch: int | None = None
         self._revocation_generation = 0
         self._hello_ack_event = asyncio.Event()
@@ -326,6 +333,7 @@ class AgentControlChannel:
             logger=logger,
             host_id=str(settings.agent.host_id),
         )
+        self._local_issue: str | None = None
         self._timeline_store = AgentTimelineStore(
             settings.agent.state_database.with_name("timeline.sqlite3")
         )
@@ -343,7 +351,7 @@ class AgentControlChannel:
         delay = self._settings.agent.reconnect_min_seconds
         try:
             await self._record_connection_state("starting")
-            handle = await self._supervisor.start()
+            handle = await self._start_local_runtime()
             legacy_token = self._read_legacy_token()
             while not self._shutdown_event.is_set():
                 attempt: asyncio.Task[None] | None = None
@@ -352,13 +360,19 @@ class AgentControlChannel:
                     self._hello_ack_event.clear()
                     self._healthy_connection = False
                     await self._record_connection_state("connecting")
-                    if handle.process.returncode is not None or not handle.client.running:
+                    handle = self._supervisor.current_handle
+                    if handle is None and self._local_issue is None:
+                        handle = await self._start_local_runtime()
+                    if handle is not None and (
+                        handle.process.returncode is not None or not handle.client.running
+                    ):
                         for pending in tuple(self._pending_approvals.values()):
                             await self._close_pending_approval(pending, "instance_replaced")
                         self._history_window_cache.clear()
                         self._file_change_items.clear()
                         await self._supervisor.stop()
-                        handle = await self._supervisor.start()
+                        self._running_turns.clear()
+                        handle = await self._start_local_runtime()
                         self._execution_paused = False
                     attempt = asyncio.create_task(self._run_connection(handle, legacy_token))
                     done, _ = await asyncio.wait(
@@ -474,6 +488,28 @@ class AgentControlChannel:
                 self._history_window_cache.clear()
                 self._file_change_items.clear()
 
+    async def _start_local_runtime(self) -> AppServerProcessHandle | None:
+        try:
+            handle = await self._supervisor.start()
+        except (OSError, RuntimeError, ValueError, AppServerRpcError) as exc:
+            await self._supervisor.stop()
+            self._local_issue = (
+                "cli_not_found" if isinstance(exc, FileNotFoundError) else "app_server_start_failed"
+            )
+            self._logger.warning("本机执行暂不可用：%s (%s)", self._local_issue, type(exc).__name__)
+            if self._protocol_version != CodexConnectionProtocolVersion.V2:
+                raise
+            return None
+        self._local_issue = None if handle.profile else "cli_version_unverified"
+        self._execution_paused = False
+        return handle
+
+    async def _retry_local_runtime(self) -> None:
+        while True:
+            await asyncio.sleep(30)
+            if await self._start_local_runtime() is not None:
+                return
+
     async def _stop_execution(self) -> None:
         self._connection_ready = False
         self._execution.disable()
@@ -518,6 +554,14 @@ class AgentControlChannel:
     async def _maintenance_loop(self) -> None:
         while not self._shutdown_event.is_set():
             await asyncio.sleep(self._settings.agent.heartbeat_seconds)
+            if self._is_idle() and self._supervisor.current_handle is not None:
+                try:
+                    changed = self._supervisor.entry_changed()
+                except OSError:
+                    changed = False  # A host upgrade may temporarily remove its executable.
+                if changed:
+                    self._connection_ready = False
+                    self._refresh_process.set()
             if (
                 self._execution.valid
                 and asyncio.get_running_loop().time() - self._last_worktree_cleanup >= 60
@@ -543,6 +587,23 @@ class AgentControlChannel:
 
         self._shutdown_event.set()
 
+    def request_shutdown_if_idle(self) -> bool:
+        """同一事件循环原子关闭准入，更新不能切断 turn、命令或审批。"""
+        if not self._is_idle():
+            return False
+        self._connection_ready = False
+        self.request_shutdown()
+        return True
+
+    def _is_idle(self) -> bool:
+        return (
+            self._hello_ack_event.is_set()
+            and not self._command_active
+            and not self._running_turns
+            and not self._pending_approvals
+            and self._command_queue.empty()
+        )
+
     def _raise_if_connection_closed_unexpectedly(self) -> None:
         """把非停机导致的正常关闭转换为可退避重试的连接异常。"""
 
@@ -551,19 +612,32 @@ class AgentControlChannel:
         raise CodexConnectionTransportClosed("控制面WebSocket连接意外关闭，Agent将按退避策略重连。")
 
     async def _run_connection(
-        self, handle: AppServerProcessHandle, legacy_token: str | None
+        self, handle: AppServerProcessHandle | None, legacy_token: str | None
     ) -> None:
         self._connection_ready = False
         self._execution.begin_connection()
         if (
-            self._model_catalog_instance != handle.instance_id
-            or self._model_catalog.state != "ready"
+            handle is not None
+            and handle.profile is not None
+            and (
+                self._model_catalog_instance != handle.instance_id
+                or self._model_catalog.state != "ready"
+            )
         ):
             self._model_catalog = await read_model_catalog(handle.client)
             self._model_catalog_instance = handle.instance_id
+        if handle is None or handle.profile is None:
+            self._model_catalog = CodexModelCatalog()
+            self._model_catalog_instance = None
         self._connection_phase = "ticket"
         connection_url, headers = await self._build_connection_request(legacy_token)
         self._connection_phase = "websocket"
+        proxy = self._network.proxy_for(connection_url)
+        proxy_tls_options = (
+            {"proxy_ssl": self._network.tls_context}
+            if proxy is not None and urlsplit(proxy).scheme == "https"
+            else {}
+        )
         async with connect(
             connection_url,
             additional_headers=headers,
@@ -571,8 +645,9 @@ class AgentControlChannel:
             ping_interval=self._settings.agent.heartbeat_seconds,
             ping_timeout=self._settings.agent.heartbeat_seconds,
             subprotocols=[Subprotocol(CODEX_LEASE_CONTINUITY_SUBPROTOCOL)],
-            proxy=self._network.proxy_for(connection_url),
+            proxy=proxy,
             ssl=self._network.tls_context if connection_url.startswith("wss:") else None,
+            **proxy_tls_options,
         ) as connection:
             negotiated = connection.subprotocol == CODEX_LEASE_CONTINUITY_SUBPROTOCOL
             if self._continuity and not negotiated and self._execution.valid:
@@ -596,8 +671,14 @@ class AgentControlChannel:
             self._active_sender = session
             heartbeat_task: asyncio.Task[None] | None = None
             settings_task: asyncio.Task[None] | None = None
-            process_task = asyncio.create_task(handle.process.wait())
-            client_task = asyncio.create_task(handle.client.wait_stopped())
+            process_task = asyncio.create_task(
+                handle.process.wait() if handle else self._retry_local_runtime()
+            )
+            client_task = asyncio.create_task(
+                handle.client.wait_stopped() if handle else self._wait_for_shutdown()
+            )
+            self._refresh_process.clear()
+            refresh_task = asyncio.create_task(self._refresh_process.wait())
             preserve = False
             try:
                 self._connection_phase = "hello"
@@ -607,19 +688,37 @@ class AgentControlChannel:
                 heartbeat_task = asyncio.create_task(self._heartbeat_loop(handle, session))
                 self._connection_phase = "execution_authorization"
                 await asyncio.wait_for(self._execution.ready.wait(), timeout=10)
-                if self._execution.valid:
+                executable = handle is not None and handle.profile is not None
+                if self._execution.valid and executable:
                     self._connection_phase = "snapshot"
                     await self._send_snapshot(handle, session)
                     self._connection_ready = True
-                settings_task = asyncio.create_task(self._settings_sync_loop(handle, session))
+                settings_task = asyncio.create_task(
+                    self._settings_sync_loop(handle, session)
+                    if executable
+                    else self._wait_for_shutdown()
+                )
                 await self._record_connection_state(
                     "online" if self._execution.valid else "blocked",
-                    None if self._execution.valid else "inactive_host",
+                    self._local_issue if self._execution.valid else "inactive_host",
                 )
                 await self._flush_buffer(session)
                 self._connection_phase = "running"
-                watched = (session_task, process_task, client_task, heartbeat_task, settings_task)
+                watched = (
+                    session_task,
+                    process_task,
+                    client_task,
+                    heartbeat_task,
+                    settings_task,
+                    refresh_task,
+                )
                 done, _ = await asyncio.wait(watched, return_when=asyncio.FIRST_COMPLETED)
+                if handle is None and process_task in done:
+                    await process_task
+                    preserve = True
+                    raise ConnectionError("本机执行已恢复，重新握手发布能力。")
+                if refresh_task in done:
+                    raise ConnectionError("主机Codex入口已更新，在空闲边界重新选择兼容档案。")
                 if self._execution_paused and (process_task in done or client_task in done):
                     done, _ = await asyncio.wait(
                         (session_task, heartbeat_task, settings_task),
@@ -656,7 +755,7 @@ class AgentControlChannel:
                     if not preserve or self._shutdown_event.is_set():
                         await self._stop_execution()
                 finally:
-                    tasks = [session_task, process_task, client_task]
+                    tasks = [session_task, process_task, client_task, refresh_task]
                     tasks.extend(
                         task for task in (heartbeat_task, settings_task) if task is not None
                     )
@@ -764,10 +863,10 @@ class AgentControlChannel:
                         detail=AgentExecutionStoppedV2Detail(generation=lease.generation),
                     )
                 )
-            elif self._execution_paused:
+            elif self._execution_paused and self._local_issue is None:
                 raise ConnectionError("活动电脑已切回，重新建立本机执行进程。")
             else:
-                await self._record_connection_state("online")
+                await self._record_connection_state("online", self._local_issue)
             return
         if decoded.v2 is not None and isinstance(decoded.v2.detail, AgentEventAckV2Detail):
             self._accept_event_ack(decoded.v2.detail)
@@ -822,7 +921,11 @@ class AgentControlChannel:
                         except (ConnectionError, TimeoutError):
                             self._logger.info("回放等待下次连接同步。")
                 else:
-                    await self._execute_command(command, epoch)
+                    self._command_active = True
+                    try:
+                        await self._execute_command(command, epoch)
+                    finally:
+                        self._command_active = False
             finally:
                 self._command_queue.task_done()
 
@@ -846,7 +949,11 @@ class AgentControlChannel:
             worktree_port=self._worktree_port,
             execution_root_store=self._execution_root_store,
             workspace_registry=self._workspace_registry,
-            allow_experimental_api=self._settings.protocol.allow_experimental_api,
+            allow_experimental_api=bool(
+                self._supervisor.handle.profile
+                and self._supervisor.handle.profile.detail.allow_experimental_api
+                and self._supervisor.handle.profile.detail.history_strategy == "turns_page"
+            ),
             workspace_settings_handler=self._apply_project_settings,
             execution_settings_resolver=self._resolve_project_parameters,
         )
@@ -875,6 +982,15 @@ class AgentControlChannel:
     async def _send_current_result(
         self, result: CodexAgentCommandResult, command: CodexAgentCommand
     ) -> None:
+        if command.command_type == "turn.start" and isinstance(result.result, dict):
+            turn = result.result.get("turn")
+            if (
+                isinstance(turn, dict)
+                and isinstance(turn.get("id"), str)
+                and turn.get("status") == "inProgress"
+                and turn["id"] not in self._completed_turns
+            ):
+                self._running_turns.add(turn["id"])
         sender = self._active_sender if self._connection_ready else None
         try:
             await self._send_command_result(sender, result, command.command_type, command)
@@ -1011,7 +1127,7 @@ class AgentControlChannel:
 
     async def _heartbeat_loop(
         self,
-        handle: AppServerProcessHandle,
+        handle: AppServerProcessHandle | None,
         sender: CodexOutboundFrameSenderPort,
     ) -> None:
         """按 hello_ack 连接代次发送应用层心跳。"""
@@ -1024,7 +1140,7 @@ class AgentControlChannel:
             heartbeat = CodexAgentHeartbeat(
                 host_id=self._settings.agent.host_id,
                 connection_epoch=epoch,
-                app_server_instance_id=handle.instance_id,
+                app_server_instance_id=handle.instance_id if handle else None,
                 sent_at=datetime.now(UTC),
             )
             if self._protocol_version == CodexConnectionProtocolVersion.V2:
@@ -1036,7 +1152,7 @@ class AgentControlChannel:
                         detail=AgentHeartbeatV2Detail(
                             lease_request_id=self._begin_lease_request(),
                             connection_epoch=epoch,
-                            app_server_instance_id=UUID(handle.instance_id),
+                            app_server_instance_id=UUID(handle.instance_id) if handle else None,
                             revocation_generation=self._revocation_generation,
                         ),
                     )
@@ -1047,7 +1163,7 @@ class AgentControlChannel:
     def _begin_lease_request(self) -> UUID:
         return self._execution.begin_request()
 
-    def _build_hello_frame(self, handle: AppServerProcessHandle) -> CodexConnectionFrame:
+    def _build_hello_frame(self, handle: AppServerProcessHandle | None) -> CodexConnectionFrame:
         if self._protocol_version == CodexConnectionProtocolVersion.V2:
             return self._protocol_codec.encode_v2(
                 host_id=self._settings.agent.host_id,
@@ -1057,9 +1173,12 @@ class AgentControlChannel:
                     execution_lease_supported=True,
                     lease_request_id=self._begin_lease_request(),
                     agent_version=self._settings.protocol.agent_version,
-                    codex_version=handle.codex_version,
-                    app_server_schema_digest=self._settings.protocol.app_server_schema_digest,
-                    capabilities=AppServerDefaultCatalog().build_capabilities(),
+                    codex_version=handle.codex_version if handle else None,
+                    app_server_schema_digest=handle.schema_digest if handle else None,
+                    app_server_state="ready" if handle else "unavailable",
+                    capabilities=handle.profile.detail.capabilities
+                    if handle and handle.profile
+                    else (),
                     model_ids=tuple(item.model for item in self._model_catalog.models),
                     reasoning_efforts=tuple(
                         sorted(
@@ -1074,16 +1193,18 @@ class AgentControlChannel:
                     sandbox_modes=tuple(CodexSandboxMode),
                     approval_policies=tuple(CodexApprovalPolicy),
                     runtime_status=self._read_runtime_status(),
-                    app_server_instance_id=handle.instance_id,
+                    app_server_instance_id=handle.instance_id if handle else None,
                     agent_event_epoch=self._event_epoch,
                 ),
             )
+        if handle is None:
+            raise RuntimeError("Legacy protocol requires App Server readiness.")
         hello = CodexAgentHello(
             host_id=self._settings.agent.host_id,
             agent_version=self._settings.protocol.agent_version,
             codex_version=handle.codex_version,
             agent_protocol_version=CODEX_AGENT_PROTOCOL_VERSION,
-            app_server_schema_digest=self._settings.protocol.app_server_schema_digest,
+            app_server_schema_digest=handle.schema_digest,
             capabilities={
                 "thread": ["list", "read", "start", "resume"],
                 "turn": ["start", "steer", "interrupt"],
@@ -1098,11 +1219,26 @@ class AgentControlChannel:
     def _read_runtime_status(self) -> AgentRuntimeStatus | None:
         """读取本连接代次 hello 的最新本地运行态快照。"""
 
-        if self._runtime_status_reader is None:
-            return None
-        return self._runtime_status_reader()
+        status = self._runtime_status_reader() if self._runtime_status_reader else None
+        if self._local_issue:
+            return (status or AgentRuntimeStatus()).model_copy(
+                update={
+                    "doctor_state": AgentDoctorCheckState.BLOCKED,
+                    "doctor_checked_at": datetime.now(UTC),
+                    "doctor_issue_codes": (self._local_issue,),
+                }
+            )
+        return status
 
     async def _accept_app_server_notification(self, method: str, params: JsonValue) -> None:
+        if isinstance(params, dict) and method in {"turn/started", "turn/completed"}:
+            turn = params.get("turn")
+            if isinstance(turn, dict) and isinstance(turn.get("id"), str):
+                if method == "turn/started":
+                    self._running_turns.add(turn["id"])
+                elif turn.get("status") in {"completed", "failed", "interrupted"}:
+                    self._running_turns.discard(turn["id"])
+                    self._completed_turns.append(turn["id"])
         if method == AppServerNotificationName.SERVER_REQUEST_RESOLVED.value:
             if not isinstance(params, Mapping):
                 await self._accept_protocol_warning(

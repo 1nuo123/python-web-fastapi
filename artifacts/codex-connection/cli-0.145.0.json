@@ -1,0 +1,38 @@
+{
+  "started_at": "2026-10-20T05:25:28.540114+00:00",
+  "binary": "codex",
+  "checks": [
+    "initialize/initialized",
+    "model/list",
+    "effective config and requirements",
+    "thread/start",
+    "turn/start and real terminal events",
+    "thread/read and product history adapter",
+    "thread/turns/list",
+    "thread/resume",
+    "turn/steer and turn/interrupt terminal",
+    "thread/delete acceptance-only history"
+  ],
+  "passed": true,
+  "implementation_digest": "ba5372ab42db1cec5cfbd26f19d42fa4a27b84a50a796fb0169231072d91997a",
+  "version": "0.145.0",
+  "schema_digest": "86501505d7a626582cd7ded6eee36ab6bbaae30fd5d5c1021c0330e3f99d8109",
+  "profile_verified": true,
+  "notifications": [
+    "account/rateLimits/updated",
+    "item/agentMessage/delta",
+    "item/commandExecution/outputDelta",
+    "item/completed",
+    "item/started",
+    "mcpServer/startupStatus/updated",
+    "remoteControl/status/changed",
+    "thread/name/updated",
+    "thread/started",
+    "thread/status/changed",
+    "turn/completed",
+    "turn/started",
+    "warning"
+  ],
+  "approval_methods": [],
+  "completed_at": "2026-10-20T05:25:54.715598+00:00"
+}

@@ -357,7 +357,7 @@ class OutboundUrlSafetyAsyncHttpTransport(httpx.AsyncHTTPTransport):
         *,
         limits: httpx.Limits,
         tls_context: ssl.SSLContext | None = None,
-        proxy: str | None = None,
+        proxy: str | httpx.Proxy | None = None,
         trust_env: bool = True,
     ) -> None:
         """

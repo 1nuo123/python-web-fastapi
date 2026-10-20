@@ -8,6 +8,7 @@ import hashlib
 import logging
 import os
 import shutil
+import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,6 +16,10 @@ from typing import Final, Literal, cast
 from uuid import uuid4
 
 from pydantic import JsonValue
+from src.core.codex_contract.app_server_schema_manifest_contract import (
+    AppServerSchemaManifestEnvelope,
+)
+from src.infrastructure.codex_agent.app_server_manifest_registry import AppServerManifestRegistry
 
 from src.core.codex_contract.agent_diagnostic_contract import (
     AgentDiagnosticCode,
@@ -77,6 +82,8 @@ class CodexProcessSupport:
             raise FileNotFoundError(f"找不到Codex可执行入口：{codex_binary}")
         resolved_path = Path(resolved)
         npm_entry = resolved_path.parent / "node_modules" / "@openai" / "codex" / "bin" / "codex.js"
+        if not npm_entry.is_file() and resolved_path.parent.name == ".bin":
+            npm_entry = resolved_path.parent.parent / "@openai" / "codex" / "bin" / "codex.js"
         if resolved_path.suffix.casefold() in {".cmd", ".bat"} and npm_entry.is_file():
             node_binary = shutil.which("node")
             if node_binary is None:
@@ -108,6 +115,8 @@ class AppServerProcessHandle:
     process: asyncio.subprocess.Process
     client: AppServerJsonRpcClient
     initialize_result: JsonValue
+    profile: AppServerSchemaManifestEnvelope | None = None
+    schema_digest: str | None = None
 
 
 class AppServerProcessSupervisor:
@@ -128,7 +137,7 @@ class AppServerProcessSupervisor:
         subprocess_launcher: WindowsSubprocessLauncher | None = None,
     ) -> None:
         self._codex_binary = codex_binary
-        self._codex_command = CodexProcessSupport.resolve_command(codex_binary)
+        self._codex_command: tuple[str, ...] = ()
         self._allowed_versions = list(allowed_versions)
         self._max_line_bytes = max_line_bytes
         self._allow_experimental_api = allow_experimental_api
@@ -142,6 +151,24 @@ class AppServerProcessSupervisor:
         self._stderr_task: asyncio.Task[None] | None = None
         self._process_job: WindowsProcessJob | None = None
         self._stop_lock = asyncio.Lock()
+        self._entry_signature: tuple[tuple[str, int, int], ...] = ()
+
+    def entry_changed(self) -> bool:
+        return self._entry_signature != self._read_entry_signature()
+
+    def _read_entry_signature(self) -> tuple[tuple[str, int, int], ...]:
+        command = CodexProcessSupport.resolve_command(self._codex_binary)
+        paths = {Path(part).resolve() for part in command}
+        for path in tuple(paths):
+            if path.name == "codex.js":
+                paths.update(path.parents[2].glob("codex-*/vendor/*/bin/codex.exe"))
+        return tuple(
+            (str(path), path.stat().st_mtime_ns, path.stat().st_size) for path in sorted(paths)
+        )
+
+    @property
+    def current_handle(self) -> AppServerProcessHandle | None:
+        return self._handle
 
     @property
     def handle(self) -> AppServerProcessHandle:
@@ -156,7 +183,34 @@ class AppServerProcessSupervisor:
 
         if self._handle is not None:
             raise RuntimeError("App Server监督器不能重复启动。")
+        self._codex_command = CodexProcessSupport.resolve_command(self._codex_binary)
+        self._entry_signature = self._read_entry_signature()
         codex_version = await self._read_codex_version()
+        registry = AppServerManifestRegistry()
+        profile = registry.select(codex_version)
+        schema_digest: str | None = None
+        if profile is not None:
+            with tempfile.TemporaryDirectory(prefix="codex-schema-") as directory:
+                generated = await self._subprocess_launcher.run_async(
+                    WindowsSubprocessRequest(
+                        argv=(
+                            *self._codex_command,
+                            "app-server",
+                            "generate-json-schema",
+                            "--out",
+                            directory,
+                        ),
+                        environment=CodexProcessSupport.build_standalone_environment(),
+                        timeout_seconds=30,
+                        log_category=WindowsSubprocessLogCategory.CODEX,
+                    )
+                )
+                if generated.return_code == 0:
+                    schema_digest = registry.calculate_directory_digest(directory)
+                    if registry.matches_runtime_schema(codex_version, Path(directory)):
+                        schema_digest = profile.detail.json_schema_bundle_sha256
+            if schema_digest != profile.detail.json_schema_bundle_sha256:
+                profile = None
         process = await self._subprocess_launcher.create_async(
             WindowsSubprocessRequest(
                 argv=(*self._codex_command, "app-server", "--stdio"),
@@ -208,6 +262,8 @@ class AppServerProcessSupervisor:
             process=process,
             client=client,
             initialize_result=None,
+            profile=profile,
+            schema_digest=schema_digest,
         )
         # App Server may emit notifications while initialize is in flight. Publish
         # the process identity first so callbacks can bind those events safely.
@@ -215,8 +271,10 @@ class AppServerProcessSupervisor:
         try:
             await client.start()
             initialize_result = await client.initialize(
-                allow_experimental_api=self._allow_experimental_api
+                allow_experimental_api=profile.detail.allow_experimental_api if profile else False
             )
+            if self.entry_changed():
+                raise RuntimeError("CLI入口在校验与初始化之间变化，将重新解析。")
         except BaseException:
             try:
                 await self.stop()
@@ -229,6 +287,8 @@ class AppServerProcessSupervisor:
             process=process,
             client=client,
             initialize_result=initialize_result,
+            profile=profile,
+            schema_digest=schema_digest,
         )
         return self._handle
 
@@ -306,6 +366,7 @@ class AppServerProcessSupervisor:
         result = await self._subprocess_launcher.run_async(
             WindowsSubprocessRequest(
                 argv=(*self._codex_command, "--version"),
+                timeout_seconds=10,
                 environment=CodexProcessSupport.build_standalone_environment(),
                 log_category=WindowsSubprocessLogCategory.CODEX,
             )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -33,6 +34,7 @@ class CodexBrowserSubscription:
 
     subject_id: str
     capacity: int
+    replay_boundary: str | None = None
     queue: asyncio.Queue[CodexRealtimeBatch | CodexRealtimeEvent] = field(init=False)
     _queued_event_count: int = field(default=0, init=False)
 
@@ -178,16 +180,31 @@ class CodexBrowserEventHub:
         self._publication_lock = asyncio.Lock()
         self._accepting = True
         self._distributed_stream = distributed_stream
+        self._readers: dict[str, asyncio.Task[None]] = {}
+        self._positions: dict[str, str | None] = {}
 
     async def subscribe(self, subject_id: str) -> CodexBrowserSubscription:
         async with self._lock:
             if not self._accepting:
                 raise RuntimeError("Codex浏览器事件Hub正在停止。")
-            subscription = CodexBrowserSubscription(subject_id, self._queue_capacity)
+            if self._distributed_stream is not None and subject_id not in self._readers:
+                window = await self._distributed_stream.read(
+                    owner_subject_id=subject_id,
+                    after_cursor=None,
+                    limit=1,
+                )
+                self._positions[subject_id] = window.tail_cursor
+                self._readers[subject_id] = asyncio.create_task(self._read_owner(subject_id))
+            subscription = CodexBrowserSubscription(
+                subject_id,
+                self._queue_capacity,
+                self._positions.get(subject_id),
+            )
             self._subscriptions.setdefault(subject_id, set()).add(subscription)
             return subscription
 
     async def unsubscribe(self, subscription: CodexBrowserSubscription) -> None:
+        reader: asyncio.Task[None] | None = None
         async with self._lock:
             subscriptions = self._subscriptions.get(subscription.subject_id)
             if subscriptions is None:
@@ -195,6 +212,12 @@ class CodexBrowserEventHub:
             subscriptions.discard(subscription)
             if not subscriptions:
                 self._subscriptions.pop(subscription.subject_id, None)
+                self._positions.pop(subscription.subject_id, None)
+                reader = self._readers.pop(subscription.subject_id, None)
+                if reader is not None:
+                    reader.cancel()
+        if reader is not None:
+            await asyncio.gather(reader, return_exceptions=True)
 
     async def publish(self, subject_id: str, event: CodexProductEvent) -> None:
         """兼容单事件调用方，并通过统一批接口完成 fan-out。"""
@@ -217,6 +240,9 @@ class CodexBrowserEventHub:
                 subscriptions = tuple(self._subscriptions.get(subject_id, ()))
             realtime_events = tuple(self._build_product_event(event) for event in events)
             realtime_events = await self._assign_cursors(subject_id, realtime_events)
+            # Shared storage owns both ordering and live delivery, including local writes.
+            if self._distributed_stream is not None:
+                return
             if not realtime_events:
                 return
             for subscription in subscriptions:
@@ -249,6 +275,54 @@ class CodexBrowserEventHub:
             async with self._lock:
                 self._accepting = False
                 self._subscriptions.clear()
+                readers = tuple(self._readers.values())
+                self._readers.clear()
+                self._positions.clear()
+                for reader in readers:
+                    reader.cancel()
+        await asyncio.gather(*readers, return_exceptions=True)
+
+    async def _read_owner(self, subject_id: str) -> None:
+        """每个有订阅的 owner 共用一个读取者；各实例独立广播同一持久流。"""
+        assert self._distributed_stream is not None
+        while True:
+            try:
+                position = self._positions.get(subject_id)
+                window = await self._distributed_stream.read(
+                    owner_subject_id=subject_id,
+                    after_cursor=position,
+                    limit=500,
+                )
+                events: list[CodexRealtimeEvent] = []
+                for record, cursor in zip(window.events, window.cursors, strict=True):
+                    event = CodexRealtimeEvent.model_validate_json(record.payload)
+                    events.append(
+                        event.model_copy(
+                            update={"header": event.header.model_copy(update={"cursor": cursor})}
+                        )
+                    )
+                async with self._lock:
+                    if subject_id not in self._subscriptions:
+                        return
+                    for subscription in self._subscriptions[subject_id]:
+                        if window.gap:
+                            self.enqueue_local(
+                                subscription,
+                                event_type=CodexRealtimeEventType.STREAM_GAP_DETECTED,
+                                host_id=UUID(int=0),
+                                payload={"reason": "shared_stream_gap", "snapshot_required": True},
+                            )
+                        else:
+                            for batch in subscription.build_bounded_batches(tuple(events)):
+                                self._enqueue_batch(subscription, batch)
+                    self._positions[subject_id] = (
+                        window.tail_cursor if window.gap else window.next_cursor
+                    )
+                if not window.events or window.gap:
+                    await asyncio.sleep(0.1)
+            except (RuntimeError, OSError):
+                logging.getLogger(__name__).warning("Codex共享事件流暂不可用，保留游标重试。")
+                await asyncio.sleep(1)
 
     def _build_product_event(
         self,

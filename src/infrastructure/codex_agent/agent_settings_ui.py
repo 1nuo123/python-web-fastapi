@@ -6,6 +6,7 @@ import asyncio
 import os
 import tkinter
 import webbrowser
+import portalocker
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
@@ -26,6 +27,7 @@ from src.infrastructure.codex_agent.agent_configuration import (
 )
 from src.infrastructure.codex_agent.agent_deployment_profile import AgentDeploymentProfile
 from src.infrastructure.codex_agent.agent_doctor import AgentDoctor
+from src.infrastructure.codex_agent.agent_config_store import AgentConfigStore
 from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
 from src.infrastructure.codex_agent.agent_secret_store import WindowsAgentSecretStore
 from src.infrastructure.codex_agent.agent_setup import WindowsEnrollmentUi
@@ -114,6 +116,7 @@ class WindowsAgentSettingsWindow:
             (SETTINGS_ACTION_LABELS[5], root.destroy),
             ("诊断", self._run_doctor),
             ("隔离工作树", self._manage_worktrees),
+            ("连接设置", self._edit_connection),
         )
         for index, (label, callback) in enumerate(actions):
             ttk.Button(frame, text=label, command=callback, width=20).grid(
@@ -140,6 +143,43 @@ class WindowsAgentSettingsWindow:
                 raise OSError("无法打开默认浏览器。")
         except (OSError, ValueError) as exc:
             messagebox.showerror("Codex Remote Agent", str(exc))
+
+    def _edit_connection(self) -> None:
+        from tkinter import messagebox
+        from src.infrastructure.codex_agent.agent_connection_settings_ui import (
+            edit_connection_settings,
+        )
+        from src.infrastructure.codex_agent.agent_network_policy import AgentNetworkSettings
+
+        try:
+            settings = self._load_settings()
+            network = AgentNetworkSettings(
+                **{
+                    name: getattr(settings.agent, name)
+                    for name in AgentNetworkSettings.__dataclass_fields__
+                }
+            )
+            result = edit_connection_settings(
+                settings.agent.codex_binary, network, parent=self._root
+            )
+            if result is None:
+                return
+            binary, network = result
+            with portalocker.Lock(self._config_path.with_suffix(".edit.lock"), timeout=10):
+                current = self._load_settings()
+                process = current.agent.model_validate(
+                    {
+                        **current.agent.model_dump(),
+                        "codex_binary": binary,
+                        "network_mode": network.network_mode,
+                        "proxy_url": network.proxy_url,
+                        "ca_certificate_path": network.ca_certificate_path,
+                    }
+                )
+                store = AgentConfigStore(self._config_path, WindowsCurrentUserAclEnforcer())
+                store.write(store.serialize(current.model_copy(update={"agent": process})))
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("连接设置", str(exc), parent=self._root)
 
     def _manage_workspaces(self) -> None:
         from tkinter import messagebox, ttk

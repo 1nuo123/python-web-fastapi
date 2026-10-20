@@ -142,7 +142,14 @@ class CodexBrowserRealtimeSession:
                 self._stop_event.set()
                 return False
             try:
-                await self._websocket.send_text(payload.model_dump_json())
+                await asyncio.wait_for(
+                    self._websocket.send_text(payload.model_dump_json()),
+                    timeout=self._runtime.settings.agent_heartbeat_seconds,
+                )
+            except TimeoutError:
+                self._state = CodexBrowserRealtimeSessionState.CLOSING
+                self._stop_event.set()
+                return False
             except (WebSocketDisconnect, RuntimeError):
                 if not self._is_disconnected():
                     raise
@@ -345,8 +352,11 @@ class CodexRealtimeRouteCatalog:
         except (PermissionError, RuntimeError, ValueError):
             await websocket.close(code=CODEX_REALTIME_REJECTED_CLOSE_CODE)
             return
-        subscription = await runtime.browser_event_hub.subscribe(subject_id)
-        await websocket.accept()
+        try:
+            subscription = await runtime.browser_event_hub.subscribe(subject_id)
+        except BaseException:
+            await lease.release()
+            raise
         session = CodexBrowserRealtimeSession(
             websocket=websocket,
             subscription=subscription,
@@ -357,6 +367,7 @@ class CodexRealtimeRouteCatalog:
             ),
         )
         try:
+            await websocket.accept()
             replay_cursor = cursor if stream_epoch in {None, CODEX_REALTIME_STREAM_EPOCH} else None
             replayed = await self._replay_cursor_events(
                 session=session,
@@ -365,7 +376,17 @@ class CodexRealtimeRouteCatalog:
                 cursor=replay_cursor,
             )
             if not replayed:
-                await self._enqueue_initial_events(websocket, subscription, runtime)
+                await self._enqueue_initial_events(session, subscription, runtime)
+            await session.send_event(
+                subscription.build_local_event(
+                    event_type=CodexRealtimeEventType.CONNECTION_READY,
+                    host_id=CODEX_REALTIME_ZERO_HOST_ID,
+                    payload={
+                        "heartbeat_interval": runtime.settings.agent_heartbeat_seconds,
+                        "server_time": datetime.now(UTC).isoformat(),
+                    },
+                )
+            )
             await session.run()
         except WebSocketDisconnect:
             return
@@ -376,19 +397,10 @@ class CodexRealtimeRouteCatalog:
 
     async def _enqueue_initial_events(
         self,
-        websocket: WebSocket,
+        session: CodexBrowserRealtimeSession,
         subscription: CodexBrowserSubscription,
         runtime: CodexControlRuntime,
     ) -> None:
-        runtime.browser_event_hub.enqueue_local(
-            subscription,
-            event_type=CodexRealtimeEventType.CONNECTION_READY,
-            host_id=CODEX_REALTIME_ZERO_HOST_ID,
-            payload={
-                "heartbeat_interval": runtime.settings.agent_heartbeat_seconds,
-                "server_time": datetime.now(UTC).isoformat(),
-            },
-        )
         hosts, workspaces = await asyncio.to_thread(
             self._load_authority_snapshot,
             runtime,
@@ -408,17 +420,19 @@ class CodexRealtimeRouteCatalog:
                 )
             ):
                 host["status"] = "offline"
-        runtime.browser_event_hub.enqueue_local(
-            subscription,
-            event_type=CodexRealtimeEventType.HOST_SNAPSHOT,
-            host_id=CODEX_REALTIME_ZERO_HOST_ID,
-            payload={"hosts": hosts},
+        await session.send_event(
+            subscription.build_local_event(
+                event_type=CodexRealtimeEventType.HOST_SNAPSHOT,
+                host_id=CODEX_REALTIME_ZERO_HOST_ID,
+                payload={"hosts": hosts},
+            )
         )
-        runtime.browser_event_hub.enqueue_local(
-            subscription,
-            event_type=CodexRealtimeEventType.WORKSPACE_SNAPSHOT,
-            host_id=CODEX_REALTIME_ZERO_HOST_ID,
-            payload={"workspaces": workspaces},
+        await session.send_event(
+            subscription.build_local_event(
+                event_type=CodexRealtimeEventType.WORKSPACE_SNAPSHOT,
+                host_id=CODEX_REALTIME_ZERO_HOST_ID,
+                payload={"workspaces": workspaces},
+            )
         )
 
     async def _replay_cursor_events(
@@ -431,29 +445,41 @@ class CodexRealtimeRouteCatalog:
     ) -> bool:
         if cursor is None:
             return False
-        window = await runtime.realtime_stream_adapter.read(
-            owner_subject_id=subscription.subject_id,
-            after_cursor=cursor,
-            limit=runtime.settings.browser_replay_read_limit,
-        )
-        if window.gap:
-            runtime.browser_event_hub.enqueue_local(
-                subscription,
+        boundary = subscription.replay_boundary
+        deadline = monotonic() + runtime.settings.agent_heartbeat_seconds
+        reason = "cursor_trimmed"
+        while boundary is not None and monotonic() < deadline:
+            window = await runtime.realtime_stream_adapter.read(
+                owner_subject_id=subscription.subject_id,
+                after_cursor=cursor,
+                through_cursor=boundary,
+                limit=runtime.settings.browser_replay_read_limit,
+            )
+            if window.gap:
+                break
+            for event_record, event_cursor in zip(window.events, window.cursors, strict=True):
+                persisted_event = CodexRealtimeEvent.model_validate_json(event_record.payload)
+                event = persisted_event.model_copy(
+                    update={
+                        "header": persisted_event.header.model_copy(update={"cursor": event_cursor})
+                    }
+                )
+                if not await session.send_event(event):
+                    return True
+            if window.next_cursor == boundary:
+                return True
+            if window.next_cursor == cursor or not window.events:
+                break
+            cursor = window.next_cursor
+            reason = "replay_budget_exceeded"
+        await session.send_event(
+            subscription.build_local_event(
                 event_type=CodexRealtimeEventType.STREAM_GAP_DETECTED,
                 host_id=CODEX_REALTIME_ZERO_HOST_ID,
-                payload={"reason": "cursor_trimmed", "snapshot_required": True},
+                payload={"reason": reason, "snapshot_required": True},
             )
-            return False
-        for event_record, event_cursor in zip(window.events, window.cursors, strict=True):
-            persisted_event = CodexRealtimeEvent.model_validate_json(event_record.payload)
-            event = persisted_event.model_copy(
-                update={
-                    "header": persisted_event.header.model_copy(update={"cursor": event_cursor})
-                }
-            )
-            if not await session.send_event(event):
-                return True
-        return True
+        )
+        return False
 
     def _load_authority_snapshot(
         self,

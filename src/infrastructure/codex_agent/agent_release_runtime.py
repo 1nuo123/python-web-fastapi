@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import httpx
+from src.infrastructure.codex_agent.agent_network_policy import AgentNetworkPolicy
 
 from src.application.artifact_release_orchestrator import ArtifactReleaseOrchestrator
 from src.core.artifact_release_contract.runtime_contract import ArtifactReleaseRuntimeSettings
@@ -37,15 +39,29 @@ class CodexAgentReleaseRuntime:
     coordinator: CodexAgentUpdateCoordinator
 
     @classmethod
-    def build(cls, settings: ArtifactReleaseRuntimeSettings) -> CodexAgentReleaseRuntime:
+    def build(
+        cls, settings: ArtifactReleaseRuntimeSettings, *, network: AgentNetworkPolicy | None = None
+    ) -> CodexAgentReleaseRuntime:
         http_resource = SharedAsyncHttpClient(
             AsyncHttpClientDetail(
                 timeout_seconds=settings.request_timeout_seconds,
                 max_connections=ARTIFACT_HTTP_MAX_CONNECTIONS,
                 max_keepalive_connections=ARTIFACT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
-            )
+            ),
+            tls_context=network.tls_context if network else None,
+            proxy=network.http_proxy_for(settings.repository_url) if network else None,
+            trust_env=False,
         )
-        catalog = TufArtifactCatalogAdapter(settings=settings)
+        catalog = TufArtifactCatalogAdapter(
+            settings=settings,
+            client=httpx.Client(
+                verify=network.tls_context if network else True,
+                proxy=network.http_proxy_for(settings.repository_url) if network else None,
+                trust_env=False,
+                follow_redirects=False,
+                timeout=settings.request_timeout_seconds,
+            ),
+        )
         orchestrator = ArtifactReleaseOrchestrator(
             catalog=catalog,
             downloader=SafeArtifactDownloader(

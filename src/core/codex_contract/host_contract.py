@@ -144,9 +144,9 @@ class CodexHostHelloObservationDetail(CodexHostObservationDetailBase):
 
     kind: Literal["hello"] = "hello"
     agent_version: str = Field(min_length=1, max_length=64)
-    codex_version: str = Field(min_length=1, max_length=64)
+    codex_version: str | None = Field(default=None, min_length=1, max_length=64)
     agent_protocol_version: str = Field(min_length=1, max_length=64)
-    app_server_schema_digest: str = Field(min_length=1, max_length=128)
+    app_server_schema_digest: str | None = Field(default=None, min_length=1, max_length=128)
     capabilities: CodexHostCapabilities
     doctor: CodexHostDoctorDetail = Field(default_factory=CodexHostDoctorDetail)
     update: CodexHostUpdateDetail = Field(default_factory=CodexHostUpdateDetail)
@@ -163,7 +163,7 @@ class CodexHostHeartbeatObservationDetail(CodexHostObservationDetailBase):
     """当前连接代次的在线心跳观测。"""
 
     kind: Literal["heartbeat"] = "heartbeat"
-    app_server_instance_id: str = Field(min_length=1, max_length=128)
+    app_server_instance_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class CodexHostDisconnectObservationDetail(CodexHostObservationDetailBase):

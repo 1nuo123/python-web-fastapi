@@ -34,6 +34,7 @@ from src.infrastructure.codex_agent.agent_secret_store import (
     AgentSecretStorePort,
 )
 from src.infrastructure.codex_agent.app_server_model_catalog import read_model_catalog
+from src.infrastructure.codex_agent.app_server_manifest_registry import AppServerManifestRegistry
 from src.infrastructure.codex_agent.app_server_process_supervisor import (
     AppServerProcessSupervisor,
     CodexProcessSupport,
@@ -61,8 +62,9 @@ class AgentDoctor:
         self._secret_store = secret_store
         self._device_key_store = device_key_store
         self._subprocess_launcher = subprocess_launcher or WindowsSubprocessLauncher()
+        self._observed_schema_digest: str | None = None
 
-    async def run(self) -> AgentDoctorReport:
+    async def run(self, *, local_only: bool = False) -> AgentDoctorReport:
         """执行本地版本、SQLite、目录、DPAPI 与控制面 DNS 检查。"""
 
         checks = [
@@ -70,9 +72,7 @@ class AgentDoctor:
             self._check_workspaces(),
             self._check_codex_binary(),
             self._check_secret_store(),
-            await self._check_control_plane_dns(),
-            await self._check_local_protocol(),
-            await self._check_control_plane_service(),
+            await self._check_local_protocol(health_only=local_only),
             self._check_runtime(),
             AgentDoctorCheck(
                 name="device_authentication",
@@ -81,18 +81,22 @@ class AgentDoctor:
                 detail="只读诊断未签发票据、未替换WSS连接；完整鉴权和升级由正常run入口执行。",
             ),
         ]
+        if not local_only:
+            checks.extend(
+                [await self._check_control_plane_dns(), await self._check_control_plane_service()]
+            )
         exit_code = self._choose_exit_code(tuple(checks))
         codex_version = self._read_codex_version_safely()
         return AgentDoctorReport(
             agent_version=self._settings.protocol.agent_version,
             codex_version=codex_version,
-            schema_digest=self._settings.protocol.app_server_schema_digest,
+            schema_digest=self._observed_schema_digest,
             state_database=self._settings.agent.state_database,
             checks=tuple(checks),
             exit_code=exit_code,
         )
 
-    async def _check_local_protocol(self) -> AgentDoctorCheck:
+    async def _check_local_protocol(self, *, health_only: bool = False) -> AgentDoctorCheck:
         async def ignore(*_args: object) -> None:
             return None
 
@@ -109,14 +113,19 @@ class AgentDoctor:
             )
             try:
                 handle = await supervisor.start()
+                self._observed_schema_digest = handle.schema_digest
+                if health_only:
+                    return AgentDoctorCheck(
+                        name="app_server",
+                        state=AgentDoctorCheckState.PASS,
+                        reason_code="app_server_initialized",
+                        detail="候选程序、本地配置和协议初始化可用。",
+                    )
                 catalog = await read_model_catalog(handle.client)
                 config = await handle.client.request(
                     "config/read",
                     {"cwd": str(self._settings.workspaces[0].root), "includeLayers": False},
                     timeout_seconds=10,
-                )
-                account = await handle.client.request(
-                    "account/read", {"refreshToken": False}, timeout_seconds=10
                 )
                 if (
                     catalog.state != "ready"
@@ -124,20 +133,11 @@ class AgentDoctor:
                     or not isinstance(config.get("config"), dict)
                 ):
                     raise ValueError("本机有效配置或模型目录不可读。")
-                if not isinstance(account, dict):
-                    raise ValueError("本机账号状态不可读。")
-                if account.get("requiresOpenaiAuth") is True and account.get("account") is None:
-                    return AgentDoctorCheck(
-                        name="app_server",
-                        state=AgentDoctorCheckState.BLOCKED,
-                        reason_code="codex_account_required",
-                        detail="请先在本机 Codex 完成登录；Agent 不修改登录状态。",
-                    )
                 return AgentDoctorCheck(
                     name="app_server",
                     state=AgentDoctorCheckState.PASS,
                     reason_code="app_server_ready",
-                    detail="初始化、配置、模型和账号状态可读；未执行模型任务。",
+                    detail="初始化、配置和模型目录可读；未执行模型任务。",
                 )
             finally:
                 await supervisor.stop()
@@ -167,7 +167,7 @@ class AgentDoctor:
                 timeout_seconds=15, max_connections=2, max_keepalive_connections=1
             ),
             tls_context=network.tls_context,
-            proxy=network.proxy_for(url),
+            proxy=network.http_proxy_for(url),
             trust_env=False,
         )
         try:
@@ -247,7 +247,7 @@ class AgentDoctor:
     def _check_codex_binary(self) -> AgentDoctorCheck:
         try:
             version = self._read_codex_version()
-            if version != self._settings.protocol.expected_codex_version:
+            if AppServerManifestRegistry().select(version) is None:
                 return AgentDoctorCheck(
                     name="codex_binary",
                     state=AgentDoctorCheckState.WARN,
@@ -368,7 +368,8 @@ class AgentDoctor:
             return AgentDoctorExitCode.COMPATIBILITY_BLOCKED
         if any(
             item.state in {AgentDoctorCheckState.WARN, AgentDoctorCheckState.FAILED}
-            and item.reason_code != "device_identity_not_probed"
+            and item.reason_code
+            not in {"device_identity_not_probed", "codex_version_unreviewed", "agent_not_running"}
             for item in checks
         ):
             return AgentDoctorExitCode.USER_ACTION_REQUIRED

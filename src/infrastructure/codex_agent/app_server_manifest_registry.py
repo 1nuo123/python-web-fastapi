@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import sys
 from pathlib import Path
 
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerSchemaManifestEnvelope,
+    AppServerSchemaReviewStatus,
 )
 from src.domain.codex.codex_compatibility_policy import CodexCompatibilityPolicy
 
@@ -18,8 +21,35 @@ class AppServerManifestValidationError(ValueError):
 class AppServerManifestRegistry:
     """加载、校验并向运行时提供只读兼容矩阵。"""
 
-    def __init__(self, protocol_root: str | Path) -> None:
-        self._protocol_root = Path(protocol_root)
+    def __init__(self, protocol_root: str | Path | None = None) -> None:
+        bundle_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3]))
+        self._protocol_root = (
+            Path(protocol_root) if protocol_root else bundle_root / "protocol/codex_app_server"
+        )
+
+    def select(self, codex_version: str) -> AppServerSchemaManifestEnvelope | None:
+        """版本是精确档案定位；未审核版本保留管理连接，不授予执行能力。"""
+        return next(
+            (
+                manifest
+                for manifest in self.load_manifests()
+                if manifest.header.codex_version == codex_version
+                and manifest.header.review_status == AppServerSchemaReviewStatus.APPROVED
+            ),
+            None,
+        )
+
+    def matches_runtime_schema(self, codex_version: str, directory: Path) -> bool:
+        """原始摘要仍校验发布物完整性；运行生成器的 JSON 键顺序不改变协议。"""
+        frozen = self._protocol_root / codex_version / "json-schema"
+
+        def documents(root: Path) -> dict[str, object]:
+            return {
+                path.relative_to(root).as_posix(): json.loads(path.read_bytes())
+                for path in root.rglob("*.json")
+            }
+
+        return documents(frozen) == documents(directory)
 
     def load_manifests(self) -> tuple[AppServerSchemaManifestEnvelope, ...]:
         """读取所有版本目录并验证精确版本与 schema digest。"""

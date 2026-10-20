@@ -57,6 +57,7 @@ class CodexRealtimeStreamAdapter:
         owner_subject_id: str,
         after_cursor: str | None,
         limit: int,
+        through_cursor: str | None = None,
     ) -> CursorStreamWindow:
         return await self._store.read_cursor_window(
             CursorStreamReadRequest(
@@ -64,6 +65,7 @@ class CodexRealtimeStreamAdapter:
                 owner_subject_id=owner_subject_id,
                 after_cursor=after_cursor,
                 limit=limit,
+                through_cursor=through_cursor,
             )
         )
 

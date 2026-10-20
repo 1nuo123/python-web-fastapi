@@ -180,7 +180,11 @@ class VerifyDeviceChallengeUsecase:
                 message="设备挑战已过期或已消费，请开始新的连接尝试。",
             )
         challenge = record.challenge
-        if challenge.host_id != proof.host_id or challenge.key_id != proof.key_id:
+        if (
+            challenge.host_id != proof.host_id
+            or challenge.key_id != proof.key_id
+            or challenge.audience != DEVICE_CHALLENGE_AUDIENCE
+        ):
             raise self._invalid()
         key = await asyncio.to_thread(
             self._read_active_key,

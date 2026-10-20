@@ -117,9 +117,40 @@ class CreateDeviceAuthorizationUsecase:
             fingerprint=fingerprint,
         )
         for _attempt in range(self._maximum_create_attempts):
-            enrollment_id = uuid4()
-            device_code = secrets.token_urlsafe(DEVICE_CODE_RANDOM_BYTES)
-            user_code = self._create_user_code()
+            # One public key identifies one enrollment attempt, including lost HTTP responses.
+            enrollment_id = detail.key_id
+            request_identity = f"{detail.key_id}:{fingerprint}:{detail.nonce}:{owner_subject_id}"
+            device_code = self._digest_service.digest(f"device-code:{request_identity}")
+            code_digest = bytes.fromhex(
+                self._digest_service.digest(f"user-code:{request_identity}")
+            )
+            raw_code = "".join(
+                USER_CODE_ALPHABET[value % len(USER_CODE_ALPHABET)] for value in code_digest[:8]
+            )
+            user_code = f"{raw_code[:4]}-{raw_code[4:]}"
+            existing = await self._store.read_by_device_code(
+                enrollment_id=enrollment_id,
+                device_code=device_code,
+            )
+            if existing is not None:
+                if (
+                    existing.public_key != public_key
+                    or existing.requested_key_id != detail.key_id
+                    or existing.owner_subject_id != owner_subject_id
+                    or existing.rotation_host_id != rotation_host_id
+                    or existing.rotation_old_key_id != rotation_old_key_id
+                ):
+                    raise ValueError("设备授权重试身份不一致。")
+                return DeviceAuthorizationEnvelope(
+                    header=DeviceAuthorizationHeader(enrollment_id=enrollment_id),
+                    detail=DeviceAuthorizationIssuedDetail(
+                        device_code=device_code,
+                        user_code=user_code,
+                        verification_uri=verification_uri,
+                        interval_seconds=existing.poll_interval_seconds,
+                        expires_at=existing.expires_at,
+                    ),
+                )
             now = datetime.now(UTC)
             expires_at = now + timedelta(seconds=self._ttl_seconds)
             record = DeviceAuthorizationStoreRecord(
@@ -229,7 +260,7 @@ class PollDeviceAuthorizationUsecase:
         if record is None:
             raise self._not_found()
         now = datetime.now(UTC)
-        if record.expires_at <= now:
+        if record.expires_at <= now and record.state != DeviceAuthorizationState.APPROVED:
             expired = record.model_copy(
                 update={
                     "state": DeviceAuthorizationState.EXPIRED,
@@ -302,7 +333,10 @@ class ReadDeviceAuthorizationUsecase:
                 error_code=CodexErrorCode.DEVICE_AUTHORIZATION_NOT_FOUND,
                 message="设备授权代码无效。",
             )
-        if record.expires_at <= datetime.now(UTC):
+        if (
+            record.expires_at <= datetime.now(UTC)
+            and record.state != DeviceAuthorizationState.APPROVED
+        ):
             raise HttpFaultException(
                 status_code=HTTPStatus.GONE,
                 error_code=CodexErrorCode.DEVICE_AUTHORIZATION_EXPIRED,
@@ -435,6 +469,8 @@ class DecideDeviceAuthorizationUsecase:
                 "version": record.version + 1,
             }
         )
+        # Never publish APPROVED before the durable identity can actually connect.
+        await self._finalize_approved_identity(approved, owner_subject_id)
         changed = await self._store.transition(
             enrollment_id=record.enrollment_id,
             expected_version=record.version,
@@ -451,7 +487,6 @@ class DecideDeviceAuthorizationUsecase:
             ):
                 return self._mapper.to_status(latest)
             raise self._state_conflict()
-        await self._finalize_approved_identity(changed, owner_subject_id)
         return self._mapper.to_status(changed)
 
     async def _finalize_approved_identity(

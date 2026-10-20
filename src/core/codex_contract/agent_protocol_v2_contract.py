@@ -103,8 +103,9 @@ class AgentHelloV2Detail(AgentProtocolV2DetailBase):
     execution_lease_supported: bool = False
     lease_request_id: UUID | None = None
     agent_version: str = Field(min_length=1, max_length=64)
-    codex_version: str = Field(min_length=1, max_length=64)
-    app_server_schema_digest: str = Field(pattern=SHA256_HEX_PATTERN)
+    codex_version: str | None = Field(default=None, min_length=1, max_length=64)
+    app_server_schema_digest: str | None = Field(default=None, pattern=SHA256_HEX_PATTERN)
+    app_server_state: Literal["ready", "unavailable"] = "ready"
     capabilities: tuple[AppServerCapabilityDetail, ...]
     model_ids: tuple[str, ...] = ()
     app_server_instance_id: str | None = Field(default=None, max_length=128)
@@ -114,6 +115,16 @@ class AgentHelloV2Detail(AgentProtocolV2DetailBase):
     sandbox_modes: tuple[CodexSandboxMode, ...] = (CodexSandboxMode.WORKSPACE_WRITE,)
     approval_policies: tuple[CodexApprovalPolicy, ...] = (CodexApprovalPolicy.UNTRUSTED,)
     agent_event_epoch: UUID
+
+    @model_validator(mode="after")
+    def validate_availability(self) -> AgentHelloV2Detail:
+        if self.app_server_state == "ready" and self.codex_version is None:
+            raise ValueError("Ready App Server requires an observed CLI version.")
+        if self.app_server_state == "unavailable" and (
+            self.capabilities or self.app_server_instance_id
+        ):
+            raise ValueError("Unavailable App Server cannot advertise execution capabilities.")
+        return self
 
 
 class AgentHelloAckV2Detail(AgentProtocolV2DetailBase):
@@ -137,7 +148,7 @@ class AgentHeartbeatV2Detail(AgentProtocolV2DetailBase):
     kind: Literal["heartbeat"] = "heartbeat"
     lease_request_id: UUID | None = None
     connection_epoch: int = Field(ge=1)
-    app_server_instance_id: UUID
+    app_server_instance_id: UUID | None = None
     revocation_generation: int = Field(ge=0)
 
 

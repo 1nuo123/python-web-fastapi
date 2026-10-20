@@ -84,6 +84,10 @@ class CodexConnectionSessionInactiveError(ConnectionError):
     """长期连接会话已经停止，当前不可继续发送。"""
 
 
+class CodexConnectionPresenceExpiredError(ConnectionError):
+    """当前 presence 已自然失效，保留身份并重新获取连接资格。"""
+
+
 class CodexConnectionFrameTooLargeError(ValueError):
     """长期连接帧超过配置上限。"""
 

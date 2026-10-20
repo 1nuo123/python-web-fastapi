@@ -13,6 +13,7 @@ from src.core.codex_contract.connection_session_contract import (
     CodexConnectionEndKind,
     CodexConnectionFrame,
     CodexConnectionFrameTooLargeError,
+    CodexConnectionPresenceExpiredError,
     CodexConnectionSessionInactiveError,
     CodexConnectionShutdown,
     CodexConnectionSlowConsumerError,
@@ -91,10 +92,8 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
         payload = frame.model_dump_json()
         self._validate_frame_size(payload)
         try:
-            await asyncio.wait_for(
-                self._outbound_queue.put(payload),
-                timeout=self._policy.send_enqueue_timeout_seconds,
-            )
+            async with asyncio.timeout(self._policy.send_enqueue_timeout_seconds):
+                await self._outbound_queue.put(payload)
         except TimeoutError as exc:
             raise CodexConnectionSlowConsumerError("Codex长期连接发送队列已满。") from exc
 
@@ -130,6 +129,11 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
                         "remote_close" if code else "transport_closed",
                         exc,
                     )
+                except CodexConnectionPresenceExpiredError as exc:
+                    close_code, close_reason = 1012, "presence_expired"
+                    ended = CodexConnectionEnd(
+                        CodexConnectionEndKind.TRANSPORT_FAILURE, close_code, close_reason, exc
+                    )
                 except (PermissionError, ValueError) as exc:
                     close_code = 1008 if isinstance(exc, PermissionError) else 1002
                     close_reason = (
@@ -164,9 +168,8 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
                 close_code = ended.close_code or 1000
                 close_reason = ended.reason
             try:
-                await asyncio.wait_for(
-                    self._transport.close(code=close_code, reason=close_reason), timeout=5.0
-                )
+                async with asyncio.timeout(5.0):
+                    await self._transport.close(code=close_code, reason=close_reason)
             except (OSError, TimeoutError):
                 if failure is None and ended.kind == CodexConnectionEndKind.LOCAL_STOP:
                     ended = CodexConnectionEnd(
@@ -194,7 +197,8 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
         while True:
             payload = await self._outbound_queue.get()
             try:
-                await self._transport.send_text(payload)
+                async with asyncio.timeout(self._policy.send_enqueue_timeout_seconds):
+                    await self._transport.send_text(payload)
             finally:
                 self._outbound_queue.task_done()
 

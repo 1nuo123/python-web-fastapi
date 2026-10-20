@@ -1,0 +1,27 @@
+{
+  "environment": "Windows; real CLI, product actor, TLS/WSS, approval HTTP API; isolated workspace",
+  "scenarios": [
+    {
+      "name": "real permissions accept HTTP decision, original RPC result and terminal cleanup",
+      "passed": true
+    },
+    {
+      "name": "real command accept HTTP decision, original RPC result and terminal cleanup",
+      "passed": true
+    },
+    {
+      "name": "real command decline HTTP decision, original RPC result and terminal cleanup",
+      "passed": true
+    },
+    {
+      "name": "real command cancel HTTP decision, original RPC result and terminal cleanup",
+      "passed": true
+    }
+  ],
+  "cli_version": "0.145.0",
+  "implementation_digest": "ba5372ab42db1cec5cfbd26f19d42fa4a27b84a50a796fb0169231072d91997a",
+  "schema_digest": "86501505d7a626582cd7ded6eee36ab6bbaae30fd5d5c1021c0330e3f99d8109",
+  "model": "gpt-5.6-sol",
+  "passed": true,
+  "completed_at": "2026-10-20T05:28:36.179822+00:00"
+}

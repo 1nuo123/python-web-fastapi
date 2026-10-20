@@ -17,6 +17,8 @@ from src.core.codex_contract.device_authorization_contract import (
     DeviceAuthorizationDecideRequestEnvelope,
     DeviceAuthorizationEnvelope,
     DeviceAuthorizationPollRequestEnvelope,
+    DeviceAuthorizationRecoveryRequest,
+    DeviceAuthorizationRecoveryResult,
 )
 from src.core.codex_contract.device_key_contract import (
     AgentConnectionTicketResponse,
@@ -29,6 +31,7 @@ from src.core.codex_contract.enrollment_intent_contract import (
     CodexEnrollmentIntentConsumeRequestEnvelope,
     CodexEnrollmentIntentCreateRequestEnvelope,
     CodexEnrollmentIntentEnvelope,
+    CodexEnrollmentIntentResumeRequest,
 )
 from src.core.exception_contract.error_code_catalog_contract import SuccessCode
 from src.core.http_contract.response_envelope_contract import ResponseEnvelope
@@ -48,6 +51,18 @@ class CodexDeviceAuthorizationRouteCatalog:
         self._accessor = DependencyContextAccessor()
         self._rate_limit = CodexSecurityRateLimitEnforcer()
         self.router = APIRouter()
+        self.router.add_api_route(
+            "/internal/codex-agents/enrollment-intents/resume",
+            self.resume_enrollment_intent,
+            methods=["POST"],
+            response_model=CodexEnrollmentIntentEnvelope,
+        )
+        self.router.add_api_route(
+            "/internal/codex-agents/device-authorizations/recover",
+            self.recover_authorization,
+            methods=["POST"],
+            response_model=DeviceChallengeIssue | DeviceAuthorizationRecoveryResult,
+        )
         self.router.add_api_route(
             "/internal/codex-agents/device-authorizations",
             self.create_authorization,
@@ -119,6 +134,18 @@ class CodexDeviceAuthorizationRouteCatalog:
             CODEX_HOST_MANAGE_AUTHORIZATION_REQUIREMENT,
         )
 
+    async def recover_authorization(
+        self, request: Request, body: DeviceAuthorizationRecoveryRequest
+    ) -> DeviceChallengeIssue | DeviceAuthorizationRecoveryResult:
+        runtime = self._read_runtime(request)
+        self._rate_limit.enforce(
+            request=request,
+            settings=runtime.settings,
+            operation=CodexSecurityRateLimitOperation.DEVICE_CHALLENGE_ISSUE,
+            auth_field_values=[str(body.key_id)],
+        )
+        return await runtime.recover_device_authorization.execute(body)
+
     async def create_authorization(
         self,
         request: Request,
@@ -179,6 +206,18 @@ class CodexDeviceAuthorizationRouteCatalog:
         return await runtime.issue_device_challenge.execute(
             host_id=body.detail.host_id,
             key_id=body.detail.key_id,
+        )
+
+    async def resume_enrollment_intent(
+        self, request: Request, body: CodexEnrollmentIntentResumeRequest
+    ) -> CodexEnrollmentIntentEnvelope:
+        runtime = self._read_runtime(request)
+        identity = await runtime.verify_device_challenge.verify_identity(proof=body.proof)
+        return await runtime.manage_enrollment_intent.resume(
+            intent_token=body.intent_token,
+            host_id=identity.host_id,
+            key_id=identity.key_id,
+            owner_subject_id=identity.owner_subject_id,
         )
 
     async def verify_challenge(

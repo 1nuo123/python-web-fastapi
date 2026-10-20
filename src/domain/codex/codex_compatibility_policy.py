@@ -30,6 +30,7 @@ class CodexCompatibilityReason(StrEnum):
     """稳定机器可读兼容原因。"""
 
     SUPPORTED = "supported"
+    RUNTIME_UNAVAILABLE = "runtime_unavailable"
     VERSION_NOT_SUPPORTED = "version_not_supported"
     VERSION_BELOW_MINIMUM = "version_below_minimum"
     VERSION_BLOCKED = "version_blocked"
@@ -47,9 +48,9 @@ class CodexCompatibilityTuple(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    codex_version: str = Field(min_length=1, max_length=64)
+    codex_version: str | None = Field(default=None, min_length=1, max_length=64)
     agent_protocol_version: str = Field(min_length=1, max_length=64)
-    app_server_schema_digest: str = Field(pattern=SHA256_HEX_PATTERN)
+    app_server_schema_digest: str | None = Field(default=None, pattern=SHA256_HEX_PATTERN)
     capabilities: frozenset[AppServerCapabilityCode]
     method: AppServerMethodName
 
@@ -59,9 +60,9 @@ class CodexConnectionCompatibilityTuple(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    codex_version: str = Field(min_length=1, max_length=64)
+    codex_version: str | None = Field(default=None, min_length=1, max_length=64)
     agent_protocol_version: str = Field(min_length=1, max_length=64)
-    app_server_schema_digest: str = Field(pattern=SHA256_HEX_PATTERN)
+    app_server_schema_digest: str | None = Field(default=None, pattern=SHA256_HEX_PATTERN)
     capabilities: frozenset[AppServerCapabilityCode]
 
 
@@ -86,16 +87,18 @@ class CodexCompatibilityPolicy:
         minimum_codex_version: str,
         blocked_codex_versions: tuple[str, ...],
     ) -> None:
-        self._manifests = {
-            manifest.header.codex_version: manifest
-            for manifest in manifests
-        }
+        self._manifests = {manifest.header.codex_version: manifest for manifest in manifests}
         self._minimum_codex_version = parse_agent_release_version(minimum_codex_version)
         self._blocked_codex_versions = frozenset(blocked_codex_versions)
 
     def evaluate(self, compatibility: CodexCompatibilityTuple) -> CodexCompatibilityResult:
         """计算目标方法是否允许执行。"""
 
+        if compatibility.codex_version is None or compatibility.app_server_schema_digest is None:
+            return CodexCompatibilityResult(
+                decision=CodexCompatibilityDecision.BLOCKED,
+                reason=CodexCompatibilityReason.RUNTIME_UNAVAILABLE,
+            )
         version_boundary = self._evaluate_version_boundary(compatibility.codex_version)
         if version_boundary is not None:
             return version_boundary
@@ -172,6 +175,11 @@ class CodexCompatibilityPolicy:
     ) -> CodexCompatibilityResult:
         """校验 hello 的精确版本、digest、协议和 capability 子集。"""
 
+        if compatibility.codex_version is None or compatibility.app_server_schema_digest is None:
+            return CodexCompatibilityResult(
+                decision=CodexCompatibilityDecision.BLOCKED,
+                reason=CodexCompatibilityReason.RUNTIME_UNAVAILABLE,
+            )
         version_boundary = self._evaluate_version_boundary(compatibility.codex_version)
         if version_boundary is not None:
             return version_boundary

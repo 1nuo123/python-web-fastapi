@@ -62,7 +62,9 @@ def build_agent_tls_context(
         raise ValueError("development_ca_certificate_path必须指向可读取的CA证书文件。")
 
     # 仅在系统默认信任链之上增加开发 CA，绝不关闭服务端证书校验。
-    return ssl.create_default_context(cafile=str(development_ca_certificate_path))
+    context = ssl.create_default_context()
+    context.load_verify_locations(cafile=str(development_ca_certificate_path))
+    return context
 
 
 def validate_public_endpoint_url(value: str, *, expected_scheme: str) -> str:

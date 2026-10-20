@@ -13,6 +13,7 @@ from src.core.codex_contract.device_authorization_contract import (
     DeviceAuthorizationCreateDetail,
     DeviceAuthorizationEnvelope,
 )
+from src.core.codex_contract.device_key_contract import DeviceChallengeProof
 
 CODEX_ENROLLMENT_INTENT_KIND: Final = "codex_enrollment_intent"
 CODEX_ENROLLMENT_INTENT_SCHEMA_VERSION: Final = "1.0"
@@ -83,6 +84,7 @@ class CodexEnrollmentIntentStatusDetail(BaseModel):
     expires_at: datetime
     user_code: str | None = Field(default=None, min_length=6, max_length=16)
     authorization: DeviceAuthorizationEnvelope | None = None
+    host_id: UUID | None = None
 
 
 class CodexEnrollmentIntentConsumeDetail(BaseModel):
@@ -101,6 +103,12 @@ class CodexEnrollmentIntentConsumeRequestEnvelope(BaseModel):
 
     header: CodexEnrollmentIntentRequestHeader
     detail: CodexEnrollmentIntentConsumeDetail
+
+
+class CodexEnrollmentIntentResumeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    intent_token: str = Field(min_length=32, max_length=512)
+    proof: DeviceChallengeProof
 
 
 CodexEnrollmentIntentDetail = CodexEnrollmentIntentIssuedDetail | CodexEnrollmentIntentStatusDetail
@@ -131,4 +139,7 @@ class CodexEnrollmentIntentStoreRecord(BaseModel):
     user_code: str | None = Field(default=None, min_length=6, max_length=16)
     device_code: str | None = Field(default=None, min_length=32, max_length=512)
     poll_interval_seconds: int | None = Field(default=None, ge=1, le=60)
+    authorization_expires_at: datetime | None = None
+    request_digest: str | None = None
+    host_id: UUID | None = None
     expires_at: datetime

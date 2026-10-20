@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+from datetime import timedelta
 from uuid import UUID
 
 from src.application.ports.codex_enrollment_intent_store_port import (
@@ -32,9 +33,11 @@ class CodexEnrollmentIntentStore(CodexEnrollmentIntentStorePort):
         *,
         state: AtomicStatePort,
         digest_service: SensitiveDigestService,
+        recovery_seconds: int = 86_400,
     ) -> None:
         self._state = state
         self._digest_service = digest_service
+        self._recovery_seconds = recovery_seconds
 
     async def create(self, record: CodexEnrollmentIntentStoreRecord) -> bool:
         return await self._state.create_with_index(
@@ -42,13 +45,13 @@ class CodexEnrollmentIntentStore(CodexEnrollmentIntentStorePort):
                 key=self._intent_key(record.intent_id),
                 value=record.model_dump_json(),
                 version=record.version,
-                expires_at=record.expires_at,
+                expires_at=record.expires_at + timedelta(seconds=self._recovery_seconds),
             ),
             index_record=AtomicStateRecord(
                 key=self._token_key(record.token_digest),
                 value=str(record.intent_id),
                 version=1,
-                expires_at=record.expires_at,
+                expires_at=record.expires_at + timedelta(seconds=self._recovery_seconds),
             ),
         )
 
@@ -96,7 +99,7 @@ class CodexEnrollmentIntentStore(CodexEnrollmentIntentStorePort):
             key=self._intent_key(intent_id),
             expected_version=expected_version,
             next_value=next_record.model_dump_json(),
-            expires_at=next_record.expires_at,
+            expires_at=next_record.expires_at + timedelta(seconds=self._recovery_seconds),
         )
         return next_record if changed is not None else None
 

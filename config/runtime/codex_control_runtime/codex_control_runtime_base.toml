@@ -1,7 +1,7 @@
 [runtime]
 enabled = true
 agent_deployment_profile = "production"
-agent_lease_continuity_enabled = false
+agent_lease_continuity_enabled = true
 agent_heartbeat_seconds = 15
 agent_offline_after_seconds = 30
 agent_rpc_ack_timeout_seconds = 10

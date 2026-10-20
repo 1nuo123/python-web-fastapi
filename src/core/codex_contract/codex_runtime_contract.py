@@ -52,7 +52,7 @@ class CodexRuntimeSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     enabled: bool = True
-    agent_lease_continuity_enabled: bool = False
+    agent_lease_continuity_enabled: bool = True
     agent_deployment_profile: CodexAgentDeploymentProfile = CodexAgentDeploymentProfile.PRODUCTION
     agent_heartbeat_seconds: int = Field(ge=15, le=15)
     agent_offline_after_seconds: int = Field(gt=0)
@@ -87,6 +87,7 @@ class CodexRuntimeSettings(BaseModel):
     instance_control_stream_max_events: int = Field(gt=0, le=100_000)
     instance_control_read_limit: int = Field(gt=0, le=1_000)
     device_authorization_ttl_seconds: int = Field(gt=0, le=1_800)
+    device_authorization_recovery_seconds: int = Field(default=86_400, ge=1_800, le=604_800)
     enrollment_intent_ttl_seconds: int = Field(gt=0, le=900)
     device_authorization_poll_interval_seconds: int = Field(gt=0, le=60)
     device_authorization_create_attempts: int = Field(gt=0, le=20)
