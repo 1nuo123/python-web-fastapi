@@ -4,6 +4,7 @@ from enum import StrEnum
 from typing import Final
 
 AGENT_EXECUTION_LEASE_SECONDS: Final = 35
+AGENT_EXECUTION_LEASE_MAX_SECONDS: Final = 60
 AGENT_CONNECTION_REJECTION_HEADER: Final = "x-codex-agent-error"
 AGENT_CONNECTION_TICKET_EXPIRED: Final = "ticket_expired"
 

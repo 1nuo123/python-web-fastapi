@@ -421,7 +421,7 @@ class CodexAgentGatewayHandler:
     ) -> None:
         if self._active_host is None:
             return
-        state = await self._active_host.read(self._principal.owner_subject_id)
+        state = await self._active_host.reconcile(self._principal.owner_subject_id)
         host_id = UUID(self._principal.host_id)
         if self._revoking:
             self._stop_generation = state.version
@@ -478,7 +478,7 @@ class CodexAgentGatewayHandler:
             await self._send_execution_lease(sender, None)
             await asyncio.wait_for(self._stopped.wait(), timeout=15)
         except (ConnectionError, TimeoutError):
-            # 未收到可信停止证明，active-host继续阻断接管，不能按时间猜测已停止。
+            # 停止确认丢失时仍关闭旧资格；由 active-host 的完整许可期限收尾。
             return
 
     def _evaluate_connection(
@@ -1105,7 +1105,7 @@ class CodexExecutionCommandSender:
         decoded = self._codec.decode(frame)
         if decoded.v2 is None or not isinstance(decoded.v2.detail, AgentCommandV2Detail):
             raise PermissionError("执行通道只接受带租约的 v2 命令。")
-        state = await self._active_host.read(self._principal.owner_subject_id)
+        state = await self._active_host.reconcile(self._principal.owner_subject_id)
         command = decoded.v2.detail
         if self._confirmed_generation != state.version:
             raise CodexHostOfflineError("电脑正在建立执行环境，命令将在就绪后投递。")

@@ -12,7 +12,10 @@ class CodexActiveHostState(BaseModel):
     target_host_id: UUID | None = None
     version: int = Field(default=0, ge=0)
     activated_at: datetime | None = None
-    drain_until: datetime | None = None
+    drain_until: datetime | None = Field(
+        default=None,
+        description="停止续租后登记的执行许可最晚失效时间；空值表示尚未登记收尾期限。",
+    )
 
 
 class CodexActiveHostSwitchRequest(BaseModel):

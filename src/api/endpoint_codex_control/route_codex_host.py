@@ -170,7 +170,7 @@ class CodexHostRouteCatalog:
     async def get_active_host(self, request: Request) -> ResponseEnvelope[CodexActiveHostState]:
         principal = self._accessor.read_authenticated_principal(request)
         runtime = request.app.state.container.resource_mount.get_codex_control_runtime()
-        state = await runtime.active_host.read(principal.subject_id)
+        state = await runtime.active_host.reconcile(principal.subject_id)
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),
             message="当前连接状态",
@@ -195,7 +195,7 @@ class CodexHostRouteCatalog:
             )
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),
-            message="连接切换已受理；旧电脑停止后才启用目标电脑。",
+            message="连接切换已受理；旧电脑确认停止或执行许可到期后启用目标电脑。",
             request_scope=self._accessor.read_request_scope(request),
             data=state,
         )
@@ -210,7 +210,7 @@ class CodexHostRouteCatalog:
             callable_object=self._accessor.read_list_codex_hosts_usecase(request).execute,
             owner_subject_id=principal.subject_id,
         )
-        active = await runtime.active_host.read(principal.subject_id)
+        active = await runtime.active_host.reconcile(principal.subject_id)
         present_host_ids = await runtime.presence_adapter.list_present(
             [host.host_id for host in payload.items]
         )

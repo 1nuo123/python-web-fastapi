@@ -18,7 +18,10 @@ from pydantic import (
 )
 
 from src.core.codex_contract.agent_command_contract import AgentCommandResultSummary
-from src.core.codex_contract.agent_connection_contract import AGENT_EXECUTION_LEASE_SECONDS
+from src.core.codex_contract.agent_connection_contract import (
+    AGENT_EXECUTION_LEASE_MAX_SECONDS,
+    AGENT_EXECUTION_LEASE_SECONDS,
+)
 from src.core.codex_contract.agent_history_window_contract import AgentHistoryWindowRequest
 from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.app_server_product_contract import (
@@ -160,7 +163,9 @@ class AgentExecutionLeaseV2Detail(AgentProtocolV2DetailBase):
     request_id: UUID | None = None
     generation: int = Field(ge=0)
     enabled: bool
-    valid_for_seconds: int = Field(default=AGENT_EXECUTION_LEASE_SECONDS, ge=1, le=60)
+    valid_for_seconds: int = Field(
+        default=AGENT_EXECUTION_LEASE_SECONDS, ge=1, le=AGENT_EXECUTION_LEASE_MAX_SECONDS
+    )
 
 
 class AgentExecutionStoppedV2Detail(AgentProtocolV2DetailBase):

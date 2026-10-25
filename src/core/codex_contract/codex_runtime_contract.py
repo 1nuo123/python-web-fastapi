@@ -6,6 +6,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.core.codex_contract.agent_connection_contract import AGENT_EXECUTION_LEASE_MAX_SECONDS
 from src.core.codex_contract.agent_release_manifest_contract import (
     CodexAgentReleaseDistributionMode,
     parse_agent_release_version,
@@ -62,7 +63,9 @@ class CodexRuntimeSettings(BaseModel):
     agent_close_timeout_seconds: float = Field(default=3.0, gt=0)
     agent_outgoing_queue_max_bytes: int = Field(default=16 * 1024 * 1024, gt=0)
     agent_query_timeout_seconds: int = Field(default=25, gt=0)
-    agent_execution_lease_seconds: int = Field(default=60, ge=1, le=60)
+    agent_execution_lease_seconds: int = Field(
+        default=AGENT_EXECUTION_LEASE_MAX_SECONDS, ge=1, le=AGENT_EXECUTION_LEASE_MAX_SECONDS
+    )
     agent_reconnect_min_seconds: int = Field(gt=0)
     agent_reconnect_max_seconds: int = Field(gt=0)
     max_connected_agents: int = Field(gt=0)

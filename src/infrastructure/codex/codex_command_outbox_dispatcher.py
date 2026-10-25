@@ -136,7 +136,7 @@ class CodexCommandOutboxDispatcher(AsyncReliableOutboxAdapterPort[CodexCommandOu
         *,
         expected_fencing_token: int | None,
     ) -> CodexAgentCommandAck:
-        active = await self._active_host.read(record.owner_subject_id)
+        active = await self._active_host.reconcile(record.owner_subject_id)
         if (
             active.active_host_id != record.host_id
             or active.activated_at is None

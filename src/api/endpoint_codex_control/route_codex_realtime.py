@@ -406,7 +406,7 @@ class CodexRealtimeRouteCatalog:
             runtime,
             subscription.subject_id,
         )
-        active = await runtime.active_host.read(subscription.subject_id)
+        active = await runtime.active_host.reconcile(subscription.subject_id)
         present = await runtime.presence_adapter.list_present(
             [UUID(str(host["host_id"])) for host in hosts if isinstance(host, dict)]
         )
