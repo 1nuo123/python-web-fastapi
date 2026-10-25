@@ -16,10 +16,11 @@ import ssl
 import subprocess
 import sys
 import tempfile
-from uuid import uuid4
+import tomllib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs
+from uuid import uuid4
 
 import httpx
 import psutil
@@ -34,26 +35,27 @@ sys.path.insert(0, str(ROOT))
 
 from src.api.testing.test_app_factory import TestAppFactory
 from src.core.codex_contract.agent_protocol_contract import CodexAgentCommand
-from src.domain.codex.agent_command_policy import calculate_agent_request_digest
+from src.core.codex_contract.connection_session_contract import CodexHostOfflineError
 from src.core.http_contract.outbound_http_client_contract import AsyncHttpClientDetail
-from src.infrastructure.codex_agent.agent_configuration import (
-    CodexHostAgentSettings,
-    AgentBootstrapSettings,
-)
-from src.infrastructure.codex_agent.agent_config_store import AgentConfigStore
-from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
-from src.infrastructure.codex_agent.agent_control_channel import AgentControlChannel
+from src.domain.codex.agent_command_policy import calculate_agent_request_digest
 from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJournal
+from src.infrastructure.codex_agent.agent_config_store import AgentConfigStore
+from src.infrastructure.codex_agent.agent_configuration import (
+    AgentBootstrapSettings,
+    CodexHostAgentSettings,
+)
 from src.infrastructure.codex_agent.agent_connection_ticket_provider import (
     AgentConnectionTicketProvider,
 )
+from src.infrastructure.codex_agent.agent_control_channel import AgentControlChannel
 from src.infrastructure.codex_agent.agent_network_policy import AgentNetworkPolicy
+from src.infrastructure.codex_agent.agent_runtime_status_store import AgentRuntimeStatusStore
 from src.infrastructure.codex_agent.agent_secret_store import WindowsAgentSecretStore
 from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspaceRegistry
 from src.infrastructure.codex_agent.windows_dpapi_device_key_store import (
+    WindowsCurrentUserAclEnforcer,
     WindowsCurrentUserDpapi,
     WindowsDpapiDeviceKeyStore,
-    WindowsCurrentUserAclEnforcer,
 )
 from src.infrastructure.resource_slot.shared_async_http_client import SharedAsyncHttpClient
 from test.fixtures.codex_device_authorization_test_support import (
@@ -67,6 +69,8 @@ class FaultBoundary:
     def __init__(self, app):
         self.app = app
         self.failures = {}
+        self.delay_next_ws_send = 0.0
+        self.send_delay_active = False
         self.injected = []
         self.tickets = set()
         self.ticket_reuse = 0
@@ -112,7 +116,18 @@ class FaultBoundary:
                 client_ip=scope["client"][0],
             )
             self.injected.append({"path": path, "status": 401, "reason": "ticket_expired"})
-        await self.app(scope, receive, send)
+
+        async def delayed_send(message):
+            if message["type"] == "websocket.send" and self.delay_next_ws_send:
+                delay, self.delay_next_ws_send = self.delay_next_ws_send, 0.0
+                self.send_delay_active = True
+                try:
+                    await asyncio.sleep(delay)
+                finally:
+                    self.send_delay_active = False
+            await send(message)
+
+        await self.app(scope, receive, delayed_send)
 
 
 def certificate(directory):
@@ -125,7 +140,7 @@ def certificate(directory):
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now(UTC) - timedelta(minutes=1))
-        .not_valid_after(datetime.now(UTC) + timedelta(days=1))
+        .not_valid_after(datetime.now(UTC) + timedelta(days=4))
         .add_extension(
             x509.SubjectAlternativeName([x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]),
             critical=False,
@@ -164,6 +179,7 @@ async def until(predicate, *, timeout=90, task=None):
 
 async def binary_acceptance(directory, settings, app, boundary, report):
     import rtoml
+
     from src.infrastructure.codex_agent.agent_deployment_profile import AgentDeploymentProfile
 
     settings = settings.model_copy(
@@ -444,6 +460,13 @@ if ($null -ne $task) {
 
 
 async def main():
+    candidate_path = next(
+        (arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--connection-candidate=")),
+        None,
+    )
+    candidate = (
+        tomllib.loads(Path(candidate_path).read_text(encoding="utf-8")) if candidate_path else {}
+    )
     proxy_kind = next(
         (arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--proxy=")), None
     )
@@ -498,9 +521,20 @@ async def main():
     app = TestAppFactory().create(
         overrides={
             "runtime": {
-                "web": {"cors": {"allow_origins": ["http://testserver", origin]}},
+                "web": {
+                    "cors": {
+                        "allow_origins": ["http://testserver", origin]
+                        + (["http://127.0.0.1:3329"] if "--browser-task" in sys.argv else [])
+                    }
+                },
+                **(
+                    {"stream": {"detail": {"allowed_origins": ["http://127.0.0.1:3329"]}}}
+                    if "--browser-task" in sys.argv
+                    else {}
+                ),
                 "codex_control": {
                     "max_connected_agents": 4,
+                    **candidate.get("server", {}),
                 },
             }
         }
@@ -527,6 +561,22 @@ async def main():
     proxy_environment = {}
     try:
         await until(lambda: server.started, task=server_task)
+        if "--caddy-reload" in sys.argv:
+            from scripts.codex.acceptance.caddy_reload import run_caddy_reload
+
+            await run_caddy_reload(
+                binary=ROOT / "test-results/connection-hardening/caddy/caddy.exe",
+                directory=directory,
+                report=report,
+            )
+            report["passed"] = True
+            return
+        if "--health-isolation" in sys.argv:
+            from scripts.codex.acceptance.health_isolation import run_health_isolation
+
+            await run_health_isolation(app, origin=origin, certificate=cert, report=report)
+            report["passed"] = True
+            return
         proxy_url = None
         if proxy_kind is not None:
             from scripts.codex.acceptance.connect_proxy import AcceptanceConnectProxy
@@ -648,6 +698,17 @@ async def main():
         (directory / "agent.toml").write_text(
             rtoml.dumps(json.loads(settings.model_dump_json(exclude_none=True))), encoding="utf-8"
         )
+        if candidate:
+            settings = settings.model_copy(
+                update={
+                    "agent": type(settings.agent).model_validate(
+                        {
+                            **settings.agent.model_dump(),
+                            **candidate.get("agent", {}),
+                        }
+                    )
+                }
+            )
         network = AgentNetworkPolicy(settings.agent)
         assert set(ssl.create_default_context().get_ca_certs(binary_form=True)).issubset(
             set(network.tls_context.get_ca_certs(binary_form=True))
@@ -663,6 +724,7 @@ async def main():
         journal = AgentCommandJournal(settings.agent.state_database)
         channel = AgentControlChannel(
             settings=settings,
+            network_policy=network,
             secret_store=WindowsAgentSecretStore(),
             connection_ticket_provider=AgentConnectionTicketProvider(
                 client=resource.get_client(),
@@ -780,6 +842,50 @@ async def main():
             task=run_task,
         )
         first = channel._supervisor.handle
+        if "--browser-task" in sys.argv:
+            from scripts.codex.acceptance.browser_task import run_browser_task
+
+            await run_browser_task(
+                channel,
+                origin=origin,
+                certificate=cert,
+                report=report,
+                acceptance_report=output,
+                timeout_seconds=int(
+                    next(
+                        (
+                            arg.split("=", 1)[1]
+                            for arg in sys.argv
+                            if arg.startswith("--browser-timeout-seconds=")
+                        ),
+                        "720",
+                    )
+                ),
+            )
+            report["passed"] = True
+            return
+        if "--history-window" in sys.argv:
+            from scripts.codex.acceptance.history_window import run_history_window
+
+            await run_history_window(
+                channel, origin=origin, certificate=cert, run_task=run_task, report=report
+            )
+            report["passed"] = True
+            return
+        if candidate and not any(arg.startswith("--soak-seconds=") for arg in sys.argv):
+            from scripts.codex.autotuner.connection.scenarios import run_scenarios
+
+            await run_scenarios(
+                channel,
+                runtime=runtime,
+                run_task=run_task,
+                proxy=proxy,
+                boundary=boundary,
+                report=report,
+                candidate=candidate,
+            )
+            report["passed"] = all(item["passed"] for item in report["scenarios"])
+            return
         soak_seconds = next(
             (int(arg.split("=", 1)[1]) for arg in sys.argv if arg.startswith("--soak-seconds=")),
             None,
@@ -981,7 +1087,7 @@ async def main():
         lease.close(1012, "acceptance_result_disconnect")
         try:
             await delivery
-        except TimeoutError:
+        except (TimeoutError, CodexHostOfflineError):
             pass
         await until(
             lambda: channel._connection_ready and channel._connection_epoch != epoch, task=run_task

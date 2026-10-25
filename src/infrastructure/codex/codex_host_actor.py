@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Final
 from uuid import UUID, uuid4
 
@@ -54,6 +55,7 @@ class CodexHostActor:
         self._command_mapper = AgentCommandV2Mapper()
         self._pending_acks: dict[UUID, asyncio.Future[CodexAgentCommandAck]] = {}
         self._pending_results: dict[UUID, asyncio.Future[CodexAgentCommandResult]] = {}
+        self._disconnect_watchers: dict[UUID, asyncio.Task[None]] = {}
 
     async def dispatch(
         self,
@@ -86,6 +88,8 @@ class CodexHostActor:
                 and command.command_type not in {"thread.list", "thread.read"}
             ):
                 raise PermissionError("当前App Server schema只允许只读命令。")
+            if command.params.get("history_window") is not None and not lease.history_windows:
+                raise CodexHostOfflineError("连接能力已变化，请重新读取历史窗口。")
             if lease.protocol_version == CodexConnectionProtocolVersion.V2:
                 frame = self._codec_registry.encode_v2(
                     host_id=self._host_id,
@@ -97,11 +101,21 @@ class CodexHostActor:
                     AgentV1MessageType.COMMAND,
                     command,
                 )
-            await lease.sender.send(frame)
-            ack = await asyncio.wait_for(future, timeout=ack_timeout_seconds)
+            if command.command_id in self._pending_results:
+                self._disconnect_watchers[command.command_id] = asyncio.create_task(
+                    self._fail_disconnected_query(command.command_id, lease.disconnected)
+                )
+            remaining = min(
+                ack_timeout_seconds, (command.deadline - datetime.now(UTC)).total_seconds()
+            )
+            async with asyncio.timeout(max(0, remaining)):
+                await lease.sender.send(frame)
+                ack = await future
             return CodexAcceptedOperation(ack=ack)
         finally:
             self._pending_acks.pop(command.command_id, None)
+            if not future.done():
+                future.cancel()
 
     async def dispatch_and_wait_result(
         self,
@@ -116,20 +130,38 @@ class CodexHostActor:
             raise RuntimeError("同一command_id正在等待Agent结果。")
         result_future = asyncio.get_running_loop().create_future()
         self._pending_results[command.command_id] = result_future
+        remaining = min(
+            result_timeout_seconds, (command.deadline - datetime.now(UTC)).total_seconds()
+        )
         try:
-            accepted = await self.dispatch(
-                command,
-                ack_timeout_seconds=ack_timeout_seconds,
-            )
-            try:
-                ack_state = AgentCommandJournalState(accepted.ack.state)
-            except ValueError:
-                ack_state = AgentCommandJournalState.UNKNOWN
-            if ack_state not in AGENT_ACK_ACCEPTED_STATES:
-                raise RuntimeError("Agent未确认Codex查询命令。")
-            return await asyncio.wait_for(result_future, timeout=result_timeout_seconds)
+            async with asyncio.timeout(max(0, remaining)):
+                accepted = await self.dispatch(
+                    command,
+                    ack_timeout_seconds=ack_timeout_seconds,
+                )
+                try:
+                    ack_state = AgentCommandJournalState(accepted.ack.state)
+                except ValueError:
+                    ack_state = AgentCommandJournalState.UNKNOWN
+                if ack_state not in AGENT_ACK_ACCEPTED_STATES:
+                    raise RuntimeError("Agent未确认Codex查询命令。")
+                return await result_future
         finally:
             self._pending_results.pop(command.command_id, None)
+            if not result_future.done():
+                result_future.cancel()
+            elif not result_future.cancelled():
+                result_future.exception()  # Consume a disconnect racing the ACK failure.
+            watcher = self._disconnect_watchers.pop(command.command_id, None)
+            if watcher is not None:
+                watcher.cancel()
+                await asyncio.gather(watcher, return_exceptions=True)
+
+    async def _fail_disconnected_query(self, command_id: UUID, disconnected: asyncio.Event) -> None:
+        await disconnected.wait()
+        for future in (self._pending_acks.get(command_id), self._pending_results.get(command_id)):
+            if future is not None and not future.done():
+                future.set_exception(CodexHostOfflineError("查询所属连接已断开。"))
 
     async def accept_ack(self, ack: CodexAgentCommandAck) -> None:
         """完成对应命令的 ack future；迟到 ack 留给 operation reconciliation。"""

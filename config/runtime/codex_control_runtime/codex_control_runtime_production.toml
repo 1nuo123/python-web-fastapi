@@ -1,13 +1,13 @@
 [runtime]
 max_connected_agents = 1
 max_active_turns_per_host = 1
-agent_release_version = "0.1.38"
+agent_release_version = "0.1.43"
 agent_release_available = true
 agent_release_distribution_mode = "internal"
-agent_release_artifact_sha256 = "ab8ad64b07c9f5ac38fd8c61238c40ca904f34f758ac3b3538396f3396cd98bd"
-agent_release_download_url = "https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.38/CodexRemoteAgent.msi"
-agent_release_manifest_url = "https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.38/internal-release.json"
+agent_release_artifact_sha256 = "72aacf1a08564c8dd7d518e9c7088287f8023233cb5beb068ff533877c2a5cdd"
+agent_release_download_url = "https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.43/CodexRemoteAgent.msi"
+agent_release_manifest_url = "https://github.com/1nuo123/codex-remote-agent-releases/releases/download/v0.1.43/internal-release.json"
 agent_release_minimum_security_version = "0.1.31"
 agent_release_source_dirty = true
 agent_release_source_repository = "1nuo123/python-web-fastapi"
-agent_release_source_revision = "9640c5b4188af779368f66d93dac9816240f79a7"
+agent_release_source_revision = "14dd31d29d093e4ef62093d11d0d55152fd23547"

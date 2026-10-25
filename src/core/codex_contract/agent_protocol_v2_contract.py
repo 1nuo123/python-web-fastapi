@@ -19,6 +19,7 @@ from pydantic import (
 
 from src.core.codex_contract.agent_command_contract import AgentCommandResultSummary
 from src.core.codex_contract.agent_connection_contract import AGENT_EXECUTION_LEASE_SECONDS
+from src.core.codex_contract.agent_history_window_contract import AgentHistoryWindowRequest
 from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.app_server_product_contract import (
     APP_SERVER_PRODUCT_MAX_DELTA_CHARS,
@@ -216,6 +217,7 @@ class AgentThreadReadCommandDetail(AgentCommandDetailBase):
     """读取一个已登记工作区线程。"""
 
     kind: Literal["thread.read"] = "thread.read"
+    history_window: AgentHistoryWindowRequest | None = None
     workspace_key: str = Field(min_length=1, max_length=128)
     thread_id: str = Field(min_length=1, max_length=256)
     include_turns: bool = True

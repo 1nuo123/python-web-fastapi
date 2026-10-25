@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import ssl
-import httpx
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 from urllib.request import getproxies, proxy_bypass
+
+import httpx
 
 from src.infrastructure.codex_agent.agent_configuration import (
     AgentProcessSettings,
@@ -31,6 +32,7 @@ class AgentNetworkSettings:
 class AgentNetworkPolicy:
     def __init__(self, settings: AgentProcessSettings | AgentNetworkSettings) -> None:
         self._settings = settings
+        self._resolved_proxies: dict[str, str | None] = {}
         if settings.network_mode == "explicit" and (
             not settings.proxy_url or urlsplit(settings.proxy_url).scheme not in {"http", "https"}
         ):
@@ -61,13 +63,15 @@ class AgentNetworkPolicy:
         if self._settings.network_mode == "explicit":
             return self._settings.proxy_url
         parsed = urlsplit(url)
-        if proxy_bypass(parsed.netloc):
-            return None
         scheme = {"wss": "https", "ws": "http"}.get(parsed.scheme, parsed.scheme)
+        origin = f"{scheme}://{parsed.netloc}"
+        if origin in self._resolved_proxies:
+            return self._resolved_proxies[origin]
         proxies = getproxies()
-        proxy = proxies.get(scheme) or proxies.get("all")
+        proxy = None if proxy_bypass(parsed.netloc) else (proxies.get(scheme) or proxies.get("all"))
         if proxy and urlsplit(proxy).scheme not in {"http", "https"}:
             raise ValueError("系统代理不是HTTP/HTTPS；请显式配置兼容代理。")
+        self._resolved_proxies[origin] = proxy
         return proxy
 
     def describe(self, url: str) -> str:

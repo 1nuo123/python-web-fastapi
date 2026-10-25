@@ -118,6 +118,7 @@ class AgentSnapshotBuilder:
         *,
         page_index: int,
         page_size: int,
+        max_page_bytes: int = 4 * 1024 * 1024 - 4096,
         pending_approvals: tuple[AgentPendingApprovalSnapshot, ...] = (),
         snapshot: CodexAgentStateSnapshot | None = None,
     ) -> AgentStateSnapshotV2Detail:
@@ -128,23 +129,14 @@ class AgentSnapshotBuilder:
         if page_size <= 0:
             raise ValueError("Agent快照页容量必须大于零。")
         legacy = snapshot if snapshot is not None else await self.build()
+        if legacy.omitted_thread_workspace_keys:
+            # v2 的省略合同只有已知条数，不能把未知大小的工作区伪装成完整索引。
+            raise AppServerMessageTooLargeError("工作区索引读取不完整，当前快照不能确认同步成功。")
         all_threads = tuple(self._to_v2_thread(item) for item in legacy.threads)
-        start = page_index * page_size
-        page = all_threads[start : start + page_size]
-        continuation = str(page_index + 1) if start + page_size < len(all_threads) else None
-        omissions: tuple[AgentSnapshotOmission, ...] = ()
-        if continuation is not None:
-            omissions = (
-                AgentSnapshotOmission(
-                    section="threads",
-                    omitted_count=len(all_threads) - start - len(page),
-                    reason="page_capacity",
-                ),
-            )
-        return AgentStateSnapshotV2Detail(
+        base = AgentStateSnapshotV2Detail(
             app_server_instance_id=UUID(legacy.app_server_instance_id),
             page_index=page_index,
-            continuation_token=continuation,
+            continuation_token=None,
             workspaces=tuple(
                 AgentWorkspaceSnapshot(
                     workspace_key=item.key,
@@ -156,7 +148,7 @@ class AgentSnapshotBuilder:
                 )
                 for item in legacy.workspaces
             ),
-            threads=page,
+            threads=(),
             pending_commands=tuple(
                 AgentPendingCommandSnapshot(
                     command_id=UUID(str(item["command_id"])),
@@ -171,8 +163,43 @@ class AgentSnapshotBuilder:
                 for item in legacy.pending_commands
             ),
             pending_approvals=pending_approvals,
-            omissions=omissions,
+            omissions=(),
             captured_at=legacy.captured_at,
+        )
+
+        fixed_bytes = len(base.model_dump_json().encode("utf-8")) + 512
+        if fixed_bytes >= max_page_bytes:
+            raise AppServerMessageTooLargeError(
+                "快照控制状态超过单帧预算，不能省略审批或假报完整。"
+            )
+        pages: list[tuple[AgentThreadSnapshot, ...]] = []
+        page: list[AgentThreadSnapshot] = []
+        page_bytes = fixed_bytes
+        for thread in all_threads:
+            size = len(thread.model_dump_json().encode("utf-8")) + 1
+            if size + fixed_bytes > max_page_bytes:
+                raise AppServerMessageTooLargeError("单条会话快照超过单帧预算。")
+            if page and (len(page) >= page_size or page_bytes + size > max_page_bytes):
+                pages.append(tuple(page))
+                page, page_bytes = [], fixed_bytes
+            page.append(thread)
+            page_bytes += size
+        pages.append(tuple(page))
+        if page_index >= len(pages):
+            raise ValueError("快照页码超出范围。")
+        remaining_count = sum(len(value) for value in pages[page_index + 1 :])
+        return base.model_copy(
+            update={
+                "threads": pages[page_index],
+                "continuation_token": str(page_index + 1) if remaining_count else None,
+                "omissions": (
+                    AgentSnapshotOmission(
+                        section="threads", omitted_count=remaining_count, reason="page_capacity"
+                    ),
+                )
+                if remaining_count
+                else (),
+            }
         )
 
     def _to_v2_thread(

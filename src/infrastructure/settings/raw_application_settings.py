@@ -1196,6 +1196,12 @@ class RawCodexControlRuntimeMapping(TypedDict, total=False):
     agent_heartbeat_seconds: int
     agent_offline_after_seconds: int
     agent_rpc_ack_timeout_seconds: int
+    agent_send_enqueue_timeout_seconds: float
+    agent_send_timeout_seconds: float
+    agent_close_timeout_seconds: float
+    agent_outgoing_queue_max_bytes: int
+    agent_query_timeout_seconds: int
+    agent_execution_lease_seconds: int
     agent_reconnect_min_seconds: int
     agent_reconnect_max_seconds: int
     max_connected_agents: int

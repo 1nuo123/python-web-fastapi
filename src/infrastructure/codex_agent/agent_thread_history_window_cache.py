@@ -21,6 +21,9 @@ class AgentThreadHistoryWindowCacheKey:
 
     workspace_key: str
     thread_id: str
+    cursor: str | None = None
+    revision: str | None = None
+    limit: int | None = None
 
 
 @dataclass(slots=True)
@@ -138,7 +141,12 @@ class AgentThreadHistoryWindowCache:
         """删除单个已知工作区会话窗口。"""
 
         self._invalidation_generation += 1
-        self._remove(key)
+        for candidate in tuple(self._entries):
+            if (
+                candidate.workspace_key == key.workspace_key
+                and candidate.thread_id == key.thread_id
+            ):
+                self._remove(candidate)
 
     def invalidate_thread(self, thread_id: str) -> None:
         """收到上游线程事件时删除所有同名工作区窗口，优先保证实时性。"""

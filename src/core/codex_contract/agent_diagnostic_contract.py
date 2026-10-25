@@ -15,6 +15,9 @@ AGENT_DIAGNOSTIC_DIGEST_PATTERN: Final = r"^[0-9a-f]{16}$"
 class AgentDiagnosticCode(StrEnum):
     """Agent 可长期检索的稳定诊断码。"""
 
+    CONNECTION_ENDED = "agent.connection.ended"
+    CONNECTION_RECOVERED = "agent.connection.recovered"
+    EXECUTION_STOPPED = "agent.execution.stopped"
     APP_SERVER_STDERR = "agent.app_server.stderr"
     APP_SERVER_STDERR_TOO_LONG = "agent.app_server.stderr_too_long"
     APP_SERVER_PROTOCOL_WARNING = "agent.app_server.protocol_warning"
@@ -75,10 +78,26 @@ class AgentProcessExitDiagnosticDetail(BaseModel):
     exit_code: int
 
 
+class AgentLifecycleDiagnosticDetail(BaseModel):
+    """连接/执行生命周期事实，不包含凭据、URL或业务正文。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    kind: Literal["agent.connection.ended", "agent.connection.recovered", "agent.execution.stopped"]
+    schema_version: Literal["1.0"] = AGENT_DIAGNOSTIC_SCHEMA_VERSION
+    attempt_id: str
+    epoch: int | None
+    phase: str
+    reason_code: str
+    duration_seconds: float = Field(ge=0)
+    remaining_lease_seconds: float = Field(ge=0)
+    execution_preserved: bool
+
+
 AgentDiagnosticDetail = Annotated[
     AgentStderrDiagnosticDetail
     | AgentProtocolWarningDiagnosticDetail
-    | AgentProcessExitDiagnosticDetail,
+    | AgentProcessExitDiagnosticDetail
+    | AgentLifecycleDiagnosticDetail,
     Field(discriminator="kind"),
 ]
 

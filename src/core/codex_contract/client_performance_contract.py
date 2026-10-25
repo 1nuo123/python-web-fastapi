@@ -42,6 +42,9 @@ class CodexClientPerformanceMetric(StrEnum):
     APPROXIMATE_FPS = "approximate_fps"
     SEND_ACK_LATENCY_MILLISECONDS = "send_ack_latency_milliseconds"
     DUPLICATE_OPERATION = "duplicate_operation"
+    CONNECTION_RECOVERY_MILLISECONDS = "connection_recovery_milliseconds"
+    AUTHORITY_RECOVERY_MILLISECONDS = "authority_recovery_milliseconds"
+    HISTORY_LOAD_MILLISECONDS = "history_load_milliseconds"
     RECONNECT_ATTEMPT = "reconnect_attempt"
     CURSOR_GAP = "cursor_gap"
     SNAPSHOT_REPLAY_EVENT_COUNT = "snapshot_replay_event_count"
@@ -181,6 +184,24 @@ CODEX_CLIENT_PERFORMANCE_METRIC_DEFINITIONS: Final = {
         unit=CodexClientPerformanceUnit.COUNT,
         maximum_value=1.0,
         allowed_observations=frozenset({CodexClientPerformanceObservation.DUPLICATE}),
+    ),
+    CodexClientPerformanceMetric.CONNECTION_RECOVERY_MILLISECONDS: CodexClientPerformanceMetricDefinition(
+        source=CodexClientPerformanceSource.CONNECTION,
+        unit=CodexClientPerformanceUnit.MILLISECONDS,
+        maximum_value=300_000.0,
+        allowed_observations=frozenset({CodexClientPerformanceObservation.OBSERVED}),
+    ),
+    CodexClientPerformanceMetric.AUTHORITY_RECOVERY_MILLISECONDS: CodexClientPerformanceMetricDefinition(
+        source=CodexClientPerformanceSource.CONNECTION,
+        unit=CodexClientPerformanceUnit.MILLISECONDS,
+        maximum_value=300_000.0,
+        allowed_observations=frozenset({CodexClientPerformanceObservation.OBSERVED}),
+    ),
+    CodexClientPerformanceMetric.HISTORY_LOAD_MILLISECONDS: CodexClientPerformanceMetricDefinition(
+        source=CodexClientPerformanceSource.CONNECTION,
+        unit=CodexClientPerformanceUnit.MILLISECONDS,
+        maximum_value=300_000.0,
+        allowed_observations=frozenset({CodexClientPerformanceObservation.OBSERVED}),
     ),
     CodexClientPerformanceMetric.RECONNECT_ATTEMPT: CodexClientPerformanceMetricDefinition(
         source=CodexClientPerformanceSource.CONNECTION,

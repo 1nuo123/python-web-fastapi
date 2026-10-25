@@ -61,7 +61,7 @@ class HealthProbeUsecase:
         :rtype: HealthProbeResult
         """
 
-        settings_snapshot = self._settings_reader_port.read_application_settings_snapshot()
+        settings_snapshot = self._settings_reader_port.read_health_snapshot()
         ready = settings_snapshot.ready
         if probe_kind == "ready":
             status = "ready" if ready else "starting"

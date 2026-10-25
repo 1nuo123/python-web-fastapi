@@ -128,6 +128,7 @@ class CodexThreadSnapshotDetail(CodexRealtimeDetailBase):
     kind: Literal["thread.snapshot"] = "thread.snapshot"
     source_epoch: UUID | None = None
     source_seq: int = Field(default=0, ge=0)
+    covered_item_ids: list[str] = Field(default_factory=list, max_length=200)
     thread: CodexThreadIndexSnapshot
     turns: tuple[CodexTurnSnapshot, ...]
     items: tuple[CodexTimelineItemEnvelope, ...]

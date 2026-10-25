@@ -69,12 +69,10 @@ from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerMethodName,
     AppServerNotificationName,
 )
-from src.domain.codex.agent_command_policy import AGENT_COMMAND_METHODS
-from src.domain.codex.codex_compatibility_policy import CodexCompatibilityTuple
 from src.core.codex_contract.approval_contract import CodexApprovalKind
 from src.core.codex_contract.connection_session_contract import (
-    CodexConnectionPresenceExpiredError,
     CodexConnectionFrame,
+    CodexConnectionPresenceExpiredError,
     CodexConnectionProtocolVersion,
     CodexConnectionSlowConsumerError,
     CodexHostOfflineError,
@@ -84,9 +82,11 @@ from src.core.codex_contract.presence_contract import (
     CodexHostPresence,
     CodexHostPresenceOwner,
 )
+from src.domain.codex.agent_command_policy import AGENT_COMMAND_METHODS
 from src.domain.codex.codex_compatibility_policy import (
     CodexCompatibilityDecision,
     CodexCompatibilityPolicy,
+    CodexCompatibilityTuple,
     CodexConnectionCompatibilityTuple,
 )
 from src.infrastructure.codex.agent_protocol_codec import (
@@ -139,6 +139,8 @@ class CodexAgentGatewayHandler:
         *,
         principal: AgentDevicePrincipal,
         business_queue_capacity: int = 128,
+        execution_lease_seconds: int = 35,
+        history_windows: bool = False,
         connection_registry: CodexConnectionRegistry,
         actor_registry: CodexHostActorRegistry,
         compatibility_policy: CodexCompatibilityPolicy,
@@ -170,6 +172,8 @@ class CodexAgentGatewayHandler:
         self._actor_registry = actor_registry
         self._compatibility_policy = compatibility_policy
         self._heartbeat_seconds = heartbeat_seconds
+        self._execution_lease_seconds = execution_lease_seconds
+        self._history_windows = history_windows
         self._event_cursor_store = event_cursor_store
         self._revocation_generation = revocation_generation
         self._active_host = active_host
@@ -429,6 +433,7 @@ class CodexAgentGatewayHandler:
                     generation=state.version,
                     enabled=not self._revoking and state.active_host_id == host_id,
                     request_id=request_id,
+                    valid_for_seconds=self._execution_lease_seconds,
                 ),
             )
         )
@@ -455,6 +460,7 @@ class CodexAgentGatewayHandler:
             protocol_version=protocol_version,
             compatibility_decision=decision,
             allowed_commands=self._allowed_commands,
+            history_windows=self._history_windows,
             on_revoke=lambda: self._revoke_execution(sender),
         )
         self._lease = lease
@@ -683,6 +689,8 @@ class CodexAgentGatewayHandler:
                 ],
             }
             result["historyStatus"] = snapshot.history_status
+            if snapshot.history_window is not None:
+                result["historyWindow"] = snapshot.history_window.model_dump(mode="json")
         if reference is None:
             return result
         if reference.upstream_thread_id is not None and COMMAND_RESULT_THREAD_FIELD not in result:

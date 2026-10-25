@@ -22,7 +22,6 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentStateSnapshot,
 )
 from src.core.codex_contract.agent_protocol_v2_contract import (
-    AgentWorkspaceSettingsCommandDetail,
     AgentApprovalReplyCommandDetail,
     AgentCommandHeader,
     AgentCommandV2Detail,
@@ -41,6 +40,7 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentTurnInterruptCommandDetail,
     AgentTurnStartCommandDetail,
     AgentTurnSteerCommandDetail,
+    AgentWorkspaceSettingsCommandDetail,
 )
 from src.core.codex_contract.connection_session_contract import (
     CodexConnectionFrame,
@@ -103,7 +103,7 @@ AGENT_COMMAND_PARAM_NAMES: Final = {
     ),
     THREAD_LIST_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, LIMIT_PARAM, CURSOR_PARAM}),
     THREAD_READ_COMMAND_TYPE: frozenset(
-        {WORKSPACE_KEY_PARAM, THREAD_ID_PARAM, INCLUDE_TURNS_PARAM}
+        {WORKSPACE_KEY_PARAM, THREAD_ID_PARAM, INCLUDE_TURNS_PARAM, "history_window"}
     ),
     THREAD_START_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, MODEL_PARAM, WORKTREE_POLICY_PARAM}),
     THREAD_RESUME_COMMAND_TYPE: frozenset({WORKSPACE_KEY_PARAM, THREAD_ID_PARAM}),
@@ -232,12 +232,34 @@ class AgentProtocolV2Codec:
     def encode(self, envelope: AgentProtocolV2Envelope) -> CodexConnectionFrame:
         """把 v2 envelope 编码为长期连接 transport frame。"""
 
-        return CodexConnectionFrame(
+        frame = CodexConnectionFrame(
             schema_version=CodexConnectionProtocolVersion.V2.value,
             message_id=str(envelope.header.message_id),
             message_type=AGENT_PROTOCOL_V2_TRANSPORT_MESSAGE_TYPE,
-            payload=cast(dict[str, JsonValue], envelope.model_dump(mode="json")),
+            payload=cast(
+                dict[str, JsonValue],
+                envelope.model_dump(
+                    mode="json",
+                    exclude={
+                        "detail": {"detail": {"history_window"}}
+                        if isinstance(envelope.detail, AgentCommandV2Detail)
+                        and isinstance(envelope.detail.detail, AgentThreadReadCommandDetail)
+                        and envelope.detail.detail.history_window is None
+                        else {}
+                    },
+                ),
+            ),
         )
+        detail = frame.payload.get("detail")
+        if isinstance(detail, dict):
+            result = detail.get("result")
+            if isinstance(result, dict):
+                snapshot = result.get("snapshot")
+                if isinstance(snapshot, dict) and snapshot.get("history_window") is None:
+                    snapshot.pop("history_window", None)
+                if isinstance(snapshot, dict) and not snapshot.get("covered_item_ids"):
+                    snapshot.pop("covered_item_ids", None)
+        return frame
 
 
 class AgentProtocolCodecRegistry:
@@ -383,6 +405,8 @@ class AgentCommandV2Mapper:
                 params[CURSOR_PARAM] = detail.cursor
         elif isinstance(detail, AgentThreadReadCommandDetail):
             params[THREAD_ID_PARAM] = detail.thread_id
+            if detail.history_window is not None:
+                params["history_window"] = detail.history_window.model_dump(mode="json")
             if INCLUDE_TURNS_DETAIL_FIELD in detail.model_fields_set:
                 params[INCLUDE_TURNS_PARAM] = detail.include_turns
         elif isinstance(detail, AgentThreadStartCommandDetail):
@@ -520,6 +544,8 @@ class AgentCommandV2Mapper:
                     INCLUDE_TURNS_PARAM,
                     default=True,
                 )
+            if "history_window" in params:
+                read_detail_values["history_window"] = params["history_window"]
             return AgentThreadReadCommandDetail.model_validate(read_detail_values)
         if command.command_type == THREAD_START_COMMAND_TYPE:
             start_detail_values: dict[str, JsonValue] = {

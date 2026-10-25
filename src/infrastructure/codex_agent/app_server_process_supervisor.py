@@ -16,10 +16,6 @@ from typing import Final, Literal, cast
 from uuid import uuid4
 
 from pydantic import JsonValue
-from src.core.codex_contract.app_server_schema_manifest_contract import (
-    AppServerSchemaManifestEnvelope,
-)
-from src.infrastructure.codex_agent.app_server_manifest_registry import AppServerManifestRegistry
 
 from src.core.codex_contract.agent_diagnostic_contract import (
     AgentDiagnosticCode,
@@ -32,6 +28,9 @@ from src.core.codex_contract.app_server_jsonrpc_contract import (
     AppServerLineReaderPort,
     AppServerMessageTooLargeError,
 )
+from src.core.codex_contract.app_server_schema_manifest_contract import (
+    AppServerSchemaManifestEnvelope,
+)
 from src.infrastructure.codex_agent.app_server_jsonrpc_client import (
     AppServerJsonRpcClient,
     AppServerNotificationHandler,
@@ -39,6 +38,7 @@ from src.infrastructure.codex_agent.app_server_jsonrpc_client import (
     AppServerWarningHandler,
     BoundedAppServerLineReader,
 )
+from src.infrastructure.codex_agent.app_server_manifest_registry import AppServerManifestRegistry
 from src.infrastructure.process.windows_process_job import WindowsProcessJob
 from src.infrastructure.process.windows_subprocess_launcher import (
     WindowsAppServerProcessExtension,
@@ -316,11 +316,18 @@ class AppServerProcessSupervisor:
                 if self._process_job is not None:
                     self._process_job.terminate()
                 if handle.process.returncode is None:
-                    handle.process.terminate()
+                    try:
+                        handle.process.terminate()
+                    except ProcessLookupError:
+                        pass  # 退出检查与系统调用之间的正常竞争；仍须确认整个Job。
                 try:
                     await asyncio.wait_for(handle.process.wait(), timeout=grace_seconds)
                 except TimeoutError:
-                    handle.process.kill()
+                    if handle.process.returncode is None:
+                        try:
+                            handle.process.kill()
+                        except ProcessLookupError:
+                            pass  # 不等同于进程树已停止，继续等待并检查Job。
                     await asyncio.wait_for(handle.process.wait(), timeout=grace_seconds)
         if self._process_job is not None:
             self._process_job.terminate()

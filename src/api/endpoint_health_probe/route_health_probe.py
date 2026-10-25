@@ -18,9 +18,6 @@ from src.api.web_bundle_catalog import (
 )
 from src.core.exception_contract.error_code_catalog_contract import CoreErrorCode, SuccessCode
 from src.core.exception_contract.http_fault_contract import HttpFaultException
-from src.core.http_contract.request_execution_contract import (
-    DEFAULT_SYNC_REQUEST_EXECUTION_NAME,
-)
 from src.core.http_contract.response_envelope_contract import ResponseEnvelope
 from src.core.http_contract.web_bundle_contract import ApplicationModuleName, WebBundle
 
@@ -29,7 +26,6 @@ HEALTH_LIVE_PATH = "/health/live"
 HEALTH_READY_PATH = "/health/ready"
 HEALTH_LIVE_PROBE_KIND = "live"
 HEALTH_READY_PROBE_KIND = "ready"
-HEALTH_REQUEST_EXECUTION_NAME = DEFAULT_SYNC_REQUEST_EXECUTION_NAME
 
 
 class HealthProbeRouteCatalog:
@@ -70,10 +66,8 @@ class HealthProbeRouteCatalog:
         :rtype: ResponseEnvelope[HealthProbePayload]
         """
 
-        # 健康探针用例当前仍是同步主干，通过桥接器卸载避免阻塞事件循环。
-        result = await self._accessor.read_request_execution_bridge(request).run_sync(
-            execution_name=HEALTH_REQUEST_EXECUTION_NAME,
-            callable_object=self._accessor.read_health_probe_usecase(request).execute,
+        # 仅内存不可变快照，独立于业务执行池。
+        result = self._accessor.read_health_probe_usecase(request).execute(
             probe_kind=HEALTH_LIVE_PROBE_KIND,
         )
         payload = HealthProbePayload.from_result(result)
@@ -95,10 +89,8 @@ class HealthProbeRouteCatalog:
         :raises HttpFaultException: 当业务校验失败、资源未就绪、配置错误或令牌状态异常时抛出。
         """
 
-        # 就绪探针需要读取同步资源状态，因此同样通过桥接器执行同步用例。
-        result = await self._accessor.read_request_execution_bridge(request).run_sync(
-            execution_name=HEALTH_REQUEST_EXECUTION_NAME,
-            callable_object=self._accessor.read_health_probe_usecase(request).execute,
+        # 仅内存不可变快照，独立于业务执行池。
+        result = self._accessor.read_health_probe_usecase(request).execute(
             probe_kind=HEALTH_READY_PROBE_KIND,
         )
         # 当系统启用了严格就绪探针时，未就绪状态必须转换为 503。

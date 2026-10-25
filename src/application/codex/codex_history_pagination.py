@@ -44,6 +44,7 @@ class CodexHistoryCursorClaims(BaseModel):
     )
     boundary_item_id: str = Field(min_length=1, max_length=256)
     expires_at_epoch_seconds: int = Field(ge=0)
+    window_cursor: str | None = Field(default=None, max_length=8192)
 
 
 class SignedCodexHistoryCursorCodec:
@@ -72,6 +73,7 @@ class SignedCodexHistoryCursorCodec:
         upstream_thread_id: str,
         history_revision: str,
         boundary_item_id: str,
+        window_cursor: str | None = None,
     ) -> str:
         """签发绑定当前历史版本和分页边界的游标。"""
 
@@ -82,6 +84,7 @@ class SignedCodexHistoryCursorCodec:
             upstream_thread_id=upstream_thread_id,
             history_revision=history_revision,
             boundary_item_id=boundary_item_id,
+            window_cursor=window_cursor,
             expires_at_epoch_seconds=int(expires_at),
         )
         payload = json.dumps(

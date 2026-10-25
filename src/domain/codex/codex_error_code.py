@@ -4,6 +4,8 @@ from enum import StrEnum
 
 
 class CodexErrorCode(StrEnum):
+    QUERY_TIMEOUT = "CODEX_QUERY_TIMEOUT"
+    QUERY_OVERLOADED = "CODEX_QUERY_OVERLOADED"
     RESOURCE_NOT_FOUND = "codex.resource.not_found"
     IDEMPOTENCY_CONFLICT = "codex.operation.idempotency_conflict"
     IDEMPOTENCY_KEY_MISMATCH = "codex.operation.idempotency_key_mismatch"

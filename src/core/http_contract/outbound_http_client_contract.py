@@ -101,6 +101,9 @@ class AsyncHttpClientDetail(BaseModel):
     kind: Literal["async_http"] = ASYNC_HTTP_CLIENT_DETAIL_KIND
     schema_version: Literal["1.0"] = OUTBOUND_HTTP_CLIENT_SCHEMA_VERSION
     timeout_seconds: int = Field(ge=OUTBOUND_HTTP_CLIENT_TIMEOUT_MINIMUM)
+    connect_timeout_seconds: float | None = Field(default=None, gt=0)
+    read_timeout_seconds: float | None = Field(default=None, gt=0)
+    pool_timeout_seconds: float | None = Field(default=None, gt=0)
     max_connections: int = Field(ge=OUTBOUND_HTTP_CLIENT_CONNECTION_MINIMUM)
     max_keepalive_connections: int = Field(ge=OUTBOUND_HTTP_CLIENT_CONNECTION_MINIMUM)
 

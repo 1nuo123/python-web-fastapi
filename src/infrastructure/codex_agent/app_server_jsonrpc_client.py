@@ -271,15 +271,16 @@ class AppServerJsonRpcClient:
             operation_id=operation_id,
         )
         try:
-            await self._write_message(
-                {
-                    "jsonrpc": APP_SERVER_JSONRPC_VERSION,
-                    "id": request_id,
-                    "method": method,
-                    "params": params,
-                }
-            )
-            return await asyncio.wait_for(future, timeout=timeout_seconds)
+            async with asyncio.timeout(timeout_seconds):
+                await self._write_message(
+                    {
+                        "jsonrpc": APP_SERVER_JSONRPC_VERSION,
+                        "id": request_id,
+                        "method": method,
+                        "params": params,
+                    }
+                )
+                return await future
         finally:
             self._pending.pop(request_id, None)
             self._pending_metadata.pop(request_id, None)

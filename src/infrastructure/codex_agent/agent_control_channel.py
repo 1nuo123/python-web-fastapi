@@ -8,8 +8,8 @@ import json
 import logging
 import os
 import secrets
-from collections.abc import Callable, Mapping
 from collections import deque
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from dataclasses import replace as dataclass_replace
 from datetime import UTC, datetime, timedelta
@@ -33,6 +33,7 @@ from src.core.codex_contract.agent_diagnostic_contract import (
     AgentDiagnosticCode,
     AgentDiagnosticEnvelope,
     AgentDiagnosticHeader,
+    AgentLifecycleDiagnosticDetail,
     AgentProtocolWarningDiagnosticDetail,
 )
 from src.core.codex_contract.agent_protocol_contract import (
@@ -81,7 +82,11 @@ from src.core.codex_contract.agent_runtime_health_contract import (
     AgentDoctorCheckState,
     AgentRuntimeStatus,
 )
-from src.core.codex_contract.app_server_jsonrpc_contract import AppServerRpcError, JsonRpcId
+from src.core.codex_contract.app_server_jsonrpc_contract import (
+    AppServerMessageTooLargeError,
+    AppServerRpcError,
+    JsonRpcId,
+)
 from src.core.codex_contract.app_server_product_contract import (
     AppServerDiffChangedDetail,
     AppServerDiffItem,
@@ -108,6 +113,7 @@ from src.core.codex_contract.approval_contract import (
     CodexApprovalRiskLevel,
 )
 from src.core.codex_contract.connection_session_contract import (
+    CODEX_HISTORY_WINDOW_SUBPROTOCOL,
     CODEX_LEASE_CONTINUITY_SUBPROTOCOL,
     CodexConnectionEnd,
     CodexConnectionEndKind,
@@ -143,7 +149,10 @@ from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJou
 from src.infrastructure.codex_agent.agent_configuration import (
     CodexHostAgentSettings,
 )
-from src.infrastructure.codex_agent.agent_connection_policy import AgentControlConnectionPolicy
+from src.infrastructure.codex_agent.agent_connection_policy import (
+    AgentControlConnectionPolicy,
+    AgentExecutionStopReason,
+)
 from src.infrastructure.codex_agent.agent_event_batcher import AgentEventBatcher
 from src.infrastructure.codex_agent.agent_event_replay_buffer import (
     AgentBufferedEvent,
@@ -178,7 +187,6 @@ _SYSTEM_RANDOM = secrets.SystemRandom()
 INTERNAL_PROTOCOL_WARNING_METHOD = "internal/protocol.warning"
 UNRESOLVED_WORKSPACE_KEY = "unresolved"
 AGENT_HELLO_ACK_TIMEOUT_SECONDS: Final = 10.0
-AGENT_SEND_ENQUEUE_TIMEOUT_SECONDS: Final = 1.0
 AGENT_RETRY_MIN_WAIT_SECONDS: Final = 0.01
 AGENT_METADATA_REFRESH_DEBOUNCE_SECONDS: Final = 0.2
 AGENT_METADATA_REFRESH_TIMEOUT_SECONDS: Final = 10.0
@@ -260,9 +268,13 @@ class AgentControlChannel:
         logger: logging.Logger,
         runtime_status_reader: Callable[[], AgentRuntimeStatus | None] | None = None,
         config_path: Path | None = None,
+        network_policy: AgentNetworkPolicy | None = None,
     ) -> None:
         self._settings = settings
+        self._attempt_id = str(uuid4())
+        self._recovery_started_at: float | None = None
         self._execution = AgentExecutionLease()
+        self._execution_cleanup_pending = False
         self._execution_paused = False
         self._last_event_seq = 0
         self._connection_ready = False
@@ -281,7 +293,7 @@ class AgentControlChannel:
         self._project_execution = ProjectExecutionSettings(
             config_path or settings.agent.state_database.with_name("agent.toml")
         )
-        self._network = AgentNetworkPolicy(settings.agent)
+        self._network = network_policy or AgentNetworkPolicy(settings.agent)
         self._secret_store = secret_store
         self._connection_ticket_provider = connection_ticket_provider
         self._workspace_registry = workspace_registry
@@ -360,6 +372,9 @@ class AgentControlChannel:
                     self._hello_ack_event.clear()
                     self._healthy_connection = False
                     await self._record_connection_state("connecting")
+                    if self._execution_cleanup_pending:
+                        await asyncio.sleep(1)
+                        continue
                     handle = self._supervisor.current_handle
                     if handle is None and self._local_issue is None:
                         handle = await self._start_local_runtime()
@@ -401,7 +416,7 @@ class AgentControlChannel:
                         raise RuntimeError("Agent关键后台任务失败，停止运行。") from exc
                     issue = AgentControlConnectionPolicy.issue(exc)
                     if not AgentControlConnectionPolicy.should_retry(exc):
-                        await self._stop_execution()
+                        await self._stop_execution(AgentExecutionStopReason.DEVICE_REVOKED)
                         await self._record_connection_state("blocked", issue.value)
                         self._logger.error(
                             "Agent连接需要修复：phase=%s reason=%s detail=%s",
@@ -466,7 +481,7 @@ class AgentControlChannel:
             self._connection_ready = False
             self._active_sender = None
             try:
-                await self._stop_execution()
+                await self._stop_execution(AgentExecutionStopReason.LOCAL_SHUTDOWN)
             finally:
                 tasks = [shutdown_task, *critical, *self._metadata_refresh_tasks.values()]
                 if self._batch_flush_task is not None:
@@ -510,18 +525,78 @@ class AgentControlChannel:
             if await self._start_local_runtime() is not None:
                 return
 
-    async def _stop_execution(self) -> None:
+    async def _stop_execution(self, reason: AgentExecutionStopReason) -> None:
         self._connection_ready = False
         self._execution.disable()
         self._execution_paused = True
+        self._execution_cleanup_pending = True
+        self._execution_stop_reason = reason
+        self._logger.warning("execution_stopping reason=%s", reason.value)
         await self._supervisor.stop()
+        self._execution_cleanup_pending = False
+        self._record_lifecycle(
+            "agent.execution.stopped", reason.value, duration_seconds=0, preserved=False
+        )
 
     async def _watch_execution_lease(self) -> None:
         while not self._shutdown_event.is_set():
             await asyncio.sleep(1)
-            if self._execution.enabled and not self._execution.valid:
-                await self._stop_execution()
+            if self._shutdown_event.is_set():
+                return
+            if self._execution_cleanup_pending or (
+                self._execution.enabled and not self._execution.valid
+            ):
+                try:
+                    await self._stop_execution(
+                        self._execution_stop_reason
+                        if self._execution_cleanup_pending
+                        else AgentExecutionStopReason.LEASE_EXPIRED
+                    )
+                except (OSError, TimeoutError):
+                    self._logger.exception("execution_stop_unconfirmed; admission remains closed")
                 await self._record_connection_state("blocked", "execution_lease_expired")
+            elif (
+                isinstance(self._active_sender, CodexDuplexConnectionSession)
+                and self._execution.valid
+                and asyncio.get_running_loop().time()
+                - max(self._execution.last_response_at, self._connected_at)
+                >= self._settings.agent.renewal_response_timeout_seconds
+            ):
+                self._active_sender.request_close(code=1012, reason="renewal_response_timeout")
+
+    def _record_lifecycle(
+        self,
+        kind: Literal[
+            "agent.connection.ended", "agent.connection.recovered", "agent.execution.stopped"
+        ],
+        reason: str,
+        *,
+        duration_seconds: float,
+        preserved: bool,
+    ) -> None:
+        handle = self._supervisor.current_handle
+        self._logger.info(
+            AgentDiagnosticEnvelope(
+                header=AgentDiagnosticHeader(
+                    detail_kind=AgentDiagnosticCode(kind),
+                    host_id=str(self._settings.agent.host_id),
+                    app_server_instance_id=handle.instance_id if handle else "unavailable",
+                    process_id=os.getpid(),
+                    codex_version=handle.codex_version if handle else None,
+                    occurred_at=datetime.now(UTC),
+                ),
+                detail=AgentLifecycleDiagnosticDetail(
+                    kind=kind,
+                    attempt_id=self._attempt_id,
+                    epoch=self._connection_epoch,
+                    phase=self._connection_phase,
+                    reason_code=reason,
+                    duration_seconds=duration_seconds,
+                    remaining_lease_seconds=self._execution.remaining_seconds,
+                    execution_preserved=preserved,
+                ),
+            ).to_log_line()
+        )
 
     async def _record_connection_state(self, state: str, reason: str | None = None) -> None:
         """合并状态投影，文件锁或杀毒软件不能阻塞控制消息。"""
@@ -614,6 +689,7 @@ class AgentControlChannel:
     async def _run_connection(
         self, handle: AppServerProcessHandle | None, legacy_token: str | None
     ) -> None:
+        self._attempt_id = str(uuid4())
         self._connection_ready = False
         self._execution.begin_connection()
         if (
@@ -629,142 +705,225 @@ class AgentControlChannel:
         if handle is None or handle.profile is None:
             self._model_catalog = CodexModelCatalog()
             self._model_catalog_instance = None
-        self._connection_phase = "ticket"
-        connection_url, headers = await self._build_connection_request(legacy_token)
-        self._connection_phase = "websocket"
-        proxy = self._network.proxy_for(connection_url)
-        proxy_tls_options = (
-            {"proxy_ssl": self._network.tls_context}
-            if proxy is not None and urlsplit(proxy).scheme == "https"
-            else {}
-        )
-        async with connect(
-            connection_url,
-            additional_headers=headers,
-            max_size=self._settings.agent.max_app_server_line_bytes,
-            ping_interval=self._settings.agent.heartbeat_seconds,
-            ping_timeout=self._settings.agent.heartbeat_seconds,
-            subprotocols=[Subprotocol(CODEX_LEASE_CONTINUITY_SUBPROTOCOL)],
-            proxy=proxy,
-            ssl=self._network.tls_context if connection_url.startswith("wss:") else None,
-            **proxy_tls_options,
-        ) as connection:
-            negotiated = connection.subprotocol == CODEX_LEASE_CONTINUITY_SUBPROTOCOL
-            if self._continuity and not negotiated and self._execution.valid:
-                await self._stop_execution()
-                self._continuity = False
-                raise ConnectionError("控制面未协商执行连续性，按保守方式重建执行进程。")
-            self._continuity = negotiated
-            self._connected_at = asyncio.get_running_loop().time()
-            session = CodexDuplexConnectionSession(
-                transport=AgentWebSocketTransport(connection),
-                inbound_handler=self._handle_control_frame,
-                policy=CodexConnectionSessionPolicy(
-                    outbound_queue_capacity=self._settings.agent.writer_queue_capacity,
-                    max_frame_bytes=self._settings.agent.max_app_server_line_bytes,
-                    send_enqueue_timeout_seconds=AGENT_SEND_ENQUEUE_TIMEOUT_SECONDS,
-                ),
+        async with asyncio.timeout(
+            self._settings.agent.connection_attempt_timeout_seconds
+        ) as setup_budget:
+            self._connection_phase = "ticket"
+            connection_url, headers = await self._build_connection_request(legacy_token)
+            self._connection_phase = "websocket"
+            proxy = self._network.proxy_for(connection_url)
+            self._logger.info(
+                "connection_network attempt_id=%s path=%s",
+                self._attempt_id,
+                self._network.describe(connection_url),
             )
-            self._connection_epoch = None
-            session_task = asyncio.create_task(session.run(shutdown_event=self._shutdown_event))
-            await asyncio.sleep(0)
-            self._active_sender = session
-            heartbeat_task: asyncio.Task[None] | None = None
-            settings_task: asyncio.Task[None] | None = None
-            process_task = asyncio.create_task(
-                handle.process.wait() if handle else self._retry_local_runtime()
+            proxy_tls_options = (
+                {"proxy_ssl": self._network.tls_context}
+                if proxy is not None and urlsplit(proxy).scheme == "https"
+                else {}
             )
-            client_task = asyncio.create_task(
-                handle.client.wait_stopped() if handle else self._wait_for_shutdown()
-            )
-            self._refresh_process.clear()
-            refresh_task = asyncio.create_task(self._refresh_process.wait())
-            preserve = False
-            try:
-                self._connection_phase = "hello"
-                await self._require_active_session(session_task)
-                await session.send(self._build_hello_frame(handle))
-                await self._wait_for_hello_ack(session_task)
-                heartbeat_task = asyncio.create_task(self._heartbeat_loop(handle, session))
-                self._connection_phase = "execution_authorization"
-                await asyncio.wait_for(self._execution.ready.wait(), timeout=10)
-                executable = handle is not None and handle.profile is not None
-                if self._execution.valid and executable:
-                    self._connection_phase = "snapshot"
-                    await self._send_snapshot(handle, session)
-                    self._connection_ready = True
-                settings_task = asyncio.create_task(
-                    self._settings_sync_loop(handle, session)
-                    if executable
-                    else self._wait_for_shutdown()
-                )
-                await self._record_connection_state(
-                    "online" if self._execution.valid else "blocked",
-                    self._local_issue if self._execution.valid else "inactive_host",
-                )
-                await self._flush_buffer(session)
-                self._connection_phase = "running"
-                watched = (
-                    session_task,
-                    process_task,
-                    client_task,
-                    heartbeat_task,
-                    settings_task,
-                    refresh_task,
-                )
-                done, _ = await asyncio.wait(watched, return_when=asyncio.FIRST_COMPLETED)
-                if handle is None and process_task in done:
-                    await process_task
-                    preserve = True
-                    raise ConnectionError("本机执行已恢复，重新握手发布能力。")
-                if refresh_task in done:
-                    raise ConnectionError("主机Codex入口已更新，在空闲边界重新选择兼容档案。")
-                if self._execution_paused and (process_task in done or client_task in done):
-                    done, _ = await asyncio.wait(
-                        (session_task, heartbeat_task, settings_task),
-                        return_when=asyncio.FIRST_COMPLETED,
+            async with connect(
+                connection_url,
+                additional_headers=headers,
+                max_size=self._settings.agent.max_app_server_line_bytes,
+                ping_interval=self._settings.agent.heartbeat_seconds,
+                ping_timeout=self._settings.agent.ping_timeout_seconds,
+                open_timeout=self._settings.agent.connection_attempt_timeout_seconds,
+                close_timeout=self._settings.agent.close_timeout_seconds,
+                subprotocols=[
+                    Subprotocol(value)
+                    for value in (
+                        (CODEX_HISTORY_WINDOW_SUBPROTOCOL, CODEX_LEASE_CONTINUITY_SUBPROTOCOL)
+                        if handle
+                        and handle.profile
+                        and handle.profile.detail.allow_experimental_api
+                        else (CODEX_LEASE_CONTINUITY_SUBPROTOCOL,)
                     )
-                for task in (heartbeat_task, settings_task):
-                    if task in done:
-                        await task
-                        raise RuntimeError("Agent连接后台任务意外结束。")
-                if session_task in done:
-                    ended = await session_task
-                    preserve = (
-                        self._continuity
-                        and self._execution.valid
-                        and ended.kind == CodexConnectionEndKind.TRANSPORT_FAILURE
-                    )
-                    if not self._shutdown_event.is_set():
-                        raise ended.as_exception()
-                elif process_task in done or client_task in done:
-                    raise ConnectionError("Codex执行进程或JSON-RPC读取循环已停止。")
-            except (OSError, TimeoutError) as exc:
-                # 仅由明确的传输结束结果授予连续性；握手/业务异常保守停止。
-                if isinstance(exc, CodexConnectionTransportClosed):
-                    preserve = (
-                        self._continuity
-                        and self._execution.valid
-                        and exc.end_kind == CodexConnectionEndKind.TRANSPORT_FAILURE
-                    )
-                raise
-            finally:
-                self._connection_ready = False
-                self._active_sender = None
+                ],
+                proxy=proxy,
+                ssl=self._network.tls_context if connection_url.startswith("wss:") else None,
+                **proxy_tls_options,
+            ) as connection:
+                negotiated = connection.subprotocol in {
+                    CODEX_LEASE_CONTINUITY_SUBPROTOCOL,
+                    CODEX_HISTORY_WINDOW_SUBPROTOCOL,
+                }
+                if self._continuity and not negotiated and self._execution.valid:
+                    await self._stop_execution(AgentExecutionStopReason.EXECUTION_FAILED)
+                    self._continuity = False
+                    raise ConnectionError("控制面未协商执行连续性，按保守方式重建执行进程。")
+                self._continuity = negotiated
+                self._connected_at = asyncio.get_running_loop().time()
+                session = CodexDuplexConnectionSession(
+                    transport=AgentWebSocketTransport(connection),
+                    inbound_handler=self._handle_control_frame,
+                    policy=CodexConnectionSessionPolicy(
+                        outbound_queue_capacity=self._settings.agent.writer_queue_capacity,
+                        max_frame_bytes=self._settings.agent.max_app_server_line_bytes,
+                        send_enqueue_timeout_seconds=self._settings.agent.send_enqueue_timeout_seconds,
+                        send_timeout_seconds=self._settings.agent.send_timeout_seconds,
+                        close_timeout_seconds=self._settings.agent.close_timeout_seconds,
+                        outbound_queue_max_bytes=self._settings.agent.writer_queue_max_bytes,
+                    ),
+                )
+                self._connection_epoch = None
+                session_task = asyncio.create_task(session.run(shutdown_event=self._shutdown_event))
+                await asyncio.sleep(0)
+                self._active_sender = session
+                heartbeat_task: asyncio.Task[None] | None = None
+                settings_task: asyncio.Task[None] | None = None
+                process_task = asyncio.create_task(
+                    handle.process.wait() if handle else self._retry_local_runtime()
+                )
+                client_task = asyncio.create_task(
+                    handle.client.wait_stopped() if handle else self._wait_for_shutdown()
+                )
+                self._refresh_process.clear()
+                refresh_task = asyncio.create_task(self._refresh_process.wait())
+                preserve = False
+                failure_reason = "unexpected_failure"
                 try:
-                    if not preserve or self._shutdown_event.is_set():
-                        await self._stop_execution()
-                finally:
-                    tasks = [session_task, process_task, client_task, refresh_task]
-                    tasks.extend(
-                        task for task in (heartbeat_task, settings_task) if task is not None
+                    self._connection_phase = "hello"
+                    await self._require_active_session(session_task)
+                    await session.send(self._build_hello_frame(handle))
+                    await self._wait_for_hello_ack(session_task)
+                    heartbeat_task = asyncio.create_task(self._heartbeat_loop(handle, session))
+                    self._connection_phase = "execution_authorization"
+                    await asyncio.wait_for(self._execution.ready.wait(), timeout=10)
+                    setup_budget.reschedule(None)
+                    executable = handle is not None and handle.profile is not None
+                    if self._execution.valid and executable:
+                        self._connection_phase = "snapshot"
+                        await self._synchronize_snapshot(handle, session, session_task)
+                        self._connection_ready = True
+                    settings_task = asyncio.create_task(
+                        self._settings_sync_loop(handle, session)
+                        if executable
+                        else self._wait_for_shutdown()
                     )
-                    for connection_task in tasks:
-                        connection_task.cancel()
-                    await asyncio.gather(*tasks, return_exceptions=True)
                     await self._record_connection_state(
-                        "stopped" if self._shutdown_event.is_set() else "offline"
+                        "online" if self._execution.valid else "blocked",
+                        self._local_issue if self._execution.valid else "inactive_host",
                     )
+                    await self._flush_buffer(session)
+                    self._connection_phase = "running"
+                    recovered_in = (
+                        asyncio.get_running_loop().time() - self._recovery_started_at
+                        if self._recovery_started_at is not None
+                        else 0.0
+                    )
+                    self._record_lifecycle(
+                        "agent.connection.recovered",
+                        "ready",
+                        duration_seconds=recovered_in,
+                        preserved=self._execution.valid,
+                    )
+                    self._recovery_started_at = None
+                    watched = (
+                        session_task,
+                        process_task,
+                        client_task,
+                        heartbeat_task,
+                        settings_task,
+                        refresh_task,
+                    )
+                    done, _ = await asyncio.wait(watched, return_when=asyncio.FIRST_COMPLETED)
+                    if handle is None and process_task in done:
+                        await process_task
+                        preserve = True
+                        raise ConnectionError("本机执行已恢复，重新握手发布能力。")
+                    if refresh_task in done:
+                        raise ConnectionError("主机Codex入口已更新，在空闲边界重新选择兼容档案。")
+                    if self._execution_paused and (process_task in done or client_task in done):
+                        done, _ = await asyncio.wait(
+                            (session_task, heartbeat_task, settings_task),
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+                    for task in (heartbeat_task, settings_task):
+                        if task in done:
+                            await task
+                            raise RuntimeError("Agent连接后台任务意外结束。")
+                    if session_task in done:
+                        ended = await session_task
+                        failure_reason = ended.reason_code or ended.reason
+                        preserve = (
+                            self._continuity
+                            and self._execution.valid
+                            and ended.kind == CodexConnectionEndKind.TRANSPORT_FAILURE
+                        )
+                        if not self._shutdown_event.is_set():
+                            raise ended.as_exception()
+                    elif process_task in done or client_task in done:
+                        raise ConnectionError("Codex执行进程或JSON-RPC读取循环已停止。")
+                except (OSError, TimeoutError) as exc:
+                    failure_reason = getattr(exc, "reason_code", type(exc).__name__)
+                    preserve = AgentControlConnectionPolicy.preserve_execution(
+                        exc,
+                        continuity=self._continuity,
+                        lease_valid=self._execution.valid,
+                        process_healthy=handle is not None
+                        and handle.process.returncode is None
+                        and handle.client.running,
+                    )
+                    raise
+                finally:
+                    if self._recovery_started_at is None:
+                        self._recovery_started_at = asyncio.get_running_loop().time()
+                    self._record_lifecycle(
+                        "agent.connection.ended",
+                        "local_shutdown" if self._shutdown_event.is_set() else failure_reason,
+                        duration_seconds=asyncio.get_running_loop().time() - self._connected_at,
+                        preserved=preserve,
+                    )
+                    self._logger.info(
+                        "connection_cleanup phase=%s epoch=%s preserved=%s remaining_lease=%.3f",
+                        self._connection_phase,
+                        self._connection_epoch,
+                        preserve,
+                        self._execution.remaining_seconds,
+                    )
+                    self._connection_ready = False
+                    self._active_sender = None
+                    try:
+                        if not preserve or self._shutdown_event.is_set():
+                            await self._stop_execution(
+                                AgentExecutionStopReason.LOCAL_SHUTDOWN
+                                if self._shutdown_event.is_set()
+                                else AgentExecutionStopReason.EXECUTION_FAILED
+                            )
+                    finally:
+                        tasks = [session_task, process_task, client_task, refresh_task]
+                        tasks.extend(
+                            task for task in (heartbeat_task, settings_task) if task is not None
+                        )
+                        for connection_task in tasks:
+                            connection_task.cancel()
+                        await asyncio.gather(*tasks, return_exceptions=True)
+                        await self._record_connection_state(
+                            "stopped" if self._shutdown_event.is_set() else "offline"
+                        )
+
+    async def _synchronize_snapshot(
+        self,
+        handle: AppServerProcessHandle,
+        session: CodexDuplexConnectionSession,
+        session_task: asyncio.Task[CodexConnectionEnd],
+    ) -> None:
+        for attempt in range(3):
+            await self._require_active_session(session_task)
+            try:
+                async with asyncio.timeout(min(10.0, self._execution.remaining_seconds)):
+                    await self._send_snapshot(handle, session)
+                return
+            except (TimeoutError, AppServerRpcError, AppServerMessageTooLargeError) as exc:
+                if attempt == 2 or not self._execution.valid or not handle.client.running:
+                    raise ConnectionError("snapshot_sync_failed") from exc
+                self._logger.warning(
+                    "snapshot_retry attempt=%s remaining_lease=%.3f",
+                    attempt + 1,
+                    self._execution.remaining_seconds,
+                )
+                await asyncio.sleep(min(1 + attempt, self._execution.remaining_seconds))
 
     async def _wait_for_hello_ack(self, session_task: asyncio.Task[CodexConnectionEnd]) -> None:
         """等待握手确认，同时立即感知已经结束的连接会话。"""
@@ -840,6 +999,8 @@ class AgentControlChannel:
         if decoded.v2 is not None and isinstance(decoded.v2.detail, AgentExecutionLeaseV2Detail):
             self._verify_v2_control_host(decoded.v2.header.host_id)
             lease = decoded.v2.detail
+            if lease.enabled and self._execution_cleanup_pending:
+                return
             if not self._execution.accept(lease):
                 return
             if (
@@ -853,7 +1014,7 @@ class AgentControlChannel:
                 self._execution_paused = True
                 for pending in tuple(self._pending_approvals.values()):
                     await self._close_pending_approval(pending, "instance_replaced")
-                await self._supervisor.stop()
+                await self._stop_execution(AgentExecutionStopReason.HOST_SWITCHED)
                 await self._record_connection_state("blocked", "inactive_host")
                 await sender.send(
                     self._protocol_codec.encode_v2(
@@ -946,6 +1107,7 @@ class AgentControlChannel:
             approval_reply_handler=self._reply_approval,
             history_capacity_registry=self._history_capacity_registry,
             history_window_cache=self._history_window_cache,
+            timeline_store=self._timeline_store,
             worktree_port=self._worktree_port,
             execution_root_store=self._execution_root_store,
             workspace_registry=self._workspace_registry,
@@ -1072,6 +1234,7 @@ class AgentControlChannel:
                 v2_snapshot = await builder.build_v2(
                     page_index=page_index,
                     page_size=self._settings.agent.snapshot_page_size,
+                    max_page_bytes=self._settings.agent.max_app_server_line_bytes - 4096,
                     pending_approvals=self._build_pending_approval_snapshots(),
                     snapshot=snapshot,
                 )
@@ -2327,7 +2490,13 @@ class AgentControlChannel:
             product_result = self._sanitize_thread_read_product_result(
                 self._app_server_protocol_adapter.adapt_thread_read_result(result.result)
             )
-            product_result = self._timeline_store.supplement(product_result).model_copy(
+            if product_result.history_window is None:
+                product_result = self._timeline_store.supplement(product_result)
+            else:
+                product_result = self._sanitize_thread_read_product_result(
+                    self._timeline_store.refresh_history_window(product_result)
+                )
+            product_result = product_result.model_copy(
                 update={
                     "source_epoch": self._event_epoch,
                     "source_seq": self._last_event_seq,

@@ -250,6 +250,9 @@ class CodexHostAgentCli:
                     async_http_resource = SharedAsyncHttpClient(
                         AsyncHttpClientDetail(
                             timeout_seconds=AGENT_HTTP_TIMEOUT_SECONDS,
+                            connect_timeout_seconds=10,
+                            read_timeout_seconds=10,
+                            pool_timeout_seconds=5,
                             max_connections=AGENT_HTTP_MAX_CONNECTIONS,
                             max_keepalive_connections=AGENT_HTTP_MAX_KEEPALIVE_CONNECTIONS,
                         ),
@@ -263,6 +266,7 @@ class CodexHostAgentCli:
                     )
                     channel = AgentControlChannel(
                         settings=runtime_settings,
+                        network_policy=network,
                         config_path=config_path,
                         secret_store=WindowsAgentSecretStore(),
                         connection_ticket_provider=(

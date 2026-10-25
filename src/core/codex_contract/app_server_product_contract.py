@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
-from src.core.codex_contract.model_catalog_contract import CodexEffectiveExecutionSettings
-
 from enum import StrEnum
 from typing import Annotated, Final, Literal
 from uuid import RFC_4122, UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.core.codex_contract.agent_history_window_contract import AgentHistoryWindowResult
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerNotificationName,
 )
-from src.core.codex_contract.thread_contract import CODEX_THREAD_TITLE_MAX_LENGTH, CodexPlanStepStatus
+from src.core.codex_contract.model_catalog_contract import CodexEffectiveExecutionSettings
+from src.core.codex_contract.thread_contract import (
+    CODEX_THREAD_TITLE_MAX_LENGTH,
+    CodexPlanStepStatus,
+)
 
 APP_SERVER_PRODUCT_NOTIFICATION_KIND: Final = "app_server_product_notification"
 APP_SERVER_PRODUCT_NOTIFICATION_SCHEMA_VERSION: Final = "1.0"
@@ -187,6 +190,8 @@ class AppServerThreadReadProductResult(BaseModel):
     thread: AppServerThreadProductSnapshot
     turns: tuple[AppServerTurnProductSnapshot, ...]
     history_status: Literal["complete", "omitted_too_large"] = "complete"
+    history_window: AgentHistoryWindowResult | None = None
+    covered_item_ids: tuple[str, ...] = ()
 
 
 class AppServerProductNotificationHeader(BaseModel):

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import logging
+import time
 from urllib.parse import urljoin
 from uuid import UUID, uuid4
 
@@ -68,6 +71,7 @@ class AgentConnectionTicketProvider(AgentConnectionTicketProviderPort):
 
     async def issue(self, *, host_id: UUID, key_id: UUID) -> AgentConnectionTicketResponse:
         proof = await self.prove(host_id=host_id, key_id=key_id)
+        started = time.monotonic()
         proof_response = await self._client.post(
             urljoin(self._control_plane_api_url, DEVICE_CONNECTION_TICKET_PATH.lstrip("/")),
             json=DeviceChallengeProofRequestEnvelope(
@@ -75,11 +79,16 @@ class AgentConnectionTicketProvider(AgentConnectionTicketProviderPort):
                 detail=proof,
             ).model_dump(mode="json"),
         )
+        logging.getLogger(__name__).info(
+            "connection_stage phase=ticket_exchange duration_seconds=%.3f",
+            time.monotonic() - started,
+        )
         self._require_success(proof_response)
         return AgentConnectionTicketResponse.model_validate(proof_response.json())
 
     async def prove(self, *, host_id: UUID, key_id: UUID) -> DeviceChallengeProof:
         """签名现有挑战，调用方决定用于连接还是恢复同账号设备意图。"""
+        started = time.monotonic()
         challenge_response = await self._client.post(
             urljoin(self._control_plane_api_url, DEVICE_CHALLENGE_PATH.lstrip("/")),
             json=DeviceChallengeIssueRequestEnvelope(
@@ -87,9 +96,14 @@ class AgentConnectionTicketProvider(AgentConnectionTicketProviderPort):
                 detail=DeviceChallengeIssueRequest(host_id=host_id, key_id=key_id),
             ).model_dump(mode="json"),
         )
+        logging.getLogger(__name__).info(
+            "connection_stage phase=challenge duration_seconds=%.3f", time.monotonic() - started
+        )
         self._require_success(challenge_response)
         challenge = DeviceChallengeIssue.model_validate(challenge_response.json())
-        signature = self._key_store.sign(
+        started = time.monotonic()
+        signature = await asyncio.to_thread(
+            self._key_store.sign,
             key_id,
             DeviceChallengeCanonicalMessage(
                 challenge_id=challenge.challenge_id,
@@ -100,6 +114,9 @@ class AgentConnectionTicketProvider(AgentConnectionTicketProviderPort):
                 issued_at=challenge.issued_at,
                 expires_at=challenge.expires_at,
             ).canonical_bytes(),
+        )
+        logging.getLogger(__name__).info(
+            "connection_stage phase=sign duration_seconds=%.3f", time.monotonic() - started
         )
         return DeviceChallengeProof(
             challenge_id=challenge.challenge_id,

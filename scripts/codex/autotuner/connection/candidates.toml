@@ -1,0 +1,55 @@
+# Each candidate runs the same real transport scenarios and seed set.
+seeds = [17]
+
+[[candidates]]
+name = "existing-lease"
+[candidates.server]
+agent_execution_lease_seconds = 35
+agent_offline_after_seconds = 30
+agent_rpc_ack_timeout_seconds = 5
+agent_send_timeout_seconds = 10.0
+[candidates.agent]
+send_timeout_seconds = 10.0
+close_timeout_seconds = 5.0
+ping_timeout_seconds = 30.0
+reconnect_max_seconds = 15
+
+[[candidates]]
+name = "continuity-60"
+[candidates.server]
+agent_execution_lease_seconds = 60
+agent_offline_after_seconds = 90
+agent_rpc_ack_timeout_seconds = 5
+agent_send_timeout_seconds = 10.0
+[candidates.agent]
+send_timeout_seconds = 10.0
+close_timeout_seconds = 5.0
+ping_timeout_seconds = 30.0
+reconnect_max_seconds = 15
+
+[[candidates]]
+name = "continuity-60-fast"
+[candidates.server]
+agent_execution_lease_seconds = 60
+agent_offline_after_seconds = 90
+agent_rpc_ack_timeout_seconds = 5
+agent_send_timeout_seconds = 10.0
+[candidates.agent]
+send_timeout_seconds = 10.0
+close_timeout_seconds = 5.0
+ping_timeout_seconds = 30.0
+reconnect_max_seconds = 5
+
+[[candidates]]
+name = "continuity-60-close3"
+[candidates.server]
+agent_execution_lease_seconds = 60
+agent_offline_after_seconds = 90
+agent_rpc_ack_timeout_seconds = 5
+agent_send_timeout_seconds = 10.0
+agent_close_timeout_seconds = 3.0
+[candidates.agent]
+send_timeout_seconds = 10.0
+close_timeout_seconds = 3.0
+ping_timeout_seconds = 30.0
+reconnect_max_seconds = 5

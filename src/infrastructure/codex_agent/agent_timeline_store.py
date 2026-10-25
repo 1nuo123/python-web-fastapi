@@ -2,22 +2,24 @@
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 import time
 from collections import OrderedDict
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
 from pydantic import TypeAdapter
 
 from src.core.codex_contract.app_server_product_contract import (
+    AppServerDiffChangedDetail,
+    AppServerDiffItem,
     AppServerItemChangedDetail,
     AppServerItemDeltaDetail,
     AppServerNoticeItem,
     AppServerPlanChangedDetail,
-    AppServerDiffChangedDetail,
     AppServerPlanItem,
-    AppServerDiffItem,
     AppServerProductNotificationDetail,
     AppServerProductTimelineItem,
     AppServerThreadReadProductResult,
@@ -26,6 +28,13 @@ from src.core.codex_contract.app_server_product_contract import (
 
 _ITEM = TypeAdapter(AppServerProductTimelineItem)
 _TERMINAL = {"completed", "failed", "interrupted", "cancelled", "systemError"}
+
+
+@dataclass(frozen=True, slots=True)
+class AgentTimelineHistoryWindow:
+    items: tuple[AppServerProductTimelineItem, ...]
+    total_items: int
+    revision: str
 
 
 class AgentTimelineStore:
@@ -47,6 +56,7 @@ class AgentTimelineStore:
                 seq INTEGER PRIMARY KEY AUTOINCREMENT, thread TEXT NOT NULL,
                 turn TEXT NOT NULL, item TEXT NOT NULL, payload TEXT NOT NULL,
                 UNIQUE(thread, turn, item));
+            CREATE INDEX IF NOT EXISTS timeline_item_window ON timeline_item(thread, turn, seq);
         """)
         self._instance = uuid4().hex
         self._last_prune = time.monotonic()
@@ -137,6 +147,56 @@ class AgentTimelineStore:
                     self._streaming[key] = item.model_copy(
                         update={field: (current + detail.delta)[-1_048_576:]}
                     )
+
+    def read_history_window(
+        self, thread_id: str, turn_id: str, *, offset: int, limit: int
+    ) -> AgentTimelineHistoryWindow | None:
+        """在已有完整性事实下分页读取本机工具记录，不再取出整个turn。"""
+        record = self._db.execute(
+            "SELECT instance,complete,updated FROM timeline_turn WHERE thread=? AND turn=?",
+            (thread_id, turn_id),
+        ).fetchone()
+        if record is None or not (record[1] or record[0] == self._instance):
+            return None
+        total, last_seq = self._db.execute(
+            "SELECT COUNT(*),MAX(seq) FROM timeline_item WHERE thread=? AND turn=?",
+            (thread_id, turn_id),
+        ).fetchone()
+        rows = self._db.execute(
+            "SELECT item,payload FROM timeline_item WHERE thread=? AND turn=? ORDER BY seq DESC LIMIT ? OFFSET ?",
+            (thread_id, turn_id, limit, offset),
+        ).fetchall()
+        items = tuple(
+            self._streaming.get((thread_id, turn_id, item_id)) or _ITEM.validate_json(payload)
+            for item_id, payload in rows
+        )
+        revision = hashlib.sha256(f"{record}:{total}:{last_seq}".encode()).hexdigest()
+        return AgentTimelineHistoryWindow(items=items, total_items=total, revision=revision)
+
+    def refresh_history_window(
+        self, snapshot: AppServerThreadReadProductResult
+    ) -> AppServerThreadReadProductResult:
+        """发送前原子刷新本窗口的已记录item；覆盖证明不等同于整个turn完整。"""
+        turns = []
+        covered: list[str] = []
+        thread_id = snapshot.thread.thread_id
+        for turn in snapshot.turns:
+            items = []
+            for item in turn.items:
+                latest = self._streaming.get((thread_id, turn.turn_id, item.item_id))
+                if latest is None:
+                    record = self._db.execute(
+                        "SELECT payload FROM timeline_item WHERE thread=? AND turn=? AND item=?",
+                        (thread_id, turn.turn_id, item.item_id),
+                    ).fetchone()
+                    latest = _ITEM.validate_json(record[0]) if record is not None else None
+                items.append(latest or item)
+                if latest is not None:
+                    covered.append(item.item_id)
+            turns.append(turn.model_copy(update={"items": tuple(items)}))
+        return snapshot.model_copy(
+            update={"turns": tuple(turns), "covered_item_ids": tuple(covered)}
+        )
 
     def supplement(
         self, snapshot: AppServerThreadReadProductResult

@@ -736,8 +736,9 @@ class FastApiAppAssembler:
                 dispatch_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
                 event_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
                 timeout_seconds=(
-                    resource_mount.read_codex_runtime_settings().agent_rpc_ack_timeout_seconds
+                    resource_mount.read_codex_runtime_settings().agent_query_timeout_seconds
                 ),
+                ack_timeout_seconds=resource_mount.read_codex_runtime_settings().agent_rpc_ack_timeout_seconds,
                 # 游标与认证密钥做域隔离，密钥轮换时旧游标自然失效。
                 history_cursor_signing_key=hashlib.sha256(
                     b"codex-history-cursor-v1\x00"

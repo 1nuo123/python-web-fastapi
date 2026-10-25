@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
 from src.application.ports.codex_agent_command_dispatch_port import (
     CodexAgentCommandDispatchPort,
@@ -25,6 +26,10 @@ class CodexRuntimeFacade(CodexAgentCommandDispatchPort, CodexRealtimeEventPort):
 
     def __init__(self, runtime: CodexControlRuntime) -> None:
         self._runtime = runtime
+
+    async def supports_history_windows(self, host_id: UUID) -> bool:
+        lease = await self._runtime.connection_registry.read(host_id)
+        return lease is not None and lease.history_windows
 
     async def dispatch(
         self,

@@ -2,6 +2,14 @@
 	admin 127.0.0.1:2019
 }
 
+(backend_health) {
+    health_uri /health/ready
+    health_interval 10s
+    health_timeout 3s
+    health_fails 3
+    health_passes 2
+}
+
 {$CADDY_SITE_ADDRESS:http://localhost} {
 	encode zstd gzip
 
@@ -15,7 +23,17 @@
 
 	log {
 		output stdout
-		format json
+		format filter {
+            wrap json
+            fields {
+                request>headers>Authorization delete
+                request>headers>Cookie delete
+                request>uri query {
+                    delete ticket
+                    delete connection_ticket
+                }
+            }
+        }
 	}
 
 	route {
@@ -25,9 +43,7 @@
 			reverse_proxy app:8000 {
 				# Keep ticket issuance on the same public gateway as the WebSocket.
 				header_up -Forwarded
-				health_uri /health/ready
-				health_interval 30s
-				health_timeout 5s
+				import backend_health
 			}
 		}
 
@@ -36,18 +52,16 @@
 			# Caddy is the public boundary; never propagate a client-supplied Forwarded header.
 			header_up -Forwarded
 			flush_interval -1
-			health_uri /health/ready
-			health_interval 30s
-			health_timeout 5s
+			stream_close_delay 5m
+			import backend_health
 		}
 
 		@backend path /auth/* /health/* /internal/* /codex/realtime-tickets /codex/hosts* /codex/approvals* /openapi.json
 		reverse_proxy @backend app:8000 {
+			stream_close_delay 5m
 			# Caddy is the public boundary; never propagate a client-supplied Forwarded header.
 			header_up -Forwarded
-			health_uri /health/ready
-			health_interval 30s
-			health_timeout 5s
+			import backend_health
 		}
 
 		reverse_proxy frontend:3000 {

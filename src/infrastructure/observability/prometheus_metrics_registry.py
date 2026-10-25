@@ -16,6 +16,10 @@ from src.core.codex_contract.client_performance_contract import (
     CodexClientPerformanceMetric,
     CodexClientPerformanceObservation,
 )
+from src.core.codex_contract.connection_session_contract import (
+    CodexConnectionEnd,
+    CodexConnectionQueueObservation,
+)
 from src.core.logging_contract.log_writer_contract import LogWriteReason
 from src.core.security_contract.security_event_contract import (
     SecurityEventDecision,
@@ -352,6 +356,35 @@ class PrometheusMetricsRegistry:
     Prometheus 指标注册器。
     """
 
+    def observe_codex_queue(self, observation: CodexConnectionQueueObservation) -> None:
+        self._codex_queue_wait.labels(
+            priority=("control", "response", "data")[observation.priority]
+        ).observe(observation.wait_seconds)
+        self._codex_queue_bytes.observe(observation.queued_bytes)
+
+    def observe_codex_connection_end(self, ended: CodexConnectionEnd) -> None:
+        reason = ended.reason_code or ended.reason
+        if reason not in {
+            "send_timeout",
+            "queue_overloaded",
+            "overloaded",
+            "presence_expired",
+            "peer_closed",
+            "remote_close",
+            "transport_closed",
+            "transport_failed",
+            "protocol_invalid",
+            "authorization_rejected",
+            "server_restart",
+            "local_stop",
+            "device_revoked",
+            "connection_replaced",
+            "renewal_response_timeout",
+            "close_failed",
+        }:
+            reason = "other"
+        self._codex_connection_ends.labels(kind=ended.kind.value, reason=reason).inc()
+
     def __init__(self, *, options: PrometheusMetricsRegistryOptions | None = None) -> None:
         """
         初始化 Prometheus 指标注册器。
@@ -364,6 +397,24 @@ class PrometheusMetricsRegistry:
 
         resolved_options = options if options is not None else PrometheusMetricsRegistryOptions()
         self._collector_registry = CollectorRegistry()
+        self._codex_connection_ends = Counter(
+            "fastapi_codex_connection_end_total",
+            "Agent connection endings",
+            ["kind", "reason"],
+            registry=self._collector_registry,
+        )
+        self._codex_queue_wait = Histogram(
+            "fastapi_codex_send_queue_wait_seconds",
+            "Agent send queue wait",
+            ["priority"],
+            registry=self._collector_registry,
+        )
+        self._codex_queue_bytes = Histogram(
+            "fastapi_codex_send_queue_bytes",
+            "Agent queued bytes at dequeue",
+            buckets=(0, 4096, 65536, 1048576, 4194304, 16777216),
+            registry=self._collector_registry,
+        )
         self._request_total = Counter(
             REQUEST_TOTAL_NAME,
             REQUEST_TOTAL_DESCRIPTION,

@@ -57,6 +57,12 @@ class CodexRuntimeSettings(BaseModel):
     agent_heartbeat_seconds: int = Field(ge=15, le=15)
     agent_offline_after_seconds: int = Field(gt=0)
     agent_rpc_ack_timeout_seconds: int = Field(gt=0)
+    agent_send_enqueue_timeout_seconds: float = Field(default=1.0, gt=0)
+    agent_send_timeout_seconds: float = Field(default=10.0, gt=0)
+    agent_close_timeout_seconds: float = Field(default=3.0, gt=0)
+    agent_outgoing_queue_max_bytes: int = Field(default=16 * 1024 * 1024, gt=0)
+    agent_query_timeout_seconds: int = Field(default=25, gt=0)
+    agent_execution_lease_seconds: int = Field(default=60, ge=1, le=60)
     agent_reconnect_min_seconds: int = Field(gt=0)
     agent_reconnect_max_seconds: int = Field(gt=0)
     max_connected_agents: int = Field(gt=0)
@@ -130,6 +136,12 @@ class CodexRuntimeSettings(BaseModel):
             raise ValueError("agent_offline_after_seconds 必须大于 agent_heartbeat_seconds。")
         if self.agent_reconnect_max_seconds < self.agent_reconnect_min_seconds:
             raise ValueError("agent_reconnect_max_seconds 不得小于 agent_reconnect_min_seconds。")
+        if self.agent_query_timeout_seconds <= self.agent_rpc_ack_timeout_seconds:
+            raise ValueError("查询总预算必须大于ACK预算。")
+        if self.agent_execution_lease_seconds <= self.agent_heartbeat_seconds * 2:
+            raise ValueError("执行许可必须覆盖至少两个心跳周期。")
+        if self.agent_outgoing_queue_max_bytes < self.max_agent_frame_bytes * 2:
+            raise ValueError("发送字节容量必须保留控制帧空间。")
         minimum_codex_version = parse_agent_release_version(self.minimum_codex_version)
         blocked_codex_versions = tuple(self.blocked_codex_versions)
         if len(blocked_codex_versions) != len(set(blocked_codex_versions)):

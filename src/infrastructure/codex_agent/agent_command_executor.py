@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -19,6 +20,10 @@ from src.core.codex_contract.agent_command_contract import (
     AgentCommandResultSummary,
 )
 from src.core.codex_contract.agent_connection_contract import AgentCommandAdmissionClosed
+from src.core.codex_contract.agent_history_window_contract import (
+    AgentHistoryWindowRequest,
+    AgentHistoryWindowStaleError,
+)
 from src.core.codex_contract.agent_protocol_contract import (
     CODEX_AGENT_PROTOCOL_VERSION,
     CodexAgentCommand,
@@ -27,6 +32,7 @@ from src.core.codex_contract.agent_protocol_contract import (
 )
 from src.core.codex_contract.app_server_jsonrpc_contract import (
     AppServerMessageTooLargeError,
+    AppServerOverloadBudgetExceededError,
     AppServerRpcClientPort,
     AppServerRpcError,
 )
@@ -53,10 +59,12 @@ from src.infrastructure.codex_agent.agent_execution_root_store import (
 from src.infrastructure.codex_agent.agent_thread_history_capacity_registry import (
     AgentThreadHistoryCapacityRegistry,
 )
+from src.infrastructure.codex_agent.agent_thread_history_reader import read_thread_history_window
 from src.infrastructure.codex_agent.agent_thread_history_window_cache import (
     AgentThreadHistoryWindowCache,
     AgentThreadHistoryWindowCacheKey,
 )
+from src.infrastructure.codex_agent.agent_timeline_store import AgentTimelineStore
 from src.infrastructure.codex_agent.agent_workspace_registry import AgentWorkspaceRegistry
 
 AgentCommandAckSender = Callable[[CodexAgentCommandAck], Awaitable[None]]
@@ -104,6 +112,7 @@ class AgentCommandExecutor:
         approval_reply_handler: AgentApprovalReplyHandler | None = None,
         history_capacity_registry: AgentThreadHistoryCapacityRegistry | None = None,
         history_window_cache: AgentThreadHistoryWindowCache | None = None,
+        timeline_store: AgentTimelineStore | None = None,
         worktree_port: GitWorktreePort | None = None,
         execution_root_store: AgentExecutionRootStore | None = None,
         workspace_registry: AgentWorkspaceRegistry | None = None,
@@ -113,6 +122,7 @@ class AgentCommandExecutor:
         | None = None,
     ) -> None:
         self._admission_check = admission_check
+        self._timeline_store = timeline_store
         self._side_effect_started = False
         self._journal = journal
         self._client = client
@@ -287,12 +297,25 @@ class AgentCommandExecutor:
                             timeout_seconds=remaining,
                             operation_id=str(command.operation_id),
                         )
-                        result = await self._read_thread_turn_pages(
-                            metadata,
-                            thread_id=thread_id,
-                            deadline=command_deadline,
-                            operation_id=str(command.operation_id),
-                        )
+                        if command.params.get("history_window") is not None:
+                            result = await read_thread_history_window(
+                                self._client,
+                                metadata,
+                                thread_id=thread_id,
+                                request=AgentHistoryWindowRequest.model_validate(
+                                    command.params["history_window"]
+                                ),
+                                timeline_store=self._timeline_store,
+                                deadline=command_deadline,
+                                operation_id=str(command.operation_id),
+                            )
+                        else:
+                            result = await self._read_thread_turn_pages(
+                                metadata,
+                                thread_id=thread_id,
+                                deadline=command_deadline,
+                                operation_id=str(command.operation_id),
+                            )
                     else:
                         self._require_admission()
                         self._side_effect_started = True
@@ -335,6 +358,20 @@ class AgentCommandExecutor:
                 self._journal.mark_failed(str(command.command_id), result_summary=summary)
             await self._send_summary_result(
                 command, summary, outcome="unknown" if self._side_effect_started else "failed"
+            )
+            return
+        except AgentHistoryWindowStaleError:
+            summary = AgentCommandResultSummary(outcome_code="history_cursor_stale")
+            self._journal.mark_failed(str(command.command_id), result_summary=summary)
+            await self._ack_sender(self._build_ack(command, "failed", replayed=False))
+            await self._result_sender(
+                CodexAgentCommandResult(
+                    command_id=command.command_id,
+                    operation_id=command.operation_id,
+                    outcome="failed",
+                    error_code="history_cursor_stale",
+                    error_message="历史版本已变化，请重新读取窗口。",
+                )
             )
             return
         except AppServerRpcError as exc:
@@ -408,7 +445,26 @@ class AgentCommandExecutor:
                 )
             )
             return
-        except (ConnectionError, TimeoutError):
+        except (ConnectionError, TimeoutError) as exc:
+            if command.command_type in {"thread.list", "thread.read"}:
+                code = (
+                    "query_overloaded"
+                    if isinstance(exc, AppServerOverloadBudgetExceededError)
+                    else "query_timeout"
+                )
+                summary = AgentCommandResultSummary(outcome_code=code)
+                self._journal.mark_failed(str(command.command_id), result_summary=summary)
+                await self._ack_sender(self._build_ack(command, "failed", replayed=False))
+                await self._result_sender(
+                    CodexAgentCommandResult(
+                        command_id=command.command_id,
+                        operation_id=command.operation_id,
+                        outcome="failed",
+                        error_code=code,
+                        error_message="读取未在预算内完成，可重新查询。",
+                    )
+                )
+                return
             # 请求可能已生效，不删除仍被执行进程使用的工作树。
             summary = AgentCommandResultSummary(outcome_code="result_unknown")
             self._journal.mark_unknown(
@@ -521,7 +577,12 @@ class AgentCommandExecutor:
         cursor: str | None = None
         seen_cursors: set[str] = set()
         turns: list[JsonValue] = []
+        page_count = 0
+        total_bytes = 0
         while True:
+            page_count += 1
+            if page_count > 8:
+                raise AppServerMessageTooLargeError("旧协议历史超过有界页数，需支持窗口协议。")
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
                 raise TimeoutError("thread/turns/list分页读取超时。")
@@ -544,6 +605,9 @@ class AgentCommandExecutor:
             page_turns = page.get("data")
             if not isinstance(page_turns, list):
                 raise ValueError("thread/turns/list响应缺少data数组。")
+            total_bytes += len(json.dumps(page_turns, ensure_ascii=False).encode("utf-8"))
+            if total_bytes > 2 * 1024 * 1024:
+                raise AppServerMessageTooLargeError("旧协议历史超过字节预算。")
             turns.extend(page_turns)
             next_cursor = page.get("nextCursor")
             if next_cursor is None:
@@ -580,9 +644,17 @@ class AgentCommandExecutor:
             or include_turns is not True
         ):
             return None
+        window = (
+            AgentHistoryWindowRequest.model_validate(command.params["history_window"])
+            if command.params.get("history_window") is not None
+            else None
+        )
         return AgentThreadHistoryWindowCacheKey(
             workspace_key=workspace_key,
             thread_id=thread_id,
+            cursor=window.cursor if window else None,
+            revision=window.revision if window else None,
+            limit=window.limit if window else None,
         )
 
     @staticmethod

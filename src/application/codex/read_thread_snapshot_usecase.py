@@ -22,6 +22,10 @@ from src.application.ports.codex_agent_command_dispatch_port import (
 )
 from src.application.ports.codex_control_port import CodexControlPort
 from src.application.ports.codex_realtime_event_port import CodexRealtimeEventPort
+from src.core.codex_contract.agent_history_window_contract import (
+    AgentHistoryWindowRequest,
+    AgentHistoryWindowResult,
+)
 from src.core.codex_contract.agent_protocol_contract import CodexAgentCommand
 from src.core.codex_contract.connection_session_contract import CodexHostOfflineError
 from src.core.codex_contract.thread_contract import (
@@ -57,6 +61,7 @@ class ReadCodexThreadSnapshotUsecase:
         control_port: CodexControlPort,
         dispatch_port: CodexAgentCommandDispatchPort,
         timeout_seconds: int,
+        ack_timeout_seconds: int = 5,
         history_cursor_signing_key: bytes,
         history_cursor_ttl_seconds: int = 300,
         event_port: CodexRealtimeEventPort | None = None,
@@ -64,6 +69,7 @@ class ReadCodexThreadSnapshotUsecase:
         self._control_port = control_port
         self._dispatch_port = dispatch_port
         self._timeout_seconds = timeout_seconds
+        self._ack_timeout_seconds = ack_timeout_seconds
         self._mapper = CodexProtocolMapper()
         self._event_port = event_port
         self._history_page_resolver = CodexHistoryPageResolver(
@@ -85,7 +91,8 @@ class ReadCodexThreadSnapshotUsecase:
         before_cursor: str | None = None,
         requested_item_ids: frozenset[str] | None = None,
     ) -> CodexThreadAuthoritySnapshot:
-        context = self._read_owned_thread(
+        context = await asyncio.to_thread(
+            self._read_owned_thread,
             host_id,
             upstream_thread_id,
             owner_subject_id,
@@ -96,6 +103,32 @@ class ReadCodexThreadSnapshotUsecase:
             "includeTurns": include_history or before_cursor is not None,
             "workspace_key": context.workspace_key,
         }
+        window = None
+        history_requested = include_history or before_cursor is not None
+        if (
+            history_requested
+            and requested_item_ids is None
+            and await self._dispatch_port.supports_history_windows(host_id)
+        ):
+            claims = (
+                self._history_page_resolver.cursor_codec.decode(before_cursor)
+                if before_cursor
+                else None
+            )
+            if claims is not None:
+                if (
+                    claims.owner_subject_id != owner_subject_id
+                    or claims.host_id != host_id
+                    or claims.upstream_thread_id != upstream_thread_id
+                    or claims.window_cursor is None
+                ):
+                    raise CodexHistoryCursorStaleError("历史窗口游标不属于当前读取范围。")
+            window = AgentHistoryWindowRequest(
+                limit=history_limit,
+                cursor=claims.window_cursor if claims else None,
+                revision=claims.history_revision if claims else None,
+            )
+            params["history_window"] = window.model_dump(mode="json")
         command = CodexAgentCommand(
             command_id=uuid4(),
             operation_id=uuid4(),
@@ -108,16 +141,36 @@ class ReadCodexThreadSnapshotUsecase:
         try:
             result = await self._dispatch_port.dispatch_and_wait_result(
                 command,
-                ack_timeout_seconds=self._timeout_seconds,
+                ack_timeout_seconds=self._ack_timeout_seconds,
                 result_timeout_seconds=self._timeout_seconds,
             )
         except CodexHostOfflineError:
             return self._build_unavailable_snapshot(thread)
-        except TimeoutError:
-            if thread.source_kind == "remote":
-                return self._build_unavailable_snapshot(thread)
-            raise
+        except TimeoutError as exc:
+            if include_history or before_cursor is not None or requested_item_ids is not None:
+                raise HttpFaultException(
+                    status_code=HTTPStatus.GATEWAY_TIMEOUT,
+                    error_code=CodexErrorCode.QUERY_TIMEOUT,
+                    message="历史读取超时，请稍后重试。",
+                ) from exc
+            return self._build_unavailable_snapshot(thread)
         if result.outcome != "completed" or result.result is None:
+            if result.error_code == "query_overloaded":
+                raise HttpFaultException(
+                    status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+                    error_code=CodexErrorCode.QUERY_OVERLOADED,
+                    message="本机查询暂时繁忙，请稍后重试。",
+                )
+            if result.error_code == "history_cursor_stale":
+                raise CodexHistoryCursorStaleError("历史窗口版本已变化。")
+            if result.error_code in {"result_unknown", "deadline_expired", "query_timeout"}:
+                if include_history or before_cursor is not None or requested_item_ids is not None:
+                    raise HttpFaultException(
+                        status_code=HTTPStatus.GATEWAY_TIMEOUT,
+                        error_code=CodexErrorCode.QUERY_TIMEOUT,
+                        message="历史读取超时。",
+                    )
+                return self._build_unavailable_snapshot(thread)
             if result.error_code == "response_too_large":
                 return CodexThreadAuthoritySnapshot(
                     thread=thread,
@@ -176,6 +229,29 @@ class ReadCodexThreadSnapshotUsecase:
             reloaded_items = [
                 item for item in all_items if item.header.item_id in requested_item_ids
             ]
+        elif window is not None and history_status is CodexThreadHistoryStatus.COMPLETE:
+            if not isinstance(result.result, Mapping) or result.result.get("historyWindow") is None:
+                raise ValueError("已协商窗口查询但Agent没有返回分页合同。")
+            returned = AgentHistoryWindowResult.model_validate(result.result["historyWindow"])
+            if window.revision is not None and window.revision != returned.revision:
+                raise CodexHistoryCursorStaleError("历史版本已变化。")
+            if returned.has_more != (returned.cursor is not None):
+                raise ValueError("历史窗口完整性标记与游标不一致。")
+            history_page = CodexThreadHistoryPage(
+                items=all_items,
+                has_more=returned.has_more,
+                history_revision=returned.revision,
+                before_cursor=self._history_page_resolver.cursor_codec.encode(
+                    owner_subject_id=owner_subject_id,
+                    host_id=host_id,
+                    upstream_thread_id=upstream_thread_id,
+                    history_revision=returned.revision,
+                    boundary_item_id="window",
+                    window_cursor=returned.cursor,
+                )
+                if returned.has_more
+                else None,
+            )
         elif history_requested and history_status is CodexThreadHistoryStatus.COMPLETE:
             history_page = self._read_history_page(
                 owner_subject_id=owner_subject_id,
@@ -187,13 +263,23 @@ class ReadCodexThreadSnapshotUsecase:
                     limit=history_limit,
                 ),
             )
-        merged = self._merge_authoritative_thread(thread, mapped.thread, turns)
+        merged = self._merge_authoritative_thread(
+            thread, mapped.thread, [] if before_cursor else turns
+        )
         persisted = await asyncio.to_thread(self._reconcile_execution, thread, merged)
         if self._event_port is not None and persisted != thread:
             await self._event_port.publish_thread_updated(persisted, occurred_at=datetime.now(UTC))
+        covered_item_ids: list[str] = []
+        if isinstance(result.result, Mapping):
+            product = result.result.get("productThreadRead")
+            if isinstance(product, Mapping) and isinstance(product.get("covered_item_ids"), list):
+                covered_item_ids = [
+                    value for value in product["covered_item_ids"] if isinstance(value, str)
+                ]
         return CodexThreadAuthoritySnapshot(
             source_epoch=mapped.source_epoch,
             source_seq=mapped.source_seq,
+            covered_item_ids=covered_item_ids,
             thread=persisted,
             turns=turns,
             items=(

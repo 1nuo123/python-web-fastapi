@@ -16,7 +16,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from src.application.authorization_guard import AuthorizationGuard
-from src.application.ports.settings_reader_port import ApplicationSettingsSnapshot
+from src.application.ports.settings_reader_port import (
+    ApplicationSettingsSnapshot,
+    HealthSettingsSnapshot,
+)
 from src.core.cache_contract.cache_store_contract import CacheStore
 from src.core.distributed_state_contract.atomic_state_contract import AtomicStatePort
 from src.core.exception_contract.error_code_catalog_contract import CoreErrorCode
@@ -455,7 +458,7 @@ class SharedResourceLifecycle:
                 RESOURCE_STREAMING,
             )
         }
-        self._ready = False
+        self._publish_health_snapshot(ready=False)
         self._enabled_web_modules: list[str] = []
         self._auth_accessor = AuthSupportAccessor(
             password_hasher=self._password_hasher,
@@ -497,12 +500,12 @@ class SharedResourceLifecycle:
                     mount=self,
                     settings=settings,
                 )
-                self._ready = True
+                self._publish_health_snapshot(ready=True)
                 self._lifecycle_state = "READY"
                 self.refresh_runtime_saturation()
                 self._logger.info(RESOURCE_STARTUP_FINISH_MESSAGE)
             except Exception as exc:
-                self._ready = False
+                self._publish_health_snapshot(ready=False)
                 self._lifecycle_state = "FAILED"
                 self._mark_failed_states(detail=str(exc))
                 self._logger.error(RESOURCE_STARTUP_FAILED_MESSAGE, str(exc))
@@ -521,7 +524,7 @@ class SharedResourceLifecycle:
                 )
             self._lifecycle_state = "STOPPING"
             self._logger.info(RESOURCE_RELEASE_BEGIN_MESSAGE)
-            self._ready = False
+            self._publish_health_snapshot(ready=False)
             try:
                 release_result = self._runtime_resource_releaser.shutdown(self)
                 self._last_resource_release_result = release_result
@@ -747,6 +750,7 @@ class SharedResourceLifecycle:
             )
             self._runtime_generation += 1
             self._settings_holder.current_settings = settings
+            self._publish_health_snapshot(ready=self.is_ready())
             next_http_accessor = HttpRuntimeAccessor(resource_set=candidate_http_resources)
             next_task_accessor = TaskRuntimeAccessor(
                 registration_registry=candidate_registration_registry,
@@ -812,6 +816,7 @@ class SharedResourceLifecycle:
             self.close_message_bus(candidate_task_runtime.message_bus)
             self._http_resource_manager.close_resource_set(candidate_http_resources)
             self._settings_holder.current_settings = current_settings
+            self._publish_health_snapshot(ready=self.is_ready())
             self._http_runtime_accessor = HttpRuntimeAccessor(resource_set=current_http_resources)
             self._task_runtime_accessor = TaskRuntimeAccessor(
                 registration_registry=current_registration_registry,
@@ -1019,7 +1024,7 @@ class SharedResourceLifecycle:
         获取是否就绪。
         """
 
-        return self._ready
+        return self._health_snapshot.ready
 
     def set_enabled_web_modules(self, enabled_web_modules: list[str]) -> None:
         """
@@ -1034,6 +1039,19 @@ class SharedResourceLifecycle:
         """
 
         return list(self._enabled_web_modules)
+
+    def _publish_health_snapshot(self, *, ready: bool) -> None:
+        settings = self._settings_holder.current_settings
+        self._health_snapshot = HealthSettingsSnapshot(
+            ready_probe_enabled=settings.modules.system.ready_probe_enabled,
+            ready=ready,
+            version=settings.app.version,
+            environment=settings.app.environment.value,
+        )
+
+    def read_health_snapshot(self) -> HealthSettingsSnapshot:
+        """原子读取不可变引用，不等待配置重载或业务执行池。"""
+        return self._health_snapshot
 
     def read_application_settings_snapshot(
         self,

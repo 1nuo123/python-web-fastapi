@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from src.core.codex_contract.model_catalog_contract import CodexEffectiveExecutionSettings
-
 from collections.abc import Mapping
 from typing import Literal, cast
 
-from pydantic import JsonValue, ValidationError
+from pydantic import JsonValue, TypeAdapter, ValidationError
 
+from src.core.codex_contract.agent_history_window_contract import AgentHistoryWindowResult
 from src.core.codex_contract.app_server_product_contract import (
     APP_SERVER_PRODUCT_MAX_TEXT_CHARS,
     AppServerAgentMessageItem,
@@ -41,6 +40,7 @@ from src.core.codex_contract.app_server_product_contract import (
 from src.core.codex_contract.app_server_schema_manifest_contract import (
     AppServerNotificationName,
 )
+from src.core.codex_contract.model_catalog_contract import CodexEffectiveExecutionSettings
 from src.core.codex_contract.thread_contract import (
     CODEX_THREAD_TITLE_MAX_LENGTH,
     CodexPlanStepStatus,
@@ -122,6 +122,9 @@ class AppServerProtocolAdapter:
         return AppServerThreadReadProductResult(
             thread=self._to_thread_snapshot(thread, thread_id),
             turns=turns,
+            history_window=AgentHistoryWindowResult.model_validate(mapping["historyWindow"])
+            if mapping.get("historyWindow") is not None
+            else None,
             history_status=cast(
                 Literal["complete", "omitted_too_large"],
                 history_status,
@@ -551,6 +554,12 @@ class AppServerProtocolAdapter:
             error_mapping = cast(Mapping[str, JsonValue], error)
             error_message = self._bounded_optional_text(error_mapping.get("message"), limit=512)
         items: list[AppServerProductTimelineItem] = []
+        if isinstance(turn.get("productItems"), list):
+            items.extend(
+                TypeAdapter(list[AppServerProductTimelineItem]).validate_python(
+                    turn["productItems"]
+                )
+            )
         for raw_item in raw_items:
             if not isinstance(raw_item, Mapping):
                 continue

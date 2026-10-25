@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -34,10 +34,13 @@ class CodexConnectionLease:
     protocol_version: CodexConnectionProtocolVersion
     compatibility_decision: CodexCompatibilityDecision
     allowed_commands: frozenset[str] | None = None
+    history_windows: bool = False
     on_revoke: Callable[[], Awaitable[None]] | None = None
+    disconnected: asyncio.Event = field(default_factory=asyncio.Event)
 
     def close(self, code: int, reason: str) -> None:
         """在同一信号中携带撤销、替换或重启原因。"""
+        self.disconnected.set()
         if isinstance(self.shutdown_event, CodexConnectionShutdown):
             self.shutdown_event.request(code, reason)
         else:
@@ -66,6 +69,7 @@ class CodexConnectionRegistry:
         compatibility_decision: CodexCompatibilityDecision = CodexCompatibilityDecision.COMPATIBLE,
         on_revoke: Callable[[], Awaitable[None]] | None = None,
         allowed_commands: frozenset[str] | None = None,
+        history_windows: bool = False,
     ) -> CodexConnectionLease:
         """注册新连接；同 host 重连原子替换并通知旧会话退出。"""
 
@@ -86,6 +90,7 @@ class CodexConnectionRegistry:
                 protocol_version=protocol_version,
                 compatibility_decision=compatibility_decision,
                 allowed_commands=allowed_commands,
+                history_windows=history_windows,
                 on_revoke=on_revoke,
             )
             self._leases[host_id] = lease
@@ -96,6 +101,7 @@ class CodexConnectionRegistry:
     async def unregister(self, lease: CodexConnectionLease) -> None:
         """只删除仍为当前代次的连接，避免旧会话移除新连接。"""
 
+        lease.disconnected.set()
         async with self._lock:
             current = self._leases.get(lease.host_id)
             if current is not None and current.epoch == lease.epoch:

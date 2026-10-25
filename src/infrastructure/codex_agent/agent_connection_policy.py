@@ -3,6 +3,7 @@
 import ssl
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from enum import StrEnum
 
 from httpx import HTTPStatusError, TransportError
 from websockets.exceptions import InvalidHandshake, InvalidMessage, InvalidStatus
@@ -12,15 +13,36 @@ from src.core.codex_contract.agent_connection_contract import (
     AGENT_CONNECTION_TICKET_EXPIRED,
     AgentConnectionIssue,
 )
-from src.core.codex_contract.connection_session_contract import CodexConnectionTransportClosed
+from src.core.codex_contract.connection_session_contract import (
+    CodexConnectionEndKind,
+    CodexConnectionTransportClosed,
+)
 
 RETRYABLE_AGENT_HANDSHAKE_STATUS_CODES = frozenset(
     {408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
 )
 
 
+class AgentExecutionStopReason(StrEnum):
+    LEASE_EXPIRED = "lease_expired"
+    DEVICE_REVOKED = "device_revoked"
+    HOST_SWITCHED = "host_switched"
+    LOCAL_SHUTDOWN = "local_shutdown"
+    EXECUTION_FAILED = "execution_failed"
+
+
 class AgentControlConnectionPolicy:
     """先识别永久错误，再处理宽泛传输异常；不记录URL或响应正文。"""
+
+    @staticmethod
+    def preserve_execution(
+        exc: BaseException, *, continuity: bool, lease_valid: bool, process_healthy: bool
+    ) -> bool:
+        if not (continuity and lease_valid and process_healthy):
+            return False
+        if isinstance(exc, CodexConnectionTransportClosed):
+            return exc.end_kind == CodexConnectionEndKind.TRANSPORT_FAILURE
+        return AgentControlConnectionPolicy.should_retry(exc)
 
     @staticmethod
     def read_status_code(exc: BaseException) -> int | None:
@@ -90,6 +112,8 @@ class AgentControlConnectionPolicy:
 
     @staticmethod
     def describe(exc: BaseException) -> str:
+        if isinstance(exc, CodexConnectionTransportClosed):
+            return f"phase={exc.phase} reason={exc.reason_code} close_code={exc.close_code}"
         status = AgentControlConnectionPolicy.read_status_code(exc)
         if status is not None:
             return f"HTTP {status}"

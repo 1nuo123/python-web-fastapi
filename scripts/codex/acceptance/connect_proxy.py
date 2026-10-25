@@ -15,6 +15,10 @@ class AcceptanceConnectProxy:
         self.writers = set()
         self.upstream_peers = set()
         self.connections = 0
+        self._flow = {"upstream": asyncio.Event(), "downstream": asyncio.Event()}
+        for gate in self._flow.values():
+            gate.set()
+        self.bytes_per_second: int | None = None
 
     async def start(self, *, certificate: Path | None = None, key: Path | None = None) -> str:
         context = None
@@ -46,14 +50,17 @@ class AcceptanceConnectProxy:
             writer.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             await writer.drain()
 
-            async def pump(source, destination):
-                while chunk := await source.read(65536):
+            async def pump(source, destination, direction):
+                while chunk := await source.read(16384):
+                    await self._flow[direction].wait()
+                    if self.bytes_per_second:
+                        await asyncio.sleep(len(chunk) / self.bytes_per_second)
                     destination.write(chunk)
                     await destination.drain()
 
             pumps = [
-                asyncio.create_task(pump(reader, upstream)),
-                asyncio.create_task(pump(upstream_reader, writer)),
+                asyncio.create_task(pump(reader, upstream, "upstream")),
+                asyncio.create_task(pump(upstream_reader, writer, "downstream")),
             ]
             await asyncio.wait(pumps, return_when=asyncio.FIRST_COMPLETED)
         except (ConnectionError, OSError, TimeoutError, asyncio.IncompleteReadError):
@@ -71,6 +78,16 @@ class AcceptanceConnectProxy:
                     except (ConnectionError, OSError):
                         pass
             self.tasks.discard(task)
+
+    def pause(self, direction: str | None = None) -> None:
+        for name, gate in self._flow.items():
+            if direction is None or direction == name:
+                gate.clear()
+
+    def resume(self) -> None:
+        for gate in self._flow.values():
+            gate.set()
+        self.bytes_per_second = None
 
     def interrupt_tunnels(self) -> None:
         for writer in tuple(self.writers):

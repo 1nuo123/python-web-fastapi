@@ -56,7 +56,12 @@ class SharedAsyncHttpClient:
             trust_env=trust_env,
         )
         self._client = httpx.AsyncClient(
-            timeout=detail.timeout_seconds,
+            timeout=httpx.Timeout(
+                detail.timeout_seconds,
+                connect=detail.connect_timeout_seconds or detail.timeout_seconds,
+                read=detail.read_timeout_seconds or detail.timeout_seconds,
+                pool=detail.pool_timeout_seconds or detail.timeout_seconds,
+            ),
             transport=self._transport,
             trust_env=trust_env,
         )

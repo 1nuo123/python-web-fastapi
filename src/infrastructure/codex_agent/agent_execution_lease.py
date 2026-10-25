@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from collections.abc import Callable
 from uuid import UUID, uuid4
 
 from src.core.codex_contract.agent_connection_contract import AgentCommandAdmissionClosed
@@ -11,7 +12,15 @@ from src.core.codex_contract.agent_protocol_v2_contract import AgentExecutionLea
 class AgentExecutionLease:
     """唯一许可事实，使用请求时刻计算期限并保留跨连接代次。"""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        monotonic: Callable[[], float] = time.monotonic,
+        wall_clock: Callable[[], float] = time.time,
+    ) -> None:
+        self._monotonic = monotonic
+        self._wall_clock = wall_clock
+        self.last_response_at = monotonic()
         self.enabled = False
         self.generation = 0
         self.deadline = 0.0
@@ -21,8 +30,12 @@ class AgentExecutionLease:
 
     @property
     def valid(self) -> bool:
-        return (
-            self.enabled and time.monotonic() < self.deadline and time.time() < self.wall_deadline
+        return self.enabled and self.remaining_seconds > 0
+
+    @property
+    def remaining_seconds(self) -> float:
+        return max(
+            0.0, min(self.deadline - self._monotonic(), self.wall_deadline - self._wall_clock())
         )
 
     def begin_connection(self) -> None:
@@ -30,12 +43,12 @@ class AgentExecutionLease:
         self._requests.clear()
 
     def begin_request(self) -> UUID:
-        now = time.monotonic()
+        now = self._monotonic()
         self._requests = {
             key: value for key, value in self._requests.items() if now - value[0] < 60
         }
         request = uuid4()
-        self._requests[request] = (now, time.time())
+        self._requests[request] = (now, self._wall_clock())
         return request
 
     def accept(self, lease: AgentExecutionLeaseV2Detail) -> bool:
@@ -54,6 +67,7 @@ class AgentExecutionLease:
         self.deadline = deadline
         self.wall_deadline = requested[1] + lease.valid_for_seconds if requested else 0.0
         self.enabled = lease.enabled
+        self.last_response_at = self._monotonic()
         self.ready.set()
         return True
 

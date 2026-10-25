@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 CODEX_CONNECTION_SCHEMA_VERSION: Final = "1.0"
 CODEX_CONNECTION_FRAME_KIND: Final = "codex_connection_frame"
+CODEX_HISTORY_WINDOW_SUBPROTOCOL: Final = "codex-agent.v2.history-window"
 CODEX_LEASE_CONTINUITY_SUBPROTOCOL: Final = "codex-agent.v2.lease-continuity"
 
 
@@ -32,13 +33,24 @@ class CodexConnectionEnd:
     close_code: int | None = None
     reason: str = ""
     cause: BaseException | None = None
+    phase: str = "connection"
+    reason_code: str = ""
 
     def as_exception(self) -> CodexConnectionTransportClosed:
         error = CodexConnectionTransportClosed(self.reason or self.kind.value)
         error.close_code = self.close_code
+        error.phase = self.phase
+        error.reason_code = self.reason_code or self.reason
         error.end_kind = self.kind
         error.__cause__ = self.cause
         return error
+
+
+@dataclass(frozen=True, slots=True)
+class CodexConnectionQueueObservation:
+    priority: int
+    wait_seconds: float
+    queued_bytes: int
 
 
 class CodexConnectionShutdown(asyncio.Event):
@@ -77,6 +89,8 @@ class CodexConnectionTransportClosed(ConnectionError):
     """底层长期连接已经正常关闭。"""
 
     close_code: int | None = None
+    phase: str = "connection"
+    reason_code: str = "peer_closed"
     end_kind: CodexConnectionEndKind = CodexConnectionEndKind.TRANSPORT_FAILURE
 
 
@@ -90,6 +104,10 @@ class CodexConnectionPresenceExpiredError(ConnectionError):
 
 class CodexConnectionFrameTooLargeError(ValueError):
     """长期连接帧超过配置上限。"""
+
+
+class CodexConnectionSendTimeoutError(TimeoutError):
+    """实际发送超时；必须关闭连接后回收发送任务。"""
 
 
 class CodexConnectionSlowConsumerError(TimeoutError):

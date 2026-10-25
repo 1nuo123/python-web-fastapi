@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from src.core.codex_contract.model_catalog_contract import CodexEffectiveExecutionSettings
-
 import base64
 import binascii
 import hashlib
@@ -15,6 +13,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.core.codex_contract.model_catalog_contract import CodexEffectiveExecutionSettings
 from src.core.codex_contract.turn_runtime_contract import CodexTurnRuntime
 
 CODEX_THREAD_TITLE_MAX_LENGTH: Final = 256
@@ -81,7 +80,7 @@ class CodexThreadHistoryQuery(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    before_cursor: str | None = Field(default=None, min_length=1, max_length=2_048)
+    before_cursor: str | None = Field(default=None, min_length=1, max_length=16_384)
     limit: int = Field(
         default=CODEX_HISTORY_PAGE_LIMIT_DEFAULT,
         ge=CODEX_HISTORY_PAGE_LIMIT_MINIMUM,
@@ -544,11 +543,12 @@ class CodexThreadAuthoritySnapshot(BaseModel):
 
     source_epoch: UUID | None = None
     source_seq: int = Field(default=0, ge=0)
+    covered_item_ids: list[str] = Field(default_factory=list, max_length=200)
     thread: CodexThreadIndexSnapshot
     turns: list[CodexTurnSnapshot]
     items: list[CodexTimelineItemEnvelope]
     history_status: CodexThreadHistoryStatus = CodexThreadHistoryStatus.COMPLETE
-    history_before_cursor: str | None = Field(default=None, max_length=2_048)
+    history_before_cursor: str | None = Field(default=None, max_length=16_384)
     history_has_more: bool = False
     history_revision: str | None = Field(
         default=None,
@@ -568,7 +568,7 @@ class CodexThreadHistoryPage(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     items: list[CodexTimelineItemEnvelope]
-    before_cursor: str | None = Field(default=None, max_length=2_048)
+    before_cursor: str | None = Field(default=None, max_length=16_384)
     has_more: bool
     history_revision: str = Field(
         min_length=CODEX_HISTORY_REVISION_LENGTH,

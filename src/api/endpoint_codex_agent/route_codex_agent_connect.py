@@ -37,6 +37,7 @@ from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentStateSnapshot,
 )
 from src.core.codex_contract.connection_session_contract import (
+    CODEX_HISTORY_WINDOW_SUBPROTOCOL,
     CODEX_LEASE_CONTINUITY_SUBPROTOCOL,
     CodexConnectionShutdown,
     CodexConnectionTransportClosed,
@@ -244,11 +245,18 @@ class CodexAgentConnectRouteCatalog:
             and CODEX_LEASE_CONTINUITY_SUBPROTOCOL in websocket.scope.get("subprotocols", [])
             else None
         )
+        history_windows = (
+            runtime.settings.agent_lease_continuity_enabled
+            and CODEX_HISTORY_WINDOW_SUBPROTOCOL in websocket.scope.get("subprotocols", [])
+        )
+        if history_windows:
+            selected = CODEX_HISTORY_WINDOW_SUBPROTOCOL
         await websocket.accept(subprotocol=selected)
         shutdown_event = CodexConnectionShutdown()
         handler = CodexAgentGatewayHandler(
             principal=principal,
             business_queue_capacity=runtime.settings.agent_outgoing_queue_size,
+            history_windows=history_windows,
             connection_registry=runtime.connection_registry,
             actor_registry=runtime.actor_registry,
             compatibility_policy=runtime.compatibility_policy,
@@ -262,6 +270,7 @@ class CodexAgentConnectRouteCatalog:
             shutdown_event=shutdown_event,
             hello_observer=self._build_hello_observer(runtime),
             heartbeat_observer=self._build_heartbeat_observer(runtime),
+            execution_lease_seconds=runtime.settings.agent_execution_lease_seconds,
             snapshot_observer=self._build_snapshot_observer(runtime),
             command_ack_observer=self._build_command_ack_observer(runtime),
             command_result_observer=self._build_command_result_observer(runtime),
@@ -271,13 +280,18 @@ class CodexAgentConnectRouteCatalog:
             disconnect_observer=self._build_disconnect_observer(runtime),
             compatibility_observer=self._build_compatibility_observer(runtime),
         )
+        metrics = websocket.app.state.container.resource_mount.get_metrics_registry()
         session = CodexDuplexConnectionSession(
             transport=FastApiAgentWebSocketTransport(websocket),
+            queue_observer=metrics.observe_codex_queue if metrics is not None else None,
             inbound_handler=handler,
             policy=CodexConnectionSessionPolicy(
                 outbound_queue_capacity=runtime.settings.agent_outgoing_queue_size,
                 max_frame_bytes=runtime.settings.max_agent_frame_bytes,
-                send_enqueue_timeout_seconds=1.0,
+                send_enqueue_timeout_seconds=runtime.settings.agent_send_enqueue_timeout_seconds,
+                send_timeout_seconds=runtime.settings.agent_send_timeout_seconds,
+                close_timeout_seconds=runtime.settings.agent_close_timeout_seconds,
+                outbound_queue_max_bytes=runtime.settings.agent_outgoing_queue_max_bytes,
             ),
         )
         hello_watchdog = asyncio.create_task(
@@ -296,6 +310,8 @@ class CodexAgentConnectRouteCatalog:
             if business_task in done:
                 try:
                     await business_task
+                except (ConnectionError, TimeoutError):
+                    session.request_close(code=1012, reason="transport_failed")
                 except PermissionError:
                     session.request_close(code=1008, reason="authorization_rejected")
                     await session_task
@@ -304,7 +320,17 @@ class CodexAgentConnectRouteCatalog:
                     session.request_close(code=1011, reason="business_failed")
                     await session_task
                     raise
-            await session_task
+            ended = await session_task
+            if metrics is not None:
+                metrics.observe_codex_connection_end(ended)
+            logging.getLogger(__name__).info(
+                "agent_connection_ended host=%s kind=%s phase=%s reason=%s code=%s",
+                principal.host_id,
+                ended.kind,
+                ended.phase,
+                ended.reason_code or ended.reason,
+                ended.close_code,
+            )
         finally:
             for task in (hello_watchdog, session_task, business_task):
                 task.cancel()

@@ -21,8 +21,8 @@ replay_max_events = 1000
 sse_heartbeat_seconds = 15
 sse_retry_milliseconds = 3000
 websocket_max_message_bytes = 65536
-websocket_ping_interval_seconds = 20.0
-websocket_ping_timeout_seconds = 20.0
+websocket_ping_interval_seconds = 15.0
+websocket_ping_timeout_seconds = 30.0
 shutdown_grace_seconds = 20.0
 allowed_origins = [
   "https://nuotop.xyz",

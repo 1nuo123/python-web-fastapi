@@ -573,8 +573,15 @@ class AgentProcessSettings(BaseModel):
     proxy_url: str | None = Field(default=None, repr=False)
     ca_certificate_path: Path | None = None
     heartbeat_seconds: int = Field(default=15, ge=15, le=15)
+    send_enqueue_timeout_seconds: float = Field(default=1.0, gt=0)
+    send_timeout_seconds: float = Field(default=10.0, gt=0)
+    close_timeout_seconds: float = Field(default=3.0, gt=0)
+    connection_attempt_timeout_seconds: float = Field(default=20.0, gt=0)
+    ping_timeout_seconds: float = Field(default=30.0, gt=0)
+    renewal_response_timeout_seconds: float = Field(default=30.0, gt=15)
+    writer_queue_max_bytes: int = Field(default=16 * 1024 * 1024, gt=0)
     reconnect_min_seconds: int = Field(default=1, gt=0)
-    reconnect_max_seconds: int = Field(default=30, gt=0)
+    reconnect_max_seconds: int = Field(default=5, gt=0)
     max_buffered_events: int = Field(default=2000, gt=0)
     writer_queue_capacity: int = Field(
         default=DEFAULT_AGENT_WRITER_QUEUE_CAPACITY,
@@ -661,6 +668,8 @@ class AgentProcessSettings(BaseModel):
                 raise ValueError("CA来源只能配置一处。")
             if not self.ca_certificate_path.is_absolute() or not self.ca_certificate_path.is_file():
                 raise ValueError("ca_certificate_path必须是可读取的绝对路径。")
+        if self.writer_queue_max_bytes < 2 * self.max_app_server_line_bytes:
+            raise ValueError("发送队列必须预留控制帧空间。")
         if self.event_batch_max_bytes >= self.max_app_server_line_bytes:
             raise ValueError("event_batch_max_bytes必须小于Agent单帧上限。")
         if self.development_ca_certificate_path is not None:

@@ -469,14 +469,14 @@ class DependencyContextAccessor:
         读取请求作用域。
         """
 
-        return self.read_auth_context(request).request_scope
+        return request.state.request_scope
 
     def read_response_factory(self, request: Request) -> ResponseEnvelopeFactory:
         """
         读取响应工厂。
         """
 
-        return self.read_auth_context(request).response_factory
+        return self._container(request).response_factory
 
     def read_health_probe_usecase(self, request: Request) -> HealthProbeUsecase:
         """
@@ -540,7 +540,7 @@ class DependencyContextAccessor:
         读取严格就绪探针开关。
         """
 
-        return self.read_auth_context(request).ready_probe_enabled
+        return self._container(request).resource_mount.read_health_snapshot().ready_probe_enabled
 
     def read_resource_mount(self, request: Request) -> SharedResourceMount:
         """

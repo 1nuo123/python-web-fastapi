@@ -129,6 +129,8 @@ class AgentCommandPolicy:
         except KeyError as exc:
             raise AgentCommandValidationError("Agent不支持该命令类型。") from exc
         app_server_params = dict(params)
+        if command_type == "thread.read":
+            app_server_params.pop("history_window", None)
         self._reject_control_plane_security_overrides(app_server_params)
         worktree_policy = app_server_params.pop(WORKTREE_POLICY_PARAM, None)
         if worktree_policy is not None and command_type != "thread.start":
