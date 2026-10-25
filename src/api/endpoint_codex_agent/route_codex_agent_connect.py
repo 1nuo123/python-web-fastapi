@@ -298,7 +298,7 @@ class CodexAgentConnectRouteCatalog:
             self._stop_if_hello_missing(
                 handler=handler,
                 shutdown_event=shutdown_event,
-                timeout_seconds=runtime.settings.agent_rpc_ack_timeout_seconds,
+                timeout_seconds=runtime.settings.agent_hello_timeout_seconds,
             )
         )
         session_task = asyncio.create_task(session.run(shutdown_event=shutdown_event))
@@ -354,7 +354,7 @@ class CodexAgentConnectRouteCatalog:
         await asyncio.sleep(timeout_seconds)
         if not handler.hello_complete:
             if isinstance(shutdown_event, CodexConnectionShutdown):
-                shutdown_event.request(1002, "hello_timeout")
+                shutdown_event.request(1013, "hello_timeout")
             else:
                 shutdown_event.set()
 
@@ -425,6 +425,10 @@ class CodexAgentConnectRouteCatalog:
                 runtime.state_synchronizer.accept_snapshot,
                 snapshot,
                 principal,
+            )
+            await runtime.publish_workspace_snapshot(
+                owner_subject_id=principal.owner_subject_id,
+                host_id=snapshot.host_id,
             )
 
         return observe

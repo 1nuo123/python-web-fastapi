@@ -577,6 +577,7 @@ class AgentProcessSettings(BaseModel):
     send_timeout_seconds: float = Field(default=10.0, gt=0)
     close_timeout_seconds: float = Field(default=3.0, gt=0)
     connection_attempt_timeout_seconds: float = Field(default=20.0, gt=0)
+    handshake_timeout_seconds: float = Field(default=10.0, gt=0)
     ping_timeout_seconds: float = Field(default=30.0, gt=0)
     renewal_response_timeout_seconds: float = Field(default=30.0, gt=15)
     writer_queue_max_bytes: int = Field(default=16 * 1024 * 1024, gt=0)

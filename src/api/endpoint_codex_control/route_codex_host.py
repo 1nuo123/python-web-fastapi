@@ -26,16 +26,16 @@ from src.api.web_bundle_catalog import (
     WebBundleProviderEnvelope,
     WebBundleProviderHeader,
 )
+from src.core.codex_contract.active_host_contract import (
+    CodexActiveHostState,
+    CodexActiveHostSwitchRequest,
+)
 from src.core.codex_contract.agent_enrollment_contract import (
     CodexPairingCodeRequest,
     CodexPairingCodeResponse,
 )
 from src.core.codex_contract.codex_runtime_contract import CodexSecurityRateLimitOperation
 from src.core.codex_contract.feature_flags_contract import CodexExperienceFeatureFlags
-from src.core.codex_contract.active_host_contract import (
-    CodexActiveHostState,
-    CodexActiveHostSwitchRequest,
-)
 from src.core.codex_contract.host_contract import (
     CodexHostCollection,
     CodexHostRenameRequest,
@@ -218,6 +218,19 @@ class CodexHostRouteCatalog:
             payload,
             present_host_ids=present_host_ids.intersection({active.active_host_id}),
             offline_after_seconds=runtime.settings.agent_offline_after_seconds,
+        )
+        payload = payload.model_copy(
+            update={
+                "items": [
+                    host.model_copy(
+                        update={
+                            "connected": host.host_id in present_host_ids
+                            and host.revoked_at is None
+                        }
+                    )
+                    for host in payload.items
+                ]
+            }
         )
         return self._accessor.read_response_factory(request).build(
             code=str(SuccessCode.OK),

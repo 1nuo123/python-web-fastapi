@@ -33,6 +33,10 @@ from cryptography.x509.oid import NameOID
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
+from scripts.codex.acceptance.connection_lifecycle import (
+    activate_connected_host,
+    handshake_recovery,
+)
 from src.api.testing.test_app_factory import TestAppFactory
 from src.core.codex_contract.agent_protocol_contract import CodexAgentCommand
 from src.core.codex_contract.connection_session_contract import CodexHostOfflineError
@@ -70,6 +74,10 @@ class FaultBoundary:
         self.app = app
         self.failures = {}
         self.delay_next_ws_send = 0.0
+        self.hello_delays = []
+        self.delay_next_ticket = 0.0
+        self.delay_next_challenge = 0.0
+        self.closed = []
         self.send_delay_active = False
         self.injected = []
         self.tickets = set()
@@ -92,6 +100,12 @@ class FaultBoundary:
         ):
             self.auth_requests += 1
             self.auth_peers.append(tuple(scope["client"]))
+        if path == "/internal/codex-agents/device-challenges" and self.delay_next_challenge:
+            delay, self.delay_next_challenge = self.delay_next_challenge, 0.0
+            await asyncio.sleep(delay)
+        if path == "/internal/codex-agents/connection-tickets" and self.delay_next_ticket:
+            delay, self.delay_next_ticket = self.delay_next_ticket, 0.0
+            await asyncio.sleep(delay)
         failures = self.failures.get(path, [])
         if failures and scope["type"] in ("http", "websocket"):
             status = failures.pop(0)
@@ -117,7 +131,22 @@ class FaultBoundary:
             )
             self.injected.append({"path": path, "status": 401, "reason": "ticket_expired"})
 
+        hello_delay = (
+            self.hello_delays.pop(0) if scope["type"] == "websocket" and self.hello_delays else 0
+        )
+
+        async def delayed_receive():
+            nonlocal hello_delay
+            message = await receive()
+            if message["type"] == "websocket.receive" and hello_delay:
+                delay, hello_delay = hello_delay, 0
+                self.injected.append({"hello_delay_seconds": delay})
+                await asyncio.sleep(delay)
+            return message
+
         async def delayed_send(message):
+            if message["type"] == "websocket.close":
+                self.closed.append({"code": message["code"], "reason": message.get("reason", "")})
             if message["type"] == "websocket.send" and self.delay_next_ws_send:
                 delay, self.delay_next_ws_send = self.delay_next_ws_send, 0.0
                 self.send_delay_active = True
@@ -127,7 +156,7 @@ class FaultBoundary:
                     self.send_delay_active = False
             await send(message)
 
-        await self.app(scope, receive, delayed_send)
+        await self.app(scope, delayed_receive, delayed_send)
 
 
 def certificate(directory):
@@ -238,6 +267,8 @@ async def binary_acceptance(directory, settings, app, boundary, report):
             lease = runtime.connection_registry._leases.get(settings.agent.host_id)
             return lease is not None and lease.sender._confirmed_generation is not None
 
+        if "--connection-lifecycle" in sys.argv:
+            await activate_connected_host(settings, runtime, boundary, report, waiting)
         await until(ready, timeout=120, task=waiting)
         status = status_store.read()
         assert status is not None and status.process_id
@@ -255,6 +286,42 @@ async def binary_acceptance(directory, settings, app, boundary, report):
         report["scenarios"].append(
             {"name": "packaged EXE retries consumed ticket with fresh credentials", "passed": True}
         )
+        if "--connection-lifecycle" in sys.argv:
+            native = [child for child in descendants if child.name().lower() == "codex.exe"]
+            assert native
+            await asyncio.sleep(settings.agent.heartbeat_seconds + 1)
+            for name, ticket_delay, hello_delay in (
+                ("six-second hello", 0, 6),
+                ("total setup deadline", 6, 9),
+            ):
+                previous = await runtime.connection_registry.read(settings.agent.host_id)
+                boundary.delay_next_challenge = ticket_delay
+                boundary.delay_next_ticket = ticket_delay
+                boundary.hello_delays = [hello_delay]
+                previous.close(1012, "acceptance_recovery")
+                await until(
+                    lambda: (
+                        ready()
+                        and runtime.connection_registry._leases[settings.agent.host_id].epoch
+                        != previous.epoch
+                    ),
+                    timeout=90,
+                    task=waiting,
+                )
+                assert all(child.is_running() for child in native)
+                if ticket_delay:
+                    diagnostic = (directory / "logs/agent.log").read_text(encoding="utf-8")
+                    assert "reason_code=attempt_timeout" in diagnostic, (
+                        "Parent deadline was not exercised"
+                    )
+
+                report["scenarios"].append(
+                    {
+                        "name": f"packaged EXE {name} retains original Codex processes",
+                        "passed": True,
+                        "codex_pids": [child.pid for child in native],
+                    }
+                )
         auth_before = boundary.auth_requests
         doctor = await asyncio.create_subprocess_exec(
             str(executable), "--config", str(config), "doctor"
@@ -480,6 +547,7 @@ async def main():
     report = {
         "environment": "Windows; real TLS/WSS; product ASGI routes; SQLite/local bus; real Codex 0.145.0",
         "scenarios": [],
+        "acceptance_runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
     }
     output = (
         ROOT
@@ -504,6 +572,7 @@ async def main():
             str(output),
         )
     )
+    output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     if rejection is not None:
         output = output.with_name(f"rejection-{rejection}.json")
@@ -524,12 +593,19 @@ async def main():
                 "web": {
                     "cors": {
                         "allow_origins": ["http://testserver", origin]
-                        + (["http://127.0.0.1:3329"] if "--browser-task" in sys.argv else [])
+                        + (
+                            ["http://127.0.0.1:3329"]
+                            if any(
+                                flag in sys.argv
+                                for flag in ("--browser-task", "--browser-activation")
+                            )
+                            else []
+                        )
                     }
                 },
                 **(
                     {"stream": {"detail": {"allowed_origins": ["http://127.0.0.1:3329"]}}}
-                    if "--browser-task" in sys.argv
+                    if any(flag in sys.argv for flag in ("--browser-task", "--browser-activation"))
                     else {}
                 ),
                 "codex_control": {
@@ -601,6 +677,8 @@ async def main():
             ) as browser:
                 device = DeviceSupport.authorize_device(browser)
                 token = DeviceSupport.issue_browser_access_token(browser)
+                if "--connection-lifecycle" in sys.argv or candidate.get("scope") == "handshake":
+                    return device
                 response = browser.put(
                     "/codex/active-host",
                     json={"host_id": str(device.host_id), "expected_version": 0},
@@ -641,7 +719,7 @@ async def main():
                 },
                 "protocol": {
                     "agent_schema_version": "2.0",
-                    "agent_version": "0.1.38",
+                    "agent_version": app.state.container.resource_mount.get_codex_control_runtime().settings.agent_release_version,
                     "expected_codex_version": "0.145.0",
                     "app_server_schema_digest": "86501505d7a626582cd7ded6eee36ab6bbaae30fd5d5c1021c0330e3f99d8109",
                 },
@@ -679,6 +757,9 @@ async def main():
                     )
                 }
             )
+        lifecycle = "--connection-lifecycle" in sys.argv or candidate.get("scope") == "handshake"
+        if lifecycle:
+            boundary.hello_delays = [6.0]
         if any(flag in sys.argv for flag in ("--binary", "--scheduler", "--pause-only")):
             await binary_acceptance(directory, settings, app, boundary, report)
             report["passed"] = True
@@ -834,14 +915,41 @@ async def main():
             )
             report["passed"] = True
             return
-        await until(lambda: channel._connection_ready, timeout=120, task=run_task)
         runtime = app.state.container.resource_mount.get_codex_control_runtime()
+        if lifecycle:
+
+            async def browser_activate():
+                from scripts.codex.acceptance.browser_task import run_browser_task
+
+                await run_browser_task(
+                    channel,
+                    origin=origin,
+                    certificate=cert,
+                    report=report,
+                    acceptance_report=output,
+                    activation_only=True,
+                    timeout_seconds=180,
+                )
+
+            await activate_connected_host(
+                settings,
+                runtime,
+                boundary,
+                report,
+                run_task,
+                activate_callback=browser_activate if "--browser-activation" in sys.argv else None,
+            )
+        await until(lambda: channel._connection_ready, timeout=120, task=run_task)
         lease = await runtime.connection_registry.read(device.host_id)
         await until(
             lambda: lease.sender._confirmed_generation == channel._execution.generation,
             task=run_task,
         )
         first = channel._supervisor.handle
+        if lifecycle:
+            await handshake_recovery(channel, runtime, boundary, report, run_task, candidate)
+            report["passed"] = True
+            return
         if "--browser-task" in sys.argv:
             from scripts.codex.acceptance.browser_task import run_browser_task
 

@@ -1195,6 +1195,7 @@ class RawCodexControlRuntimeMapping(TypedDict, total=False):
     agent_lease_continuity_enabled: bool
     agent_heartbeat_seconds: int
     agent_offline_after_seconds: int
+    agent_hello_timeout_seconds: int
     agent_rpc_ack_timeout_seconds: int
     agent_send_enqueue_timeout_seconds: float
     agent_send_timeout_seconds: float

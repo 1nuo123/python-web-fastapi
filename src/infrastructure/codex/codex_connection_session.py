@@ -182,8 +182,10 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
                         if code in (None, 1006, 1011, 1012, 1013)
                         else CodexConnectionEndKind.REMOTE_CLOSE,
                         code,
-                        "remote_close" if code else "transport_closed",
+                        exc.reason_code if code else "transport_closed",
                         exc,
+                        phase="hello" if exc.reason_code == "hello_timeout" else exc.phase,
+                        reason_code=exc.reason_code,
                     )
                 except CodexConnectionPresenceExpiredError as exc:
                     close_code, close_reason = 1012, "presence_expired"

@@ -8,12 +8,11 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from http import HTTPStatus
 from time import monotonic
-from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Security, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel
 from starlette.websockets import WebSocketState
 
 from src.api.dependency_context_accessor import DependencyContextAccessor
@@ -402,8 +401,7 @@ class CodexRealtimeRouteCatalog:
         runtime: CodexControlRuntime,
     ) -> None:
         hosts, workspaces = await asyncio.to_thread(
-            self._load_authority_snapshot,
-            runtime,
+            runtime.load_authority_snapshot,
             subscription.subject_id,
         )
         active = await runtime.active_host.reconcile(subscription.subject_id)
@@ -411,6 +409,10 @@ class CodexRealtimeRouteCatalog:
             [UUID(str(host["host_id"])) for host in hosts if isinstance(host, dict)]
         )
         for host in hosts:
+            if isinstance(host, dict):
+                host["connected"] = (
+                    UUID(str(host["host_id"])) in present and host.get("revoked_at") is None
+                )
             if (
                 isinstance(host, dict)
                 and host.get("status") == "online"
@@ -480,33 +482,6 @@ class CodexRealtimeRouteCatalog:
             )
         )
         return False
-
-    def _load_authority_snapshot(
-        self,
-        runtime: CodexControlRuntime,
-        subject_id: str,
-    ) -> tuple[list[JsonValue], list[JsonValue]]:
-        unit_of_work = runtime.control_port.create_unit_of_work()
-        try:
-            session = unit_of_work.get_session()
-            hosts = runtime.control_port.create_codex_host_repository(session).list_by_owner(
-                subject_id
-            )
-            workspace_repository = runtime.control_port.create_codex_workspace_repository(session)
-            workspaces = [
-                workspace
-                for host in hosts
-                for workspace in workspace_repository.list_by_host_and_owner(
-                    host.host_id,
-                    subject_id,
-                )
-            ]
-            return (
-                [cast(JsonValue, host.model_dump(mode="json")) for host in hosts],
-                [cast(JsonValue, workspace.model_dump(mode="json")) for workspace in workspaces],
-            )
-        finally:
-            unit_of_work.dispose()
 
     def _allowed_origins(self, request: Request) -> set[str]:
         resource_mount = request.app.state.container.resource_mount

@@ -112,6 +112,7 @@ class CodexHostStatusChangedDetail(CodexRealtimeDetailBase):
     kind: Literal["host.status_changed"] = "host.status_changed"
     host_id: UUID
     status: str = Field(min_length=1, max_length=32)
+    connected: bool = False
     last_seen_at: datetime | None = None
 
 

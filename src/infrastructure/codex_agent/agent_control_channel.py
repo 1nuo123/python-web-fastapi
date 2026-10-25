@@ -28,7 +28,10 @@ from websockets.typing import Subprotocol
 from src.application.ports.agent_connection_ticket_provider_port import (
     AgentConnectionTicketProviderPort,
 )
-from src.core.codex_contract.agent_connection_contract import AgentCommandAdmissionClosed
+from src.core.codex_contract.agent_connection_contract import (
+    AgentCommandAdmissionClosed,
+    AgentConnectionIssue,
+)
 from src.core.codex_contract.agent_diagnostic_contract import (
     AgentDiagnosticCode,
     AgentDiagnosticEnvelope,
@@ -186,7 +189,6 @@ _SYSTEM_RANDOM = secrets.SystemRandom()
 
 INTERNAL_PROTOCOL_WARNING_METHOD = "internal/protocol.warning"
 UNRESOLVED_WORKSPACE_KEY = "unresolved"
-AGENT_HELLO_ACK_TIMEOUT_SECONDS: Final = 10.0
 AGENT_RETRY_MIN_WAIT_SECONDS: Final = 0.01
 AGENT_METADATA_REFRESH_DEBOUNCE_SECONDS: Final = 0.2
 AGENT_METADATA_REFRESH_TIMEOUT_SECONDS: Final = 10.0
@@ -209,9 +211,7 @@ class AgentWebSocketTransport(CodexConnectionTransportPort):
         try:
             payload = await self._connection.recv()
         except ConnectionClosed as exc:
-            error = CodexConnectionTransportClosed(f"控制面WebSocket已关闭(code={exc.code})。")
-            setattr(error, "close_code", exc.code)
-            raise error from exc
+            raise self._closed_error(exc) from exc
         if not isinstance(payload, str):
             raise ValueError("Agent控制通道不接受二进制帧。")
         return payload
@@ -222,9 +222,30 @@ class AgentWebSocketTransport(CodexConnectionTransportPort):
         try:
             await self._connection.send(payload)
         except ConnectionClosed as exc:
-            error = CodexConnectionTransportClosed(f"控制面WebSocket已关闭(code={exc.code})。")
-            setattr(error, "close_code", exc.code)
-            raise error from exc
+            raise self._closed_error(exc) from exc
+
+    @staticmethod
+    def _closed_error(exc: ConnectionClosed) -> CodexConnectionTransportClosed:
+        code = exc.rcvd.code if exc.rcvd is not None else None
+        error = CodexConnectionTransportClosed(f"控制面WebSocket已关闭(code={code})。")
+        error.close_code = code
+        peer_reason = exc.rcvd.reason if exc.rcvd is not None else ""
+        error.reason_code = (
+            peer_reason
+            if peer_reason
+            in {
+                "hello_timeout",
+                "send_timeout",
+                "presence_expired",
+                "renewal_response_timeout",
+                "overloaded",
+                "transport_failed",
+                "authorization_rejected",
+                "protocol_invalid",
+            }
+            else "remote_close"
+        )
+        return error
 
     async def close(self, *, code: int, reason: str) -> None:
         """关闭 WebSocket 客户端连接。"""
@@ -416,7 +437,11 @@ class AgentControlChannel:
                         raise RuntimeError("Agent关键后台任务失败，停止运行。") from exc
                     issue = AgentControlConnectionPolicy.issue(exc)
                     if not AgentControlConnectionPolicy.should_retry(exc):
-                        await self._stop_execution(AgentExecutionStopReason.DEVICE_REVOKED)
+                        await self._stop_execution(
+                            AgentExecutionStopReason.DEVICE_REVOKED
+                            if issue == AgentConnectionIssue.AUTHORIZATION_REJECTED
+                            else AgentExecutionStopReason.EXECUTION_FAILED
+                        )
                         await self._record_connection_state("blocked", issue.value)
                         self._logger.error(
                             "Agent连接需要修复：phase=%s reason=%s detail=%s",
@@ -529,6 +554,8 @@ class AgentControlChannel:
         self._connection_ready = False
         self._execution.disable()
         self._execution_paused = True
+        if self._supervisor.current_handle is None and not self._execution_cleanup_pending:
+            return
         self._execution_cleanup_pending = True
         self._execution_stop_reason = reason
         self._logger.warning("execution_stopping reason=%s", reason.value)
@@ -789,7 +816,7 @@ class AgentControlChannel:
                     await self._wait_for_hello_ack(session_task)
                     heartbeat_task = asyncio.create_task(self._heartbeat_loop(handle, session))
                     self._connection_phase = "execution_authorization"
-                    await asyncio.wait_for(self._execution.ready.wait(), timeout=10)
+                    await self._wait_for_session_event(self._execution.ready, session_task)
                     setup_budget.reschedule(None)
                     executable = handle is not None and handle.profile is not None
                     if self._execution.valid and executable:
@@ -855,6 +882,20 @@ class AgentControlChannel:
                             raise ended.as_exception()
                     elif process_task in done or client_task in done:
                         raise ConnectionError("Codex执行进程或JSON-RPC读取循环已停止。")
+                except asyncio.CancelledError:
+                    # asyncio.timeout 在退出上下文时才转换成 TimeoutError。
+                    # 只把自己的建链期限取消视作传输恢复；外部取消仍按停机处理。
+                    if setup_budget.expired() and not self._shutdown_event.is_set():
+                        failure_reason = "attempt_timeout"
+                        preserve = AgentControlConnectionPolicy.preserve_execution(
+                            TimeoutError(),
+                            continuity=self._continuity,
+                            lease_valid=self._execution.valid,
+                            process_healthy=handle is not None
+                            and handle.process.returncode is None
+                            and handle.client.running,
+                        )
+                    raise
                 except (OSError, TimeoutError) as exc:
                     failure_reason = getattr(exc, "reason_code", type(exc).__name__)
                     preserve = AgentControlConnectionPolicy.preserve_execution(
@@ -928,17 +969,23 @@ class AgentControlChannel:
     async def _wait_for_hello_ack(self, session_task: asyncio.Task[CodexConnectionEnd]) -> None:
         """等待握手确认，同时立即感知已经结束的连接会话。"""
 
-        hello_ack_task = asyncio.create_task(self._hello_ack_event.wait())
+        await self._wait_for_session_event(self._hello_ack_event, session_task)
+
+    async def _wait_for_session_event(
+        self, event: asyncio.Event, session_task: asyncio.Task[CodexConnectionEnd]
+    ) -> None:
+        """握手/许可等待共享会话退出检测，且受父级建链总期限约束。"""
+        hello_ack_task = asyncio.create_task(event.wait())
         try:
             done, _ = await asyncio.wait(
                 (session_task, hello_ack_task),
-                timeout=AGENT_HELLO_ACK_TIMEOUT_SECONDS,
+                timeout=self._settings.agent.handshake_timeout_seconds,
                 return_when=asyncio.FIRST_COMPLETED,
             )
             if session_task in done:
                 await self._require_active_session(session_task)
             if hello_ack_task not in done:
-                raise TimeoutError("等待控制面hello_ack超时。")
+                raise TimeoutError(f"等待控制面{self._connection_phase}超时。")
             await hello_ack_task
         finally:
             if not hello_ack_task.done():

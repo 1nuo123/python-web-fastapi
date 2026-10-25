@@ -41,7 +41,7 @@ $sourceDirty = -not [string]::IsNullOrWhiteSpace((& git -C $repositoryRoot statu
 $wixToolDirectory = Join-Path $repositoryRoot ".tools"
 $wixExecutable = Join-Path $wixToolDirectory "wix.exe"
 
-foreach ($immutablePath in @($releaseInstallerPath, $releaseManifestPath, $releaseChecksumsPath)) {
+foreach ($immutablePath in @($releaseInstallerPath, $releaseManifestPath, $releaseChecksumsPath, (Join-Path $releaseRoot "build-evidence.json"), (Join-Path $releaseRoot "source-files.sha256.json"))) {
   if (Test-Path -LiteralPath $immutablePath) {
     throw "Internal release version $Version already has an immutable artifact: $immutablePath"
   }
@@ -149,10 +149,12 @@ try {
   if ($manifest.detail.artifact_sha256 -ne $installerDigest -or $manifest.detail.automatic_updates_enabled) {
     throw "Internal Agent release manifest does not match the generated MSI boundary."
   }
-  [ordered]@{
-    "CodexRemoteAgent.msi" = $installerDigest
-    "internal-release.json" = (Get-FileHash -LiteralPath $releaseManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
-  } | ConvertTo-Json | Set-Content -LiteralPath $releaseChecksumsPath -Encoding UTF8 -NoNewline
+  & uv run python scripts/codex/internal_release_evidence.py `
+    --release-root $releaseRoot --version $Version `
+    --public-origin $PublicOrigin --payload-root $payloadRoot
+  if ($LASTEXITCODE -ne 0) {
+    throw "Internal Agent build evidence generation failed."
+  }
 
   Write-Output "Internal production MSI generated: $releaseInstallerPath"
   Write-Output "SHA-256: $installerDigest"

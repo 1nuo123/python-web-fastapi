@@ -215,6 +215,7 @@ class CodexHostSnapshot(BaseModel):
     agent_protocol_version: str | None = Field(default=None, max_length=64)
     app_server_schema_digest: str | None = Field(default=None, max_length=128)
     status: str = Field(min_length=1, max_length=32)
+    connected: bool = False
     capabilities: CodexHostCapabilities = Field(default_factory=CodexHostCapabilities)
     compatibility: CodexHostCompatibilityDetail = Field(
         default_factory=CodexHostCompatibilityDetail

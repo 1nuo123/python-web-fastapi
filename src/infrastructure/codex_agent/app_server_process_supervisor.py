@@ -78,6 +78,26 @@ class CodexProcessSupport:
         """冻结 Codex 入口；Windows npm shim 直接解析为 node 脚本。"""
 
         resolved = shutil.which(codex_binary)
+        if (
+            resolved is None
+            and os.name == "nt"
+            and codex_binary.casefold() in {"codex", "codex.exe"}
+        ):
+            appdata = os.environ.get("APPDATA")
+            if appdata:
+                package = Path(appdata) / "npm" / "node_modules" / "@openai" / "codex"
+                native = (
+                    package
+                    / "node_modules"
+                    / "@openai"
+                    / "codex-win32-x64"
+                    / "vendor"
+                    / "x86_64-pc-windows-msvc"
+                    / "bin"
+                    / "codex.exe"
+                )
+                if native.is_file():
+                    resolved = str(native)
         if resolved is None:
             raise FileNotFoundError(f"找不到Codex可执行入口：{codex_binary}")
         resolved_path = Path(resolved)

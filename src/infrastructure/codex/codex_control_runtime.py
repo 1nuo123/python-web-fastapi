@@ -28,9 +28,6 @@ from src.application.codex.manage_device_challenge_usecase import (
 from src.application.codex.manage_enrollment_intent_usecase import (
     ManageCodexEnrollmentIntentUsecase,
 )
-from src.application.codex.recover_device_authorization_usecase import (
-    RecoverDeviceAuthorizationUsecase,
-)
 from src.application.codex.manage_host_usecase import (
     RenameCodexHostUsecase,
     RevokeCodexHostUsecase,
@@ -40,6 +37,9 @@ from src.application.codex.record_client_diagnostic_usecase import (
 )
 from src.application.codex.record_client_performance_usecase import (
     RecordCodexClientPerformanceUsecase,
+)
+from src.application.codex.recover_device_authorization_usecase import (
+    RecoverDeviceAuthorizationUsecase,
 )
 from src.application.codex.start_device_key_rotation_usecase import (
     StartDeviceKeyRotationUsecase,
@@ -770,6 +770,48 @@ class CodexControlRuntime:
             occurred_at=occurred_at,
         )
 
+    def load_authority_snapshot(
+        self,
+        subject_id: str,
+    ) -> tuple[list[JsonValue], list[JsonValue]]:
+        unit_of_work = self.control_port.create_unit_of_work()
+        try:
+            session = unit_of_work.get_session()
+            hosts = self.control_port.create_codex_host_repository(session).list_by_owner(
+                subject_id
+            )
+            workspace_repository = self.control_port.create_codex_workspace_repository(session)
+            workspaces = [
+                workspace
+                for host in hosts
+                for workspace in workspace_repository.list_by_host_and_owner(
+                    host.host_id,
+                    subject_id,
+                )
+            ]
+            return (
+                [cast(JsonValue, host.model_dump(mode="json")) for host in hosts],
+                [cast(JsonValue, workspace.model_dump(mode="json")) for workspace in workspaces],
+            )
+        finally:
+            unit_of_work.dispose()
+
+    async def publish_workspace_snapshot(self, *, owner_subject_id: str, host_id: UUID) -> None:
+        """提交后的账号完整目录复用初始连接读取和既有可回放总线。"""
+        _, workspaces = await asyncio.to_thread(self.load_authority_snapshot, owner_subject_id)
+        await self.browser_event_hub.publish(
+            owner_subject_id,
+            CodexProductEvent(
+                host_id=host_id,
+                workspace_id=None,
+                thread_id=None,
+                turn_id=None,
+                item_id=None,
+                event_type=CodexRealtimeEventType.WORKSPACE_SNAPSHOT,
+                payload={"workspaces": workspaces},
+            ),
+        )
+
     async def publish_host_status_changed(
         self,
         *,
@@ -780,6 +822,7 @@ class CodexControlRuntime:
     ) -> None:
         """向浏览器推送控制面 host 可投递状态变化。"""
 
+        connected = await self.presence_adapter.read(host_id) is not None
         if status == "online" and not await self.active_host.permits(owner_subject_id, host_id):
             status = "offline"
         await self.browser_event_hub.publish(
@@ -794,6 +837,7 @@ class CodexControlRuntime:
                 payload={
                     "host_id": str(host_id),
                     "status": status,
+                    "connected": connected and status != "revoked",
                     "last_seen_at": (
                         last_seen_at.isoformat() if last_seen_at is not None else None
                     ),

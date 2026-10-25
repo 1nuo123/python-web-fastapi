@@ -1,0 +1,13 @@
+seeds = [45, 46]
+
+[[candidates]]
+name = "hello5"
+scope = "handshake"
+[candidates.server]
+agent_hello_timeout_seconds = 5
+
+[[candidates]]
+name = "hello10"
+scope = "handshake"
+[candidates.server]
+agent_hello_timeout_seconds = 10

@@ -57,6 +57,7 @@ class CodexRuntimeSettings(BaseModel):
     agent_deployment_profile: CodexAgentDeploymentProfile = CodexAgentDeploymentProfile.PRODUCTION
     agent_heartbeat_seconds: int = Field(ge=15, le=15)
     agent_offline_after_seconds: int = Field(gt=0)
+    agent_hello_timeout_seconds: int = Field(default=10, ge=1, le=60)
     agent_rpc_ack_timeout_seconds: int = Field(gt=0)
     agent_send_enqueue_timeout_seconds: float = Field(default=1.0, gt=0)
     agent_send_timeout_seconds: float = Field(default=10.0, gt=0)

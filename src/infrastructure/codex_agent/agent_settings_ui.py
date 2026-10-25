@@ -575,6 +575,8 @@ class WindowsAgentSettingsWindow:
             "stopped": "已停止",
         }
         label = labels.get(observed.connection_state or "", "连接尚未确认")
+        if observed.connection_reason == "inactive_host":
+            label = "已连接，待启用"
         reason_labels = {
             "transport_unavailable": "网络暂时不可达，正在自动重连，无需重新绑定。",
             "connection_attempt_expired": "本次连接票据已过期，正在重新连接，无需重新绑定。",
@@ -586,7 +588,7 @@ class WindowsAgentSettingsWindow:
             "gateway_policy_denied": "请求被网关或访问策略拒绝，请检查网络配置。",
             "route_not_found": "服务器连接地址不正确，请核对安装配置。",
             "protocol_invalid": "客户端与服务端协议不兼容，请更新匹配版本。",
-            "inactive_host": "这台电脑未被选为活动电脑，或正在等待旧电脑停止。",
+            "inactive_host": "请在网站电脑设置点击“使用这台电脑”；切换期间会等待旧执行许可结束。",
             "execution_lease_expired": "执行许可已到期，本机执行已停止；连接恢复后重新核对资格。",
             "process_not_running": "原运行进程已退出，旧连接状态不再有效。",
             "status_expired": "运行状态已过期，请检查Agent进程是否响应。",

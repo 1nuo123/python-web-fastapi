@@ -155,6 +155,7 @@ async def run_browser_task(
     report,
     acceptance_report: Path,
     timeout_seconds: int = 720,
+    activation_only: bool = False,
 ) -> None:
     root = Path(__file__).resolve().parents[3]
     frontend = root.parent / "typescript-web-nuxt"
@@ -170,7 +171,7 @@ async def run_browser_task(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.unlink(missing_ok=True)
     report.update(
-        cli_version=channel._supervisor.handle.codex_version,
+        cli_version=channel._settings.protocol.expected_codex_version,
         implementation_digest=implementation_digest(),
         environment="Production Nuxt browser, isolated control plane, real Agent/CLI; not production proxy/database/MSI",
         browser_report=str(output),
@@ -189,6 +190,7 @@ async def run_browser_task(
         "CODEX_ACCEPTANCE_HOST_ID": str(channel._settings.agent.host_id),
         "CODEX_ACCEPTANCE_OUTPUT": str(output),
         "CODEX_ACCEPTANCE_TIMEOUT_SECONDS": str(timeout_seconds),
+        "CODEX_ACCEPTANCE_ACTIVATION_ONLY": str(activation_only).lower(),
     }
     log_path = output.with_name(output.stem + "-server.log")
     browser_result = {}
@@ -254,6 +256,14 @@ async def run_browser_task(
                 raise RuntimeError(
                     f"Browser task failed at {browser_result.get('stage')}: {browser_result.get('error')}"
                 )
+            if activation_only:
+                report["scenarios"].append(
+                    {
+                        "name": "real browser activates connected inactive host and loads workspace",
+                        "passed": True,
+                    }
+                )
+                return
             client = channel._supervisor.handle.client
             history = await read_browser_history(client, browser_result["thread_id"])
             report["authoritative_history"] = verify_browser_history(browser_result, history)
