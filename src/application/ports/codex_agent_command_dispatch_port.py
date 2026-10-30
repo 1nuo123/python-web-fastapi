@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Protocol
+from src.core.codex_contract.agent_content_contract import AgentContentBudgets
 from uuid import UUID
 
 from src.core.codex_contract.agent_protocol_contract import (
@@ -14,6 +15,8 @@ from src.core.codex_contract.agent_protocol_contract import (
 
 class CodexAgentCommandDispatchPort(Protocol):
     """只等待 Agent/App Server 接受确认，不等待 turn 完成。"""
+
+    async def read_content_budgets(self, host_id: UUID) -> AgentContentBudgets | None: ...
 
     async def supports_history_windows(self, host_id: UUID) -> bool: ...
 

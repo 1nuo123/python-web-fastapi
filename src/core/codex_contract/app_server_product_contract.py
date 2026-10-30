@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from src.core.codex_contract.agent_content_contract import ContentDescriptor
+
 from enum import StrEnum
 from typing import Annotated, Final, Literal
 from uuid import RFC_4122, UUID
@@ -58,6 +60,7 @@ class AppServerProductItemBase(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     item_id: str = Field(min_length=1, max_length=256)
+    content: ContentDescriptor | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class AppServerUserMessageItem(AppServerProductItemBase):

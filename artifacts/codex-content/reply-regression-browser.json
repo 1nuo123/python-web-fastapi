@@ -1,0 +1,317 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "UI submission accepted with operation and real turn IDs",
+      "passed": true,
+      "turn_id": "01a18c0e-afde-70e1-b273-f84c2d589ab0",
+      "operation_id": "89809755-f873-4275-89bf-3a4d6dd8f971"
+    },
+    {
+      "name": "real streaming delta precedes terminal and renders in UI",
+      "passed": true,
+      "delta_count": 2,
+      "delta_characters": 2504,
+      "visible_streaming_samples": 1
+    },
+    {
+      "name": "real command output and exit code agree with rendered terminal",
+      "passed": true,
+      "item_id": "call_GImp2fINg7J1faSZZFm2tSOx"
+    },
+    {
+      "name": "real pending approval decided through UI and confirmed applied",
+      "passed": true,
+      "approval_id": "e087b198-6440-5486-a0b7-5afd51e05f1a"
+    },
+    {
+      "name": "UI interrupts a genuinely running command and receives interrupted terminal",
+      "passed": true,
+      "turn_id": "01a18c0f-96e1-77f2-8d6a-6ea9f7d88d2b",
+      "http_status": 202
+    },
+    {
+      "name": "native WSS reconnect preserves draft and a new UI turn succeeds without reload",
+      "passed": true,
+      "ready_before": 2,
+      "ready_after": 3
+    }
+  ],
+  "thread_id": "01a18c0e-9a63-7880-a4e3-aaa4645b3a6b",
+  "stage": "complete",
+  "turns": [
+    {
+      "turn_id": "01a18c0e-afde-70e1-b273-f84c2d589ab0",
+      "delta_count": 2,
+      "delta_characters": 2504,
+      "started_sequence": 15,
+      "name": "streaming",
+      "operation_id": "89809755-f873-4275-89bf-3a4d6dd8f971",
+      "http_status": 202,
+      "first_delta_sequence": 25,
+      "visible_streaming_samples": 1,
+      "visible_streaming_characters": 2138,
+      "status": "completed",
+      "terminal_event": "turn.completed",
+      "terminal_sequence": 41
+    },
+    {
+      "turn_id": "01a18c0f-38ab-79a2-88a3-71b31c12135c",
+      "delta_count": 14,
+      "delta_characters": 93,
+      "started_sequence": 53,
+      "name": "command_approval",
+      "operation_id": "964d316c-3f00-4774-87aa-23243146f48d",
+      "http_status": 202,
+      "first_delta_sequence": 66,
+      "status": "completed",
+      "terminal_event": "turn.completed",
+      "terminal_sequence": 118
+    },
+    {
+      "turn_id": "01a18c0f-96e1-77f2-8d6a-6ea9f7d88d2b",
+      "delta_count": 9,
+      "delta_characters": 52,
+      "started_sequence": 128,
+      "name": "interruption",
+      "operation_id": "36c73a79-bf8e-4801-8158-bd251a44dc85",
+      "http_status": 202,
+      "first_delta_sequence": 141,
+      "status": "interrupted",
+      "terminal_event": "turn.interrupted",
+      "terminal_sequence": 175
+    },
+    {
+      "turn_id": "01a18c0f-c95c-7bc1-ba64-ec75d645e06f",
+      "delta_count": 5,
+      "delta_characters": 22,
+      "started_sequence": 187,
+      "name": "after_reconnect",
+      "operation_id": "bff0205e-ea52-4f03-9abe-7ebc1aa0793a",
+      "http_status": 202,
+      "first_delta_sequence": 195,
+      "status": "completed",
+      "terminal_event": "turn.completed",
+      "terminal_sequence": 209
+    }
+  ],
+  "approvals": [
+    {
+      "approval_id": "e087b198-6440-5486-a0b7-5afd51e05f1a",
+      "turn_id": "01a18c0f-38ab-79a2-88a3-71b31c12135c",
+      "kind": "command",
+      "state": "applied",
+      "risk_level": "normal",
+      "http_status": 202
+    },
+    {
+      "approval_id": "ccab50a6-5245-5c31-97de-f05105b27791",
+      "turn_id": "01a18c0f-96e1-77f2-8d6a-6ea9f7d88d2b",
+      "kind": "command",
+      "state": "applied",
+      "risk_level": "normal",
+      "http_status": 202
+    }
+  ],
+  "commands": [
+    {
+      "turn_id": "01a18c0f-38ab-79a2-88a3-71b31c12135c",
+      "item_id": "call_GImp2fINg7J1faSZZFm2tSOx",
+      "exit_code": 0,
+      "output_marker": "BROWSER_COMMAND_OK"
+    }
+  ],
+  "event_counts": {
+    "thread.updated": 146,
+    "item.upsert": 30,
+    "turn.started": 4,
+    "item.delta": 30,
+    "turn.completed": 3,
+    "approval.opened": 2,
+    "approval.resolved": 2,
+    "turn.interrupted": 1
+  },
+  "websocket": {
+    "opened": 4,
+    "closed": 3,
+    "ready": 4
+  },
+  "timeout_seconds": 720,
+  "operation_details": [
+    {
+      "operation_id": "01ed0259-c616-472e-bbde-90abc64bcd28",
+      "command_id": "55eab3b0-36aa-4c18-b566-9ace634f1b45",
+      "status": "acknowledged",
+      "error_code": null
+    },
+    {
+      "operation_id": "01ed0259-c616-472e-bbde-90abc64bcd28",
+      "command_id": "55eab3b0-36aa-4c18-b566-9ace634f1b45",
+      "status": "completed",
+      "error_code": null
+    },
+    {
+      "operation_id": "546f96ad-acb3-4cd9-83fc-e61d787f2aac",
+      "command_id": "4fae8b6e-fd6d-40a4-9050-468d7ad2b15f",
+      "status": "acknowledged",
+      "error_code": null
+    },
+    {
+      "operation_id": "546f96ad-acb3-4cd9-83fc-e61d787f2aac",
+      "command_id": "4fae8b6e-fd6d-40a4-9050-468d7ad2b15f",
+      "status": "completed",
+      "error_code": null
+    },
+    {
+      "operation_id": "af2fddae-5a67-4bc3-be4a-cb32985e6209",
+      "command_id": "1b60f552-7887-4d4d-828e-2e5f73b6790e",
+      "status": "acknowledged",
+      "error_code": null
+    },
+    {
+      "operation_id": "af2fddae-5a67-4bc3-be4a-cb32985e6209",
+      "command_id": "1b60f552-7887-4d4d-828e-2e5f73b6790e",
+      "status": "completed",
+      "error_code": null
+    }
+  ],
+  "execution_preferences": [
+    {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "sandbox_mode": "danger-full-access",
+      "approval_policy": "never",
+      "requested": {
+        "model": null,
+        "reasoning_effort": null,
+        "permission_mode": "inherit"
+      }
+    },
+    {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "sandbox_mode": "workspace-write",
+      "approval_policy": "untrusted",
+      "requested": {
+        "model": null,
+        "reasoning_effort": null,
+        "permission_mode": "restricted"
+      }
+    }
+  ],
+  "model_catalog": {
+    "state": "ready",
+    "models": [
+      {
+        "model": "gpt-5.6-sol",
+        "display_name": "GPT-5.6-Sol",
+        "reasoning_efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ],
+        "default_reasoning_effort": "low",
+        "is_default": true
+      },
+      {
+        "model": "gpt-5.6-terra",
+        "display_name": "GPT-5.6-Terra",
+        "reasoning_efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ],
+        "default_reasoning_effort": "medium",
+        "is_default": false
+      },
+      {
+        "model": "gpt-5.6-luna",
+        "display_name": "GPT-5.6-Luna",
+        "reasoning_efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default_reasoning_effort": "medium",
+        "is_default": false
+      },
+      {
+        "model": "gpt-5.5",
+        "display_name": "GPT-5.5",
+        "reasoning_efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "default_reasoning_effort": "medium",
+        "is_default": false
+      },
+      {
+        "model": "gpt-5.2",
+        "display_name": "GPT-5.2",
+        "reasoning_efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "default_reasoning_effort": "medium",
+        "is_default": false
+      }
+    ]
+  },
+  "reconnection": {
+    "before": {
+      "opened": 2,
+      "closed": 1,
+      "ready": 2
+    },
+    "after": {
+      "opened": 3,
+      "closed": 2,
+      "ready": 3
+    },
+    "draft_preserved": true
+  },
+  "history_turns": [
+    {
+      "turn_id": "01a18c0e-afde-70e1-b273-f84c2d589ab0",
+      "status": "completed"
+    },
+    {
+      "turn_id": "01a18c0f-38ab-79a2-88a3-71b31c12135c",
+      "status": "completed"
+    },
+    {
+      "turn_id": "01a18c0f-96e1-77f2-8d6a-6ea9f7d88d2b",
+      "status": "interrupted"
+    },
+    {
+      "turn_id": "01a18c0f-c95c-7bc1-ba64-ec75d645e06f",
+      "status": "completed"
+    }
+  ],
+  "history_item_count": 19,
+  "history_has_more": false,
+  "history": {
+    "turn_count": 4,
+    "item_count": 19,
+    "turn_ids": [
+      "01a18c0e-afde-70e1-b273-f84c2d589ab0",
+      "01a18c0f-38ab-79a2-88a3-71b31c12135c",
+      "01a18c0f-96e1-77f2-8d6a-6ea9f7d88d2b",
+      "01a18c0f-c95c-7bc1-ba64-ec75d645e06f"
+    ],
+    "history_status": "complete"
+  },
+  "page_errors": []
+}

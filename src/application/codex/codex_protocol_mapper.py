@@ -510,6 +510,8 @@ class CodexProtocolMapper:
                     mode="json"
                 ),
             }
+        if item.content is not None:
+            payload["content"] = item.content.model_dump(mode="json")
         header["detail_kind"] = cast(str, payload["kind"])
         return CodexTimelineItemEnvelope.model_validate({"header": header, "detail": payload})
 
@@ -771,9 +773,7 @@ class CodexProtocolMapper:
                                     change_kind,
                                 ),
                                 diff=diff if isinstance(diff, str) else "",
-                                old_path=(
-                                    path[:1_024] if change_kind == "renamed" else None
-                                ),
+                                old_path=(path[:1_024] if change_kind == "renamed" else None),
                             )
                         )
             detail = {

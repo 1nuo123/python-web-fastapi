@@ -223,7 +223,7 @@ class AppServerProtocolAdapter:
                 status=(
                     "completed" if method == AppServerNotificationName.ITEM_COMPLETED else "started"
                 ),
-                item=self._to_timeline_item(item),
+                item=self.adapt_timeline_item(item),
             )
         if method in {
             AppServerNotificationName.AGENT_MESSAGE_DELTA,
@@ -564,7 +564,7 @@ class AppServerProtocolAdapter:
             if not isinstance(raw_item, Mapping):
                 continue
             try:
-                items.append(self._to_timeline_item(cast(Mapping[str, JsonValue], raw_item)))
+                items.append(self.adapt_timeline_item(cast(Mapping[str, JsonValue], raw_item)))
             except AppServerUnknownItemTypeError:
                 continue
         return AppServerTurnProductSnapshot(
@@ -575,6 +575,15 @@ class AppServerProtocolAdapter:
             error_message=error_message,
             items=tuple(items),
         )
+
+    def adapt_timeline_item(self, item: Mapping[str, JsonValue]) -> AppServerProductTimelineItem:
+        product = self._to_timeline_item(item)
+        descriptor = item.get("contentDescriptor")
+        if descriptor is not None:
+            return type(product).model_validate(
+                {**product.model_dump(mode="json"), "content": descriptor}
+            )
+        return product
 
     def _to_timeline_item(
         self,
@@ -617,7 +626,7 @@ class AppServerProtocolAdapter:
         if item_type == "commandExecution":
             return AppServerCommandItem(
                 item_id=item_id,
-                command=self._bounded_text(self._read_optional_string(item.get("command")) or ""),
+                command=self._read_optional_string(item.get("command")) or "",
                 output=self._bounded_text(
                     self._read_optional_string(item.get("aggregatedOutput")) or ""
                 ),
@@ -629,7 +638,7 @@ class AppServerProtocolAdapter:
             diffs: list[str] = []
             structured_changes: list[AppServerFileChange] = []
             if isinstance(changes, list):
-                for change in changes[:64]:
+                for change in changes:
                     if not isinstance(change, Mapping):
                         continue
                     change_mapping = cast(Mapping[str, JsonValue], change)
@@ -659,16 +668,13 @@ class AppServerProtocolAdapter:
                     diffs.append(bounded_diff)
                     structured_changes.append(
                         AppServerFileChange(
-                            path=self._bounded_text(
-                                move_path
-                                if normalized_kind == "renamed" and isinstance(move_path, str)
-                                else path,
-                                limit=1_024,
-                            ),
+                            path=move_path
+                            if normalized_kind == "renamed" and isinstance(move_path, str)
+                            else path,
                             change_kind=normalized_kind,
                             diff=bounded_diff,
                             old_path=(
-                                self._bounded_text(path, limit=1_024)
+                                path
                                 if normalized_kind == "renamed"
                                 and isinstance(move_path, str)
                                 and move_path

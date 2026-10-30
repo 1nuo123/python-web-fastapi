@@ -19,3 +19,8 @@ class AgentHistoryWindowResult(BaseModel):
 
 class AgentHistoryWindowStaleError(ValueError):
     """上游历史已变化，禁止将新旧窗口拼在一起。"""
+
+
+class AgentBoundedHistoryWindowRequest(AgentHistoryWindowRequest):
+    content_mode: str = Field(pattern="^bounded$")
+    item_ids: tuple[str, ...] = Field(default=(), max_length=200)

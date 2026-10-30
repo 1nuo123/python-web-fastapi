@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import sys
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -10,6 +14,14 @@ from time import monotonic
 from typing import Final, cast
 
 from pydantic import JsonValue
+from src.core.codex_contract.agent_content_contract import (
+    AgentContentReadRequest,
+    ContentField,
+    ContentReadError,
+    ContentErrorCode,
+    ReadableContentDescriptor,
+    CONTENT_PREVIEW_CHARS,
+)
 
 DEFAULT_AGENT_THREAD_HISTORY_CACHE_TTL_SECONDS: Final = 5 * 60
 DEFAULT_AGENT_THREAD_HISTORY_CACHE_MAX_BYTES: Final = 64 * 1024 * 1024
@@ -24,6 +36,9 @@ class AgentThreadHistoryWindowCacheKey:
     cursor: str | None = None
     revision: str | None = None
     limit: int | None = None
+    content_handle: str | None = None
+    item_id: str | None = None
+    field: ContentField | None = None
 
 
 @dataclass(slots=True)
@@ -32,12 +47,14 @@ class _AgentThreadHistoryWindowCacheEntry:
 
     payload: bytes = field(repr=False)
     expires_at_monotonic: float
+    revision: str | None = None
+    metadata_bytes: int = 0
 
     @property
     def size_bytes(self) -> int:
         """返回受全局软上限约束的序列化字节数。"""
 
-        return len(self.payload)
+        return sys.getsizeof(self.payload) + sys.getsizeof(self) + self.metadata_bytes
 
 
 class AgentThreadHistoryWindowCache:
@@ -99,6 +116,86 @@ class AgentThreadHistoryWindowCache:
         self._entries[key] = entry
         return cast(JsonValue, json.loads(entry.payload))
 
+    def retain_content(
+        self,
+        *,
+        workspace_key: str,
+        thread_id: str,
+        item_id: str,
+        field: ContentField,
+        text: str,
+        expected_generation: int,
+    ) -> ReadableContentDescriptor | None:
+        """正文与历史窗口共用硬预算、TTL、LRU及线程失效代次。"""
+        if expected_generation != self._invalidation_generation:
+            return None
+        self._discard_expired()
+        payload = text.encode("utf-8")
+        if len(payload) > self._max_total_bytes:
+            return None
+        revision = hashlib.sha256(payload).hexdigest()
+        for existing, entry in self._entries.items():
+            if (
+                existing.workspace_key,
+                existing.thread_id,
+                existing.item_id,
+                existing.field,
+                entry.revision,
+            ) == (workspace_key, thread_id, item_id, field, revision):
+                return ReadableContentDescriptor(
+                    field=field,
+                    revision=revision,
+                    total_bytes=len(payload),
+                    preview=text[:CONTENT_PREVIEW_CHARS],
+                    content_ref=existing.content_handle,
+                    expires_at=datetime.now(UTC)
+                    + timedelta(seconds=max(0, entry.expires_at_monotonic - self._clock())),
+                )
+        key = AgentThreadHistoryWindowCacheKey(
+            workspace_key=workspace_key,
+            thread_id=thread_id,
+            item_id=item_id,
+            field=field,
+            content_handle=uuid4().hex,
+        )
+        entry = _AgentThreadHistoryWindowCacheEntry(
+            payload=payload,
+            expires_at_monotonic=self._clock() + self._ttl_seconds,
+            revision=revision,
+            metadata_bytes=self._key_bytes(key),
+        )
+        if entry.size_bytes > self._max_total_bytes:
+            return None
+        self._evict_for(payload_size=entry.size_bytes)
+        self._entries[key] = entry
+        self._total_bytes += entry.size_bytes
+        return ReadableContentDescriptor(
+            field=field,
+            revision=revision,
+            total_bytes=len(payload),
+            preview=text[:CONTENT_PREVIEW_CHARS],
+            content_ref=key.content_handle,
+            expires_at=datetime.now(UTC) + timedelta(seconds=self._ttl_seconds),
+        )
+
+    def read_content(self, request: AgentContentReadRequest) -> memoryview:
+        """仅返回受控缓存的只读视图，不复制正文、不刷新生存期。"""
+        self._discard_expired()
+        key = AgentThreadHistoryWindowCacheKey(
+            workspace_key=request.workspace_key,
+            thread_id=request.thread_id,
+            item_id=request.item_id,
+            field=request.field,
+            content_handle=request.content_ref,
+        )
+        entry = self._entries.get(key)
+        if entry is None:
+            raise ContentReadError(ContentErrorCode.REFERENCE_EXPIRED)
+        if entry.revision != request.revision:
+            raise ContentReadError(ContentErrorCode.REVISION_STALE)
+        self._entries.move_to_end(key)
+        return memoryview(entry.payload)
+
     def store(self, key: AgentThreadHistoryWindowCacheKey, value: JsonValue) -> bool:
         """存入完整成功响应；超出总预算或无法序列化时不保留正文。"""
 
@@ -116,12 +213,16 @@ class AgentThreadHistoryWindowCache:
         self._remove(key)
         if len(payload) > self._max_total_bytes:
             return False
-        self._evict_for(payload_size=len(payload))
-        self._entries[key] = _AgentThreadHistoryWindowCacheEntry(
+        entry = _AgentThreadHistoryWindowCacheEntry(
             payload=payload,
             expires_at_monotonic=self._clock() + self._ttl_seconds,
+            metadata_bytes=self._key_bytes(key),
         )
-        self._total_bytes += len(payload)
+        if entry.size_bytes > self._max_total_bytes:
+            return False
+        self._evict_for(payload_size=entry.size_bytes)
+        self._entries[key] = entry
+        self._total_bytes += entry.size_bytes
         return True
 
     def store_if_current_generation(
@@ -170,6 +271,14 @@ class AgentThreadHistoryWindowCache:
         for key, entry in tuple(self._entries.items()):
             if entry.expires_at_monotonic <= current:
                 self._remove(key)
+
+    @staticmethod
+    def _key_bytes(key: AgentThreadHistoryWindowCacheKey) -> int:
+        return (
+            sys.getsizeof(key)
+            + sum(sys.getsizeof(getattr(key, name)) for name in key.__slots__)
+            + 128
+        )
 
     def _evict_for(self, *, payload_size: int) -> None:
         """按最近最少使用顺序释放空间，使全局正文缓存不超过软上限。"""

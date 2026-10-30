@@ -14,6 +14,8 @@ from src.application.ports.codex_agent_revocation_signal_port import (
     CodexAgentRevocationSignalPort,
 )
 from src.core.codex_contract.agent_device_auth_contract import AgentDevicePrincipal
+from src.core.codex_contract.agent_content_contract import AgentContentBudgets
+from src.infrastructure.codex.codex_connection_session import CodexDuplexConnectionSession
 from src.core.codex_contract.agent_protocol_contract import (
     CODEX_AGENT_PROTOCOL_VERSION,
     AgentConversationSnapshotDetail,
@@ -45,6 +47,9 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentHeartbeatV2Detail,
     AgentHelloAckV2Detail,
     AgentHelloV2Detail,
+    AgentBoundedHelloV2Detail,
+    AgentBoundedHelloAckV2Detail,
+    AgentContentReadCommandResult,
     AgentItemChangedEventDetail,
     AgentItemDeltaEventDetail,
     AgentPlanChangedEventDetail,
@@ -141,6 +146,8 @@ class CodexAgentGatewayHandler:
         business_queue_capacity: int = 128,
         execution_lease_seconds: int = 35,
         history_windows: bool = False,
+        content_budgets: AgentContentBudgets | None = None,
+        business_queue_max_bytes: int = 16 * 1024 * 1024,
         connection_registry: CodexConnectionRegistry,
         actor_registry: CodexHostActorRegistry,
         compatibility_policy: CodexCompatibilityPolicy,
@@ -165,7 +172,9 @@ class CodexAgentGatewayHandler:
     ) -> None:
         self._hello_complete = asyncio.Event()
         self._business_queue: asyncio.Queue[
-            tuple[DecodedAgentProtocolMessage | CodexAgentHeartbeat, CodexOutboundFrameSenderPort]
+            tuple[
+                DecodedAgentProtocolMessage | CodexAgentHeartbeat, CodexOutboundFrameSenderPort, int
+            ]
         ] = asyncio.Queue(maxsize=business_queue_capacity)
         self._principal = principal
         self._connection_registry = connection_registry
@@ -174,6 +183,9 @@ class CodexAgentGatewayHandler:
         self._heartbeat_seconds = heartbeat_seconds
         self._execution_lease_seconds = execution_lease_seconds
         self._history_windows = history_windows
+        self._content_budgets = content_budgets
+        self._business_queue_max_bytes = business_queue_max_bytes
+        self._business_bytes = 0
         self._event_cursor_store = event_cursor_store
         self._revocation_generation = revocation_generation
         self._active_host = active_host
@@ -192,7 +204,7 @@ class CodexAgentGatewayHandler:
         self._approval_observer = approval_observer or self._ignore_approval
         self._disconnect_observer = disconnect_observer or self._ignore_disconnect
         self._compatibility_observer = compatibility_observer or self._ignore_compatibility
-        self._codec = AgentProtocolCodecRegistry()
+        self._codec = AgentProtocolCodecRegistry(bounded_content=content_budgets is not None)
         self._lease: CodexConnectionLease | None = None
         self._agent_event_epoch: UUID | None = None
         self._last_event_seq = 0
@@ -230,7 +242,9 @@ class CodexAgentGatewayHandler:
             ):
                 await self._accept_v2(decoded.v2.detail, sender)
                 return
-        self._enqueue_business(decoded, sender)
+        self._enqueue_business(
+            decoded, sender, encoded_bytes=len(frame.model_dump_json().encode("utf-8"))
+        )
 
     @property
     def hello_complete(self) -> bool:
@@ -240,16 +254,27 @@ class CodexAgentGatewayHandler:
         self,
         message: DecodedAgentProtocolMessage | CodexAgentHeartbeat,
         sender: CodexOutboundFrameSenderPort,
+        *,
+        encoded_bytes: int | None = None,
     ) -> None:
+        model = message if isinstance(message, CodexAgentHeartbeat) else message.v2 or message.v1
+        size = (
+            encoded_bytes
+            if encoded_bytes is not None
+            else (len(model.model_dump_json().encode("utf-8")) if model is not None else 0)
+        )
+        if self._business_bytes + size > self._business_queue_max_bytes:
+            raise CodexConnectionSlowConsumerError("Agent业务处理字节容量已满。")
         try:
-            self._business_queue.put_nowait((message, sender))
+            self._business_queue.put_nowait((message, sender, size))
+            self._business_bytes += size
         except asyncio.QueueFull as exc:
             raise CodexConnectionSlowConsumerError("Agent业务处理容量已满。") from exc
 
     async def run_business(self) -> None:
         """按序应用业务消息，控制读取不等待投影/数据库。"""
         while True:
-            message, sender = await self._business_queue.get()
+            message, sender, size = await self._business_queue.get()
             try:
                 if self._revoking:
                     continue
@@ -262,6 +287,7 @@ class CodexAgentGatewayHandler:
                 else:
                     raise ValueError("Agent协议解码结果为空。")
             finally:
+                self._business_bytes -= size
                 self._business_queue.task_done()
 
     async def close(self) -> None:
@@ -270,6 +296,10 @@ class CodexAgentGatewayHandler:
         if self._revocation_task is not None:
             self._revocation_task.cancel()
             await asyncio.gather(self._revocation_task, return_exceptions=True)
+        while not self._business_queue.empty():
+            _, _, size = self._business_queue.get_nowait()
+            self._business_bytes -= size
+            self._business_queue.task_done()
         lease, presence = self._lease, self._presence
         self._lease = None
         self._presence = None
@@ -356,6 +386,14 @@ class CodexAgentGatewayHandler:
         if hello.app_server_state == "unavailable":
             self._allowed_commands = frozenset()
             decision = CodexCompatibilityDecision.BLOCKED
+        if self._content_budgets is not None:
+            if not isinstance(hello, AgentBoundedHelloV2Detail):
+                raise ValueError("有界连接必须声明接收能力。")
+            self._content_budgets = self._content_budgets.intersect(hello.content_budgets)
+            if isinstance(sender, CodexDuplexConnectionSession):
+                sender.restrict_message_limit(self._content_budgets.max_receive_message_bytes)
+            if self._allowed_commands is not None and "thread.read" in self._allowed_commands:
+                self._allowed_commands = self._allowed_commands | {"content.read"}
         legacy_hello = CodexAgentHello(
             host_id=host_id,
             agent_version=hello.agent_version,
@@ -405,7 +443,10 @@ class CodexAgentGatewayHandler:
             self._codec.encode_v2(
                 host_id=host_id,
                 message_id=uuid4(),
-                detail=AgentHelloAckV2Detail(
+                detail=(
+                    AgentBoundedHelloAckV2Detail if self._content_budgets else AgentHelloAckV2Detail
+                )(
+                    **({"content_budgets": self._content_budgets} if self._content_budgets else {}),
                     connection_epoch=lease.epoch,
                     heartbeat_seconds=self._heartbeat_seconds,
                     revocation_generation=self._revocation_generation,
@@ -447,7 +488,12 @@ class CodexAgentGatewayHandler:
         decision: CodexCompatibilityDecision,
     ) -> CodexConnectionLease:
         command_sender = (
-            CodexExecutionCommandSender(sender, self._active_host, self._principal)
+            CodexExecutionCommandSender(
+                sender,
+                self._active_host,
+                self._principal,
+                bounded_content=self._content_budgets is not None,
+            )
             if self._active_host is not None
             else sender
         )
@@ -461,6 +507,7 @@ class CodexAgentGatewayHandler:
             compatibility_decision=decision,
             allowed_commands=self._allowed_commands,
             history_windows=self._history_windows,
+            content_budgets=self._content_budgets,
             on_revoke=lambda: self._revoke_execution(sender),
         )
         self._lease = lease
@@ -659,6 +706,10 @@ class CodexAgentGatewayHandler:
         """把 v2 强类型结果映射为应用层冻结的官方字段形态。"""
 
         result: dict[str, JsonValue] = {}
+        if isinstance(payload, AgentContentReadCommandResult):
+            return {"contentChunk": payload.chunk.model_dump(mode="json")}
+        if payload is not None and not isinstance(payload, AgentThreadReadCommandResult):
+            raise ValueError("未知命令结果类型。")
         if isinstance(payload, AgentThreadReadCommandResult):
             snapshot = payload.snapshot
             # 应用层历史读取优先消费此冻结产品快照，与实时 typed event
@@ -1090,11 +1141,13 @@ class CodexExecutionCommandSender:
         sender: CodexOutboundFrameSenderPort,
         active_host: CodexActiveHostService,
         principal: AgentDevicePrincipal,
+        *,
+        bounded_content: bool = False,
     ) -> None:
         self._sender = sender
         self._active_host = active_host
         self._principal = principal
-        self._codec = AgentProtocolCodecRegistry()
+        self._codec = AgentProtocolCodecRegistry(bounded_content=bounded_content)
         self._confirmed_generation: int | None = None
 
     def confirm_ready(self, generation: int | None) -> None:

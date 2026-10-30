@@ -20,7 +20,7 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from httpx import HTTPStatusError, TransportError
 from portalocker.exceptions import LockException
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel, JsonValue, ValidationError
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed, InvalidHandshake
 from websockets.typing import Subprotocol
@@ -70,6 +70,8 @@ from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentHeartbeatV2Detail,
     AgentHelloAckV2Detail,
     AgentHelloV2Detail,
+    AgentBoundedHelloV2Detail,
+    AgentBoundedHelloAckV2Detail,
     AgentItemChangedEventDetail,
     AgentItemDeltaEventDetail,
     AgentPendingApprovalSnapshot,
@@ -117,10 +119,12 @@ from src.core.codex_contract.approval_contract import (
 )
 from src.core.codex_contract.connection_session_contract import (
     CODEX_HISTORY_WINDOW_SUBPROTOCOL,
+    CODEX_BOUNDED_CONTENT_SUBPROTOCOL,
     CODEX_LEASE_CONTINUITY_SUBPROTOCOL,
     CodexConnectionEnd,
     CodexConnectionEndKind,
     CodexConnectionFrame,
+    CodexConnectionFrameTooLargeError,
     CodexConnectionProtocolVersion,
     CodexConnectionSlowConsumerError,
     CodexConnectionTransportClosed,
@@ -148,6 +152,9 @@ from src.infrastructure.codex.codex_connection_session import (
     CodexDuplexConnectionSession,
 )
 from src.infrastructure.codex_agent.agent_command_executor import AgentCommandExecutor
+from src.infrastructure.codex_agent.agent_content_query_handler import AgentContentQueryHandler
+from src.infrastructure.codex_agent.agent_query_scheduler import AgentQueryScheduler
+from src.infrastructure.codex_agent.agent_content_reader import AgentContentReader
 from src.infrastructure.codex_agent.agent_command_journal import AgentCommandJournal
 from src.infrastructure.codex_agent.agent_configuration import (
     CodexHostAgentSettings,
@@ -242,6 +249,7 @@ class AgentWebSocketTransport(CodexConnectionTransportPort):
                 "transport_failed",
                 "authorization_rejected",
                 "protocol_invalid",
+                "message_too_large",
             }
             else "remote_close"
         )
@@ -327,6 +335,10 @@ class AgentControlChannel:
         self._logger = logger
         self._runtime_status_reader = runtime_status_reader
         self._protocol_version = settings.protocol.agent_schema_version
+        self._bounded_content = False
+        self._content_budgets = settings.agent.content_budgets.model_copy(
+            update={"max_receive_message_bytes": settings.agent.max_control_message_bytes}
+        )
         self._protocol_codec = AgentProtocolCodecRegistry()
         self._command_mapper = AgentCommandV2Mapper()
         self._shutdown_event = asyncio.Event()
@@ -335,6 +347,7 @@ class AgentControlChannel:
         self._completed_turns: deque[str] = deque(maxlen=2000)
         self._refresh_process = asyncio.Event()
         self._command_active = False
+        self._queries = AgentQueryScheduler()
         self._connection_epoch: int | None = None
         self._revocation_generation = 0
         self._hello_ack_event = asyncio.Event()
@@ -552,6 +565,7 @@ class AgentControlChannel:
 
     async def _stop_execution(self, reason: AgentExecutionStopReason) -> None:
         self._connection_ready = False
+        await self._queries.cancel_all()
         self._execution.disable()
         self._execution_paused = True
         if self._supervisor.current_handle is None and not self._execution_cleanup_pending:
@@ -701,6 +715,7 @@ class AgentControlChannel:
         return (
             self._hello_ack_event.is_set()
             and not self._command_active
+            and not self._queries.active
             and not self._running_turns
             and not self._pending_approvals
             and self._command_queue.empty()
@@ -752,7 +767,7 @@ class AgentControlChannel:
             async with connect(
                 connection_url,
                 additional_headers=headers,
-                max_size=self._settings.agent.max_app_server_line_bytes,
+                max_size=self._settings.agent.max_control_message_bytes,
                 ping_interval=self._settings.agent.heartbeat_seconds,
                 ping_timeout=self._settings.agent.ping_timeout_seconds,
                 open_timeout=self._settings.agent.connection_attempt_timeout_seconds,
@@ -760,7 +775,11 @@ class AgentControlChannel:
                 subprotocols=[
                     Subprotocol(value)
                     for value in (
-                        (CODEX_HISTORY_WINDOW_SUBPROTOCOL, CODEX_LEASE_CONTINUITY_SUBPROTOCOL)
+                        (
+                            CODEX_BOUNDED_CONTENT_SUBPROTOCOL,
+                            CODEX_HISTORY_WINDOW_SUBPROTOCOL,
+                            CODEX_LEASE_CONTINUITY_SUBPROTOCOL,
+                        )
                         if handle
                         and handle.profile
                         and handle.profile.detail.allow_experimental_api
@@ -771,9 +790,19 @@ class AgentControlChannel:
                 ssl=self._network.tls_context if connection_url.startswith("wss:") else None,
                 **proxy_tls_options,
             ) as connection:
+                self._bounded_content = connection.subprotocol == CODEX_BOUNDED_CONTENT_SUBPROTOCOL
+                self._content_budgets = self._settings.agent.content_budgets.model_copy(
+                    update={
+                        "max_receive_message_bytes": self._settings.agent.max_control_message_bytes
+                    }
+                )
+                self._protocol_codec = AgentProtocolCodecRegistry(
+                    bounded_content=self._bounded_content
+                )
                 negotiated = connection.subprotocol in {
                     CODEX_LEASE_CONTINUITY_SUBPROTOCOL,
                     CODEX_HISTORY_WINDOW_SUBPROTOCOL,
+                    CODEX_BOUNDED_CONTENT_SUBPROTOCOL,
                 }
                 if self._continuity and not negotiated and self._execution.valid:
                     await self._stop_execution(AgentExecutionStopReason.EXECUTION_FAILED)
@@ -786,7 +815,7 @@ class AgentControlChannel:
                     inbound_handler=self._handle_control_frame,
                     policy=CodexConnectionSessionPolicy(
                         outbound_queue_capacity=self._settings.agent.writer_queue_capacity,
-                        max_frame_bytes=self._settings.agent.max_app_server_line_bytes,
+                        max_frame_bytes=self._settings.agent.max_control_message_bytes,
                         send_enqueue_timeout_seconds=self._settings.agent.send_enqueue_timeout_seconds,
                         send_timeout_seconds=self._settings.agent.send_timeout_seconds,
                         close_timeout_seconds=self._settings.agent.close_timeout_seconds,
@@ -924,6 +953,7 @@ class AgentControlChannel:
                         self._execution.remaining_seconds,
                     )
                     self._connection_ready = False
+                    await self._queries.cancel_all()
                     self._active_sender = None
                     try:
                         if not preserve or self._shutdown_event.is_set():
@@ -1022,6 +1052,17 @@ class AgentControlChannel:
         if decoded.v2 is not None and isinstance(decoded.v2.detail, AgentHelloAckV2Detail):
             self._verify_v2_control_host(decoded.v2.header.host_id)
             v2_ack = decoded.v2.detail
+            if self._bounded_content:
+                if not isinstance(v2_ack, AgentBoundedHelloAckV2Detail):
+                    raise ValueError("有界内容连接缺少预算确认。")
+                if (
+                    v2_ack.content_budgets.intersect(self._content_budgets)
+                    != v2_ack.content_budgets
+                ):
+                    raise ValueError("服务端返回超出本地能力的预算。")
+                self._content_budgets = v2_ack.content_budgets
+                if isinstance(sender, CodexDuplexConnectionSession):
+                    sender.restrict_message_limit(self._content_budgets.max_receive_message_bytes)
             self._connection_epoch = v2_ack.connection_epoch
             self._revocation_generation = v2_ack.revocation_generation
             if v2_ack.acknowledged_event_epoch == self._event_epoch:
@@ -1103,6 +1144,32 @@ class AgentControlChannel:
         if command.host_id != self._settings.agent.host_id:
             raise PermissionError("控制面命令host_id与本机Agent不匹配。")
         self._require_command_admission(command, self._connection_epoch)
+        window = command.params.get("history_window")
+        if (
+            command.command_type == "content.read"
+            or isinstance(window, dict)
+            and window.get("content_mode") == "bounded"
+        ):
+            epoch = self._connection_epoch
+            reserve = (
+                self._content_budgets.content_chunk_max_message_bytes
+                if command.command_type == "content.read"
+                else self._content_budgets.history_page_max_bytes
+            )
+
+            def failed() -> None:
+                self._logger.error("bounded_query_failed")
+                if self._active_sender is not None and epoch == self._connection_epoch:
+                    self._active_sender.request_close(code=1011, reason="query_failed")
+
+            if not self._queries.submit(
+                reserve_bytes=reserve,
+                limit_bytes=self._content_budgets.query_inflight_max_bytes,
+                operation=lambda: self._execute_command(command, epoch),
+                on_failure=failed,
+            ):
+                await self._execute_command(command, epoch, query_overloaded=True)
+            return
         try:
             self._command_queue.put_nowait((command, self._connection_epoch))
         except asyncio.QueueFull as exc:
@@ -1137,9 +1204,38 @@ class AgentControlChannel:
             finally:
                 self._command_queue.task_done()
 
-    async def _execute_command(self, command: CodexAgentCommand, epoch: int | None) -> None:
+    async def _execute_command(
+        self, command: CodexAgentCommand, epoch: int | None, *, query_overloaded: bool = False
+    ) -> None:
         if not self._connection_ready or epoch != self._connection_epoch:
             # 尚未claim/无副作用：留给服务端按原投递合同重新准入。
+            return
+        window = command.params.get("history_window")
+        if (
+            command.command_type == "content.read"
+            or isinstance(window, dict)
+            and window.get("content_mode") == "bounded"
+        ):
+            if not self._bounded_content or self._active_sender is None:
+                raise ValueError("当前连接未协商正文读取。")
+            handle = self._supervisor.handle
+            self._require_command_admission(command, epoch)
+            await AgentContentQueryHandler(
+                host_id=self._settings.agent.host_id,
+                key_id=self._settings.agent.key_id,
+                client=handle.client,
+                cache=self._history_window_cache,
+                budgets=self._content_budgets,
+                timeline_store=self._timeline_store,
+                strategy=handle.profile.detail.history_strategy
+                if handle.profile
+                else "unavailable",
+                sanitize=self._sanitize_thread_read_product_result,
+                sanitize_source=self._sanitize_history_source_item,
+                validate_workspace=self._workspace_registry.resolve_root,
+                source_epoch=self._event_epoch,
+                source_seq=self._last_event_seq,
+            ).execute(command, self._active_sender, overloaded=query_overloaded)
             return
         executor = AgentCommandExecutor(
             journal=self._journal,
@@ -1161,7 +1257,8 @@ class AgentControlChannel:
             allow_experimental_api=bool(
                 self._supervisor.handle.profile
                 and self._supervisor.handle.profile.detail.allow_experimental_api
-                and self._supervisor.handle.profile.detail.history_strategy == "turns_page"
+                and self._supervisor.handle.profile.detail.history_strategy
+                in {"turns_page", "items_page"}
             ),
             workspace_settings_handler=self._apply_project_settings,
             execution_settings_resolver=self._resolve_project_parameters,
@@ -1281,7 +1378,19 @@ class AgentControlChannel:
                 v2_snapshot = await builder.build_v2(
                     page_index=page_index,
                     page_size=self._settings.agent.snapshot_page_size,
-                    max_page_bytes=self._settings.agent.max_app_server_line_bytes - 4096,
+                    max_page_bytes=self._settings.agent.max_control_message_bytes,
+                    encoded_size=lambda value: len(
+                        self._protocol_codec.encode_v2(
+                            host_id=self._settings.agent.host_id,
+                            key_id=self._settings.agent.key_id,
+                            message_id=UUID(int=0),
+                            detail=value.model_copy(
+                                update={"execution_generation": execution_generation}
+                            ),
+                        )
+                        .model_dump_json()
+                        .encode("utf-8")
+                    ),
                     pending_approvals=self._build_pending_approval_snapshots(),
                     snapshot=snapshot,
                 )
@@ -1379,7 +1488,8 @@ class AgentControlChannel:
                 host_id=self._settings.agent.host_id,
                 key_id=self._settings.agent.key_id,
                 message_id=uuid4(),
-                detail=AgentHelloV2Detail(
+                detail=(AgentBoundedHelloV2Detail if self._bounded_content else AgentHelloV2Detail)(
+                    **({"content_budgets": self._content_budgets} if self._bounded_content else {}),
                     execution_lease_supported=True,
                     lease_request_id=self._begin_lease_request(),
                     agent_version=self._settings.protocol.agent_version,
@@ -1441,6 +1551,18 @@ class AgentControlChannel:
         return status
 
     async def _accept_app_server_notification(self, method: str, params: JsonValue) -> None:
+        if method in {
+            "item/agentMessage/delta",
+            "item/commandExecution/outputDelta",
+            "item/fileChange/outputDelta",
+        } and isinstance(params, dict):
+            delta = params.get("delta")
+            if isinstance(delta, str) and len(delta) > 65536:
+                for offset in range(0, len(delta), 65536):
+                    await self._accept_app_server_notification(
+                        method, {**params, "delta": delta[offset : offset + 65536]}
+                    )
+                return
         if isinstance(params, dict) and method in {"turn/started", "turn/completed"}:
             turn = params.get("turn")
             if isinstance(turn, dict) and isinstance(turn.get("id"), str):
@@ -1480,6 +1602,45 @@ class AgentControlChannel:
                 ):
                     await self._close_pending_approval(pending, "resolved")
             return
+        original_item_detail = None
+        if (
+            self._bounded_content
+            and method in {"item/started", "item/completed"}
+            and isinstance(params, dict)
+        ):
+            raw_item, thread_id = params.get("item"), params.get("threadId")
+            if isinstance(raw_item, dict) and isinstance(thread_id, str):
+                binding = self._execution_root_store.load(thread_id)
+                if binding is not None:
+                    original = self._app_server_protocol_adapter.adapt_notification(
+                        method=method,
+                        params={
+                            **params,
+                            "item": self._sanitize_history_source_item(thread_id, raw_item),
+                        },
+                    ).notification
+                    if original is not None:
+                        original_item_detail = self._sanitize_file_change_detail(original.detail)
+                    item = AgentContentReader(self._history_window_cache).describe_item(
+                        self._sanitize_history_source_item(thread_id, raw_item),
+                        workspace_key=binding.workspace_key,
+                        thread_id=thread_id,
+                        expected_generation=self._history_window_cache.invalidation_generation,
+                    )
+                    descriptor = item.get("contentDescriptor")
+                    if isinstance(descriptor, dict):
+                        # Realtime references are reissued by the owned HTTP read; no unsigned handle escapes to browsers.
+                        descriptor = {
+                            key: value
+                            for key, value in descriptor.items()
+                            if key not in {"content_ref", "expires_at"}
+                        }
+                        descriptor.update(
+                            availability="unavailable",
+                            unavailable_reason="content_reference_expired",
+                        )
+                        item = {**item, "contentDescriptor": descriptor}
+                    params = {**params, "item": item}
         adapted = self._app_server_protocol_adapter.adapt_notification(method=method, params=params)
         notification = adapted.notification
         if notification is None:
@@ -1533,7 +1694,24 @@ class AgentControlChannel:
                 notification.detail,
                 method,
             )
-            self._timeline_store.capture(product_detail)
+            # Preserve the existing local authoritative item, not the wire preview.
+            # If the original exceeded the product limit, retain its truthful descriptor.
+            stored_detail = original_item_detail or product_detail
+            if (
+                isinstance(product_detail, AppServerItemChangedDetail)
+                and product_detail.item.content is not None
+            ):
+                descriptor = product_detail.item.content
+                if isinstance(stored_detail, AppServerItemChangedDetail):
+                    field = {
+                        "command": "output",
+                        "diff": "unified_diff",
+                        "plan": "explanation",
+                    }.get(stored_detail.item.kind, "text")
+                    body = getattr(stored_detail.item, field, "")
+                    if hashlib.sha256(body.encode("utf-8")).hexdigest() != descriptor.revision:
+                        stored_detail = product_detail
+            self._timeline_store.capture(stored_detail)
             await self._queue_v2_event(detail)
             if (
                 isinstance(detail, AgentTurnChangedEventDetail)
@@ -1597,6 +1775,38 @@ class AgentControlChannel:
                 update={"unified_diff": self._remove_diff_path_metadata(detail.unified_diff)}
             )
         return detail
+
+    def _sanitize_history_source_item(
+        self, thread_id: str, item: dict[str, JsonValue]
+    ) -> dict[str, JsonValue]:
+        if item.get("type") != "fileChange":
+            return item
+        root = self._read_trusted_execution_root(thread_id)
+        changes = item.get("changes")
+        if root is None or not isinstance(changes, list):
+            return {**item, "changes": []}
+        retained: list[JsonValue] = []
+        for change in changes:
+            if not isinstance(change, dict) or not isinstance(change.get("path"), str):
+                continue
+            path = self._to_trusted_relative_path(change["path"], root)
+            kind = change.get("kind")
+            if path is None or not isinstance(kind, dict):
+                continue
+            move = kind.get("move_path")
+            if isinstance(move, str):
+                move = self._to_trusted_relative_path(move, root)
+                if move is None:
+                    continue
+            retained.append(
+                {
+                    **change,
+                    "path": path,
+                    "kind": {**kind, "move_path": move},
+                    "diff": self._remove_diff_path_metadata(str(change.get("diff") or "")),
+                }
+            )
+        return {**item, "changes": retained}
 
     def _sanitize_thread_read_product_result(
         self,
@@ -1741,6 +1951,24 @@ class AgentControlChannel:
                 self._metadata_refresh_tasks.pop(thread_id, None)
 
     async def _accept_app_server_request(
+        self, request_id: JsonRpcId, method: str, params: JsonValue
+    ) -> None:
+        try:
+            await self._open_app_server_approval(request_id, method, params)
+        except (ValidationError, CodexConnectionFrameTooLargeError):
+            for identity, pending in tuple(self._pending_approvals.items()):
+                if pending.request_id == request_id:
+                    self._pending_approvals.pop(identity, None)
+            await self._supervisor.handle.client.reply_error(
+                request_id,
+                code=-32602,
+                message="message_too_large: approval cannot be represented without truncating execution parameters",
+            )
+            await self._queue_v2_event(
+                AgentProtocolWarningEventDetail(reason_code="message_too_large", method=method)
+            )
+
+    async def _open_app_server_approval(
         self,
         request_id: JsonRpcId,
         method: str,
@@ -1975,7 +2203,7 @@ class AgentControlChannel:
             else ()
         )
         command = mapping.get("command")
-        display_command = command[:1_024] if isinstance(command, str) and command else None
+        display_command = command if isinstance(command, str) and command else None
         command_actions = self._build_command_actions(mapping.get("commandActions"), cwd)
         command_summary = (
             " | ".join(action.command for action in command_actions)[:256]
@@ -2040,7 +2268,11 @@ class AgentControlChannel:
         value = mapping.get("proposedExecpolicyAmendment")
         if not isinstance(value, list):
             return ()
-        return tuple(item[:1_024] for item in value[:64] if isinstance(item, str) and item)
+        if len(value) > 64 or any(
+            not isinstance(item, str) or not item or len(item) > 1024 for item in value
+        ):
+            raise CodexConnectionFrameTooLargeError("审批命令策略超过表示容量。")
+        return tuple(value)
 
     def _read_network_policy_amendments(
         self,
@@ -2052,14 +2284,18 @@ class AgentControlChannel:
         if not isinstance(value, list):
             return ()
         proposals: list[dict[str, JsonValue]] = []
-        for item in value[:16]:
+        if len(value) > 16:
+            raise CodexConnectionFrameTooLargeError("审批网络策略超过表示容量。")
+        for item in value:
             if not isinstance(item, Mapping):
                 continue
             action = item.get("action")
             host = item.get("host")
             if action not in {"allow", "deny"} or not isinstance(host, str) or not host:
                 continue
-            proposals.append({"action": action, "host": host[:256]})
+            if len(host) > 256:
+                raise CodexConnectionFrameTooLargeError("审批网络主机超过表示容量。")
+            proposals.append({"action": action, "host": host})
         return tuple(proposals)
 
     def _allowed_approval_actions(
@@ -2094,7 +2330,7 @@ class AgentControlChannel:
         if not isinstance(value, list):
             return ()
         actions: list[CodexApprovalCommandAction] = []
-        for raw_action in value[:32]:
+        for raw_action in value:
             if not isinstance(raw_action, Mapping):
                 continue
             action = cast(Mapping[str, JsonValue], raw_action)
@@ -2109,7 +2345,7 @@ class AgentControlChannel:
             actions.append(
                 CodexApprovalCommandAction(
                     action_type=action_type[:64],
-                    command=command[:1_024],
+                    command=command,
                     path=self._relative_path(action.get("path"), cwd),
                     name=name[:128] if isinstance(name, str) and name else None,
                     query=query[:256] if isinstance(query, str) and query else None,
@@ -2125,7 +2361,7 @@ class AgentControlChannel:
         if not isinstance(value, Mapping):
             return ()
         changes: list[CodexApprovalFileChange] = []
-        for raw_path, raw_change in list(value.items())[:64]:
+        for raw_path, raw_change in value.items():
             if not isinstance(raw_path, str) or not raw_path:
                 continue
             change = (
@@ -2201,9 +2437,9 @@ class AgentControlChannel:
                 relative = None
             if relative is not None:
                 normalized = str(relative)
-                return normalized[:1_024] if normalized not in {"", "."} else "."
+                return normalized if normalized not in {"", "."} else "."
         name = candidate.name
-        return name[:1_024] if name else None
+        return name if name else None
 
     def _is_sensitive_path(self, value: str) -> bool:
         segments = {segment.lower() for segment in PureWindowsPath(value).parts}
@@ -2549,38 +2785,97 @@ class AgentControlChannel:
                     "source_seq": self._last_event_seq,
                 }
             )
-            if (
-                len(product_result.model_dump_json().encode("utf-8"))
-                > self._settings.agent.max_app_server_line_bytes - 8192
-            ):
-                product_result = product_result.model_copy(
-                    update={"turns": (), "history_status": "omitted_too_large"}
-                )
             typed_result = AgentThreadReadCommandResult(snapshot=product_result)
         if sender is None:
             return
-        await sender.send(
-            self._protocol_codec.encode_v2(
+        frame = self._protocol_codec.encode_v2(
+            host_id=self._settings.agent.host_id,
+            key_id=self._settings.agent.key_id,
+            message_id=uuid4(),
+            detail=AgentCommandResultV2Detail(
+                command_id=result.command_id,
+                operation_id=result.operation_id,
+                outcome=result.outcome,
+                result=typed_result,
+                reference=AgentCommandResultReference(
+                    upstream_thread_id=thread_id,
+                    upstream_turn_id=turn_id,
+                    status=result.outcome,
+                ),
+                error_code=result.error_code,
+                error_summary=result.error_message,
+            ),
+        )
+        if (
+            len(frame.model_dump_json().encode("utf-8"))
+            > self._settings.agent.max_control_message_bytes
+        ):
+            detail = AgentCommandResultV2Detail(
+                command_id=result.command_id,
+                operation_id=result.operation_id,
+                outcome="failed" if command_type in {"thread.read", "thread.list"} else "unknown",
+                error_code="message_too_large",
+                error_summary="命令结果超过网络消息容量。",
+            )
+            frame = self._protocol_codec.encode_v2(
                 host_id=self._settings.agent.host_id,
                 key_id=self._settings.agent.key_id,
                 message_id=uuid4(),
-                detail=AgentCommandResultV2Detail(
-                    command_id=result.command_id,
-                    operation_id=result.operation_id,
-                    outcome=result.outcome,
-                    result=typed_result,
-                    reference=AgentCommandResultReference(
-                        upstream_thread_id=thread_id,
-                        upstream_turn_id=turn_id,
-                        status=result.outcome,
-                    ),
-                    error_code=result.error_code,
-                    error_summary=result.error_message,
-                ),
+                detail=detail,
             )
-        )
+        await sender.send(frame)
 
     async def _queue_v2_event(self, detail: AgentEventDetail) -> None:
+        if isinstance(detail, AgentItemDeltaEventDetail):
+            candidate = AgentEventRecord(
+                agent_event_epoch=self._event_epoch,
+                seq=self._last_event_seq + 1,
+                event_id=UUID(int=0),
+                app_server_instance_id=UUID(self._supervisor.handle.instance_id),
+                occurred_at=datetime.now(UTC),
+                detail=detail,
+            )
+            batch = AgentEventBatchV2Detail(
+                agent_event_epoch=self._event_epoch,
+                first_seq=candidate.seq,
+                last_seq=candidate.seq,
+                events=(candidate,),
+            )
+            if self._event_batch_encoded_size(batch) > self._settings.agent.event_batch_max_bytes:
+                if len(detail.delta) < 2:
+                    raise CodexConnectionFrameTooLargeError("事件元数据超过批次容量。")
+                middle = len(detail.delta) // 2
+                await self._queue_v2_event(
+                    detail.model_copy(update={"delta": detail.delta[:middle]})
+                )
+                await self._queue_v2_event(
+                    detail.model_copy(update={"delta": detail.delta[middle:]})
+                )
+                return
+        if not isinstance(detail, AgentItemDeltaEventDetail):
+            candidate = AgentEventRecord(
+                agent_event_epoch=self._event_epoch,
+                seq=self._last_event_seq + 1,
+                event_id=UUID(int=0),
+                app_server_instance_id=UUID(self._supervisor.handle.instance_id),
+                occurred_at=datetime.now(UTC),
+                detail=detail,
+            )
+            candidate_batch = AgentEventBatchV2Detail(
+                agent_event_epoch=self._event_epoch,
+                first_seq=candidate.seq,
+                last_seq=candidate.seq,
+                events=(candidate,),
+            )
+            if (
+                self._event_batch_encoded_size(candidate_batch)
+                > self._content_budgets.max_receive_message_bytes
+            ):
+                if isinstance(detail, AgentApprovalOpenedEventDetail):
+                    raise CodexConnectionFrameTooLargeError("审批超过协商消息容量。")
+                detail = AgentProtocolWarningEventDetail(
+                    reason_code="message_too_large", method=detail.kind
+                )
         record = self._build_event_record(detail)
         result = self._event_batcher.push(record)
         for batch in result.flushed:
@@ -2615,6 +2910,19 @@ class AgentControlChannel:
         return AgentEventBatcher(
             window=timedelta(milliseconds=self._settings.agent.event_batch_window_milliseconds),
             max_bytes=self._settings.agent.event_batch_max_bytes,
+            encoded_size=self._event_batch_encoded_size,
+        )
+
+    def _event_batch_encoded_size(self, batch: AgentEventBatchV2Detail) -> int:
+        return len(
+            self._protocol_codec.encode_v2(
+                host_id=self._settings.agent.host_id,
+                key_id=self._settings.agent.key_id,
+                message_id=UUID(int=0),
+                detail=batch,
+            )
+            .model_dump_json()
+            .encode("utf-8")
         )
 
     async def _send_v2_batch(self, batch: AgentEventBatchV2Detail) -> None:

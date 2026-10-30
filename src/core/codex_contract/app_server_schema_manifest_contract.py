@@ -41,6 +41,7 @@ class AppServerMethodName(StrEnum):
     THREAD_LIST = "thread/list"
     THREAD_READ = "thread/read"
     THREAD_TURNS_LIST = "thread/turns/list"
+    THREAD_ITEMS_LIST = "thread/items/list"
     THREAD_START = "thread/start"
     THREAD_RESUME = "thread/resume"
     THREAD_NAME_SET = "thread/name/set"
@@ -183,7 +184,7 @@ class AppServerSchemaSnapshotDetail(BaseModel):
     confirmation_response_expected: bool
     supported_agent_protocol_versions: tuple[str, ...] = Field(min_length=1)
     adapter_revision: Literal["1"] = "1"
-    history_strategy: Literal["thread_read", "turns_page"] = "turns_page"
+    history_strategy: Literal["thread_read", "turns_page", "items_page"] = "turns_page"
     allow_experimental_api: bool = True
     capabilities: tuple[AppServerCapabilityDetail, ...] = Field(min_length=1)
     method_catalog: tuple[AppServerMethodPolicy, ...] = Field(min_length=1)
@@ -243,6 +244,7 @@ class AppServerDefaultCatalog:
             (AppServerMethodName.THREAD_LIST, AppServerCapabilityCode.THREAD_LIST),
             (AppServerMethodName.THREAD_READ, AppServerCapabilityCode.THREAD_READ),
             (AppServerMethodName.THREAD_TURNS_LIST, None),
+            (AppServerMethodName.THREAD_ITEMS_LIST, None),
         )
         mutation_methods = (
             (AppServerMethodName.THREAD_START, AppServerCapabilityCode.THREAD_START, False),

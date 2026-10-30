@@ -37,6 +37,8 @@ class CodexBrowserSubscription:
     replay_boundary: str | None = None
     queue: asyncio.Queue[CodexRealtimeBatch | CodexRealtimeEvent] = field(init=False)
     _queued_event_count: int = field(default=0, init=False)
+    _queued_bytes: int = field(default=0, init=False)
+    byte_capacity: int = 4 * 1024 * 1024
 
     def __post_init__(self) -> None:
         # 队列单位是批次，容量仍按事件数核算，避免一个 64 事件批次绕过慢消费者上限。
@@ -100,15 +102,23 @@ class CodexBrowserSubscription:
             )
         )
         self._queued_event_count = max(0, self._queued_event_count - len(batch.events))
+        self._queued_bytes = max(
+            0, self._queued_bytes - len(payload.model_dump_json().encode("utf-8"))
+        )
         return batch
 
     def enqueue_batch(self, batch: CodexRealtimeBatch) -> bool:
         """把批次放入订阅队列；返回是否仍可保持无缺口的连续流。"""
 
-        if self._queued_event_count + len(batch.events) > self.capacity:
+        size = len(batch.model_dump_json().encode("utf-8"))
+        if (
+            self._queued_event_count + len(batch.events) > self.capacity
+            or self._queued_bytes + size > self.byte_capacity
+        ):
             return False
         self.queue.put_nowait(batch)
         self._queued_event_count += len(batch.events)
+        self._queued_bytes += size
         return True
 
     def replace_with_gap(self, gap: CodexRealtimeBatch) -> None:
@@ -119,6 +129,7 @@ class CodexBrowserSubscription:
         self._queued_event_count = 0
         self.queue.put_nowait(gap)
         self._queued_event_count = len(gap.events)
+        self._queued_bytes = len(gap.model_dump_json().encode("utf-8"))
 
     def build_bounded_batches(
         self,

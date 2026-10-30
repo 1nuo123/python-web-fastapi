@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from src.core.codex_contract.agent_release_manifest_contract import (
     AGENT_RELEASE_MANIFEST_TARGET_PATH,
 )
+from src.core.codex_contract.agent_content_contract import AgentContentBudgets
 from src.core.codex_contract.connection_session_contract import (
     CodexConnectionProtocolVersion,
 )
@@ -559,6 +560,7 @@ class AgentProcessSettings(BaseModel):
     """Agent 进程、连接和本地状态配置。"""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+    content_budgets: AgentContentBudgets = Field(default_factory=AgentContentBudgets)
 
     host_id: UUID
     key_id: UUID | None = None
@@ -609,6 +611,9 @@ class AgentProcessSettings(BaseModel):
         default=MAX_APP_SERVER_LINE_BYTES,
         gt=0,
         le=MAX_APP_SERVER_LINE_BYTES,
+    )
+    max_control_message_bytes: int = Field(
+        default=MAX_APP_SERVER_LINE_BYTES, ge=16 * 1024, le=MAX_APP_SERVER_LINE_BYTES
     )
     state_database: Path = Field(
         default_factory=lambda: (
@@ -669,9 +674,9 @@ class AgentProcessSettings(BaseModel):
                 raise ValueError("CA来源只能配置一处。")
             if not self.ca_certificate_path.is_absolute() or not self.ca_certificate_path.is_file():
                 raise ValueError("ca_certificate_path必须是可读取的绝对路径。")
-        if self.writer_queue_max_bytes < 2 * self.max_app_server_line_bytes:
+        if self.writer_queue_max_bytes < 2 * self.max_control_message_bytes:
             raise ValueError("发送队列必须预留控制帧空间。")
-        if self.event_batch_max_bytes >= self.max_app_server_line_bytes:
+        if self.event_batch_max_bytes >= self.max_control_message_bytes:
             raise ValueError("event_batch_max_bytes必须小于Agent单帧上限。")
         if self.development_ca_certificate_path is not None:
             build_agent_tls_context(

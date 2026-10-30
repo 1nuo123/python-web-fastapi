@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from collections.abc import Mapping
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from uuid import UUID, uuid4
@@ -17,6 +17,14 @@ from src.application.codex.codex_history_pagination import (
     SignedCodexHistoryCursorCodec,
 )
 from src.application.codex.codex_protocol_mapper import CodexProtocolMapper
+from src.application.codex.codex_thread_read_access import read_owned_codex_thread
+from src.application.codex.codex_content_reference import CodexContentReferenceCodec
+from src.application.codex.read_codex_content_usecase import content_http_fault
+from src.core.codex_contract.agent_content_contract import (
+    ReadableContentDescriptor,
+    ContentErrorCode,
+    ContentReadError,
+)
 from src.application.ports.codex_agent_command_dispatch_port import (
     CodexAgentCommandDispatchPort,
 )
@@ -24,6 +32,7 @@ from src.application.ports.codex_control_port import CodexControlPort
 from src.application.ports.codex_realtime_event_port import CodexRealtimeEventPort
 from src.core.codex_contract.agent_history_window_contract import (
     AgentHistoryWindowRequest,
+    AgentBoundedHistoryWindowRequest,
     AgentHistoryWindowResult,
 )
 from src.core.codex_contract.agent_protocol_contract import CodexAgentCommand
@@ -42,14 +51,6 @@ from src.core.exception_contract.http_fault_contract import HttpFaultException
 from src.domain.codex.agent_command_policy import calculate_agent_request_digest
 from src.domain.codex.codex_error_code import CodexErrorCode
 from src.domain.codex.thread_execution_state import merge_authoritative_execution
-
-
-@dataclass(frozen=True, slots=True)
-class OwnedCodexThreadContext:
-    """已通过所有权校验的线程读取上下文。"""
-
-    thread: CodexThreadIndexSnapshot
-    workspace_key: str
 
 
 class ReadCodexThreadSnapshotUsecase:
@@ -71,6 +72,9 @@ class ReadCodexThreadSnapshotUsecase:
         self._timeout_seconds = timeout_seconds
         self._ack_timeout_seconds = ack_timeout_seconds
         self._mapper = CodexProtocolMapper()
+        self._content_codec = CodexContentReferenceCodec(
+            hashlib.sha256(b"codex-content-v1\x00" + history_cursor_signing_key).digest()
+        )
         self._event_port = event_port
         self._history_page_resolver = CodexHistoryPageResolver(
             SignedCodexHistoryCursorCodec(
@@ -90,9 +94,11 @@ class ReadCodexThreadSnapshotUsecase:
         history_limit: int = 50,
         before_cursor: str | None = None,
         requested_item_ids: frozenset[str] | None = None,
+        content_mode: str = "legacy",
     ) -> CodexThreadAuthoritySnapshot:
         context = await asyncio.to_thread(
-            self._read_owned_thread,
+            read_owned_codex_thread,
+            self._control_port,
             host_id,
             upstream_thread_id,
             owner_subject_id,
@@ -103,11 +109,17 @@ class ReadCodexThreadSnapshotUsecase:
             "includeTurns": include_history or before_cursor is not None,
             "workspace_key": context.workspace_key,
         }
+        content_budgets = await self._dispatch_port.read_content_budgets(host_id)
+        bounded = (
+            content_mode == "bounded"
+            and content_budgets is not None
+            and content_budgets.content_read
+        )
         window = None
         history_requested = include_history or before_cursor is not None
         if (
             history_requested
-            and requested_item_ids is None
+            and (requested_item_ids is None or bounded)
             and await self._dispatch_port.supports_history_windows(host_id)
         ):
             claims = (
@@ -123,7 +135,12 @@ class ReadCodexThreadSnapshotUsecase:
                     or claims.window_cursor is None
                 ):
                     raise CodexHistoryCursorStaleError("历史窗口游标不属于当前读取范围。")
-            window = AgentHistoryWindowRequest(
+            window = (AgentBoundedHistoryWindowRequest if bounded else AgentHistoryWindowRequest)(
+                **(
+                    {"content_mode": "bounded", "item_ids": tuple(requested_item_ids or ())}
+                    if bounded
+                    else {}
+                ),
                 limit=history_limit,
                 cursor=claims.window_cursor if claims else None,
                 revision=claims.history_revision if claims else None,
@@ -144,6 +161,8 @@ class ReadCodexThreadSnapshotUsecase:
                 ack_timeout_seconds=self._ack_timeout_seconds,
                 result_timeout_seconds=self._timeout_seconds,
             )
+        except ContentReadError as exc:
+            raise content_http_fault(exc.code) from exc
         except CodexHostOfflineError:
             return self._build_unavailable_snapshot(thread)
         except TimeoutError as exc:
@@ -155,6 +174,19 @@ class ReadCodexThreadSnapshotUsecase:
                 ) from exc
             return self._build_unavailable_snapshot(thread)
         if result.outcome != "completed" or result.result is None:
+            if (
+                result.error_code == "history_not_materialized"
+                and thread.source_kind == "remote"
+                and thread.turn_runtime is None
+            ):
+                return CodexThreadAuthoritySnapshot(
+                    thread=thread,
+                    turns=[],
+                    items=[],
+                    history_status=CodexThreadHistoryStatus.NOT_MATERIALIZED,
+                )
+            if result.error_code in {code.value for code in ContentErrorCode}:
+                raise content_http_fault(ContentErrorCode(result.error_code))
             if result.error_code == "query_overloaded":
                 raise HttpFaultException(
                     status_code=HTTPStatus.SERVICE_UNAVAILABLE,
@@ -162,7 +194,11 @@ class ReadCodexThreadSnapshotUsecase:
                     message="本机查询暂时繁忙，请稍后重试。",
                 )
             if result.error_code == "history_cursor_stale":
-                raise CodexHistoryCursorStaleError("历史窗口版本已变化。")
+                raise HttpFaultException(
+                    status_code=HTTPStatus.CONFLICT,
+                    error_code=CodexErrorCode.HISTORY_CURSOR_STALE,
+                    message="历史窗口版本已变化，请重新读取。",
+                )
             if result.error_code in {"result_unknown", "deadline_expired", "query_timeout"}:
                 if include_history or before_cursor is not None or requested_item_ids is not None:
                     raise HttpFaultException(
@@ -223,6 +259,24 @@ class ReadCodexThreadSnapshotUsecase:
             if marker == "omitted_too_large":
                 history_status = CodexThreadHistoryStatus.OMITTED_TOO_LARGE
         all_items = [CodexTimelineItemEnvelope.model_validate(value) for value in mapped.items]
+        for index, item in enumerate(all_items):
+            content = item.detail.content
+            if bounded and isinstance(content, ReadableContentDescriptor):
+                token = self._content_codec.encode(
+                    content,
+                    owner_subject_id=owner_subject_id,
+                    host_id=host_id,
+                    workspace_key=context.workspace_key,
+                    thread_id=upstream_thread_id,
+                    item_id=item.header.item_id,
+                )
+                content = content.model_copy(update={"content_ref": token})
+            elif not bounded:
+                content = None
+            all_items[index] = item.model_copy(
+                update={"detail": item.detail.model_copy(update={"content": content})}
+            )
+
         history_page: CodexThreadHistoryPage | None = None
         reloaded_items: list[CodexTimelineItemEnvelope] | None = None
         if requested_item_ids is not None and history_status is CodexThreadHistoryStatus.COMPLETE:
@@ -302,6 +356,7 @@ class ReadCodexThreadSnapshotUsecase:
         upstream_thread_id: str,
         owner_subject_id: str,
         query: CodexThreadHistoryQuery,
+        content_mode: str = "legacy",
     ) -> CodexThreadHistoryPage:
         """读取一页更早历史，并保留游标失效的显式冲突语义。"""
 
@@ -313,6 +368,7 @@ class ReadCodexThreadSnapshotUsecase:
                 include_history=True,
                 history_limit=query.limit,
                 before_cursor=query.before_cursor,
+                content_mode=content_mode,
             )
         except CodexHistoryCursorStaleError as exc:
             raise HttpFaultException(
@@ -343,6 +399,7 @@ class ReadCodexThreadSnapshotUsecase:
         upstream_thread_id: str,
         owner_subject_id: str,
         item_ids: list[str],
+        content_mode: str = "legacy",
     ) -> CodexThreadHistoryItemReload:
         """按稳定 ID 读取当前权威历史中的少量已回收正文，不支持 offset 回退。"""
 
@@ -353,6 +410,7 @@ class ReadCodexThreadSnapshotUsecase:
             owner_subject_id=owner_subject_id,
             include_history=True,
             requested_item_ids=requested_item_ids,
+            content_mode=content_mode,
         )
         found_item_ids = {item.header.item_id for item in snapshot.items}
         return CodexThreadHistoryItemReload(
@@ -368,6 +426,7 @@ class ReadCodexThreadSnapshotUsecase:
         upstream_thread_id: str,
         items: list[CodexTimelineItemEnvelope],
         query: CodexThreadHistoryQuery,
+        content_mode: str = "legacy",
     ) -> CodexThreadHistoryPage:
         """计算一页稳定窗口；解析失败由调用方转换为 HTTP stale 错误。"""
 
@@ -429,43 +488,5 @@ class ReadCodexThreadSnapshotUsecase:
         except BaseException:
             unit_of_work.rollback()
             raise
-        finally:
-            unit_of_work.dispose()
-
-    def _read_owned_thread(
-        self,
-        host_id: UUID,
-        upstream_thread_id: str,
-        owner_subject_id: str,
-    ) -> OwnedCodexThreadContext:
-        unit_of_work = self._control_port.create_unit_of_work()
-        try:
-            session = unit_of_work.get_session()
-            thread = self._control_port.create_codex_thread_repository(
-                session
-            ).get_by_upstream_id_and_owner(
-                host_id,
-                upstream_thread_id,
-                owner_subject_id,
-            )
-            if thread is None:
-                raise HttpFaultException(
-                    status_code=HTTPStatus.NOT_FOUND,
-                    error_code=CodexErrorCode.RESOURCE_NOT_FOUND,
-                    message="Codex资源不存在。",
-                )
-            workspace = self._control_port.create_codex_workspace_repository(
-                session
-            ).get_by_id_and_owner(thread.workspace_id, owner_subject_id)
-            if workspace is None or not workspace.enabled:
-                raise HttpFaultException(
-                    status_code=HTTPStatus.NOT_FOUND,
-                    error_code=CodexErrorCode.RESOURCE_NOT_FOUND,
-                    message="Codex资源不存在。",
-                )
-            return OwnedCodexThreadContext(
-                thread=thread,
-                workspace_key=workspace.agent_workspace_key,
-            )
         finally:
             unit_of_work.dispose()

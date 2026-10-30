@@ -21,6 +21,7 @@ class AgentConnectionIssue(StrEnum):
     GATEWAY_POLICY_DENIED = "gateway_policy_denied"
     ROUTE_NOT_FOUND = "route_not_found"
     PROTOCOL_INVALID = "protocol_invalid"
+    MESSAGE_TOO_LARGE = "message_too_large"
     CONFIG_INVALID = "config_invalid"
     INTERNAL_FAILURE = "internal_failure"
     ATTEMPT_EXPIRED = "connection_attempt_expired"

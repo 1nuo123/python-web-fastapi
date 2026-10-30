@@ -250,6 +250,7 @@ class AgentCommandExecutor:
                     command.command_type == "thread.read"
                     and isinstance(thread_id, str)
                     and self._history_capacity_registry is not None
+                    and command.params.get("history_window") is None
                     and self._history_capacity_registry.should_omit(thread_id)
                 ):
                     request.params["includeTurns"] = False

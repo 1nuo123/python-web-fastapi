@@ -1,0 +1,8 @@
+seeds = [17, 43]
+chunk_bytes = [16384, 32768, 65536]
+page_bytes = [131072, 262144]
+inflight_bytes = [131072, 262144, 524288]
+profiles = ["loopback", "slow_receiver"]
+control_p95_limit_ms = 150.0
+screen_bytes = 5242880
+heldout_bytes = 9437184

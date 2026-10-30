@@ -9,6 +9,7 @@ from typing import Final
 from uuid import UUID, uuid4
 
 from src.core.codex_contract.agent_command_contract import AgentCommandJournalState
+from src.core.codex_contract.agent_content_contract import ContentReadError, ContentErrorCode
 from src.core.codex_contract.agent_protocol_contract import (
     CodexAgentCommand,
     CodexAgentCommandAck,
@@ -45,11 +46,27 @@ class CodexAcceptedOperation:
     result: CodexAgentCommandResult | None = None
 
 
+@dataclass(slots=True)
+class CodexQueryBudget:
+    max_bytes: int = 16 * 1024 * 1024
+    max_requests: int = 128
+    bytes: int = 0
+    requests: int = 0
+
+
 class CodexHostActor:
     """串联 command 投递与异步 ack/result，断线时保留原 command id。"""
 
-    def __init__(self, *, host_id: UUID, connection_registry: CodexConnectionRegistry) -> None:
+    def __init__(
+        self,
+        *,
+        host_id: UUID,
+        connection_registry: CodexConnectionRegistry,
+        query_budget: CodexQueryBudget | None = None,
+    ) -> None:
         self._host_id = host_id
+        self._query_budget = query_budget or CodexQueryBudget()
+        self._query_bytes = 0
         self._connection_registry = connection_registry
         self._codec_registry = AgentProtocolCodecRegistry()
         self._command_mapper = AgentCommandV2Mapper()
@@ -85,13 +102,17 @@ class CodexHostActor:
                 raise PermissionError("电脑已连接，当前Codex版本需要适配更新。")
             if (
                 lease.compatibility_decision == CodexCompatibilityDecision.READ_ONLY
-                and command.command_type not in {"thread.list", "thread.read"}
+                and command.command_type not in {"thread.list", "thread.read", "content.read"}
             ):
                 raise PermissionError("当前App Server schema只允许只读命令。")
             if command.params.get("history_window") is not None and not lease.history_windows:
                 raise CodexHostOfflineError("连接能力已变化，请重新读取历史窗口。")
+            if command.command_type == "content.read" and lease.content_budgets is None:
+                raise CodexHostOfflineError("正文读取能力已失效。")
             if lease.protocol_version == CodexConnectionProtocolVersion.V2:
-                frame = self._codec_registry.encode_v2(
+                frame = AgentProtocolCodecRegistry(
+                    bounded_content=lease.content_budgets is not None
+                ).encode_v2(
                     host_id=self._host_id,
                     message_id=uuid4(),
                     detail=self._command_mapper.from_v1_command(command),
@@ -128,6 +149,31 @@ class CodexHostActor:
 
         if command.command_id in self._pending_results:
             raise RuntimeError("同一command_id正在等待Agent结果。")
+        lease = await self._connection_registry.read(self._host_id)
+        reserved = 0
+        window = command.params.get("history_window")
+        if (
+            command.command_type == "content.read"
+            or isinstance(window, dict)
+            and window.get("content_mode") == "bounded"
+        ):
+            if lease is None or lease.content_budgets is None:
+                raise CodexHostOfflineError("正文读取连接已失效。")
+            budgets = lease.content_budgets
+            reserved = (
+                budgets.content_chunk_max_message_bytes
+                if command.command_type == "content.read"
+                else budgets.history_page_max_bytes
+            )
+            if (
+                self._query_bytes + reserved > budgets.query_inflight_max_bytes
+                or self._query_budget.bytes + reserved > self._query_budget.max_bytes
+                or self._query_budget.requests >= self._query_budget.max_requests
+            ):
+                raise ContentReadError(ContentErrorCode.OVERLOADED)
+            self._query_bytes += reserved
+            self._query_budget.bytes += reserved
+            self._query_budget.requests += 1
         result_future = asyncio.get_running_loop().create_future()
         self._pending_results[command.command_id] = result_future
         remaining = min(
@@ -147,6 +193,10 @@ class CodexHostActor:
                     raise RuntimeError("Agent未确认Codex查询命令。")
                 return await result_future
         finally:
+            if reserved:
+                self._query_bytes -= reserved
+                self._query_budget.bytes -= reserved
+                self._query_budget.requests -= 1
             self._pending_results.pop(command.command_id, None)
             if not result_future.done():
                 result_future.cancel()
@@ -184,12 +234,17 @@ class CodexHostActorRegistry:
     def __init__(self, connection_registry: CodexConnectionRegistry) -> None:
         self._connection_registry = connection_registry
         self._actors: dict[UUID, CodexHostActor] = {}
+        self._query_budget = CodexQueryBudget()
 
     def get(self, host_id: UUID) -> CodexHostActor:
         """读取或创建单 host actor。"""
 
         actor = self._actors.get(host_id)
         if actor is None:
-            actor = CodexHostActor(host_id=host_id, connection_registry=self._connection_registry)
+            actor = CodexHostActor(
+                host_id=host_id,
+                connection_registry=self._connection_registry,
+                query_budget=self._query_budget,
+            )
             self._actors[host_id] = actor
         return actor

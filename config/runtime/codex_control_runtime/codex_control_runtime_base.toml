@@ -2,6 +2,7 @@
 enabled = true
 agent_deployment_profile = "production"
 agent_lease_continuity_enabled = true
+bounded_content_enabled = true
 agent_heartbeat_seconds = 15
 agent_offline_after_seconds = 90
 agent_hello_timeout_seconds = 10

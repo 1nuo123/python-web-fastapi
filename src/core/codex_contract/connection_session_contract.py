@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 CODEX_CONNECTION_SCHEMA_VERSION: Final = "1.0"
 CODEX_CONNECTION_FRAME_KIND: Final = "codex_connection_frame"
 CODEX_HISTORY_WINDOW_SUBPROTOCOL: Final = "codex-agent.v2.history-window"
+CODEX_BOUNDED_CONTENT_SUBPROTOCOL: Final = "codex-agent.v2.bounded-content"
 CODEX_LEASE_CONTINUITY_SUBPROTOCOL: Final = "codex-agent.v2.lease-continuity"
 
 

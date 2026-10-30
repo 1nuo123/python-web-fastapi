@@ -38,6 +38,7 @@ from src.core.codex_contract.agent_protocol_contract import (
 )
 from src.core.codex_contract.connection_session_contract import (
     CODEX_HISTORY_WINDOW_SUBPROTOCOL,
+    CODEX_BOUNDED_CONTENT_SUBPROTOCOL,
     CODEX_LEASE_CONTINUITY_SUBPROTOCOL,
     CodexConnectionShutdown,
     CodexConnectionTransportClosed,
@@ -251,12 +252,26 @@ class CodexAgentConnectRouteCatalog:
         )
         if history_windows:
             selected = CODEX_HISTORY_WINDOW_SUBPROTOCOL
+        bounded_content = (
+            runtime.settings.bounded_content_enabled
+            and runtime.settings.agent_lease_continuity_enabled
+            and CODEX_BOUNDED_CONTENT_SUBPROTOCOL in websocket.scope.get("subprotocols", [])
+        )
+        if bounded_content:
+            selected = CODEX_BOUNDED_CONTENT_SUBPROTOCOL
+            history_windows = True
         await websocket.accept(subprotocol=selected)
         shutdown_event = CodexConnectionShutdown()
         handler = CodexAgentGatewayHandler(
             principal=principal,
             business_queue_capacity=runtime.settings.agent_outgoing_queue_size,
             history_windows=history_windows,
+            content_budgets=runtime.settings.content_budgets.model_copy(
+                update={"max_receive_message_bytes": runtime.settings.max_agent_frame_bytes}
+            )
+            if bounded_content
+            else None,
+            business_queue_max_bytes=runtime.settings.agent_outgoing_queue_max_bytes,
             connection_registry=runtime.connection_registry,
             actor_registry=runtime.actor_registry,
             compatibility_policy=runtime.compatibility_policy,

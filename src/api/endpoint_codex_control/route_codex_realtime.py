@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections import deque
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -77,11 +78,13 @@ class CodexBrowserRealtimeSession:
         subscription: CodexBrowserSubscription,
         runtime: CodexControlRuntime,
         batch_enabled: bool = False,
+        bounded_content: bool = False,
     ) -> None:
         self._websocket = websocket
         self._subscription = subscription
         self._runtime = runtime
         self._batch_enabled = batch_enabled
+        self._bounded_content = bounded_content
         self._legacy_pending_events: deque[CodexRealtimeEvent] = deque()
         self._pending_event: CodexRealtimeEvent | None = None
         self._state = CodexBrowserRealtimeSessionState.OPEN
@@ -140,9 +143,17 @@ class CodexBrowserRealtimeSession:
                 self._state = CodexBrowserRealtimeSessionState.CLOSING
                 self._stop_event.set()
                 return False
+            value = payload.model_dump(mode="json")
+            if not self._bounded_content:
+                self._strip_content_descriptors(value)
+            encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+            if len(encoded.encode("utf-8")) > self._runtime.settings.max_browser_frame_bytes:
+                await self._websocket.close(code=1009, reason="message_too_large")
+                self._stop_event.set()
+                return False
             try:
                 await asyncio.wait_for(
-                    self._websocket.send_text(payload.model_dump_json()),
+                    self._websocket.send_text(encoded),
                     timeout=self._runtime.settings.agent_heartbeat_seconds,
                 )
             except TimeoutError:
@@ -236,10 +247,36 @@ class CodexBrowserRealtimeSession:
             total_bytes += candidate_bytes
         return self._subscription.build_batch(tuple(events), barrier=False)
 
+    @staticmethod
+    def _strip_content_descriptors(value: object) -> None:
+        if isinstance(value, dict):
+            descriptor = value.get("content")
+            if isinstance(descriptor, dict) and "availability" in descriptor:
+                value.pop("content")
+                for name in ("text", "output", "explanation"):
+                    if isinstance(value.get(name), str):
+                        value[name] += "\n[内容为预览，请重新加载历史或在本机查看完整内容。]"
+            for child in value.values():
+                CodexBrowserRealtimeSession._strip_content_descriptors(child)
+        elif isinstance(value, list):
+            for child in value:
+                CodexBrowserRealtimeSession._strip_content_descriptors(child)
+
     async def _wait_for_disconnect(self) -> None:
         try:
             while not self._stop_event.is_set():
-                await self._websocket.receive_text()
+                message = await self._websocket.receive()
+                if message["type"] == "websocket.disconnect":
+                    return
+                text = message.get("text")
+                binary = message.get("bytes")
+                size = len(text.encode("utf-8")) if text is not None else len(binary or b"")
+                if size > self._runtime.settings.max_browser_frame_bytes:
+                    await self._websocket.close(code=1009, reason="message_too_large")
+                    return
+                if text is None:
+                    await self._websocket.close(code=1003, reason="text_required")
+                    return
         finally:
             await self.close()
 
@@ -319,6 +356,7 @@ class CodexRealtimeRouteCatalog:
         cursor: str | None = Query(default=None, max_length=512),
         stream_epoch: str | None = Query(default=None, max_length=128),
         batch_version: int = Query(default=1, ge=1, le=2),
+        content_mode: str = Query(default="legacy", pattern="^(legacy|bounded)$"),
     ) -> None:
         """消费票据后建立主体固定、epoch 独立的长期连接。"""
 
@@ -360,6 +398,7 @@ class CodexRealtimeRouteCatalog:
             websocket=websocket,
             subscription=subscription,
             runtime=runtime,
+            bounded_content=content_mode == "bounded" and runtime.settings.bounded_content_enabled,
             batch_enabled=is_codex_realtime_batch_negotiated(
                 batch_version,
                 runtime.settings.codex_realtime_batch_v2,

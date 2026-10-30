@@ -114,8 +114,6 @@ def main() -> None:
             for name in (
                 "CodexRemoteAgent.msi",
                 "internal-release.json",
-                "build-evidence.json",
-                "source-files.sha256.json",
             )
         },
     )

@@ -15,6 +15,7 @@ from src.core.codex_contract.agent_connection_contract import (
 )
 from src.core.codex_contract.connection_session_contract import (
     CodexConnectionEndKind,
+    CodexConnectionFrameTooLargeError,
     CodexConnectionTransportClosed,
 )
 
@@ -56,6 +57,13 @@ class AgentControlConnectionPolicy:
         seen: set[int] = set()
         while current is not None and id(current) not in seen:
             seen.add(id(current))
+            received_close = getattr(current, "rcvd", None)
+            if (
+                isinstance(current, CodexConnectionFrameTooLargeError)
+                or getattr(current, "close_code", None) == 1009
+                or getattr(received_close, "code", None) == 1009
+            ):
+                return AgentConnectionIssue.MESSAGE_TOO_LARGE
             if isinstance(current, ssl.SSLCertVerificationError):
                 return AgentConnectionIssue.TLS_VALIDATION_FAILED
             current = current.__cause__ or current.__context__
@@ -84,7 +92,7 @@ class AgentControlConnectionPolicy:
             return AgentConnectionIssue.AUTHORIZATION_REJECTED
         if isinstance(exc, (ValueError, InvalidHandshake)) and not isinstance(exc, InvalidMessage):
             return AgentConnectionIssue.PROTOCOL_INVALID
-        if getattr(exc, "close_code", None) in (1002, 1003, 1007, 1009, 1010):
+        if getattr(exc, "close_code", None) in (1002, 1003, 1007, 1010):
             return AgentConnectionIssue.PROTOCOL_INVALID
         if isinstance(exc, (OSError, TimeoutError, TransportError, InvalidMessage)):
             return AgentConnectionIssue.TRANSPORT_UNAVAILABLE

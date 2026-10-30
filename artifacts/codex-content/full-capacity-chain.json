@@ -1,0 +1,55 @@
+{
+  "environment": "Windows; real TLS/WSS; product ASGI routes; SQLite/local bus; real Codex 0.163.0",
+  "scenarios": [
+    {
+      "name": "real CLI bounded history and signed UTF-8 content through HTTPS/WSS, scope/range/stale/tamper, legacy DTO",
+      "passed": true,
+      "bytes": 21654,
+      "chunks": 3,
+      "sha256": "09521653173c97e2319ff3ea4a554b694f89901b1b6246b256f69eba004c19f6",
+      "budgets": {
+        "max_receive_message_bytes": 4194304,
+        "history_page_max_bytes": 131072,
+        "content_chunk_max_message_bytes": 16384,
+        "query_inflight_max_bytes": 262144,
+        "content_read": true
+      }
+    },
+    {
+      "name": "real CLI signed bounded history windows, no missing/duplicate IDs, tamper rejected",
+      "passed": true,
+      "pages": 2,
+      "items": 2
+    },
+    {
+      "name": "synthetic source seam -> real Agent WSS -> product HTTPS; >4MiB history, exact body, parallel readers, 429, cancellation, expiry/reload",
+      "passed": true,
+      "source": "synthetic public-page interface, NOT real CLI large-item proof",
+      "items": 32,
+      "total_body_bytes": 5376054,
+      "pages": 4,
+      "largest_http_page_bytes": 129035,
+      "source_reads": 235,
+      "seconds": 30.545799099985743,
+      "sample_sha256": "56bd3095426554c40d35d7131d67d0c799c121f1164529bea545186c94c2aa62"
+    },
+    {
+      "name": "realtime capture -> local stable IDs -> bounded pages -> HTTP reload -> exact full body",
+      "passed": true,
+      "source": "synthetic notification/public-source seam with different IDs; actual product capture and HTTPS/WSS",
+      "items": 2,
+      "largest_body_bytes": 1050016,
+      "expired_cache_recovery": true,
+      "order_and_stable_ids_preserved": true,
+      "respected_existing_http_rate_limit": true
+    },
+    {
+      "name": "real product process limit4MiB, stream64KiB/browser1MiB rejected1009, feature-off reconnect retains lease/history via old protocol",
+      "passed": true,
+      "process_max_bytes": 4194304
+    }
+  ],
+  "acceptance_runner_sha256": "eb4e498b0a0d6c77c7870ff885594fb300a6630260253a413b069f3a1f3e4a07",
+  "passed": true,
+  "completed_at": "2026-10-30T08:56:59.787849+00:00"
+}

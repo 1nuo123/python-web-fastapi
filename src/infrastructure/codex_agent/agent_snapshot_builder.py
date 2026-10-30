@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Final, Literal, cast
 from uuid import UUID
@@ -118,7 +118,8 @@ class AgentSnapshotBuilder:
         *,
         page_index: int,
         page_size: int,
-        max_page_bytes: int = 4 * 1024 * 1024 - 4096,
+        max_page_bytes: int = 4 * 1024 * 1024,
+        encoded_size: Callable[[AgentStateSnapshotV2Detail], int] | None = None,
         pending_approvals: tuple[AgentPendingApprovalSnapshot, ...] = (),
         snapshot: CodexAgentStateSnapshot | None = None,
     ) -> AgentStateSnapshotV2Detail:
@@ -167,23 +168,41 @@ class AgentSnapshotBuilder:
             captured_at=legacy.captured_at,
         )
 
-        fixed_bytes = len(base.model_dump_json().encode("utf-8")) + 512
-        if fixed_bytes >= max_page_bytes:
-            raise AppServerMessageTooLargeError(
-                "快照控制状态超过单帧预算，不能省略审批或假报完整。"
-            )
+        measure = encoded_size or (lambda value: len(value.model_dump_json().encode("utf-8")))
         pages: list[tuple[AgentThreadSnapshot, ...]] = []
         page: list[AgentThreadSnapshot] = []
-        page_bytes = fixed_bytes
-        for thread in all_threads:
-            size = len(thread.model_dump_json().encode("utf-8")) + 1
-            if size + fixed_bytes > max_page_bytes:
-                raise AppServerMessageTooLargeError("单条会话快照超过单帧预算。")
-            if page and (len(page) >= page_size or page_bytes + size > max_page_bytes):
+
+        def page_size_bytes(items: list[AgentThreadSnapshot], consumed: int) -> int:
+            remaining = len(all_threads) - consumed
+            return measure(
+                base.model_copy(
+                    update={
+                        "page_index": len(pages),
+                        "threads": tuple(items),
+                        "continuation_token": str(len(pages) + 1) if remaining else None,
+                        "omissions": (
+                            AgentSnapshotOmission(
+                                section="threads", omitted_count=remaining, reason="page_capacity"
+                            ),
+                        )
+                        if remaining
+                        else (),
+                    }
+                )
+            )
+
+        if page_size_bytes([], 0) > max_page_bytes:
+            raise AppServerMessageTooLargeError("快照控制状态超过消息预算，不能省略审批。")
+        for index, thread in enumerate(all_threads):
+            if page and (
+                len(page) >= page_size
+                or page_size_bytes([*page, thread], index + 1) > max_page_bytes
+            ):
                 pages.append(tuple(page))
-                page, page_bytes = [], fixed_bytes
+                page = []
+            if page_size_bytes([*page, thread], index + 1) > max_page_bytes:
+                raise AppServerMessageTooLargeError("单条会话快照超过消息预算。")
             page.append(thread)
-            page_bytes += size
         pages.append(tuple(page))
         if page_index >= len(pages):
             raise ValueError("快照页码超出范围。")

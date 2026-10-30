@@ -7,6 +7,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.core.codex_contract.agent_connection_contract import AGENT_EXECUTION_LEASE_MAX_SECONDS
+from src.core.codex_contract.agent_content_contract import AgentContentBudgets
 from src.core.codex_contract.agent_release_manifest_contract import (
     CodexAgentReleaseDistributionMode,
     parse_agent_release_version,
@@ -54,6 +55,8 @@ class CodexRuntimeSettings(BaseModel):
 
     enabled: bool = True
     agent_lease_continuity_enabled: bool = True
+    bounded_content_enabled: bool = True
+    content_budgets: AgentContentBudgets = Field(default_factory=AgentContentBudgets)
     agent_deployment_profile: CodexAgentDeploymentProfile = CodexAgentDeploymentProfile.PRODUCTION
     agent_heartbeat_seconds: int = Field(ge=15, le=15)
     agent_offline_after_seconds: int = Field(gt=0)

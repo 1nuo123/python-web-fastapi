@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from src.core.codex_contract.agent_content_contract import ContentDescriptor
+
 import base64
 import binascii
 import hashlib
@@ -432,6 +434,7 @@ class CodexTimelineDetailBase(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     schema_version: Literal["1.0"] = CODEX_TIMELINE_ITEM_SCHEMA_VERSION
+    content: ContentDescriptor | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class CodexUserMessageTimelineDetail(CodexTimelineDetailBase):
@@ -541,6 +544,10 @@ class CodexThreadAuthoritySnapshot(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    schema_version: Literal["bounded-content.1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
     source_epoch: UUID | None = None
     source_seq: int = Field(default=0, ge=0)
     covered_item_ids: list[str] = Field(default_factory=list, max_length=200)
@@ -567,6 +574,10 @@ class CodexThreadHistoryPage(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    schema_version: Literal["bounded-content.1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
     items: list[CodexTimelineItemEnvelope]
     before_cursor: str | None = Field(default=None, max_length=16_384)
     has_more: bool
@@ -585,6 +596,10 @@ class CodexThreadHistoryItemReload(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["bounded-content.1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     items: list[CodexTimelineItemEnvelope]
     missing_item_ids: list[str] = Field(default_factory=list)

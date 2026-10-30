@@ -7,6 +7,9 @@ FastAPI 应用组合根。
 
 from __future__ import annotations
 
+from src.application.codex.read_codex_content_usecase import ReadCodexContentUsecase
+from src.application.codex.codex_content_reference import CodexContentReferenceCodec
+
 import hashlib
 import logging
 from dataclasses import dataclass
@@ -290,6 +293,7 @@ class ApplicationContainer:
     query_codex_threads_usecase: QueryCodexThreadsUsecase
     execute_codex_thread_command_usecase: ExecuteCodexThreadCommandUsecase
     read_codex_thread_snapshot_usecase: ReadCodexThreadSnapshotUsecase
+    read_codex_content_usecase: ReadCodexContentUsecase
     manage_codex_approval_usecase: ManageCodexApprovalUsecase
 
 
@@ -729,6 +733,23 @@ class FastApiAppAssembler:
                 ),
                 outbox_ttl_seconds=(
                     resource_mount.read_codex_runtime_settings().operation_idempotency_ttl_seconds
+                ),
+            ),
+            read_codex_content_usecase=ReadCodexContentUsecase(
+                control_port=resource_mount,
+                dispatch_port=CodexRuntimeFacade(resource_mount.get_codex_control_runtime()),
+                timeout_seconds=resource_mount.read_codex_runtime_settings().agent_query_timeout_seconds,
+                ack_timeout_seconds=resource_mount.read_codex_runtime_settings().agent_rpc_ack_timeout_seconds,
+                reference_codec=CodexContentReferenceCodec(
+                    hashlib.sha256(
+                        b"codex-content-v1\x00"
+                        + hashlib.sha256(
+                            b"codex-history-cursor-v1\x00"
+                            + resource_mount.read_runtime_bundle()
+                            .settings.runtime.auth.jwt_secret.get_secret_value()
+                            .encode("utf-8")
+                        ).digest()
+                    ).digest()
                 ),
             ),
             read_codex_thread_snapshot_usecase=ReadCodexThreadSnapshotUsecase(

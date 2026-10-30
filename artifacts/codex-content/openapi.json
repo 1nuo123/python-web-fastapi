@@ -1,0 +1,290 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Codex content contract",
+    "version": "1.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "UnavailableContentDescriptor": {
+        "properties": {
+          "field": {
+            "$ref": "#/components/schemas/ContentField"
+          },
+          "revision": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Revision"
+          },
+          "total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 9007199254740991.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Bytes"
+          },
+          "availability": {
+            "type": "string",
+            "const": "unavailable",
+            "title": "Availability",
+            "default": "unavailable"
+          },
+          "preview": {
+            "type": "string",
+            "maxLength": 2048,
+            "title": "Preview"
+          },
+          "unavailable_reason": {
+            "$ref": "#/components/schemas/ContentErrorCode"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field",
+          "revision",
+          "preview",
+          "unavailable_reason"
+        ],
+        "title": "UnavailableContentDescriptor"
+      },
+      "ContentErrorCode": {
+        "type": "string",
+        "enum": [
+          "content_revision_stale",
+          "content_reference_expired",
+          "content_range_invalid",
+          "content_capability_unavailable",
+          "source_item_too_large",
+          "content_read_overloaded",
+          "content_read_timeout",
+          "message_too_large"
+        ],
+        "title": "ContentErrorCode"
+      },
+      "ContentField": {
+        "type": "string",
+        "enum": [
+          "text",
+          "output",
+          "diff"
+        ],
+        "title": "ContentField"
+      },
+      "ReadableContentDescriptor": {
+        "properties": {
+          "field": {
+            "$ref": "#/components/schemas/ContentField"
+          },
+          "revision": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Revision"
+          },
+          "total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 9007199254740991.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Bytes"
+          },
+          "availability": {
+            "type": "string",
+            "const": "readable",
+            "title": "Availability",
+            "default": "readable"
+          },
+          "preview": {
+            "type": "string",
+            "maxLength": 2048,
+            "title": "Preview"
+          },
+          "content_ref": {
+            "type": "string",
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Content Ref"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field",
+          "revision",
+          "preview",
+          "content_ref",
+          "expires_at"
+        ],
+        "title": "ReadableContentDescriptor"
+      },
+      "InlineContentDescriptor": {
+        "properties": {
+          "field": {
+            "$ref": "#/components/schemas/ContentField"
+          },
+          "revision": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Revision"
+          },
+          "total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 9007199254740991.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Bytes"
+          },
+          "availability": {
+            "type": "string",
+            "const": "inline",
+            "title": "Availability",
+            "default": "inline"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2048,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field",
+          "revision",
+          "text"
+        ],
+        "title": "InlineContentDescriptor"
+      },
+      "CodexContentChunk": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "codex_content_chunk",
+            "title": "Kind",
+            "default": "codex_content_chunk"
+          },
+          "schema_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Schema Version",
+            "default": "1.0"
+          },
+          "revision": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Revision"
+          },
+          "offset": {
+            "type": "integer",
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Offset"
+          },
+          "next_offset": {
+            "type": "integer",
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Next Offset"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 65536,
+            "title": "Text"
+          },
+          "eof": {
+            "type": "boolean",
+            "title": "Eof"
+          },
+          "total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 9007199254740991.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Bytes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "offset",
+          "next_offset",
+          "text",
+          "eof"
+        ],
+        "title": "CodexContentChunk"
+      },
+      "CodexContentReadRequest": {
+        "properties": {
+          "content_ref": {
+            "type": "string",
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Content Ref"
+          },
+          "revision": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Revision"
+          },
+          "offset": {
+            "type": "integer",
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Offset",
+            "default": 0
+          },
+          "requested_bytes": {
+            "type": "integer",
+            "maximum": 65536.0,
+            "minimum": 4.0,
+            "title": "Requested Bytes",
+            "default": 16384
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "content_ref",
+          "revision"
+        ],
+        "title": "CodexContentReadRequest"
+      }
+    }
+  }
+}

@@ -24,6 +24,7 @@ from src.core.codex_contract.agent_protocol_contract import (
 from src.core.codex_contract.agent_protocol_v2_contract import (
     AgentApprovalReplyCommandDetail,
     AgentCommandHeader,
+    AgentContentReadCommandDetail,
     AgentCommandV2Detail,
     AgentProtocolMessageType,
     AgentProtocolV2Detail,
@@ -97,6 +98,7 @@ SANDBOX_MODE_DETAIL_FIELD: Final = "sandbox_mode"
 APPROVAL_POLICY_DETAIL_FIELD: Final = "approval_policy"
 
 AGENT_COMMAND_PARAM_NAMES: Final = {
+    "content.read": frozenset({"request"}),
     "workspace.settings": frozenset({"workspace_key", "settings"}),
     APPROVAL_DECISION_COMMAND_TYPE: frozenset(
         {APPROVAL_ID_PARAM, DECISION_PARAM, APPROVAL_VERSION_PARAM}
@@ -222,11 +224,34 @@ class AgentProtocolV1Codec:
 class AgentProtocolV2Codec:
     """v2 envelope 编码解码；不接受 v1 裸 payload。"""
 
+    def __init__(self, *, bounded_content: bool = False) -> None:
+        self.bounded_content = bounded_content
+
+    def _validate_extension(self, frame: CodexConnectionFrame) -> None:
+        detail = frame.payload.get("detail")
+        if not isinstance(detail, dict) or self.bounded_content:
+            return
+        nested = detail.get("detail")
+        result = detail.get("result")
+        if (
+            detail.get("kind") in {"bounded_hello", "bounded_hello_ack"}
+            or isinstance(nested, dict)
+            and nested.get("kind") == "content.read"
+            or isinstance(result, dict)
+            and result.get("kind") == "content.read"
+        ):
+            raise ValueError("正文能力未在当前连接协商。")
+        if isinstance(nested, dict):
+            window = nested.get("history_window")
+            if isinstance(window, dict) and "content_mode" in window:
+                raise ValueError("有界历史表示未在当前连接协商。")
+
     def decode(self, frame: CodexConnectionFrame) -> AgentProtocolV2Envelope:
         """从 transport frame 读取完整 v2 envelope。"""
 
         if frame.message_type != AGENT_PROTOCOL_V2_TRANSPORT_MESSAGE_TYPE:
             raise ValueError("Agent protocol v2 transport类型不正确。")
+        self._validate_extension(frame)
         return AgentProtocolV2Envelope.model_validate(frame.payload)
 
     def encode(self, envelope: AgentProtocolV2Envelope) -> CodexConnectionFrame:
@@ -259,15 +284,36 @@ class AgentProtocolV2Codec:
                     snapshot.pop("history_window", None)
                 if isinstance(snapshot, dict) and not snapshot.get("covered_item_ids"):
                     snapshot.pop("covered_item_ids", None)
+        self._validate_extension(frame)
+        self._project_content(frame.payload)
         return frame
+
+    def _project_content(self, value: JsonValue) -> None:
+        """旧线格式不引入描述字段；缺省字段从所有版本编码中省略。"""
+        if isinstance(value, dict):
+            if "content" in value and (
+                value["content"] is None
+                or (
+                    not self.bounded_content
+                    and isinstance(value["content"], dict)
+                    and value["content"].get("availability")
+                    in {"inline", "readable", "unavailable"}
+                )
+            ):
+                value.pop("content")
+            for child in value.values():
+                self._project_content(child)
+        elif isinstance(value, list):
+            for child in value:
+                self._project_content(child)
 
 
 class AgentProtocolCodecRegistry:
     """只根据 transport schema version 选择独立 codec。"""
 
-    def __init__(self) -> None:
+    def __init__(self, *, bounded_content: bool = False) -> None:
         self._v1 = AgentProtocolV1Codec()
-        self._v2 = AgentProtocolV2Codec()
+        self._v2 = AgentProtocolV2Codec(bounded_content=bounded_content)
 
     def decode(self, frame: CodexConnectionFrame) -> DecodedAgentProtocolMessage:
         """解码一帧，不让 route/use case 检查 JSON 字段。"""
@@ -386,6 +432,8 @@ class AgentCommandV2Mapper:
             | AgentApprovalReplyCommandDetail
         ),
     ) -> tuple[str, dict[str, JsonValue]]:
+        if isinstance(detail, AgentContentReadCommandDetail):
+            return detail.kind, {"request": detail.request.model_dump(mode="json")}
         if isinstance(detail, AgentWorkspaceSettingsCommandDetail):
             return detail.kind, {
                 "workspace_key": detail.workspace_key,
@@ -514,6 +562,8 @@ class AgentCommandV2Mapper:
                 ),
                 approval_version=self._read_required_int(params, APPROVAL_VERSION_PARAM),
             )
+        if command.command_type == "content.read":
+            return AgentContentReadCommandDetail.model_validate(params)
         workspace_key = self._read_required_string(params, WORKSPACE_KEY_PARAM)
         if command.command_type == "workspace.settings":
             return AgentWorkspaceSettingsCommandDetail.model_validate(params)

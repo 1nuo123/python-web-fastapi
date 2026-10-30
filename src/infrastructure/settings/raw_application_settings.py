@@ -1187,12 +1187,22 @@ class RawKeyManagementRuntimeMapping(TypedDict, total=False):
     detail: RawKeyManagementRuntimeDetailMapping
 
 
+class RawCodexContentBudgetsMapping(TypedDict, total=False):
+    max_receive_message_bytes: int
+    history_page_max_bytes: int
+    content_chunk_max_message_bytes: int
+    query_inflight_max_bytes: int
+    content_read: bool
+
+
 class RawCodexControlRuntimeMapping(TypedDict, total=False):
     """原始 Codex 控制面运行时配置。"""
 
     enabled: bool
     agent_deployment_profile: str
     agent_lease_continuity_enabled: bool
+    bounded_content_enabled: bool
+    content_budgets: RawCodexContentBudgetsMapping
     agent_heartbeat_seconds: int
     agent_offline_after_seconds: int
     agent_hello_timeout_seconds: int

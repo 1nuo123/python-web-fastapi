@@ -263,6 +263,7 @@ class AppServerProcessSupervisor:
             notification_handler=self._notification_handler,
             request_handler=self._request_handler,
             warning_handler=self._warning_handler,
+            method_catalog=profile.detail.method_catalog if profile is not None else None,
         )
         instance_id = str(uuid4())
         self._stderr_task = asyncio.create_task(

@@ -17,7 +17,9 @@ import psutil
 from scripts.codex.verify_compatibility_release import implementation_digest
 
 
-def verify_browser_history(browser_result: dict, history: dict) -> dict:
+def verify_browser_history(
+    browser_result: dict, history: dict, *, native_commands: dict | None = None
+) -> dict:
     """核对本次四个真实 UI turn 与 CLI 权威历史，不把浏览器自报当完成证明。"""
     expected = browser_result.get("turns", [])
     required = {
@@ -60,6 +62,10 @@ def verify_browser_history(browser_result: dict, history: dict) -> dict:
         ),
         None,
     )
+    command_source = "public CLI history"
+    if command is None and native_commands is not None:
+        command = native_commands.get((thread["id"], approved["turn_id"]))
+        command_source = "original CLI item/completed notification (public history omits tools)"
     if (
         not command
         or command.get("exitCode") != 0
@@ -87,6 +93,7 @@ def verify_browser_history(browser_result: dict, history: dict) -> dict:
         "command_item_id": command["id"],
         "command_exit_code": command["exitCode"],
         "command_output_marker": "BROWSER_COMMAND_OK",
+        "command_evidence_source": command_source,
     }
 
 
@@ -156,6 +163,7 @@ async def run_browser_task(
     acceptance_report: Path,
     timeout_seconds: int = 720,
     activation_only: bool = False,
+    content_thread_id: str | None = None,
 ) -> None:
     root = Path(__file__).resolve().parents[3]
     frontend = root.parent / "typescript-web-nuxt"
@@ -191,16 +199,41 @@ async def run_browser_task(
         "CODEX_ACCEPTANCE_OUTPUT": str(output),
         "CODEX_ACCEPTANCE_TIMEOUT_SECONDS": str(timeout_seconds),
         "CODEX_ACCEPTANCE_ACTIVATION_ONLY": str(activation_only).lower(),
+        "CODEX_ACCEPTANCE_CONTENT_THREAD": content_thread_id or "",
     }
     log_path = output.with_name(output.stem + "-server.log")
     browser_result = {}
     browser_process = None
     frontend_process = None
     primary_failure = False
+    created_thread_id = None
     original_result_sender = channel._send_current_result
+    native_client = channel._supervisor.handle.client
+    original_notification_handler = native_client._notification_handler
+    native_commands = {}
     report["agent_command_diagnostics"] = []
 
+    async def observe_notification(method, params):
+        if (
+            method == "item/completed"
+            and isinstance(params, dict)
+            and params.get("threadId") == created_thread_id
+        ):
+            item = params.get("item")
+            if (
+                isinstance(item, dict)
+                and item.get("type") == "commandExecution"
+                and "BROWSER_COMMAND_OK" in (item.get("command") or "")
+            ):
+                native_commands[(params["threadId"], params.get("turnId"))] = dict(item)
+        await original_notification_handler(method, params)
+
     async def observe_result(result, command):
+        nonlocal created_thread_id
+        if command.command_type == "thread.start" and isinstance(result.result, dict):
+            thread = result.result.get("thread")
+            if isinstance(thread, dict) and isinstance(thread.get("id"), str):
+                created_thread_id = thread["id"]
         # Observe metadata only, and forward the unchanged real result through its original path.
         detail = {
             "command_id": str(result.command_id),
@@ -209,12 +242,13 @@ async def run_browser_task(
             "outcome": result.outcome,
             "error_code": result.error_code,
         }
-        if command.command_type == "workspace.settings" and result.error_message:
+        if result.error_message:
             detail["error"] = _diagnostic_error(RuntimeError(result.error_message))
         report["agent_command_diagnostics"].append(detail)
         await original_result_sender(result, command)
 
     channel._send_current_result = observe_result
+    native_client._notification_handler = observe_notification
     with log_path.open("wb") as log:
         try:
             frontend_process = await asyncio.create_subprocess_exec(
@@ -240,7 +274,9 @@ async def run_browser_task(
                         await asyncio.sleep(0.5)
             browser_process = await asyncio.create_subprocess_exec(
                 node,
-                "scripts/acceptance/codex-browser-task.cjs",
+                "scripts/acceptance/codex-browser-content.cjs"
+                if content_thread_id
+                else "scripts/acceptance/codex-browser-task.cjs",
                 cwd=frontend,
                 env=environment,
                 stdout=log,
@@ -256,6 +292,14 @@ async def run_browser_task(
                 raise RuntimeError(
                     f"Browser task failed at {browser_result.get('stage')}: {browser_result.get('error')}"
                 )
+            if content_thread_id:
+                report["scenarios"].append(
+                    {
+                        "name": "production Nuxt bounded content desktop/mobile interactions",
+                        "passed": True,
+                    }
+                )
+                return
             if activation_only:
                 report["scenarios"].append(
                     {
@@ -266,7 +310,9 @@ async def run_browser_task(
                 return
             client = channel._supervisor.handle.client
             history = await read_browser_history(client, browser_result["thread_id"])
-            report["authoritative_history"] = verify_browser_history(browser_result, history)
+            report["authoritative_history"] = verify_browser_history(
+                browser_result, history, native_commands=native_commands
+            )
             report["scenarios"].append(
                 {
                     "name": "six real browser smoke checks and independent CLI authoritative history agree",
@@ -279,6 +325,7 @@ async def run_browser_task(
             raise
         finally:
             channel._send_current_result = original_result_sender
+            native_client._notification_handler = original_notification_handler
             report["agent_journal_summary"] = [
                 {
                     "command_id": record.identity.command_id,
@@ -301,7 +348,7 @@ async def run_browser_task(
             if not browser_result and output.is_file():
                 browser_result = json.loads(output.read_text(encoding="utf-8"))
                 report["browser"] = browser_result
-            thread_id = browser_result.get("thread_id")
+            thread_id = browser_result.get("thread_id") or created_thread_id
             if thread_id:
                 client = channel._supervisor.handle.client
                 try:

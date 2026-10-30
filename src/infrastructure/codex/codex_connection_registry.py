@@ -16,6 +16,7 @@ from src.core.codex_contract.connection_session_contract import (
     CodexOutboundFrameSenderPort,
 )
 from src.domain.codex.codex_compatibility_policy import CodexCompatibilityDecision
+from src.core.codex_contract.agent_content_contract import AgentContentBudgets
 
 
 class CodexConnectionCapacityError(ConnectionError):
@@ -35,6 +36,7 @@ class CodexConnectionLease:
     compatibility_decision: CodexCompatibilityDecision
     allowed_commands: frozenset[str] | None = None
     history_windows: bool = False
+    content_budgets: AgentContentBudgets | None = None
     on_revoke: Callable[[], Awaitable[None]] | None = None
     disconnected: asyncio.Event = field(default_factory=asyncio.Event)
 
@@ -70,6 +72,7 @@ class CodexConnectionRegistry:
         on_revoke: Callable[[], Awaitable[None]] | None = None,
         allowed_commands: frozenset[str] | None = None,
         history_windows: bool = False,
+        content_budgets: AgentContentBudgets | None = None,
     ) -> CodexConnectionLease:
         """注册新连接；同 host 重连原子替换并通知旧会话退出。"""
 
@@ -91,6 +94,7 @@ class CodexConnectionRegistry:
                 compatibility_decision=compatibility_decision,
                 allowed_commands=allowed_commands,
                 history_windows=history_windows,
+                content_budgets=content_budgets,
                 on_revoke=on_revoke,
             )
             self._leases[host_id] = lease

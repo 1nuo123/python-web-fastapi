@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "stage": "complete",
+  "checks": [
+    "Full real CLI body matches exact Chinese, emoji, newline, backslash text",
+    "Collapse cancels/clears, route leave clears, mobile rendering stays within viewport"
+  ],
+  "page_errors": [],
+  "content_requests": 5,
+  "max_http_bytes": 9911
+}

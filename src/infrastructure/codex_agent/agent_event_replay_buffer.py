@@ -35,11 +35,15 @@ class AgentReplayWindow:
 class AgentEventReplayBuffer:
     """有界、单写者事件窗口；trim 不泄露内部 deque。"""
 
-    def __init__(self, *, capacity: int) -> None:
+    def __init__(self, *, capacity: int, max_bytes: int = 16 * 1024 * 1024) -> None:
         if capacity <= 0:
             raise ValueError("Agent事件重放缓冲容量必须大于零。")
-        self._events: deque[AgentBufferedEvent] = deque(maxlen=capacity)
+        self._events: deque[AgentBufferedEvent] = deque()
+        self._capacity = capacity
+        self._max_bytes = max_bytes
+        self._sizes: deque[int] = deque()
         self._trimmed = False
+        self._total_bytes = 0
 
     @property
     def size(self) -> int:
@@ -50,9 +54,21 @@ class AgentEventReplayBuffer:
     def append(self, event: AgentBufferedEvent) -> None:
         """追加事件并在超限时记录 gap。"""
 
-        if len(self._events) == self._events.maxlen:
+        size = len(event.frame.model_dump_json().encode("utf-8"))
+        if event.record is not None:
+            size += len(event.record.model_dump_json().encode("utf-8"))
+        while self._events and (
+            len(self._events) >= self._capacity or self._total_bytes + size > self._max_bytes
+        ):
+            self._events.popleft()
+            self._total_bytes -= self._sizes.popleft()
             self._trimmed = True
+        if size > self._max_bytes:
+            self._trimmed = True
+            return
         self._events.append(event)
+        self._sizes.append(size)
+        self._total_bytes += size
 
     def read_after(self, *, epoch: UUID, after_seq: int) -> AgentReplayWindow:
         """按 epoch 与累计 ACK 返回可重放窗口。"""
@@ -74,12 +90,16 @@ class AgentEventReplayBuffer:
         retained = tuple(
             item for item in self._events if item.epoch != epoch or item.seq > after_seq
         )
-        self._events.clear()
-        self._events.extend(retained)
-        self._trimmed = False
+        trimmed = self._trimmed
+        self.clear()
+        for item in retained:
+            self.append(item)
+        self._trimmed = trimmed
 
     def clear(self) -> None:
         """清空本地缓冲并重置 gap 标志。"""
 
         self._events.clear()
+        self._sizes.clear()
+        self._total_bytes = 0
         self._trimmed = False

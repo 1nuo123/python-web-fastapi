@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 from http import HTTPStatus
-from typing import Annotated
+from collections.abc import Awaitable, Callable
+from pydantic import BaseModel
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.api.dependency_context_accessor import DependencyContextAccessor
+from src.api.endpoint_codex_control.codex_query_lifecycle import (
+    await_codex_query,
+    bounded_codex_response,
+)
+from src.core.codex_contract.agent_content_contract import (
+    CodexContentReadRequest,
+    CodexContentChunk,
+    ContentErrorCode,
+)
+from src.application.codex.read_codex_content_usecase import content_http_fault
 from src.core.codex_contract.host_contract import CodexSandboxMode
 from src.core.codex_contract.operation_contract import CodexOperationView
 from src.core.codex_contract.thread_contract import (
@@ -110,6 +122,13 @@ class CodexThreadRouteCatalog:
             self.get_thread_history,
             methods=["GET"],
             response_model=ResponseEnvelope[CodexThreadHistoryPage],
+            dependencies=[Depends(self.require_codex_read)],
+        )
+        self.router.add_api_route(
+            "/codex/hosts/{host_id}/threads/{thread_id}/history/items/{item_id}/content/read",
+            self.read_content,
+            methods=["POST"],
+            response_model=ResponseEnvelope[CodexContentChunk],
             dependencies=[Depends(self.require_codex_read)],
         )
         self.router.add_api_route(
@@ -288,6 +307,7 @@ class CodexThreadRouteCatalog:
         request: Request,
         host_id: UUID,
         thread_id: str,
+        content_mode: Literal["legacy", "bounded"] = "legacy",
         include_history: bool = False,
         legacy_history_cursor: str | None = Query(
             default=None,
@@ -310,18 +330,19 @@ class CodexThreadRouteCatalog:
                 message="旧版历史游标已失效，请使用签名before_cursor重新读取。",
             )
         principal = self._accessor.read_authenticated_principal(request)
-        payload = await self._accessor.read_codex_thread_snapshot_usecase(request).execute(
-            host_id=host_id,
-            upstream_thread_id=thread_id,
-            owner_subject_id=principal.subject_id,
-            include_history=include_history,
-            history_limit=history_limit,
-        )
-        return self._accessor.read_response_factory(request).build(
-            code=str(SuccessCode.OK),
+        return await self._history_response(
+            request,
+            content_mode=content_mode,
+            limit=history_limit,
             message="Codex thread权威快照读取成功。",
-            request_scope=self._accessor.read_request_scope(request),
-            data=payload,
+            query=lambda count: self._accessor.read_codex_thread_snapshot_usecase(request).execute(
+                host_id=host_id,
+                upstream_thread_id=thread_id,
+                owner_subject_id=principal.subject_id,
+                content_mode=content_mode,
+                include_history=include_history,
+                history_limit=count,
+            ),
         )
 
     async def get_thread_history(
@@ -329,6 +350,7 @@ class CodexThreadRouteCatalog:
         request: Request,
         host_id: UUID,
         thread_id: str,
+        content_mode: Literal["legacy", "bounded"] = "legacy",
         before_cursor: str | None = None,
         limit: Annotated[
             int,
@@ -341,22 +363,20 @@ class CodexThreadRouteCatalog:
         """按签名边界向前读取一页历史，拒绝 offset 和跨范围游标。"""
 
         principal = self._accessor.read_authenticated_principal(request)
-        payload = await self._accessor.read_codex_thread_snapshot_usecase(
-            request
-        ).read_history_page(
-            host_id=host_id,
-            upstream_thread_id=thread_id,
-            owner_subject_id=principal.subject_id,
-            query=CodexThreadHistoryQuery(
-                before_cursor=before_cursor,
-                limit=limit,
-            ),
-        )
-        return self._accessor.read_response_factory(request).build(
-            code=str(SuccessCode.OK),
+        return await self._history_response(
+            request,
+            content_mode=content_mode,
+            limit=limit,
             message="Codex历史分页读取成功。",
-            request_scope=self._accessor.read_request_scope(request),
-            data=payload,
+            query=lambda count: self._accessor.read_codex_thread_snapshot_usecase(
+                request
+            ).read_history_page(
+                host_id=host_id,
+                upstream_thread_id=thread_id,
+                owner_subject_id=principal.subject_id,
+                content_mode=content_mode,
+                query=CodexThreadHistoryQuery(before_cursor=before_cursor, limit=count),
+            ),
         )
 
     async def get_thread_history_items(
@@ -368,23 +388,115 @@ class CodexThreadRouteCatalog:
             list[str],
             Query(min_length=1, max_length=CODEX_HISTORY_ITEM_RELOAD_MAXIMUM),
         ],
+        content_mode: Literal["legacy", "bounded"] = "legacy",
     ) -> ResponseEnvelope[CodexThreadHistoryItemReload]:
         """仅按稳定 item ID 恢复当前标签页已经回收的正文，拒绝正文搜索与 offset。"""
 
         principal = self._accessor.read_authenticated_principal(request)
-        payload = await self._accessor.read_codex_thread_snapshot_usecase(
-            request
-        ).read_history_items(
-            host_id=host_id,
-            upstream_thread_id=thread_id,
-            owner_subject_id=principal.subject_id,
-            item_ids=item_id,
-        )
-        return self._accessor.read_response_factory(request).build(
-            code=str(SuccessCode.OK),
+        return await self._history_response(
+            request,
+            content_mode=content_mode,
+            limit=1,
             message="Codex 已回收历史正文读取成功。",
-            request_scope=self._accessor.read_request_scope(request),
-            data=payload,
+            query=lambda count: self._accessor.read_codex_thread_snapshot_usecase(
+                request
+            ).read_history_items(
+                host_id=host_id,
+                upstream_thread_id=thread_id,
+                owner_subject_id=principal.subject_id,
+                content_mode=content_mode,
+                item_ids=item_id,
+            ),
+        )
+
+    async def _history_response(
+        self,
+        request: Request,
+        *,
+        content_mode: str,
+        limit: int,
+        message: str,
+        query: Callable[[int], Awaitable[BaseModel]],
+    ) -> ResponseEnvelope:
+        """量取签名引用与HTTP外壳后的真实编码；缩页时重读同一边界而不丢item。"""
+
+        async def read() -> ResponseEnvelope:
+            count = limit
+            budget = request.app.state.container.resource_mount.read_codex_runtime_settings().content_budgets.history_page_max_bytes
+            while True:
+                payload = await query(count)
+                if content_mode == "bounded":
+                    payload = payload.model_copy(update={"schema_version": "bounded-content.1"})
+                envelope = self._accessor.read_response_factory(request).build(
+                    code=str(SuccessCode.OK),
+                    message=message,
+                    request_scope=self._accessor.read_request_scope(request),
+                    data=payload,
+                )
+                if (
+                    content_mode != "bounded"
+                    or len(envelope.model_dump_json().encode("utf-8")) <= budget
+                ):
+                    return envelope
+                if count <= 1:
+                    raise content_http_fault(ContentErrorCode.MESSAGE_TOO_LARGE)
+                count = max(1, count // 2)
+
+        if content_mode == "bounded":
+            return await bounded_codex_response(
+                request,
+                max_bytes=request.app.state.container.resource_mount.read_codex_runtime_settings().content_budgets.history_page_max_bytes,
+                operation=read,
+            )
+        return await await_codex_query(request, read())
+
+    async def read_content(
+        self,
+        request: Request,
+        host_id: UUID,
+        thread_id: str,
+        item_id: str,
+        body: CodexContentReadRequest,
+    ) -> ResponseEnvelope[CodexContentChunk]:
+        principal = self._accessor.read_authenticated_principal(request)
+
+        async def read() -> ResponseEnvelope[CodexContentChunk]:
+            payload = await self._accessor.read_codex_content_usecase(request).execute(
+                owner_subject_id=principal.subject_id,
+                host_id=host_id,
+                thread_id=thread_id,
+                item_id=item_id,
+                request=body,
+            )
+            envelope = self._accessor.read_response_factory(request).build(
+                code=str(SuccessCode.OK),
+                message="Codex正文读取成功。",
+                request_scope=self._accessor.read_request_scope(request),
+                data=payload,
+            )
+
+            budgets = request.app.state.container.resource_mount.read_codex_runtime_settings().content_budgets
+            while (
+                len(envelope.model_dump_json().encode("utf-8"))
+                > budgets.content_chunk_max_message_bytes
+            ):
+                if len(payload.text) < 2:
+                    raise content_http_fault(ContentErrorCode.MESSAGE_TOO_LARGE)
+                body_text = payload.text[: len(payload.text) // 2]
+                payload = payload.model_copy(
+                    update={
+                        "text": body_text,
+                        "next_offset": payload.offset + len(body_text.encode("utf-8")),
+                        "eof": False,
+                    }
+                )
+                envelope = envelope.model_copy(update={"data": payload})
+            return envelope
+
+        return await bounded_codex_response(
+            request,
+            max_bytes=request.app.state.container.resource_mount.read_codex_runtime_settings().content_budgets.content_chunk_max_message_bytes,
+            operation=read,
         )
 
     async def resume_thread(

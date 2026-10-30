@@ -4,6 +4,16 @@ from enum import StrEnum
 
 
 class CodexErrorCode(StrEnum):
+    CONTENT_REVISION_STALE = "content_revision_stale"
+    CONTENT_REFERENCE_EXPIRED = "content_reference_expired"
+    CONTENT_RANGE_INVALID = "content_range_invalid"
+    CONTENT_CAPABILITY_UNAVAILABLE = "content_capability_unavailable"
+    SOURCE_ITEM_TOO_LARGE = "source_item_too_large"
+    CONTENT_READ_OVERLOADED = "content_read_overloaded"
+    CONTENT_READ_TIMEOUT = "content_read_timeout"
+    MESSAGE_TOO_LARGE = "message_too_large"
+
+    QUERY_CANCELLED = "query_cancelled"
     QUERY_TIMEOUT = "CODEX_QUERY_TIMEOUT"
     QUERY_OVERLOADED = "CODEX_QUERY_OVERLOADED"
     RESOURCE_NOT_FOUND = "codex.resource.not_found"

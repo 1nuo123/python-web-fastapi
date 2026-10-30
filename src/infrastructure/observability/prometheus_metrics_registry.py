@@ -374,6 +374,7 @@ class PrometheusMetricsRegistry:
             "transport_closed",
             "transport_failed",
             "protocol_invalid",
+            "message_too_large",
             "authorization_rejected",
             "server_restart",
             "local_stop",

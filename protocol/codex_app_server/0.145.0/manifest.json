@@ -61,6 +61,10 @@
       {"code": "snapshot.pagination", "version": 1}
     ],
     "method_catalog": [
+      {"method": "account/read", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": null},
+      {"method": "config/read", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": null},
+      {"method": "configRequirements/read", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": null},
+      {"method": "thread/turns/list", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": null},
       {"method": "initialize", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": null},
       {"method": "model/list", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": "model.list"},
       {"method": "thread/list", "effect": "read", "idempotent": true, "retry_on_overload": true, "ordering_barrier": false, "required_capability": "thread.list"},

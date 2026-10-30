@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
@@ -32,6 +33,7 @@ class AgentEventBatcher:
         *,
         window: timedelta = AGENT_EVENT_BATCH_WINDOW,
         max_bytes: int = AGENT_EVENT_BATCH_MAX_BYTES,
+        encoded_size: Callable[[AgentEventBatchV2Detail], int] | None = None,
     ) -> None:
         if window.total_seconds() <= 0:
             raise ValueError("Agent事件批处理窗口必须大于零。")
@@ -39,6 +41,9 @@ class AgentEventBatcher:
             raise ValueError("Agent事件批处理字节上限必须大于零。")
         self._window = window
         self._max_bytes = max_bytes
+        self._encoded_size = encoded_size or (
+            lambda batch: len(batch.model_dump_json().encode("utf-8"))
+        )
         self._pending: list[AgentEventRecord] = []
         self._started_at: datetime | None = None
         self._byte_count = 0
@@ -62,14 +67,14 @@ class AgentEventBatcher:
             or event.agent_event_epoch != self._pending[-1].agent_event_epoch
             or self._started_at is None
             or current_time - self._started_at >= self._window
-            or self._byte_count + self._event_bytes(event) > self._max_bytes
+            or self._encoded_size(self._build_batch((*self._pending, event))) > self._max_bytes
         ):
             flushed.append(self.flush())
         if is_delta:
             if not self._pending:
                 self._started_at = current_time
             self._pending.append(event)
-            self._byte_count += self._event_bytes(event)
+            self._byte_count = self._encoded_size(self._build_batch(tuple(self._pending)))
             if self._byte_count >= self._max_bytes:
                 flushed.append(self.flush())
         else:
@@ -93,14 +98,4 @@ class AgentEventBatcher:
             first_seq=events[0].seq,
             last_seq=events[-1].seq,
             events=events,
-        )
-
-    def _event_bytes(self, event: AgentEventRecord) -> int:
-        """按传输实际 UTF-8 编码计算 delta 的有界负载大小。"""
-
-        detail = event.detail
-        return (
-            len(detail.delta.encode("utf-8"))
-            if detail.kind == AgentEventType.ITEM_DELTA and hasattr(detail, "delta")
-            else 0
         )

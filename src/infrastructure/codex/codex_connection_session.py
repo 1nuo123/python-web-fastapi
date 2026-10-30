@@ -7,6 +7,7 @@ import logging
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
+from dataclasses import replace
 from typing import Final
 
 from pydantic import ValidationError
@@ -77,8 +78,13 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
         self._inbound_handler = inbound_handler
         self._policy = policy
         self._queue_observer = queue_observer
-        self._queues: tuple[deque[tuple[str, int, float]], ...] = (deque(), deque(), deque())
+        self._queues: tuple[deque[tuple[str, int, float, asyncio.Future[None] | None]], ...] = (
+            deque(),
+            deque(),
+            deque(),
+        )
         self._queue_condition = asyncio.Condition()
+        self._send_completions: set[asyncio.Future[None]] = set()
         self._queued_bytes = 0
         self._queued_count = 0
         self._schedule = (0, 0, 0, 0, 1, 1, 2)
@@ -107,7 +113,30 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
 
         return self._running
 
+    def restrict_message_limit(self, max_bytes: int) -> None:
+        """握手只能收紧当前连接预算，重新连接重新协商。"""
+        if max_bytes <= 0 or max_bytes > self._policy.max_frame_bytes:
+            raise ValueError("有效消息预算不能超过本连接配置。")
+        self._policy = replace(self._policy, max_frame_bytes=max_bytes)
+
     async def send(self, frame: CodexConnectionFrame) -> None:
+        await self._enqueue(frame, None)
+
+    async def send_and_wait(self, frame: CodexConnectionFrame) -> None:
+        """查询在实际发送完成前持有预算；下一次源读取不得提前开始。"""
+        completion = asyncio.get_running_loop().create_future()
+        self._send_completions.add(completion)
+        try:
+            await self._enqueue(frame, completion)
+            await completion
+        finally:
+            self._send_completions.discard(completion)
+            if not completion.done():
+                completion.cancel()
+
+    async def _enqueue(
+        self, frame: CodexConnectionFrame, completion: asyncio.Future[None] | None
+    ) -> None:
         """校验并有界入队一个出站帧。"""
 
         if not self._running:
@@ -136,7 +165,7 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
                     if not self._running:
                         raise CodexConnectionSessionInactiveError("连接已经停止。")
                     self._queues[priority].append(
-                        (payload, size, asyncio.get_running_loop().time())
+                        (payload, size, asyncio.get_running_loop().time(), completion)
                     )
                     self._queued_bytes += size
                     self._queued_count += 1
@@ -192,6 +221,11 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
                     ended = CodexConnectionEnd(
                         CodexConnectionEndKind.TRANSPORT_FAILURE, close_code, close_reason, exc
                     )
+                except CodexConnectionFrameTooLargeError as exc:
+                    close_code, close_reason = 1009, "message_too_large"
+                    ended = CodexConnectionEnd(
+                        CodexConnectionEndKind.PROTOCOL_FAILURE, close_code, close_reason, exc
+                    )
                 except (PermissionError, ValueError) as exc:
                     close_code = 1008 if isinstance(exc, PermissionError) else 1002
                     close_reason = (
@@ -227,6 +261,11 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
                     break
         finally:
             self._running = False
+            for completion in tuple(self._send_completions):
+                if not completion.done():
+                    completion.set_exception(
+                        CodexConnectionSessionInactiveError("查询所属连接已停止。")
+                    )
             async with self._queue_condition:
                 self._queue_condition.notify_all()
             if (
@@ -288,7 +327,7 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
                     self._schedule_index = (self._schedule_index + 1) % len(self._schedule)
                 priority = self._schedule[self._schedule_index]
                 self._schedule_index = (self._schedule_index + 1) % len(self._schedule)
-                payload, size, queued_at = self._queues[priority].popleft()
+                payload, size, queued_at, completion = self._queues[priority].popleft()
                 self._queued_count -= 1
                 self._queued_bytes -= size
                 self._queue_condition.notify_all()
@@ -315,6 +354,8 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
                 raise CodexConnectionSendTimeoutError("连接发送超过预算。")
             await self._inflight_send
             self._inflight_send = None
+            if completion is not None and not completion.done():
+                completion.set_result(None)
 
     @staticmethod
     def _frame_priority(frame: CodexConnectionFrame) -> int:
@@ -324,11 +365,19 @@ class CodexDuplexConnectionSession(CodexOutboundFrameSenderPort):
         if message_type in {
             "hello",
             "hello_ack",
+            "bounded_hello",
+            "bounded_hello_ack",
             "heartbeat",
             "execution_lease",
             "execution_stopped",
         }:
             return 0
+        if (
+            message_type == "command_result"
+            and isinstance(detail, dict)
+            and isinstance(detail.get("result"), dict)
+        ):
+            return 2
         if message_type in {
             "command",
             "command_ack",

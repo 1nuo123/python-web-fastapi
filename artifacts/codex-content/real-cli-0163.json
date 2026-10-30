@@ -1,0 +1,28 @@
+{
+  "environment": "Windows; real TLS/WSS; product ASGI routes; SQLite/local bus; real Codex 0.163.0",
+  "scenarios": [
+    {
+      "name": "real CLI bounded history and signed UTF-8 content through HTTPS/WSS, scope/range/stale/tamper, legacy DTO",
+      "passed": true,
+      "bytes": 21654,
+      "chunks": 3,
+      "sha256": "09521653173c97e2319ff3ea4a554b694f89901b1b6246b256f69eba004c19f6",
+      "budgets": {
+        "max_receive_message_bytes": 4194304,
+        "history_page_max_bytes": 131072,
+        "content_chunk_max_message_bytes": 16384,
+        "query_inflight_max_bytes": 262144,
+        "content_read": true
+      }
+    },
+    {
+      "name": "real CLI signed bounded history windows, no missing/duplicate IDs, tamper rejected",
+      "passed": true,
+      "pages": 2,
+      "items": 2
+    }
+  ],
+  "acceptance_runner_sha256": "e0b0d2de6821b463e2da00e8b180f81c4dc5c77a5f86eb48edbfa3b51bb66c09",
+  "passed": true,
+  "completed_at": "2026-10-30T07:30:19.631557+00:00"
+}

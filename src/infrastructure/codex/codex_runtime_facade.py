@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from src.core.codex_contract.agent_content_contract import AgentContentBudgets
 from uuid import UUID
 
 from src.application.ports.codex_agent_command_dispatch_port import (
@@ -26,6 +27,12 @@ class CodexRuntimeFacade(CodexAgentCommandDispatchPort, CodexRealtimeEventPort):
 
     def __init__(self, runtime: CodexControlRuntime) -> None:
         self._runtime = runtime
+
+    async def read_content_budgets(self, host_id: UUID) -> AgentContentBudgets | None:
+        lease = await self._runtime.connection_registry.read(host_id)
+        return (
+            lease.content_budgets if lease is not None and not lease.disconnected.is_set() else None
+        )
 
     async def supports_history_windows(self, host_id: UUID) -> bool:
         lease = await self._runtime.connection_registry.read(host_id)

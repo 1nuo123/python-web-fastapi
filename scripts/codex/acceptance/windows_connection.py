@@ -597,23 +597,45 @@ async def main():
                             ["http://127.0.0.1:3329"]
                             if any(
                                 flag in sys.argv
-                                for flag in ("--browser-task", "--browser-activation")
+                                for flag in (
+                                    "--browser-task",
+                                    "--browser-activation",
+                                    "--content-browser",
+                                )
                             )
                             else []
                         )
                     }
                 },
-                **(
-                    {"stream": {"detail": {"allowed_origins": ["http://127.0.0.1:3329"]}}}
-                    if any(flag in sys.argv for flag in ("--browser-task", "--browser-activation"))
-                    else {}
-                ),
+                "stream": {
+                    "detail": {
+                        "websocket_max_message_bytes": 65536,
+                        "allowed_origins": ["http://testserver", origin]
+                        + (
+                            ["http://127.0.0.1:3329"]
+                            if any(
+                                flag in sys.argv
+                                for flag in (
+                                    "--browser-task",
+                                    "--browser-activation",
+                                    "--content-browser",
+                                )
+                            )
+                            else []
+                        ),
+                    }
+                },
                 "codex_control": {
                     "max_connected_agents": 4,
                     **candidate.get("server", {}),
                 },
             }
         }
+    )
+    from src.cli.run_web_server import WebServerRuntimeProjection
+
+    projection = WebServerRuntimeProjection.from_runtime_settings(
+        app.state.container.settings_holder.current_settings
     )
     boundary = FaultBoundary(app)
     server = uvicorn.Server(
@@ -625,7 +647,8 @@ async def main():
             ssl_keyfile=str(key),
             access_log=False,
             log_level="warning",
-            ws="wsproto",
+            ws="websockets",
+            ws_max_size=projection.websocket_max_message_bytes,
         )
     )
     server_task = asyncio.create_task(server.serve())
@@ -749,6 +772,28 @@ async def main():
                 )
             }
         )
+        profile_version = next(
+            (arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--codex-version=")),
+            "0.145.0",
+        )
+        report["environment"] = (
+            f"Windows; real TLS/WSS; product ASGI routes; SQLite/local bus; real Codex {profile_version}"
+        )
+        profile = json.loads(
+            (ROOT / "protocol/codex_app_server" / profile_version / "manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        settings = settings.model_copy(
+            update={
+                "protocol": settings.protocol.model_copy(
+                    update={
+                        "expected_codex_version": profile_version,
+                        "app_server_schema_digest": profile["detail"]["json_schema_bundle_sha256"],
+                    }
+                )
+            }
+        )
         if "--runtime-recovery" in sys.argv:
             settings = settings.model_copy(
                 update={
@@ -818,6 +863,28 @@ async def main():
             journal=journal,
             logger=logging.getLogger("acceptance"),
             config_path=directory / "agent.toml",
+        )
+        profile_version = next(
+            (arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--codex-version=")),
+            "0.145.0",
+        )
+        report["environment"] = (
+            f"Windows; real TLS/WSS; product ASGI routes; SQLite/local bus; real Codex {profile_version}"
+        )
+        profile = json.loads(
+            (ROOT / "protocol/codex_app_server" / profile_version / "manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        settings = settings.model_copy(
+            update={
+                "protocol": settings.protocol.model_copy(
+                    update={
+                        "expected_codex_version": profile_version,
+                        "app_server_schema_digest": profile["detail"]["json_schema_bundle_sha256"],
+                    }
+                )
+            }
         )
         if "--runtime-recovery" in sys.argv:
             boundary.consume_next_ticket = False
@@ -889,6 +956,9 @@ async def main():
                 else {"/internal/codex-agents/device-challenges": [int(rejection)]}
             )
         if "--approval-matrix" in sys.argv or proxy is not None:
+            boundary.failures = {}
+            boundary.consume_next_ticket = False
+        if "--history-window" in sys.argv:
             boundary.failures = {}
             boundary.consume_next_ticket = False
         run_task = asyncio.create_task(channel.run())
@@ -976,7 +1046,7 @@ async def main():
             from scripts.codex.acceptance.history_window import run_history_window
 
             await run_history_window(
-                channel, origin=origin, certificate=cert, run_task=run_task, report=report
+                channel, origin=origin, certificate=cert, run_task=run_task, report=report, app=app
             )
             report["passed"] = True
             return

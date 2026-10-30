@@ -1,0 +1,78 @@
+{
+  "environment": "Production Nuxt browser, isolated control plane, real Agent/CLI; not production proxy/database/MSI",
+  "scenarios": [
+    {
+      "name": "real CLI bounded history and signed UTF-8 content through HTTPS/WSS, scope/range/stale/tamper, legacy DTO",
+      "passed": true,
+      "bytes": 21654,
+      "chunks": 3,
+      "sha256": "09521653173c97e2319ff3ea4a554b694f89901b1b6246b256f69eba004c19f6",
+      "budgets": {
+        "max_receive_message_bytes": 4194304,
+        "history_page_max_bytes": 131072,
+        "content_chunk_max_message_bytes": 16384,
+        "query_inflight_max_bytes": 262144,
+        "content_read": true
+      }
+    },
+    {
+      "name": "real CLI signed bounded history windows, no missing/duplicate IDs, tamper rejected",
+      "passed": true,
+      "pages": 2,
+      "items": 2
+    },
+    {
+      "name": "production Nuxt bounded content desktop/mobile interactions",
+      "passed": true
+    }
+  ],
+  "acceptance_runner_sha256": "eb4e498b0a0d6c77c7870ff885594fb300a6630260253a413b069f3a1f3e4a07",
+  "cli_version": "0.145.0",
+  "implementation_digest": "224d8300ad3c226011e3e8ef1a53f0bba6792e560653b6597d7dd94c019c83d4",
+  "browser_report": "E:\\python_web_fastapi\\work\\artifacts\\codex-content\\browser-chain-browser.json",
+  "browser_timeout_seconds": 180,
+  "agent_command_diagnostics": [
+    {
+      "command_id": "0ac97e8a-a642-4bc5-96de-d0093dddd483",
+      "operation_id": "a8ecf1c3-f65b-428d-8866-b1758ebcf50c",
+      "command_type": "thread.read",
+      "outcome": "completed",
+      "error_code": null
+    },
+    {
+      "command_id": "33014140-70dc-4856-b5d0-0510aba77621",
+      "operation_id": "f09de92f-abb0-47f3-a926-8f591dd69b78",
+      "command_type": "thread.read",
+      "outcome": "completed",
+      "error_code": null
+    },
+    {
+      "command_id": "5af89652-1c3f-44b5-965f-b203d75ef2b9",
+      "operation_id": "6c6c06d5-3975-4a8d-bf40-680e6ac0968a",
+      "command_type": "thread.read",
+      "outcome": "completed",
+      "error_code": null
+    },
+    {
+      "command_id": "02df0ef5-2bd3-4f6b-a455-6b061ef2f581",
+      "operation_id": "56539767-14ec-4a64-95b6-a253e4bd3764",
+      "command_type": "thread.read",
+      "outcome": "completed",
+      "error_code": null
+    }
+  ],
+  "browser": {
+    "passed": true,
+    "stage": "complete",
+    "checks": [
+      "Full real CLI body matches exact Chinese, emoji, newline, backslash text",
+      "Collapse cancels/clears, route leave clears, mobile rendering stays within viewport"
+    ],
+    "page_errors": [],
+    "content_requests": 5,
+    "max_http_bytes": 9911
+  },
+  "agent_journal_summary": [],
+  "passed": true,
+  "completed_at": "2026-10-30T08:59:52.702042+00:00"
+}

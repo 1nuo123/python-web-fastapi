@@ -291,11 +291,19 @@
         "retry_on_overload": false,
         "ordering_barrier": true,
         "required_capability": "approval.permissions"
+      },
+      {
+        "method": "thread/items/list",
+        "effect": "read",
+        "idempotent": true,
+        "retry_on_overload": true,
+        "ordering_barrier": false,
+        "required_capability": null
       }
     ],
     "license_notice_path": "../THIRD_PARTY_NOTICES.md",
     "adapter_revision": "1",
-    "history_strategy": "turns_page",
+    "history_strategy": "items_page",
     "allow_experimental_api": true
   }
 }

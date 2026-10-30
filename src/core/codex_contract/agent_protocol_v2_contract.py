@@ -22,7 +22,15 @@ from src.core.codex_contract.agent_connection_contract import (
     AGENT_EXECUTION_LEASE_MAX_SECONDS,
     AGENT_EXECUTION_LEASE_SECONDS,
 )
-from src.core.codex_contract.agent_history_window_contract import AgentHistoryWindowRequest
+from src.core.codex_contract.agent_history_window_contract import (
+    AgentHistoryWindowRequest,
+    AgentBoundedHistoryWindowRequest,
+)
+from src.core.codex_contract.agent_content_contract import (
+    AgentContentBudgets,
+    AgentContentReadRequest,
+    CodexContentChunk,
+)
 from src.core.codex_contract.agent_runtime_health_contract import AgentRuntimeStatus
 from src.core.codex_contract.app_server_product_contract import (
     APP_SERVER_PRODUCT_MAX_DELTA_CHARS,
@@ -63,6 +71,8 @@ class AgentProtocolMessageType(StrEnum):
 
     HELLO = "hello"
     HELLO_ACK = "hello_ack"
+    BOUNDED_HELLO = "bounded_hello"
+    BOUNDED_HELLO_ACK = "bounded_hello_ack"
     HEARTBEAT = "heartbeat"
     EXECUTION_LEASE = "execution_lease"
     EXECUTION_STOPPED = "execution_stopped"
@@ -144,6 +154,16 @@ class AgentHelloAckV2Detail(AgentProtocolV2DetailBase):
     after_seq: int = Field(default=0, ge=0)
 
 
+class AgentBoundedHelloV2Detail(AgentHelloV2Detail):
+    kind: Literal["bounded_hello"] = "bounded_hello"
+    content_budgets: AgentContentBudgets
+
+
+class AgentBoundedHelloAckV2Detail(AgentHelloAckV2Detail):
+    kind: Literal["bounded_hello_ack"] = "bounded_hello_ack"
+    content_budgets: AgentContentBudgets
+
+
 class AgentHeartbeatV2Detail(AgentProtocolV2DetailBase):
     """Agent 心跳与本地 App Server 代次。"""
 
@@ -222,10 +242,15 @@ class AgentThreadReadCommandDetail(AgentCommandDetailBase):
     """读取一个已登记工作区线程。"""
 
     kind: Literal["thread.read"] = "thread.read"
-    history_window: AgentHistoryWindowRequest | None = None
+    history_window: AgentBoundedHistoryWindowRequest | AgentHistoryWindowRequest | None = None
     workspace_key: str = Field(min_length=1, max_length=128)
     thread_id: str = Field(min_length=1, max_length=256)
     include_turns: bool = True
+
+
+class AgentContentReadCommandDetail(AgentCommandDetailBase):
+    kind: Literal["content.read"] = "content.read"
+    request: AgentContentReadRequest
 
 
 class AgentThreadStartCommandDetail(AgentCommandDetailBase):
@@ -343,6 +368,7 @@ class AgentWorkspaceSettingsCommandDetail(AgentCommandDetailBase):
 
 AgentCommandDetail = Annotated[
     AgentThreadListCommandDetail
+    | AgentContentReadCommandDetail
     | AgentThreadReadCommandDetail
     | AgentThreadStartCommandDetail
     | AgentThreadResumeCommandDetail
@@ -409,8 +435,14 @@ class AgentThreadReadCommandResult(BaseModel):
     snapshot: AppServerThreadReadProductResult
 
 
+class AgentContentReadCommandResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    kind: Literal["content.read"] = "content.read"
+    chunk: CodexContentChunk
+
+
 AgentCommandResultPayload = Annotated[
-    AgentThreadReadCommandResult,
+    AgentThreadReadCommandResult | AgentContentReadCommandResult,
     Field(discriminator="kind"),
 ]
 
@@ -756,6 +788,8 @@ class AgentReplayRequestV2Detail(AgentProtocolV2DetailBase):
 
 AgentProtocolV2Detail = Annotated[
     AgentHelloV2Detail
+    | AgentBoundedHelloV2Detail
+    | AgentBoundedHelloAckV2Detail
     | AgentHelloAckV2Detail
     | AgentHeartbeatV2Detail
     | AgentExecutionLeaseV2Detail

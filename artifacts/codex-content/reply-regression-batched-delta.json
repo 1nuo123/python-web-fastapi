@@ -1,0 +1,244 @@
+{
+  "environment": "Production Nuxt browser, isolated control plane, real Agent/CLI; not production proxy/database/MSI",
+  "scenarios": [],
+  "acceptance_runner_sha256": "eb4e498b0a0d6c77c7870ff885594fb300a6630260253a413b069f3a1f3e4a07",
+  "cli_version": "0.145.0",
+  "implementation_digest": "224d8300ad3c226011e3e8ef1a53f0bba6792e560653b6597d7dd94c019c83d4",
+  "browser_report": "E:\\python_web_fastapi\\work\\artifacts\\codex-content\\reply-regression-browser.json",
+  "browser_timeout_seconds": 720,
+  "agent_command_diagnostics": [
+    {
+      "command_id": "760157a6-c802-4012-b9c4-28074f1abe76",
+      "operation_id": "63d69540-27df-4aba-8246-4be8b462ac0b",
+      "command_type": "thread.start",
+      "outcome": "completed",
+      "error_code": null
+    },
+    {
+      "command_id": "8c97dda0-9aac-4eed-a73d-acdd9b89a345",
+      "operation_id": "0119200e-dbb6-4b75-a65e-7e82b8df4929",
+      "command_type": "thread.read",
+      "outcome": "completed",
+      "error_code": null
+    },
+    {
+      "command_id": "39df847f-27f0-4c6b-a352-bf2826ce06a0",
+      "operation_id": "0226547d-97c0-400f-9737-e1a23abe7e0f",
+      "command_type": "workspace.settings",
+      "outcome": "completed",
+      "error_code": null
+    },
+    {
+      "command_id": "e9e432e0-cb41-48a6-8d96-d520a0ebd9cb",
+      "operation_id": "67ecc8a6-c1ef-4c28-b6da-64cdc12d3599",
+      "command_type": "thread.read",
+      "outcome": "completed",
+      "error_code": null
+    },
+    {
+      "command_id": "9dbb2e5b-d5b4-4202-9e6c-72110604b71a",
+      "operation_id": "977f6d43-1786-42d4-a15f-d852c33a676e",
+      "command_type": "thread.read",
+      "outcome": "completed",
+      "error_code": null
+    },
+    {
+      "command_id": "b700f514-03ee-4fd2-bbb6-3cc6d59fa5d4",
+      "operation_id": "44bfc931-09d7-40da-8760-f5dc3c818da1",
+      "command_type": "turn.start",
+      "outcome": "completed",
+      "error_code": null
+    }
+  ],
+  "browser": {
+    "passed": false,
+    "checks": [],
+    "thread_id": "01a18c0b-0eef-7f63-9b95-7f70ce9336e4",
+    "stage": "send and real streaming delta",
+    "turns": [
+      {
+        "turn_id": "01a18c0b-2650-7013-ac81-1cb62f23faa9",
+        "delta_count": 2,
+        "delta_characters": 2521,
+        "started_sequence": 15,
+        "name": "streaming",
+        "operation_id": "44bfc931-09d7-40da-8760-f5dc3c818da1",
+        "http_status": 202,
+        "first_delta_sequence": 26,
+        "status": "completed",
+        "terminal_event": "turn.completed",
+        "terminal_sequence": 42
+      }
+    ],
+    "approvals": [],
+    "commands": [],
+    "event_counts": {
+      "thread.updated": 31,
+      "item.upsert": 9,
+      "turn.started": 1,
+      "item.delta": 2,
+      "turn.completed": 1
+    },
+    "websocket": {
+      "opened": 2,
+      "closed": 1,
+      "ready": 2
+    },
+    "timeout_seconds": 720,
+    "operation_details": [
+      {
+        "operation_id": "63d69540-27df-4aba-8246-4be8b462ac0b",
+        "command_id": "760157a6-c802-4012-b9c4-28074f1abe76",
+        "status": "acknowledged",
+        "error_code": null
+      },
+      {
+        "operation_id": "63d69540-27df-4aba-8246-4be8b462ac0b",
+        "command_id": "760157a6-c802-4012-b9c4-28074f1abe76",
+        "status": "completed",
+        "error_code": null
+      },
+      {
+        "operation_id": "0226547d-97c0-400f-9737-e1a23abe7e0f",
+        "command_id": "39df847f-27f0-4c6b-a352-bf2826ce06a0",
+        "status": "acknowledged",
+        "error_code": null
+      },
+      {
+        "operation_id": "0226547d-97c0-400f-9737-e1a23abe7e0f",
+        "command_id": "39df847f-27f0-4c6b-a352-bf2826ce06a0",
+        "status": "completed",
+        "error_code": null
+      }
+    ],
+    "execution_preferences": [
+      {
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "sandbox_mode": "danger-full-access",
+        "approval_policy": "never",
+        "requested": {
+          "model": null,
+          "reasoning_effort": null,
+          "permission_mode": "inherit"
+        }
+      },
+      {
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "sandbox_mode": "workspace-write",
+        "approval_policy": "untrusted",
+        "requested": {
+          "model": null,
+          "reasoning_effort": null,
+          "permission_mode": "restricted"
+        }
+      }
+    ],
+    "model_catalog": {
+      "state": "ready",
+      "models": [
+        {
+          "model": "gpt-5.6-sol",
+          "display_name": "GPT-5.6-Sol",
+          "reasoning_efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "default_reasoning_effort": "low",
+          "is_default": true
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "display_name": "GPT-5.6-Terra",
+          "reasoning_efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "default_reasoning_effort": "medium",
+          "is_default": false
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "display_name": "GPT-5.6-Luna",
+          "reasoning_efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "default_reasoning_effort": "medium",
+          "is_default": false
+        },
+        {
+          "model": "gpt-5.5",
+          "display_name": "GPT-5.5",
+          "reasoning_efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
+          "default_reasoning_effort": "medium",
+          "is_default": false
+        },
+        {
+          "model": "gpt-5.2",
+          "display_name": "GPT-5.2",
+          "reasoning_efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
+          "default_reasoning_effort": "medium",
+          "is_default": false
+        }
+      ]
+    },
+    "error": "Error: expect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n\nCall Log:\n- Timeout 150000ms exceeded while waiting on the predicate",
+    "page_errors": []
+  },
+  "browser_failure": {
+    "type": "RuntimeError",
+    "code": null,
+    "message": "Browser task failed at send and real streaming delta: Error: expect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n\nCall Log:\n- Timeout 150000ms exceeded while waiting on the predicate"
+  },
+  "agent_journal_summary": [
+    {
+      "command_id": "b700f514-03ee-4fd2-bbb6-3cc6d59fa5d4",
+      "operation_id": "44bfc931-09d7-40da-8760-f5dc3c818da1",
+      "command_type": "turn.start",
+      "state": "completed",
+      "outcome_code": "completed"
+    },
+    {
+      "command_id": "39df847f-27f0-4c6b-a352-bf2826ce06a0",
+      "operation_id": "0226547d-97c0-400f-9737-e1a23abe7e0f",
+      "command_type": "workspace.settings",
+      "state": "completed",
+      "outcome_code": "completed"
+    },
+    {
+      "command_id": "760157a6-c802-4012-b9c4-28074f1abe76",
+      "operation_id": "63d69540-27df-4aba-8246-4be8b462ac0b",
+      "command_type": "thread.start",
+      "state": "completed",
+      "outcome_code": "completed"
+    }
+  ],
+  "browser_thread_cleaned": true,
+  "cleanup_readback": "thread/delete acknowledged; isolated cwd absent from active and archived thread/list",
+  "passed": false,
+  "error": "RuntimeError: Browser task failed at send and real streaming delta: Error: expect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n\nCall Log:\n- Timeout 150000ms exceeded while waiting on the predicate",
+  "completed_at": "2026-10-30T09:04:18.942823+00:00"
+}

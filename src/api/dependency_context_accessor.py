@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from src.application.codex.read_codex_content_usecase import ReadCodexContentUsecase
+
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
@@ -217,6 +219,7 @@ class CodexRouteContext:
     query_codex_threads_usecase: QueryCodexThreadsUsecase
     execute_codex_thread_command_usecase: ExecuteCodexThreadCommandUsecase
     read_codex_thread_snapshot_usecase: ReadCodexThreadSnapshotUsecase
+    read_codex_content_usecase: ReadCodexContentUsecase
     manage_codex_approval_usecase: ManageCodexApprovalUsecase
 
 
@@ -288,6 +291,7 @@ class RouteDependencyContext:
     query_codex_threads_usecase: QueryCodexThreadsUsecase
     execute_codex_thread_command_usecase: ExecuteCodexThreadCommandUsecase
     read_codex_thread_snapshot_usecase: ReadCodexThreadSnapshotUsecase
+    read_codex_content_usecase: ReadCodexContentUsecase
     manage_codex_approval_usecase: ManageCodexApprovalUsecase
 
 
@@ -373,6 +377,7 @@ class DependencyContextAccessor:
             update_codex_thread_preference_usecase=container.update_codex_thread_preference_usecase,
             query_codex_threads_usecase=container.query_codex_threads_usecase,
             execute_codex_thread_command_usecase=container.execute_codex_thread_command_usecase,
+            read_codex_content_usecase=container.read_codex_content_usecase,
             read_codex_thread_snapshot_usecase=container.read_codex_thread_snapshot_usecase,
             manage_codex_approval_usecase=container.manage_codex_approval_usecase,
         )
@@ -460,6 +465,7 @@ class DependencyContextAccessor:
             ),
             query_codex_threads_usecase=container.query_codex_threads_usecase,
             execute_codex_thread_command_usecase=(container.execute_codex_thread_command_usecase),
+            read_codex_content_usecase=container.read_codex_content_usecase,
             read_codex_thread_snapshot_usecase=(container.read_codex_thread_snapshot_usecase),
             manage_codex_approval_usecase=container.manage_codex_approval_usecase,
         )
@@ -984,6 +990,9 @@ class DependencyContextAccessor:
         """读取 Codex thread/turn 命令受理用例。"""
 
         return self.read_codex_context(request).execute_codex_thread_command_usecase
+
+    def read_codex_content_usecase(self, request: Request) -> ReadCodexContentUsecase:
+        return self.read_codex_context(request).read_codex_content_usecase
 
     def read_codex_thread_snapshot_usecase(
         self,
